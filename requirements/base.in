@@ -1,0 +1,10 @@
+alembic
+bcrypt
+fastapi
+passlib
+psycopg2-binary
+python-jose[cryptography]
+python-multipart
+sqlalchemy
+typer
+uvicorn
