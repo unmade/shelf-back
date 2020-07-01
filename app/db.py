@@ -22,13 +22,15 @@ Base = declarative_base()
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, binds={Base: engine})
 
 
-@contextmanager
-def SessionManager():
-    session = SessionLocal()
+def get_session():
     try:
+        session = SessionLocal()
         yield session
     finally:
         session.close()
+
+
+SessionManager = contextmanager(get_session)
 
 
 def ping_db():

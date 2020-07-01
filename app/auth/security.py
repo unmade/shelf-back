@@ -1,14 +1,23 @@
+from __future__ import annotations
+
 from datetime import datetime, timedelta
 from typing import Any, Union, cast
 
 from jose import jwt
 from passlib.context import CryptContext
+from pydantic import ValidationError
 
 from app import config
+
+from .schemas import TokenPayload
 
 ALGORITHM = "HS256"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+class InvalidToken(Exception):
+    pass
 
 
 def create_access_token(
@@ -37,3 +46,11 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def get_password_hash(password: str) -> str:
     return cast(str, pwd_context.hash(password))
+
+
+def check_token(token: str) -> TokenPayload:
+    try:
+        payload = jwt.decode(token, config.APP_SECRET_KEY, algorithms=[ALGORITHM])
+        return TokenPayload(**payload)
+    except (jwt.JWTError, ValidationError):
+        raise InvalidToken()

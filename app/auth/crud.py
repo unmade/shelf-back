@@ -8,6 +8,11 @@ from . import security
 from .models import User
 
 
+def get_by_id(db_session: Session, id: int) -> Optional[User]:
+    user = db_session.query(User).filter(User.id == id).first()
+    return cast(Optional[User], user)
+
+
 def get_by_username(db_session: Session, username: str) -> Optional[User]:
     user = db_session.query(User).filter(User.username == username).first()
     return cast(Optional[User], user)

@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app import auth, config
+from app import accounts, auth, config
 
 app = FastAPI()
 
@@ -15,6 +15,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(auth.views.router, prefix="/auth")
+app.include_router(accounts.views.router, prefix="/accounts")
 app.mount("/static", StaticFiles(directory=config.STATIC_DIR), name="static")
 
 
