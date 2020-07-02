@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 
 
-class Account(BaseModel):
+class UserMe(BaseModel):
     username: str
 
     class Config:

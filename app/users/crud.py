@@ -4,7 +4,8 @@ from typing import Optional, cast
 
 from sqlalchemy.orm import Session
 
-from . import security
+from app.auth import security
+
 from .models import User
 
 
@@ -19,7 +20,7 @@ def get_by_username(db_session: Session, username: str) -> Optional[User]:
 
 
 def create(db_session: Session, username: str, password: str) -> User:
-    user = User(username=username, password=security.get_password_hash(password),)
+    user = User(username=username, password=security.get_password_hash(password))
     db_session.add(user)
     db_session.commit()
     db_session.refresh(user)

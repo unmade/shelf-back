@@ -6,9 +6,10 @@ from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app import config, db
+from app.users import crud as users_crud
+from app.users.models import User
 
-from . import crud, deps, exceptions, security
-from .models import User
+from . import deps, exceptions, security
 from .schemas import Tokens
 
 router = APIRouter()
@@ -17,7 +18,7 @@ router = APIRouter()
 @router.post("/tokens", response_model=Tokens)
 def get_tokens(form_data: OAuth2PasswordRequestForm = Depends()):
     with db.SessionManager() as db_session:
-        user = crud.get_by_username(db_session, form_data.username)
+        user = users_crud.get_by_username(db_session, form_data.username)
 
     if not user:
         raise exceptions.UserNotFound()

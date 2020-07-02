@@ -5,9 +5,10 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
 from app import db
+from app.users import crud as users_crud
+from app.users.models import User
 
-from . import crud, exceptions, security
-from .models import User
+from . import exceptions, security
 
 reusable_oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/tokens")
 
@@ -20,7 +21,7 @@ def get_current_user(
     except security.InvalidToken as exc:
         raise exceptions.InvalidToken() from exc
 
-    user = crud.get_by_id(session, id=token_data.sub)
+    user = users_crud.get_by_id(session, id=token_data.sub)
     if not user:
         raise exceptions.UserNotFound()
     return user
