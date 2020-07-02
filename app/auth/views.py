@@ -2,20 +2,16 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app import config, db
 
-from . import crud, security
+from . import crud, deps, exceptions, security
+from .models import User
 from .schemas import Tokens
 
 router = APIRouter()
-
-
-class UserNotFound(HTTPException):
-    def __init__(self):
-        super().__init__(status_code=404, detail={"code": "USER_NOT_FOUND"})
 
 
 @router.post("/tokens", response_model=Tokens)
@@ -24,13 +20,23 @@ def get_tokens(form_data: OAuth2PasswordRequestForm = Depends()):
         user = crud.get_by_username(db_session, form_data.username)
 
     if not user:
-        raise UserNotFound()
+        raise exceptions.UserNotFound()
 
     if not security.verify_password(form_data.password, user.password):
-        raise UserNotFound()
+        raise exceptions.UserNotFound()
 
     return Tokens(
         access_token=security.create_access_token(
             user.id, expires_delta=timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES)
+        )
+    )
+
+
+@router.put("/tokens", response_model=Tokens)
+def refresh_token(curr_user: User = Depends(deps.get_current_user)):
+    return Tokens(
+        access_token=security.create_access_token(
+            curr_user.id,
+            expires_delta=timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES),
         )
     )
