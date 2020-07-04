@@ -7,7 +7,9 @@ from sqlalchemy import engine_from_config, pool
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-from app.auth.models import Base, User  # noqa
+from app.db import Base
+from app.files.models import File, Mount  # noqa
+from app.users.models import User  # noqa
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

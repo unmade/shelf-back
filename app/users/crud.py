@@ -22,7 +22,6 @@ def get_by_username(db_session: Session, username: str) -> Optional[User]:
 def create(db_session: Session, username: str, password: str) -> User:
     user = User(username=username, password=security.get_password_hash(password))
     db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
+    db_session.flush()
 
     return user
