@@ -7,19 +7,14 @@ class File(Base):
     __tablename__ = "files"
 
     id = Column(Integer, primary_key=True, index=True)
-    type = Column(Integer, nullable=False)
     parent_id = Column(Integer, ForeignKey("files.id"), index=True)
+    type = Column(Integer, nullable=False)
     name = Column(String, nullable=False)
     path = Column(String, nullable=False)
     size = Column(Integer, nullable=False)
     mtime = Column(Float, nullable=False)
     is_dir = Column(Boolean, nullable=False)
 
+    namespace_id = Column(Integer, ForeignKey("namespaces.id"), nullable=False)
 
-class Mount(Base):
-    __tablename__ = "mounts"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
-    home = Column(Boolean, nullable=False)
+    # namespace_id and path should be unique_together

@@ -1,13 +1,14 @@
-import itertools
+from __future__ import annotations
+
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import typer
 
-from app import config, db
-from app.files import crud as files_crud
-from app.files.models import File, Mount
-from app.users import crud as users_crud
-from app.users.models import User
+from app import config, crud, db
+
+if TYPE_CHECKING:
+    from app.models.namespace import Namespace
 
 cli = typer.Typer()
 
@@ -20,9 +21,8 @@ def createuser(
     ),
 ):
     with db.SessionManager() as db_session:
-        user = users_crud.create(db_session, username, password)
-        file = files_crud.create_file(db_session, type=0, name="", path="")
-        files_crud.create_mount(db_session, user, file)
+        user = crud.user.create(db_session, username, password)
+        crud.namespace.create(db_session, owner_id=user.id)
         db_session.commit()
     typer.echo("User created successfully")
 
@@ -30,39 +30,38 @@ def createuser(
 @cli.command()
 def filescan():
     with db.SessionManager() as db_session:
-        dirs = (
-            db_session.query(Mount.file_id, User.username)
-            .join(User, File)
-            .filter(Mount.home.is_(True))
-            .all()
-        )
-        root_dir = Path(config.STATIC_DIR)
-        for dir_id, namespace in dirs:
-            namespace = root_dir.joinpath(namespace)
-            _scandir(db_session, dir_id, namespace, namespace)
+        namespaces = crud.namespace.all(db_session)
+        for namespace in namespaces:
+            path = config.STATIC_DIR.joinpath(namespace.name)
+            _scandir(db_session, namespace, path)
         db_session.commit()
 
 
-def _scandir(db_session, parent_id, dirpath, namespace):
-    files = {file.name: file for file in dirpath.iterdir()}
+def _scandir(db_session, namespace: Namespace, path: Path):
+    rel_path = path.relative_to(config.STATIC_DIR.joinpath(namespace.name))
+
+    files = {file.name: file for file in path.iterdir()}
+    files_db = crud.file.ls(db_session, namespace.id, rel_path)
+
     names_from_storage = set(files.keys())
-    names_from_db = itertools.chain.from_iterable(
-        db_session.query(File.name).filter(File.parent_id == parent_id).all()
-    )
-    if (diff := names_from_storage.difference(names_from_db)) :  # noqa: E203
+    names_from_db = (file.name for file in files_db)
+
+    if diff := names_from_storage.difference(names_from_db):
+        parent = crud.file.get(db_session, namespace.id, path=rel_path)
+        parent_id = parent.id if parent else None
         for name in diff:
-            files_crud.create_file_from_path(
-                db_session, files[name], parent_id=parent_id, rel_to=namespace,
+            crud.file.create_from_path(
+                db_session,
+                files[name],
+                namespace_id=namespace.id,
+                parent_id=parent_id,
+                rel_to=config.STATIC_DIR.joinpath(namespace.name),
             )
         db_session.flush()
 
-    subdirs = (
-        db_session.query(File.id, File.path)
-        .filter(File.parent_id == parent_id, File.is_dir.is_(True))
-        .all()
-    )
-    for dir_id, dir_path in subdirs:
-        _scandir(db_session, dir_id, namespace.joinpath(dir_path), namespace)
+    subdirs = [p for p in path.iterdir() if p.is_dir()]
+    for dir_path in subdirs:
+        _scandir(db_session, namespace, dir_path)
 
 
 if __name__ == "__main__":

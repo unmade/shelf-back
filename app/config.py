@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 
 def _get_bool(key: str) -> bool:
@@ -17,4 +18,4 @@ APP_VERSION = os.getenv("APP_VERSION")
 
 DATABASE_DSN = os.environ["DATABASE_DSN"]
 
-STATIC_DIR = os.getenv("STATIC_DIR", "./static")
+STATIC_DIR = Path(os.getenv("STATIC_DIR", "./static"))

@@ -3,8 +3,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from app.auth.deps import get_current_user
+from app.models.user import User
 
-from .models import User
 from .schemas import UserMe
 
 router = APIRouter()
