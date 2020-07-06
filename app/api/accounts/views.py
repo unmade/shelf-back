@@ -3,13 +3,13 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from app.api import deps
-from app.models.user import User
+from app.entities.account import Account
 
-from .schemas import UserMe
+from .schemas import AccountMe
 
 router = APIRouter()
 
 
-@router.get("/me", response_model=UserMe)
-def get_user_me(curr_user: User = Depends(deps.current_user)):
-    return curr_user
+@router.get("/me", response_model=AccountMe)
+def get_user_me(account: Account = Depends(deps.current_account)):
+    return account

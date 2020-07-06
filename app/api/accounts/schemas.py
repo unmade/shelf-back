@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from app.entities.account import Account
 
 
-class UserMe(BaseModel):
-    username: str
-
-    class Config:
-        orm_mode = True
+class AccountMe(Account):
+    pass

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import typer
 
-from app import config, crud, db
+from app import crud, db
+from app.storage import storage
 
 if TYPE_CHECKING:
     from app.models.namespace import Namespace
@@ -32,36 +32,29 @@ def filescan():
     with db.SessionManager() as db_session:
         namespaces = crud.namespace.all(db_session)
         for namespace in namespaces:
-            path = config.STATIC_DIR.joinpath(namespace.name)
-            _scandir(db_session, namespace, path)
+            _scandir(db_session, namespace)
         db_session.commit()
 
 
-def _scandir(db_session, namespace: Namespace, path: Path):
-    rel_path = path.relative_to(config.STATIC_DIR.joinpath(namespace.name))
-
-    files = {file.name: file for file in path.iterdir()}
-    files_db = crud.file.ls(db_session, namespace.id, rel_path)
+def _scandir(db_session, namespace: Namespace, path: str = None):
+    files = {f.name: f for f in storage.ls(namespace.name, path)}
+    files_db = crud.file.ls(db_session, namespace.id, path)
 
     names_from_storage = set(files.keys())
-    names_from_db = (file.name for file in files_db)
+    names_from_db = (f.name for f in files_db)
 
     if diff := names_from_storage.difference(names_from_db):
-        parent = crud.file.get(db_session, namespace.id, path=rel_path)
+        parent = crud.file.get(db_session, namespace.id, path=path)
         parent_id = parent.id if parent else None
         for name in diff:
-            crud.file.create_from_path(
-                db_session,
-                files[name],
-                namespace_id=namespace.id,
-                parent_id=parent_id,
-                rel_to=config.STATIC_DIR.joinpath(namespace.name),
+            crud.file.create(
+                db_session, files[name], namespace_id=namespace.id, parent_id=parent_id,
             )
         db_session.flush()
 
-    subdirs = [p for p in path.iterdir() if p.is_dir()]
+    subdirs = (f for f in storage.ls(namespace.name, path) if f.is_dir())
     for dir_path in subdirs:
-        _scandir(db_session, namespace, dir_path)
+        _scandir(db_session, namespace, dir_path.path)
 
 
 if __name__ == "__main__":

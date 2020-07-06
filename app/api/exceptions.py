@@ -46,3 +46,9 @@ class UserNotFound(APIError):
     status_code = 404
     default_code = "USER_NOT_FOUND"
     default_message = "User not found."
+
+
+class PathNotFound(APIError):
+    statud_code = 404
+    default_code = "PATH_NOT_FOUND"
+    default_message = "Path not found."

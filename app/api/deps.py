@@ -6,12 +6,14 @@ from sqlalchemy.orm import Session
 
 from app import crud, security
 from app.db import SessionLocal
+from app.entities.account import Account
 from app.models.user import User
 
 from . import exceptions
 
 __all__ = [
     "db_session",
+    "current_account",
     "current_user",
 ]
 
@@ -38,3 +40,16 @@ def current_user(
     if not user:
         raise exceptions.UserNotFound()
     return user
+
+
+def current_account(
+    session: Session = Depends(db_session), token: str = Depends(reusable_oauth2)
+) -> Account:
+    try:
+        token_data = security.check_token(token)
+    except security.InvalidToken as exc:
+        raise exceptions.InvalidToken() from exc
+
+    if account := crud.user.get_account(session, user_id=token_data.sub):
+        return account
+    raise exceptions.UserNotFound()

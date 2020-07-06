@@ -18,3 +18,4 @@ class File(Base):
     namespace_id = Column(Integer, ForeignKey("namespaces.id"), nullable=False)
 
     # namespace_id and path should be unique_together
+    # path is relative to namespace
