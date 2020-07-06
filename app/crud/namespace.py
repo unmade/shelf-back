@@ -17,23 +17,8 @@ def create(db_session: Session, owner_id: int) -> Namespace:
 
 
 def all(db_session: Session) -> List[Namespace]:
-    return (
-        db_session
-        .query(
-            Namespace.id,
-            User.username.label("name"),
-        )
-        .join(User)
-        .all()
-    )
+    return db_session.query(Namespace.id, User.username.label("name"),).join(User).all()
 
 
 def get(db_session: Session, owner_id: int) -> Optional[Namespace]:
-    return (
-        db_session
-        .query(Namespace.id)
-        .filter(
-            Namespace.owner_id == owner_id
-        )
-        .first()
-    )
+    return db_session.query(Namespace.id).filter(Namespace.owner_id == owner_id).first()

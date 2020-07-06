@@ -4,16 +4,30 @@ from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
-from app import crud, db
+from app import crud, security
+from app.db import SessionLocal
 from app.models.user import User
 
-from . import exceptions, security
+from . import exceptions
+
+__all__ = [
+    "db_session",
+    "current_user",
+]
 
 reusable_oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/tokens")
 
 
-def get_current_user(
-    session: Session = Depends(db.get_session), token: str = Depends(reusable_oauth2)
+def db_session():
+    try:
+        session = SessionLocal()
+        yield session
+    finally:
+        session.close()
+
+
+def current_user(
+    session: Session = Depends(db_session), token: str = Depends(reusable_oauth2)
 ) -> User:
     try:
         token_data = security.check_token(token)

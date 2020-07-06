@@ -14,10 +14,7 @@ if TYPE_CHECKING:
 def get(db_session: Session, namespace_id: int, path: str) -> Optional[File]:
     return (
         db_session.query(File)
-        .filter(
-            File.namespace_id == namespace_id,
-            File.path == str(path),
-        )
+        .filter(File.namespace_id == namespace_id, File.path == str(path),)
         .first()
     )
 
@@ -25,17 +22,15 @@ def get(db_session: Session, namespace_id: int, path: str) -> Optional[File]:
 def ls(db_session: Session, namespace_id: int, path: Optional[str]):
     if path:
         parent = aliased(File)
-        return  (
+        query = (
             db_session.query(File)
             .join(parent, File.parent_id == parent.id)
             .filter(parent.namespace_id == namespace_id, parent.path == path)
-            .all()
         )
-    return (
-        db_session.query(File)
-        .filter(File.namespace_id == namespace_id, File.parent_id.is_(None))
-        .all()
+    query = db_session.query(File).filter(
+        File.namespace_id == namespace_id, File.parent_id.is_(None)
     )
+    return query.order_by(File.is_dir.desc(), File.name.asc()).all()
 
 
 def create_from_path(

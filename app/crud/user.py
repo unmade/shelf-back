@@ -4,7 +4,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from app.auth import security
+from app import security
 from app.models.user import User
 
 

@@ -5,11 +5,9 @@ from typing import Any, Union, cast
 
 from jose import jwt
 from passlib.context import CryptContext
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from app import config
-
-from .schemas import TokenPayload
 
 ALGORITHM = "HS256"
 
@@ -20,11 +18,13 @@ class InvalidToken(Exception):
     pass
 
 
-def create_access_token(
-    subject: Union[str, Any], expires_delta: timedelta = None
-) -> str:
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+class TokenPayload(BaseModel):
+    sub: int
+
+
+def create_access_token(subject: Union[str, Any], expires_in: timedelta = None) -> str:
+    if expires_in:
+        expire = datetime.utcnow() + expires_in
     else:
         expire = datetime.utcnow() + timedelta(
             minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES

@@ -5,10 +5,11 @@ repos:
     rev: v1.1
     hooks:
     -   id: autoflake
-# -   repo: https://github.com/psf/black
-#     rev: 19.10b0
-#     hooks:
-#     -   id: black
+-   repo: https://github.com/psf/black
+    rev: 19.10b0
+    hooks:
+    -   id: black
+        exclude: 'alembic/'
 -   repo: https://github.com/pre-commit/mirrors-isort
     rev: v4.3.21
     hooks:
@@ -17,13 +18,14 @@ repos:
     rev: 3.8.3
     hooks:
     -   id: flake8
--   repo: local
-    hooks:
-      - id: mypy
-        name: mypy
-        entry: python3 -m mypy
-        language: system
-        types: [python]
+        exclude: 'alembic/'
+# -   repo: local
+#     hooks:
+#       - id: mypy
+#         name: mypy
+#         entry: python3 -m mypy
+#         language: system
+#         types: [python]
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v3.1.0
     hooks:

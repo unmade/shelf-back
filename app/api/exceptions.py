@@ -34,3 +34,15 @@ async def api_error_exception_handler(_, exc: APIError):
     return JSONResponse(
         {"code": exc.code, "message": exc.message}, status_code=exc.status_code,
     )
+
+
+class InvalidToken(APIError):
+    status_code = 403
+    default_code = "INVALID_TOKEN"
+    default_message = "Could not validate credentials."
+
+
+class UserNotFound(APIError):
+    status_code = 404
+    default_code = "USER_NOT_FOUND"
+    default_message = "User not found."

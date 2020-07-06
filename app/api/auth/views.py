@@ -4,20 +4,23 @@ from datetime import timedelta
 
 from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.orm import Session
 
-from app import config, crud, db
+from app import config, crud, security
+from app.api import deps, exceptions
 from app.models.user import User
 
-from . import deps, exceptions, security
 from .schemas import Tokens
 
 router = APIRouter()
 
 
 @router.post("/tokens", response_model=Tokens)
-def get_tokens(form_data: OAuth2PasswordRequestForm = Depends()):
-    with db.SessionManager() as db_session:
-        user = crud.user.get(db_session, username=form_data.username)
+def get_tokens(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db_session: Session = Depends(deps.db_session),
+):
+    user = crud.user.get(db_session, username=form_data.username)
 
     if not user:
         raise exceptions.UserNotFound()
@@ -27,16 +30,16 @@ def get_tokens(form_data: OAuth2PasswordRequestForm = Depends()):
 
     return Tokens(
         access_token=security.create_access_token(
-            user.id, expires_delta=timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES)
+            user.id, expires_in=timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES)
         )
     )
 
 
 @router.put("/tokens", response_model=Tokens)
-def refresh_token(curr_user: User = Depends(deps.get_current_user)):
+def refresh_token(curr_user: User = Depends(deps.current_user)):
     return Tokens(
         access_token=security.create_access_token(
             curr_user.id,
-            expires_delta=timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES),
+            expires_in=timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES),
         )
     )

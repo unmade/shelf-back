@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app import auth, config, errors, files, users
+from app import api, config
 
 
 def create_app():
@@ -19,12 +19,12 @@ def create_app():
         allow_headers=["*"],
     )
 
-    app.include_router(auth.views.router, prefix="/auth")
-    app.include_router(files.views.router, prefix="/files")
-    app.include_router(users.views.router, prefix="/accounts")
+    app.include_router(api.router)
 
     app.mount("/static", StaticFiles(directory=config.STATIC_DIR), name="static")
-    app.add_exception_handler(errors.APIError, errors.api_error_exception_handler)
+    app.add_exception_handler(
+        api.exceptions.APIError, api.exceptions.api_error_exception_handler
+    )
 
     return app
 

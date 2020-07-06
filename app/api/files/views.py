@@ -1,19 +1,23 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, UploadFile
+from sqlalchemy.orm import Session
 
-from app import crud, db
-from app.auth.deps import get_current_user
+from app import crud
+from app.api import deps
 from app.models.user import User
 
 router = APIRouter()
 
 
 @router.get("")
-def list_files(path: str = None, curr_user: User = Depends(get_current_user)):
-    with db.SessionManager() as db_session:
-        namespace = crud.namespace.get(db_session, owner_id=curr_user.id)
-        files = crud.file.ls(db_session, namespace.id, path)
+def list_files(
+    path: str = None,
+    db_session: Session = Depends(deps.db_session),
+    curr_user: User = Depends(deps.current_user),
+):
+    namespace = crud.namespace.get(db_session, owner_id=curr_user.id)
+    files = crud.file.ls(db_session, namespace.id, path)
 
     return {
         "files": [
