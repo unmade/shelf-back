@@ -41,16 +41,17 @@ def filescan():
 
 
 def _scandir(db_session: Session, namespace: Namespace, path: Path):
-    rel_path = str(path.relative_to(namespace.path))
     files = {f.name: f for f in storage.iterdir(path)}
-    files_db = crud.file.list_folder(db_session, namespace.id, rel_path)
+
+    rel_path = str(path.relative_to(namespace.path))
+    parent = crud.file.get_folder(db_session, namespace.id, path=rel_path)
+    assert parent is not None
+    files_db = crud.file.list_folder_by_id(db_session, parent.id)
 
     names_from_storage = set(files.keys())
     names_from_db = (f.name for f in files_db)
 
     if diff := names_from_storage.difference(names_from_db):
-        parent = crud.file.get_folder(db_session, namespace.id, path=rel_path)
-        assert parent is not None
         for name in diff:
             crud.file.create(
                 db_session,

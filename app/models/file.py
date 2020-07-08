@@ -18,3 +18,7 @@ class File(Base):
 
     # namespace_id and path should be unique_together
     # path is relative to namespace
+
+    @property
+    def type(self):
+        return "folder" if self.is_dir else "file"

@@ -10,12 +10,12 @@ from app.api import deps, exceptions
 from app.entities.account import Account
 from app.storage import storage
 
-from .schemas import FolderPath
+from .schemas import FolderPath, ListFolderResult, UploadResult
 
 router = APIRouter()
 
 
-@router.post("/list")
+@router.post("/list_folder", response_model=ListFolderResult)
 def list_folder(
     payload: FolderPath,
     db_session: Session = Depends(deps.db_session),
@@ -27,22 +27,10 @@ def list_folder(
 
     files = crud.file.list_folder_by_id(db_session, folder.id)
 
-    return {
-        "items": [
-            {
-                "id": file.id,
-                "name": file.name,
-                "size": file.size,
-                "mtime": file.mtime,
-                "path": file.path,
-            }
-            for file in files
-        ],
-        "count": len(files),
-    }
+    return ListFolderResult(items=files, count=len(files))
 
 
-@router.post("/upload")
+@router.post("/upload", response_model=UploadResult)
 def upload_file(
     file: UploadFile = File(...),
     path: str = Form(...),
@@ -55,7 +43,7 @@ def upload_file(
 
     fpath = Path(account.namespace.path).joinpath(path).joinpath(file.filename)
     storage_file = storage.save(account.username, fpath, file.file)
-    crud.file.create(
+    result = crud.file.create(
         db_session,
         storage_file,
         account.namespace.id,
@@ -64,4 +52,4 @@ def upload_file(
     )
     db_session.commit()
 
-    return {"filename": file.filename, "path": path}
+    return result
