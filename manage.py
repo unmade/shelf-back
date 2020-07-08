@@ -61,6 +61,12 @@ def _scandir(db_session: Session, namespace: Namespace, path: Path):
                 rel_to=namespace.path,
             )
         db_session.flush()
+        crud.file.inc_folder_size(
+            db_session,
+            namespace.id,
+            path=rel_path,
+            size=sum(f.size for f in files.values() if not f.is_dir()),
+        )
 
     subdirs = (f for f in storage.iterdir(path) if f.is_dir())
     for dir_path in subdirs:

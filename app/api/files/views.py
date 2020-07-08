@@ -46,9 +46,15 @@ def upload_file(
     result = crud.file.create(
         db_session,
         storage_file,
-        account.namespace.id,
-        account.namespace.path,
-        parent.id,
+        namespace_id=account.namespace.id,
+        path=account.namespace.path,
+        parent_id=parent.id,
+    )
+    crud.file.inc_folder_size(
+        db_session,
+        namespace_id=account.namespace.id,
+        path=result.path,
+        size=storage_file.size,
     )
     db_session.commit()
 
