@@ -30,18 +30,19 @@ def get_folder(db_session: Session, namespace_id: int, path: str):
     )
 
 
-def list_folder(db_session: Session, namespace_id: int, path: Optional[str] = None):
-    query = db_session.query(File)
-    if path:
-        parent = aliased(File)
-        query = query.join(parent, File.parent_id == parent.id).filter(
-            parent.namespace_id == namespace_id, parent.path == path
+def list_folder(db_session: Session, namespace_id: int, path: str):
+    parent = aliased(File)
+    return (
+        db_session.query(File)
+        .join(parent, parent.id == File.parent_id)
+        .filter(
+            parent.namespace_id == namespace_id,
+            parent.path == path,
+            parent.is_dir.is_(True),
         )
-    else:
-        query = query.filter(
-            File.namespace_id == namespace_id, File.parent_id.is_(None)
-        )
-    return query.order_by(File.is_dir.desc(), File.name.asc()).all()
+        .order_by(File.is_dir.desc(), File.name.asc())
+        .all()
+    )
 
 
 def list_folder_by_id(db_session: Session, folder_id: Optional[int]):
@@ -58,12 +59,11 @@ def create(
     storage_file: StorageFile,
     namespace_id: int,
     rel_to: Union[str, Path],
-    parent_id: Optional[int] = None,
+    parent_id: int = None,
 ) -> File:
     file = File(
         namespace_id=namespace_id,
         parent_id=parent_id,
-        type=0 if storage_file.is_dir() else 1,
         name=storage_file.name,
         path=str(storage_file.path.relative_to(rel_to)),
         size=storage_file.size,

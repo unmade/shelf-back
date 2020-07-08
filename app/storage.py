@@ -60,5 +60,10 @@ class LocalStorage:
 
         return StorageFile(fpath, self.root_dir)
 
+    def mkdir(self, path: Union[str, Path]) -> StorageFile:
+        dir_path = self.root_dir.joinpath(path)
+        dir_path.mkdir(exist_ok=True)
+        return StorageFile(dir_path, self.root_dir)
+
 
 storage = LocalStorage(config.STATIC_DIR)

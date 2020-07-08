@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 from app.models.namespace import Namespace
 
 
-def create(db_session: Session, name: str, owner_id: int) -> Namespace:
-    namespace = Namespace(path=name, owner_id=owner_id)
+def create(db_session: Session, path: str, owner_id: int) -> Namespace:
+    namespace = Namespace(path=path, owner_id=owner_id)
     db_session.add(namespace)
     db_session.flush()
 

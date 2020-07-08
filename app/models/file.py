@@ -8,7 +8,6 @@ class File(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     parent_id = Column(Integer, ForeignKey("files.id"), index=True)
-    type = Column(Integer, nullable=False)
     name = Column(String, nullable=False)
     path = Column(String, nullable=False)
     size = Column(Integer, nullable=False)

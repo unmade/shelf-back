@@ -1,15 +1,15 @@
 """Initial
 
-Revision ID: cf7b858da2ca
+Revision ID: 011640d11a5a
 Revises:
-Create Date: 2020-07-08 14:17:17.027769
+Create Date: 2020-07-08 17:32:54.762142
 
 """
 import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = 'cf7b858da2ca'
+revision = '011640d11a5a'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -37,7 +37,6 @@ def upgrade():
     op.create_table('files',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('parent_id', sa.Integer(), nullable=True),
-    sa.Column('type', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(), nullable=False),
     sa.Column('path', sa.String(), nullable=False),
     sa.Column('size', sa.Integer(), nullable=False),

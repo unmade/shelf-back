@@ -24,7 +24,9 @@ def createuser(
 ):
     with db.SessionManager() as db_session:
         user = crud.user.create(db_session, username, password)
-        crud.namespace.create(db_session, username, owner_id=user.id)
+        ns = crud.namespace.create(db_session, username, owner_id=user.id)
+        storage_file = storage.mkdir(ns.path)
+        crud.file.create(db_session, storage_file, ns.id, rel_to=ns.path)
         db_session.commit()
     typer.echo("User created successfully")
 
@@ -47,14 +49,14 @@ def _scandir(db_session: Session, namespace: Namespace, path: Path):
     names_from_db = (f.name for f in files_db)
 
     if diff := names_from_storage.difference(names_from_db):
-        parent = crud.file.get(db_session, namespace.id, path=rel_path)
-        parent_id = parent.id if parent else None
+        parent = crud.file.get_folder(db_session, namespace.id, path=rel_path)
+        assert parent is not None
         for name in diff:
             crud.file.create(
                 db_session,
                 files[name],
                 namespace_id=namespace.id,
-                parent_id=parent_id,
+                parent_id=parent.id,
                 rel_to=namespace.path,
             )
         db_session.flush()
