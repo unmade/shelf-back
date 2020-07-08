@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, Union
+from typing import Iterator, Optional, Union
 
-from sqlalchemy.orm import aliased
+from sqlalchemy.orm import Session, aliased
 
 from app.models.file import File
 from app.storage import StorageFile
-
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
 
 
 def get(db_session: Session, namespace_id: int, path: str) -> Optional[File]:
@@ -73,6 +70,30 @@ def create(
     db_session.add(file)
 
     return file
+
+
+def bulk_create(
+    db_session: Session,
+    storage_files: Iterator[StorageFile],
+    namespace_id: int,
+    rel_to: Union[str, Path],
+    parent_id: int,
+) -> None:
+    db_session.bulk_insert_mappings(
+        File,
+        (
+            dict(
+                namespace_id=namespace_id,
+                parent_id=parent_id,
+                name=storage_file.name,
+                path=str(storage_file.path.relative_to(rel_to)),
+                size=0 if storage_file.is_dir() else storage_file.size,
+                mtime=storage_file.mtime,
+                is_dir=storage_file.is_dir(),
+            )
+            for storage_file in storage_files
+        ),
+    )
 
 
 def inc_folder_size(

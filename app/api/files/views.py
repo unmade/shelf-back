@@ -42,12 +42,12 @@ def upload_file(
         raise exceptions.PathNotFound()
 
     fpath = Path(account.namespace.path).joinpath(path).joinpath(file.filename)
-    storage_file = storage.save(account.username, fpath, file.file)
+    storage_file = storage.save(fpath, file.file)
     result = crud.file.create(
         db_session,
         storage_file,
         namespace_id=account.namespace.id,
-        path=account.namespace.path,
+        rel_to=account.namespace.path,
         parent_id=parent.id,
     )
     crud.file.inc_folder_size(
