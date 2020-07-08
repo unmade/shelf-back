@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app import security
 from app.entities.account import Account
+from app.entities.namespace import Namespace as NamespaceEntity
 from app.models.namespace import Namespace
 from app.models.user import User
 
@@ -30,13 +31,14 @@ def get(
 
 
 def get_account(db_session: Session, user_id: int) -> Optional[Account]:
-    result = (
-        db_session.query(User.id, User.username, Namespace.id.label("namespace_id"))
-        .join(Namespace)
-        .first()
-    )
+    result = db_session.query(User, Namespace).join(Namespace).first()
     if not result:
         return None
+    user, namespace = result
     return Account(
-        id=result.id, username=result.username, namespace_id=result.namespace_id,
+        id=user.id,
+        username=user.username,
+        namespace=NamespaceEntity(
+            id=namespace.id, path=namespace.path, owner_id=user.id
+        ),
     )

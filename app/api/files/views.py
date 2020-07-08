@@ -17,12 +17,19 @@ router = APIRouter()
 
 
 @router.post("/list")
-def list_files(
-    folder: FolderPath,
+def list_folder(
+    payload: FolderPath,
     db_session: Session = Depends(deps.db_session),
     account: Account = Depends(deps.current_account),
 ):
-    files = crud.file.ls(db_session, account.namespace_id, folder.path)
+    if payload.path:
+        folder = crud.file.get_folder(db_session, account.namespace.id, payload.path)
+        if not folder:
+            raise exceptions.PathNotFound()
+
+        files = crud.file.list_folder_by_id(db_session, folder.id)
+    else:
+        files = crud.file.list_folder(db_session, account.namespace.id)
 
     return {
         "items": [
@@ -47,16 +54,24 @@ def upload_file(
     db_session: Session = Depends(deps.db_session),
     account: Account = Depends(deps.current_account),
 ):
+    fpath = Path(account.namespace.path)
     parent_id = None
     if path:
-        parent = crud.file.get(db_session, account.namespace_id, path)
+        parent = crud.file.get_folder(db_session, account.namespace.id, path)
         if not parent:
             raise exceptions.PathNotFound()
         parent_id = parent.id
+        fpath.joinpath(path)
 
-    fdest = Path(path).joinpath(file.filename) if path else file.filename
-    storage_file = storage.save(account.username, fdest, file)
-    crud.file.create(db_session, storage_file, account.namespace_id, parent_id)
+    fpath = fpath.joinpath(file.filename)
+    storage_file = storage.save(account.username, fpath, file.file)
+    crud.file.create(
+        db_session,
+        storage_file,
+        account.namespace.id,
+        account.namespace.path,
+        parent_id,
+    )
     db_session.commit()
 
     return {"filename": file.filename, "path": path}

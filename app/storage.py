@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pathlib
 import shutil
 from pathlib import Path
 from typing import Iterator, Union
@@ -7,12 +8,16 @@ from typing import Iterator, Union
 from app import config
 
 
-class StorageFile:
-    __slots__ = ("_file", "_nspath")
+class NotADirectory(Exception):
+    pass
 
-    def __init__(self, file: Path, nspath: str):
+
+class StorageFile:
+    __slots__ = ("_file", "_rel_to")
+
+    def __init__(self, file: Path, rel_to: str):
         self._file = file
-        self._nspath = nspath
+        self._rel_to = rel_to
 
     def __str__(self) -> str:
         return self.path
@@ -22,8 +27,8 @@ class StorageFile:
         return self._file.name
 
     @property
-    def path(self) -> str:
-        return str(self._file.relative_to(self._nspath))
+    def path(self) -> Path:
+        return self._file.relative_to(self._rel_to)
 
     @property
     def size(self) -> int:
@@ -41,18 +46,19 @@ class LocalStorage:
     def __init__(self, root_dir: Path):
         self.root_dir = root_dir
 
-    def ls(self, namespace: str, path: Union[None, str, Path]) -> Iterator[StorageFile]:
-        nspath = self.root_dir.joinpath(namespace)
-        dirpath = nspath.joinpath(str(path)) if path else nspath
-        return (StorageFile(file, nspath) for file in dirpath.iterdir())
+    def iterdir(self, path: Union[str, Path]) -> Iterator[StorageFile]:
+        dir_path = self.root_dir.joinpath(path)
+        try:
+            return (StorageFile(file, self.root_dir) for file in dir_path.iterdir())
+        except pathlib.NotADirectoryError as exc:
+            raise NotADirectory() from exc
 
-    def save(self, namespace: str, path: Union[None, str, Path], file) -> StorageFile:
-        nspath = self.root_dir.joinpath(namespace)
-        fpath = nspath.joinpath(path) if path else nspath
+    def save(self, path: Union[str, Path], file) -> StorageFile:
+        fpath = self.root_dir.joinpath(path)
         with fpath.open("wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+            shutil.copyfileobj(file, buffer)
 
-        return StorageFile(fpath, nspath)
+        return StorageFile(fpath, self.root_dir)
 
 
 storage = LocalStorage(config.STATIC_DIR)
