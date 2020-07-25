@@ -26,5 +26,6 @@ class UploadResult(File):
 
 
 class ListFolderResult(BaseModel):
+    path: str
     items: List[File]
     count: int

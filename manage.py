@@ -51,10 +51,10 @@ def _scandir(db_session: Session, namespace: Namespace, path: Path):
     names_from_storage = set(files.keys())
     names_from_db = (f.name for f in files_db)
 
-    if names_from_storage.difference(names_from_db):
+    if names := names_from_storage.difference(names_from_db):
         crud.file.bulk_create(
             db_session,
-            files.values(),
+            (files[name] for name in names),
             namespace_id=namespace.id,
             parent_id=parent.id,
             rel_to=namespace.path,
@@ -63,7 +63,7 @@ def _scandir(db_session: Session, namespace: Namespace, path: Path):
             db_session,
             namespace.id,
             path=rel_path,
-            size=sum(f.size for f in files.values() if not f.is_dir()),
+            size=sum(files[name].size for name in names),
         )
 
     subdirs = (f for f in storage.iterdir(path) if f.is_dir())

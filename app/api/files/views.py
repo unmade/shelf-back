@@ -27,7 +27,7 @@ def list_folder(
 
     files = crud.file.list_folder_by_id(db_session, folder.id)
 
-    return ListFolderResult(items=files, count=len(files))
+    return ListFolderResult(path=payload.path, items=files, count=len(files))
 
 
 @router.post("/upload", response_model=UploadResult)
