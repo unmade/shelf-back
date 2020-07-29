@@ -15,7 +15,7 @@ class NotADirectory(Exception):
 class StorageFile:
     __slots__ = ("_file", "_rel_to")
 
-    def __init__(self, file: Path, rel_to: str):
+    def __init__(self, file: Path, rel_to: Union[str, Path]):
         self._file = file
         self._rel_to = rel_to
 
@@ -64,6 +64,14 @@ class LocalStorage:
         dir_path = self.root_dir.joinpath(path)
         dir_path.mkdir(exist_ok=True)
         return StorageFile(dir_path, self.root_dir)
+
+    def get(self, path: Union[str, Path]) -> StorageFile:
+        fullpath = self.root_dir.joinpath(path)
+        return StorageFile(fullpath, self.root_dir)
+
+    def is_dir_exists(self, path: Union[str, Path]) -> bool:
+        fullpath = self.root_dir.joinpath(path)
+        return fullpath.exists() and fullpath.is_dir()
 
 
 storage = LocalStorage(config.STATIC_DIR)
