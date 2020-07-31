@@ -69,6 +69,10 @@ class LocalStorage:
         fullpath = self.root_dir.joinpath(path)
         return StorageFile(fullpath, self.root_dir)
 
+    def is_exists(self, path: Union[str, Path]) -> bool:
+        fullpath = self.root_dir.joinpath(path)
+        return fullpath.exists()
+
     def is_dir_exists(self, path: Union[str, Path]) -> bool:
         fullpath = self.root_dir.joinpath(path)
         return fullpath.exists() and fullpath.is_dir()

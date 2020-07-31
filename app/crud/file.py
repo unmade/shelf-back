@@ -153,12 +153,16 @@ def create_parents(
     return parent
 
 
-def is_dir_exists(db_session: Session, namespace_id: int, path: str) -> bool:
-    # for some reason .exists() doesn't work with sqlite
-    return bool(
-        db_session.query(File.id)
-        .filter(
-            File.namespace_id == namespace_id, File.is_dir.is_(True), File.path == path,
-        )
-        .scalar()
-    )
+def update(
+    db_session: Session,
+    storage_file: StorageFile,
+    namespace_id: int,
+    rel_to: Union[str, Path],
+) -> File:
+    file = get(db_session, namespace_id, str(storage_file.path.relative_to(rel_to)))
+
+    file.size = storage_file.size
+    file.mtime = storage_file.mtime
+    db_session.add(file)
+
+    return file

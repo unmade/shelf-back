@@ -42,33 +42,42 @@ def upload_file(
     fullpath = ns_path.joinpath(relpath)
 
     if not storage.is_dir_exists(fullpath.parent):
+        # todo: catch exception if creation fails
         storage.mkdir(fullpath.parent)
 
-    dir_exists = crud.file.is_dir_exists(db_session, account.namespace.id, str(relpath))
-    if not dir_exists:
+    parent = crud.file.get_folder(db_session, account.namespace.id, str(relpath))
+    if not parent:
         parent = crud.file.create_parents(
             db_session,
             [storage.get(ns_path.joinpath(p)) for p in relpath.parents],
             namespace_id=account.namespace.id,
             rel_to=account.namespace.path,
         )
-    else:
-        parent = crud.file.get_folder(db_session, account.namespace.id, str(relpath))
 
+    file_exists = storage.is_exists(fullpath)
     storage_file = storage.save(fullpath, file.file)
 
-    result = crud.file.create(
-        db_session,
-        storage_file,
-        namespace_id=account.namespace.id,
-        rel_to=account.namespace.path,
-        parent_id=parent.id,
-    )
+    if file_exists:
+        prev_file = storage.get(fullpath)
+        result = crud.file.update(
+            db_session,
+            storage_file,
+            namespace_id=account.namespace.id,
+            rel_to=account.namespace.path,
+        )
+        size_inc = storage_file.size - prev_file.size
+    else:
+        result = crud.file.create(
+            db_session,
+            storage_file,
+            namespace_id=account.namespace.id,
+            rel_to=account.namespace.path,
+            parent_id=parent.id,
+        )
+        size_inc = storage_file.size
+
     crud.file.inc_folder_size(
-        db_session,
-        namespace_id=account.namespace.id,
-        path=result.path,
-        size=storage_file.size,
+        db_session, namespace_id=account.namespace.id, path=result.path, size=size_inc,
     )
 
     db_session.commit()
