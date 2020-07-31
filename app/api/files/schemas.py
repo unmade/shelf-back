@@ -21,8 +21,12 @@ class File(BaseModel):
         orm_mode = True
 
 
-class UploadResult(File):
-    pass
+class UploadResult(BaseModel):
+    file: File
+    updates: List[File]
+
+    class Config:
+        orm_mode = True
 
 
 class ListFolderResult(BaseModel):

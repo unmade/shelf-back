@@ -83,4 +83,7 @@ def upload_file(
     db_session.commit()
     db_session.refresh(result)
 
-    return result
+    return UploadResult(
+        file=result,
+        updates=crud.file.list_parents(db_session, account.namespace.id, path),
+    )

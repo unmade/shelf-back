@@ -106,10 +106,26 @@ def inc_folder_size(
         db_session.query(File)
         .filter(
             File.namespace_id == namespace_id,
-            File.is_dir.is_(True),
             File.path.in_([path, *parents]),
+            File.is_dir.is_(True),
         )
         .update({"size": File.size + size}, synchronize_session=False)
+    )
+
+
+def list_parents(
+    db_session: Session, namespace_id: int, path: str,
+):
+    parents = (str(p) for p in Path(path).parents)
+    return (
+        db_session.query(File)
+        .filter(
+            File.namespace_id == namespace_id,
+            File.path.in_(parents),
+            File.is_dir.is_(True),
+        )
+        .order_by(File.path.asc())
+        .all()
     )
 
 
