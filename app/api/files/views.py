@@ -10,9 +10,47 @@ from app.api import deps, exceptions
 from app.entities.account import Account
 from app.storage import storage
 
-from .schemas import FolderPath, ListFolderResult, UploadResult
+from .schemas import CreateFolderResult, FolderPath, ListFolderResult, UploadResult
 
 router = APIRouter()
+
+
+@router.post("/create_folder", response_model=CreateFolderResult)
+def create_folder(
+    payload: FolderPath,
+    db_session: Session = Depends(deps.db_session),
+    account: Account = Depends(deps.current_account),
+):
+    relpath = Path(payload.path)
+    ns_path = Path(account.namespace.path)
+    fullpath = ns_path.joinpath(relpath)
+
+    if storage.is_dir_exists(fullpath):
+        raise exceptions.AlreadyExists()
+
+    # todo: catch exception if creation fails
+    storage.mkdir(fullpath)
+
+    parent = crud.file.get_folder(db_session, account.namespace.id, str(relpath.parent))
+    if not parent:
+        parent = crud.file.create_parents(
+            db_session,
+            [storage.get(ns_path.joinpath(p)) for p in relpath.parents],
+            namespace_id=account.namespace.id,
+            rel_to=account.namespace.path,
+        )
+
+    storage_file = storage.get(fullpath)
+    folder = crud.file.create(
+        db_session,
+        storage_file,
+        account.namespace.id,
+        rel_to=account.namespace.path,
+        parent_id=parent.id,
+    )
+    db_session.commit()
+
+    return folder
 
 
 @router.post("/list_folder", response_model=ListFolderResult)
@@ -45,7 +83,7 @@ def upload_file(
         # todo: catch exception if creation fails
         storage.mkdir(fullpath.parent)
 
-    parent = crud.file.get_folder(db_session, account.namespace.id, str(relpath))
+    parent = crud.file.get_folder(db_session, account.namespace.id, str(relpath.parent))
     if not parent:
         parent = crud.file.create_parents(
             db_session,

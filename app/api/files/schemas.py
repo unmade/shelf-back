@@ -29,6 +29,10 @@ class UploadResult(BaseModel):
         orm_mode = True
 
 
+class CreateFolderResult(File):
+    pass
+
+
 class ListFolderResult(BaseModel):
     path: str
     items: List[File]

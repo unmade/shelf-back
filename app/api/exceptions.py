@@ -52,3 +52,9 @@ class PathNotFound(APIError):
     status_code = 404
     default_code = "PATH_NOT_FOUND"
     default_message = "Path not found."
+
+
+class AlreadyExists(APIError):
+    status_code = 400
+    default_code = "ALREADY_EXISTS"
+    default_message = "Already exists."
