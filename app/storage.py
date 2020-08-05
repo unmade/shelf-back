@@ -77,5 +77,8 @@ class LocalStorage:
         fullpath = self.root_dir.joinpath(path)
         return fullpath.exists() and fullpath.is_dir()
 
+    def move(self, from_path: Union[str, Path], to_path: Union[str, Path]) -> None:
+        shutil.move(self.root_dir.joinpath(from_path), self.root_dir.joinpath(to_path))
+
 
 storage = LocalStorage(config.STATIC_DIR)

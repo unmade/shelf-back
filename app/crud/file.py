@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Iterable, Optional, Union
 
 import sqlalchemy.exc
+from sqlalchemy import func
 from sqlalchemy.orm import Session, aliased
 
 from app.models.file import File
@@ -182,3 +183,33 @@ def update(
     db_session.add(file)
 
     return file
+
+
+def inc_folders_size(
+    db_session: Session, namespace_id: int, paths: Iterable[str], size: int,
+):
+    return (
+        db_session.query(File)
+        .filter(
+            File.namespace_id == namespace_id,
+            File.path.in_(paths),
+            File.is_dir.is_(True),
+        )
+        .update({"size": File.size + size}, synchronize_session=False)
+    )
+
+
+def move(
+    db_session: Session, namespace_id: int, from_path: str, to_path: str,
+):
+    return (
+        db_session.query(File)
+        .filter(
+            File.namespace_id == namespace_id,
+            File.path.like(f"{from_path}%"),  # todo: from_path should be escaped
+        )
+        .update(
+            {"path": func.replace(File.path, from_path, to_path)},
+            synchronize_session=False,
+        )
+    )

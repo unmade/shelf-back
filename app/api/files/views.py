@@ -10,7 +10,14 @@ from app.api import deps, exceptions
 from app.entities.account import Account
 from app.storage import storage
 
-from .schemas import CreateFolderResult, FolderPath, ListFolderResult, UploadResult
+from .schemas import (
+    CreateFolderResult,
+    FolderPath,
+    ListFolderResult,
+    MoveFolderRequest,
+    MoveFolderResult,
+    UploadResult,
+)
 
 router = APIRouter()
 
@@ -51,6 +58,59 @@ def create_folder(
     db_session.commit()
 
     return folder
+
+
+@router.post("/move", response_model=MoveFolderResult)
+def move(
+    payload: MoveFolderRequest,
+    db_session: Session = Depends(deps.db_session),
+    account: Account = Depends(deps.current_account),
+):
+    from_path = Path(payload.from_path)
+    to_path = Path(payload.to_path)
+    ns_path = Path(account.namespace.path)
+
+    file = crud.file.get(db_session, account.namespace.id, str(from_path))
+    if not file:
+        raise exceptions.PathNotFound()
+
+    if crud.file.get(db_session, account.namespace.id, str(to_path)):
+        raise exceptions.AlreadyExists()
+
+    next_parent = crud.file.get(db_session, account.namespace.id, str(to_path.parent))
+    if not next_parent:
+        next_parent = crud.file.create_parents(
+            db_session,
+            [storage.get(ns_path.joinpath(p)) for p in to_path.parents],
+            namespace_id=account.namespace.id,
+            rel_to=account.namespace.path,
+        )
+
+    file.parent_id = next_parent.id
+    file.name = to_path.name
+    crud.file.move(db_session, account.namespace.id, str(from_path), str(to_path))
+
+    folders_to_decrease = set(from_path.parents).difference(to_path.parents)
+    if folders_to_decrease:
+        crud.file.inc_folders_size(
+            db_session,
+            account.namespace.id,
+            paths=(str(p) for p in folders_to_decrease),
+            size=-file.size,
+        )
+
+    folders_to_increase = set(to_path.parents).difference(from_path.parents)
+    if folders_to_increase:
+        crud.file.inc_folders_size(
+            db_session,
+            account.namespace.id,
+            paths=(str(p) for p in folders_to_increase),
+            size=file.size,
+        )
+
+    storage.move(ns_path.joinpath(from_path), ns_path.joinpath(to_path))
+    db_session.commit()
+    return file
 
 
 @router.post("/list_folder", response_model=ListFolderResult)

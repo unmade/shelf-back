@@ -33,6 +33,15 @@ class CreateFolderResult(File):
     pass
 
 
+class MoveFolderRequest(BaseModel):
+    from_path: str
+    to_path: str
+
+
+class MoveFolderResult(File):
+    pass
+
+
 class ListFolderResult(BaseModel):
     path: str
     items: List[File]
