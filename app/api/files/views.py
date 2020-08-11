@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
 
-from app import crud
+from app import config, crud
 from app.api import deps, exceptions
 from app.entities.account import Account
 from app.storage import storage
@@ -185,3 +186,52 @@ def upload_file(
         file=result,
         updates=crud.file.list_parents(db_session, account.namespace.id, path),
     )
+
+
+@router.post("/delete")
+def delete(
+    payload: FolderPath,
+    db_session: Session = Depends(deps.db_session),
+    account: Account = Depends(deps.current_account),
+):
+    from_path = Path(payload.path)
+    to_path = Path(config.TRASH_FOLDER_NAME).joinpath(from_path.name)
+    ns_path = Path(account.namespace.path)
+
+    file = crud.file.get(db_session, account.namespace.id, str(from_path))
+    if not file:
+        raise exceptions.PathNotFound()
+
+    if crud.file.get(db_session, account.namespace.id, str(to_path)):
+        # todo: move under unique name, but somehow we need to preserve
+        # original name, in case we want to restore file back
+        to_path = to_path.parent.joinpath(
+            f"{to_path.name}_{datetime.now().strftime('%H%M%S%f')}"
+        )
+
+    next_parent = crud.file.get(db_session, account.namespace.id, str(to_path.parent))
+
+    file.parent_id = next_parent.id
+    crud.file.move(db_session, account.namespace.id, str(from_path), str(to_path))
+
+    folders_to_decrease = set(from_path.parents).difference(to_path.parents)
+    if folders_to_decrease:
+        crud.file.inc_folders_size(
+            db_session,
+            account.namespace.id,
+            paths=(str(p) for p in folders_to_decrease),
+            size=-file.size,
+        )
+
+    folders_to_increase = set(to_path.parents).difference(from_path.parents)
+    if folders_to_increase:
+        crud.file.inc_folders_size(
+            db_session,
+            account.namespace.id,
+            paths=(str(p) for p in folders_to_increase),
+            size=file.size,
+        )
+
+    storage.move(ns_path.joinpath(from_path), ns_path.joinpath(to_path))
+    db_session.commit()
+    return file

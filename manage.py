@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import typer
 
-from app import crud, db
+from app import config, crud, db
 from app.storage import storage
 
 if TYPE_CHECKING:
@@ -25,8 +25,13 @@ def createuser(
     with db.SessionManager() as db_session:
         user = crud.user.create(db_session, username, password)
         ns = crud.namespace.create(db_session, username, owner_id=user.id)
-        storage_file = storage.mkdir(ns.path)
-        crud.file.create(db_session, storage_file, ns.id, rel_to=ns.path)
+        root_dir = storage.mkdir(ns.path)
+        trash_dir = storage.mkdir(Path(ns.path).joinpath(config.TRASH_FOLDER_NAME))
+        root = crud.file.create(db_session, root_dir, ns.id, rel_to=ns.path)
+        db_session.flush()
+        crud.file.create(
+            db_session, trash_dir, ns.id, rel_to=ns.path, parent_id=root.id
+        )
         db_session.commit()
     typer.echo("User created successfully")
 
