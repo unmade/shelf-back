@@ -11,21 +11,14 @@ from app.api import deps, exceptions
 from app.entities.account import Account
 from app.storage import storage
 
-from .schemas import (
-    CreateFolderResult,
-    FolderPath,
-    ListFolderResult,
-    MoveFolderRequest,
-    MoveFolderResult,
-    UploadResult,
-)
+from . import schemas
 
 router = APIRouter()
 
 
-@router.post("/create_folder", response_model=CreateFolderResult)
+@router.post("/create_folder", response_model=schemas.CreateFolderResult)
 def create_folder(
-    payload: FolderPath,
+    payload: schemas.FolderPath,
     db_session: Session = Depends(deps.db_session),
     account: Account = Depends(deps.current_account),
 ):
@@ -61,9 +54,9 @@ def create_folder(
     return folder
 
 
-@router.post("/move", response_model=MoveFolderResult)
+@router.post("/move", response_model=schemas.MoveFolderResult)
 def move(
-    payload: MoveFolderRequest,
+    payload: schemas.MoveFolderRequest,
     db_session: Session = Depends(deps.db_session),
     account: Account = Depends(deps.current_account),
 ):
@@ -114,9 +107,9 @@ def move(
     return file
 
 
-@router.post("/list_folder", response_model=ListFolderResult)
+@router.post("/list_folder", response_model=schemas.ListFolderResult)
 def list_folder(
-    payload: FolderPath,
+    payload: schemas.FolderPath,
     db_session: Session = Depends(deps.db_session),
     account: Account = Depends(deps.current_account),
 ):
@@ -126,10 +119,10 @@ def list_folder(
 
     files = crud.file.list_folder_by_id(db_session, folder.id)
 
-    return ListFolderResult(path=payload.path, items=files, count=len(files))
+    return schemas.ListFolderResult(path=payload.path, items=files, count=len(files))
 
 
-@router.post("/upload", response_model=UploadResult)
+@router.post("/upload", response_model=schemas.UploadResult)
 def upload_file(
     file: UploadFile = File(...),
     path: str = Form(...),
@@ -182,15 +175,15 @@ def upload_file(
     db_session.commit()
     db_session.refresh(result)
 
-    return UploadResult(
+    return schemas.UploadResult(
         file=result,
         updates=crud.file.list_parents(db_session, account.namespace.id, path),
     )
 
 
-@router.post("/delete")
+@router.post("/delete", response_model=schemas.MoveToTrashResult)
 def delete(
-    payload: FolderPath,
+    payload: schemas.FolderPath,
     db_session: Session = Depends(deps.db_session),
     account: Account = Depends(deps.current_account),
 ):
@@ -203,15 +196,14 @@ def delete(
         raise exceptions.PathNotFound()
 
     if crud.file.get(db_session, account.namespace.id, str(to_path)):
-        # todo: move under unique name, but somehow we need to preserve
-        # original name, in case we want to restore file back
-        to_path = to_path.parent.joinpath(
-            f"{to_path.name}_{datetime.now().strftime('%H%M%S%f')}"
-        )
+        name = to_path.name.strip(to_path.suffix)
+        suffix = datetime.now().strftime("%H%M%S%f")
+        to_path = to_path.parent.joinpath(f"{name} {suffix}{to_path.suffix}")
 
     next_parent = crud.file.get(db_session, account.namespace.id, str(to_path.parent))
 
     file.parent_id = next_parent.id
+    file.name = to_path.name
     crud.file.move(db_session, account.namespace.id, str(from_path), str(to_path))
 
     folders_to_decrease = set(from_path.parents).difference(to_path.parents)

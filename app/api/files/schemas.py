@@ -47,6 +47,10 @@ class MoveFolderResult(File):
     pass
 
 
+class MoveToTrashResult(File):
+    pass
+
+
 class ListFolderResult(BaseModel):
     path: str
     items: List[File]
