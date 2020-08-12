@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List
 
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 
 
 class FolderPath(BaseModel):
@@ -16,9 +16,14 @@ class File(BaseModel):
     path: str
     size: int
     mtime: float
+    hidden: bool = None
 
     class Config:
         orm_mode = True
+
+    @validator("hidden", always=True)
+    def is_hidden(cls, value, values, config, field):
+        return values["name"].startswith(".")
 
 
 class UploadResult(BaseModel):
