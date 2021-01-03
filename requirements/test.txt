@@ -4,19 +4,41 @@
 #
 #    pip-compile requirements/test.in
 #
-appdirs==1.4.4            # via virtualenv
-cfgv==3.1.0               # via pre-commit
-distlib==0.3.1            # via virtualenv
-filelock==3.0.12          # via virtualenv
-identify==1.4.20          # via pre-commit
-mypy-extensions==0.4.3    # via mypy
-mypy==0.782               # via -r requirements/test.in, sqlalchemy-stubs
-nodeenv==1.4.0            # via pre-commit
-pre-commit==2.5.1         # via -r requirements/test.in
-pyyaml==5.3.1             # via pre-commit
-six==1.15.0               # via -c requirements/base.txt, virtualenv
-sqlalchemy-stubs==0.3     # via -r requirements/test.in
-toml==0.10.1              # via pre-commit
-typed-ast==1.4.1          # via mypy
-typing-extensions==3.7.4.2  # via mypy, sqlalchemy-stubs
-virtualenv==20.0.25       # via pre-commit
+appdirs==1.4.4
+    # via virtualenv
+cfgv==3.2.0
+    # via pre-commit
+distlib==0.3.1
+    # via virtualenv
+filelock==3.0.12
+    # via virtualenv
+identify==1.5.13
+    # via pre-commit
+mypy-extensions==0.4.3
+    # via mypy
+mypy==0.800
+    # via
+    #   -r requirements/test.in
+    #   sqlalchemy-stubs
+nodeenv==1.5.0
+    # via pre-commit
+pre-commit==2.9.3
+    # via -r requirements/test.in
+pyyaml==5.4.1
+    # via pre-commit
+six==1.15.0
+    # via
+    #   -c requirements/base.txt
+    #   virtualenv
+sqlalchemy-stubs==0.4
+    # via -r requirements/test.in
+toml==0.10.2
+    # via pre-commit
+typed-ast==1.4.2
+    # via mypy
+typing-extensions==3.7.4.3
+    # via
+    #   mypy
+    #   sqlalchemy-stubs
+virtualenv==20.4.0
+    # via pre-commit
