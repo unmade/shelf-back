@@ -40,7 +40,7 @@ def list_folder(db_session: Session, namespace_id: int, path: str):
             parent.path == path,
             parent.is_dir.is_(True),
         )
-        .order_by(File.is_dir.desc(), File.name.asc())
+        .order_by(File.is_dir.desc(), File.name.collate("NOCASE"))
         .all()
     )
 
@@ -49,7 +49,7 @@ def list_folder_by_id(db_session: Session, folder_id: Optional[int]):
     return (
         db_session.query(File)
         .filter(File.parent_id == folder_id)
-        .order_by(File.is_dir.desc(), File.name.asc())
+        .order_by(File.is_dir.desc(), File.name.collate("NOCASE"))
         .all()
     )
 
@@ -125,7 +125,7 @@ def list_parents(
             File.path.in_(parents),
             File.is_dir.is_(True),
         )
-        .order_by(File.path.asc())
+        .order_by(File.path.collate("NOCASE"))
         .all()
     )
 
@@ -140,7 +140,7 @@ def create_parents(
             File.path.in_(str(p.path.relative_to(rel_to)) for p in parents),
             File.is_dir.is_(True),
         )
-        .order_by(File.path.asc())
+        .order_by(File.path.collate("NOCASE"))
         .all()
     )
     paths = set(item.path for item in parents_in_db)
