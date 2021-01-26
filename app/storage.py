@@ -3,7 +3,9 @@ from __future__ import annotations
 import pathlib
 import shutil
 from pathlib import Path
-from typing import Iterator, Union
+from typing import Generator, Iterator, Union
+
+import zipfly
 
 from app import config
 
@@ -79,6 +81,20 @@ class LocalStorage:
 
     def move(self, from_path: Union[str, Path], to_path: Union[str, Path]) -> None:
         shutil.move(self.root_dir.joinpath(from_path), self.root_dir.joinpath(to_path))
+
+    def download(self, path: Union[str, Path]) -> Generator:
+        fullpath = self.root_dir.joinpath(path)
+        if fullpath.is_dir():
+            paths = [
+                {"fs": str(filepath), "n": filepath.relative_to(fullpath)}
+                for filepath in fullpath.glob("**/*")
+                if filepath.is_file()
+            ]
+        else:
+            paths = [{"fs": str(fullpath), "n": fullpath.name}]
+
+        attachment = zipfly.ZipFly(paths=paths)
+        return attachment.generator()
 
 
 storage = LocalStorage(config.STATIC_DIR)

@@ -1,6 +1,7 @@
 aiofiles
 alembic
 bcrypt
+cashews
 fastapi
 passlib
 psycopg2-binary
@@ -9,3 +10,4 @@ python-multipart
 sqlalchemy
 typer
 uvicorn
+zipfly

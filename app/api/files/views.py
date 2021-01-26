@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from cashews import cache
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app import config, crud
@@ -227,3 +230,34 @@ def delete(
     storage.move(ns_path.joinpath(from_path), ns_path.joinpath(to_path))
     db_session.commit()
     return file
+
+
+@router.post("/get_download_url")
+async def get_download_url(
+    payload: schemas.FolderPath,
+    db_session: Session = Depends(deps.db_session),
+    account: Account = Depends(deps.current_account),
+):
+    file = crud.file.get(db_session, account.namespace.id, payload.path)
+    if not file:
+        raise exceptions.PathNotFound()
+
+    key = uuid.uuid4().hex
+    path = Path(account.namespace.path).joinpath(file.path)
+    await cache.set(key=key, value=path, expire=60)
+
+    return {"download_url": f"http://localhost:8000/files/download?key={key}"}
+
+
+@router.get("/download")
+async def download(key: str = Query(None)):
+    path = await cache.get(key)
+    if not path:
+        raise exceptions.PathNotFound()
+
+    await cache.delete(key)
+
+    filename = Path(path).name.encode("utf-8").decode("latin-1")
+    headers = {"Content-Disposition": f'attachment; filename="{filename}.zip"'}
+    attachment = storage.download(path)
+    return StreamingResponse(attachment, media_type="attachment/zip", headers=headers)

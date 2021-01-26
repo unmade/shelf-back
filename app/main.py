@@ -1,3 +1,4 @@
+from cashews import cache
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -29,4 +30,5 @@ def create_app():
     return app
 
 
+cache.setup("mem://")
 app = create_app()

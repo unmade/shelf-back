@@ -1,5 +1,6 @@
 -c base.txt
 
+ipython
 mypy
 pre-commit
 sqlalchemy-stubs
