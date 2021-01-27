@@ -64,7 +64,7 @@ class LocalStorage:
 
     def mkdir(self, path: Union[str, Path]) -> StorageFile:
         dir_path = self.root_dir.joinpath(path)
-        dir_path.mkdir(exist_ok=True)
+        dir_path.mkdir(parents=True, exist_ok=True)
         return StorageFile(dir_path, self.root_dir)
 
     def get(self, path: Union[str, Path]) -> StorageFile:

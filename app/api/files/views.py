@@ -10,11 +10,11 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app import config, crud
-from app.api import deps, exceptions
+from app.api import deps
 from app.entities.account import Account
 from app.storage import storage
 
-from . import schemas
+from . import exceptions, schemas
 
 router = APIRouter()
 
@@ -63,6 +63,12 @@ def move(
     db_session: Session = Depends(deps.db_session),
     account: Account = Depends(deps.current_account),
 ):
+    if (
+        payload.from_path == payload.to_path
+        or payload.from_path == config.TRASH_FOLDER_NAME
+    ):
+        raise exceptions.InvalidOperation()
+
     from_path = Path(payload.from_path)
     to_path = Path(payload.to_path)
     ns_path = Path(account.namespace.path)
@@ -190,6 +196,11 @@ def delete(
     db_session: Session = Depends(deps.db_session),
     account: Account = Depends(deps.current_account),
 ):
+    if payload.path == config.TRASH_FOLDER_NAME:
+        raise exceptions.InvalidOperation()
+    if payload.path.startswith(config.TRASH_FOLDER_NAME):
+        raise exceptions.AlreadyDeleted()
+
     from_path = Path(payload.path)
     to_path = Path(config.TRASH_FOLDER_NAME).joinpath(from_path.name)
     ns_path = Path(account.namespace.path)
@@ -253,7 +264,7 @@ async def get_download_url(
 async def download(key: str = Query(None)):
     path = await cache.get(key)
     if not path:
-        raise exceptions.PathNotFound()
+        raise exceptions.DownloadNotFound()
 
     await cache.delete(key)
 
