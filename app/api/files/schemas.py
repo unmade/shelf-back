@@ -4,6 +4,8 @@ from typing import List
 
 from pydantic import BaseModel, validator
 
+from app.config import TRASH_FOLDER_NAME
+
 
 class FolderPath(BaseModel):
     path: str
@@ -23,7 +25,7 @@ class File(BaseModel):
 
     @validator("hidden", always=True)
     def is_hidden(cls, value, values, config, field):
-        return values["name"].startswith(".")
+        return values["name"].startswith(".") or values["name"] == TRASH_FOLDER_NAME
 
 
 class UploadResult(BaseModel):

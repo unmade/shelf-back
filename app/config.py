@@ -20,4 +20,4 @@ DATABASE_DSN = os.environ["DATABASE_DSN"]
 
 STATIC_DIR = Path(os.getenv("STATIC_DIR", "./static"))
 
-TRASH_FOLDER_NAME = ".Shelf_Trash"
+TRASH_FOLDER_NAME = "Trash"
