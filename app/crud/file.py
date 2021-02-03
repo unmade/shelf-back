@@ -8,6 +8,7 @@ import sqlalchemy.exc
 from sqlalchemy import func
 from sqlalchemy.orm import Session, aliased
 
+from app.config import TRASH_FOLDER_NAME
 from app.models.file import File
 from app.storage import StorageFile
 
@@ -45,13 +46,17 @@ def list_folder(db_session: Session, namespace_id: int, path: str):
     )
 
 
-def list_folder_by_id(db_session: Session, folder_id: Optional[int]):
-    return (
+def list_folder_by_id(
+    db_session: Session, folder_id: int, hide_trash_folder: bool = False
+):
+    query = (
         db_session.query(File)
-        .filter(File.parent_id == folder_id)
+        .filter(File.parent_id == folder_id, File.path != "Trash")
         .order_by(File.is_dir.desc(), File.name.collate("NOCASE"))
-        .all()
     )
+    if hide_trash_folder:
+        query = query.filter(File.path != TRASH_FOLDER_NAME)
+    return query.all()
 
 
 def create(

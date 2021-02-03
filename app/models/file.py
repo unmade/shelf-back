@@ -8,7 +8,6 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 
-from app.config import TRASH_FOLDER_NAME
 from app.db import Base
 
 
@@ -28,8 +27,4 @@ class File(Base):
 
     @property
     def type(self):
-        if self.path == TRASH_FOLDER_NAME:
-            return "trash"
-        if self.is_dir:
-            return "folder"
-        return "file"
+        return "folder" if self.is_dir else "file"

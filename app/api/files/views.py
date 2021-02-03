@@ -25,6 +25,7 @@ def create_folder(
     db_session: Session = Depends(deps.db_session),
     account: Account = Depends(deps.current_account),
 ):
+    # TODO: don't forget to strip input path
     relpath = Path(payload.path)
     ns_path = Path(account.namespace.path)
     fullpath = ns_path.joinpath(relpath)
@@ -126,7 +127,7 @@ def list_folder(
     if not folder:
         raise exceptions.PathNotFound()
 
-    files = crud.file.list_folder_by_id(db_session, folder.id)
+    files = crud.file.list_folder_by_id(db_session, folder.id, hide_trash_folder=True)
 
     return schemas.ListFolderResult(path=payload.path, items=files, count=len(files))
 
