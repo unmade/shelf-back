@@ -87,7 +87,10 @@ class LocalStorage:
         fullpath = self.root_dir.joinpath(path)
         if fullpath.is_dir():
             paths = [
-                {"fs": str(filepath), "n": filepath.relative_to(fullpath)}
+                {
+                    "fs": str(filepath),
+                    "n": filepath.relative_to(fullpath)
+                }
                 for filepath in fullpath.glob("**/*")
                 if filepath.is_file()
             ]

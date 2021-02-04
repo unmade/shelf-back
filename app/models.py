@@ -14,7 +14,9 @@ from app.db import Base
 
 class File(Base):
     __tablename__ = "files"
-    __table_args__ = (UniqueConstraint("namespace_id", "path"),)
+    __table_args__ = (
+        UniqueConstraint("namespace_id", "path"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     parent_id = Column(Integer, ForeignKey(id, ondelete="CASCADE"), index=True)

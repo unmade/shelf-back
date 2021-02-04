@@ -43,6 +43,8 @@ def get_account(db_session: Session, user_id: int) -> Optional[Account]:
         id=user.id,
         username=user.username,
         namespace=NamespaceEntity(
-            id=namespace.id, path=namespace.path, owner_id=user.id
+            id=namespace.id,
+            path=namespace.path,
+            owner_id=user.id,
         ),
     )

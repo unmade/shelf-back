@@ -11,7 +11,12 @@ from app import config
 
 def get_db_params(dsn: str) -> Dict[str, Any]:
     if dsn.startswith("sqlite"):
-        return {"connect_args": {"check_same_thread": False}, "poolclass": StaticPool}
+        return {
+            "connect_args": {
+                "check_same_thread": False,
+            },
+            "poolclass": StaticPool,
+        }
     return {}
 
 
