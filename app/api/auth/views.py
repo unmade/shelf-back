@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app import config, crud, security
 from app.api import deps, exceptions
-from app.models.user import User
+from app.models import User
 
 from .schemas import Tokens
 

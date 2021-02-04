@@ -1,8 +1,7 @@
 import factory
 
 from app import db
-from app.models.namespace import Namespace
-from app.models.user import User
+from app.models import Namespace, User
 
 session = db.SessionLocal()
 

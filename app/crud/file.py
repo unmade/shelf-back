@@ -9,7 +9,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, aliased
 
 from app.config import TRASH_FOLDER_NAME
-from app.models.file import File
+from app.models import File
 from app.storage import StorageFile
 
 

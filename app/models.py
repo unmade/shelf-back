@@ -7,6 +7,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
 )
+from sqlalchemy.orm import relationship
 
 from app.db import Base
 
@@ -28,3 +29,23 @@ class File(Base):
     @property
     def type(self):
         return "folder" if self.is_dir else "file"
+
+
+class Namespace(Base):
+    __tablename__ = "namespaces"
+
+    id = Column(Integer, primary_key=True, index=True)
+    path = Column(String, unique=True, nullable=False)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    owner = relationship("User", back_populates="namespaces")
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(32), unique=True, index=True, nullable=False)
+    password = Column(String(64), nullable=False)
+
+    namespaces = relationship("Namespace", back_populates="owner")

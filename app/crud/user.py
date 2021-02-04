@@ -7,8 +7,7 @@ from sqlalchemy.orm import Session
 from app import security
 from app.entities.account import Account
 from app.entities.namespace import Namespace as NamespaceEntity
-from app.models.namespace import Namespace
-from app.models.user import User
+from app.models import Namespace, User
 
 
 def create(db_session: Session, username: str, password: str) -> User:

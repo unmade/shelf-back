@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from app.models.namespace import Namespace
+from app.models import Namespace
 
 
 def create(db_session: Session, path: str, owner_id: int) -> Namespace:

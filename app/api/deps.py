@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app import crud, security
 from app.db import SessionLocal
 from app.entities.account import Account
-from app.models.user import User
+from app.models import User
 
 from . import exceptions
 
