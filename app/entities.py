@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from .namespace import Namespace
+
+class Namespace(BaseModel):
+    id: int
+    path: str
+    owner_id: int
 
 
 class Account(BaseModel):

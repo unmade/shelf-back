@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 
 from app import crud, security
 from app.api import deps, exceptions
-from app.models import User
 
 from .schemas import Tokens
 
@@ -19,7 +18,7 @@ def get_tokens(
     db_session: Session = Depends(deps.db_session),
 ):
     """Returns new access token for a given credentials."""
-    user = crud.user.get(db_session, username=form_data.username)
+    user = crud.user.get_by_username(db_session, username=form_data.username)
 
     if not user:
         raise exceptions.UserNotFound()
@@ -33,8 +32,8 @@ def get_tokens(
 
 
 @router.put("/tokens", response_model=Tokens)
-def refresh_token(curr_user: User = Depends(deps.current_user)):
+def refresh_token(curr_user_id: int = Depends(deps.current_user_id)):
     """Returns new access token based on current access token."""
     return Tokens(
-        access_token=security.create_access_token(curr_user.id)
+        access_token=security.create_access_token(curr_user_id)
     )

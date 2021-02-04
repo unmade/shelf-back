@@ -40,7 +40,7 @@ class Namespace(Base):
     path = Column(String, unique=True, nullable=False)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
-    owner = relationship("User", back_populates="namespaces")
+    owner = relationship("User", back_populates="namespace")
 
 
 class User(Base):
@@ -50,4 +50,4 @@ class User(Base):
     username = Column(String(32), unique=True, index=True, nullable=False)
     password = Column(String(64), nullable=False)
 
-    namespaces = relationship("Namespace", back_populates="owner")
+    namespace = relationship("Namespace", back_populates="owner", uselist=False)

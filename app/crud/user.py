@@ -5,12 +5,13 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from app import security
-from app.entities.account import Account
-from app.entities.namespace import Namespace as NamespaceEntity
+from app.entities import Account
+from app.entities import Namespace as NamespaceEntity
 from app.models import Namespace, User
 
 
 def create(db_session: Session, username: str, password: str) -> User:
+    """Creates, saves and returns a User."""
     user = User(username=username, password=security.make_password(password))
     db_session.add(user)
     db_session.flush()
@@ -18,33 +19,44 @@ def create(db_session: Session, username: str, password: str) -> User:
     return user
 
 
-def get(
-    db_session: Session, user_id: int = None, username: str = None,
-) -> Optional[User]:
-    query = db_session.query(User)
-    if user_id is not None:
-        query = query.filter(User.id == user_id)
-    if username is not None:
-        query = query.filter(User.username == username)
-    return query.first()
+def get_by_id(db_session: Session, user_id: int) -> Optional[User]:
+    """Returns a User with a given user_id."""
+    return (
+        db_session.query(User)
+        .filter(User.id == user_id)
+        .first()
+    )
+
+
+def get_by_username(db_session: Session, username: str) -> Optional[User]:
+    """Returns a User with a given username."""
+    return (
+        db_session.query(User)
+        .filter(User.username == username)
+        .first()
+    )
 
 
 def get_account(db_session: Session, user_id: int) -> Optional[Account]:
-    result = (
-        db_session.query(User, Namespace)
+    row = (
+        db_session.query(
+            User.id.label("user_id"),
+            User.username.label("username"),
+            Namespace.id.label("namespace_id"),
+            Namespace.path.label("path")
+        )
         .join(Namespace)
         .filter(User.id == user_id)
         .first()
     )
-    if not result:
+    if not row:
         return None
-    user, namespace = result
     return Account(
-        id=user.id,
-        username=user.username,
+        id=row.user_id,
+        username=row.username,
         namespace=NamespaceEntity(
-            id=namespace.id,
-            path=namespace.path,
-            owner_id=user.id,
+            id=row.namespace_id,
+            path=row.path,
+            owner_id=row.user_id,
         ),
     )

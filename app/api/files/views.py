@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app import config, crud
 from app.api import deps
-from app.entities.account import Account
+from app.entities import Account
 from app.storage import storage
 
 from . import exceptions, schemas

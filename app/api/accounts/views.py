@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from app.api import deps
-from app.entities.account import Account
+from app.entities import Account
 
 from .schemas import AccountMe
 
