@@ -16,7 +16,7 @@ class File(Base):
     __table_args__ = (UniqueConstraint("namespace_id", "path"),)
 
     id = Column(Integer, primary_key=True, index=True)
-    parent_id = Column(Integer, ForeignKey(id), index=True)
+    parent_id = Column(Integer, ForeignKey(id, ondelete="CASCADE"), index=True)
     name = Column(String, nullable=False)
     path = Column(String, nullable=False)  # relative to namespace
     size = Column(Integer, nullable=False)

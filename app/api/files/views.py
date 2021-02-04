@@ -244,6 +244,31 @@ def delete(
     return file
 
 
+@router.post("/delete_immediately")
+def delete_immediately(
+    payload: schemas.FolderPath,
+    db_session: Session = Depends(deps.db_session),
+    account: Account = Depends(deps.current_account),
+):
+    file = crud.file.get(db_session, account.namespace.id, payload.path)
+    if not file:
+        raise exceptions.PathNotFound()
+
+    crud.file.inc_folders_size(
+        db_session,
+        account.namespace.id,
+        paths=(str(p) for p in Path(payload.path).parents),
+        size=-file.size,
+    )
+
+    crud.file.delete(db_session, account.namespace.id, payload.path)
+    storage.delete(Path(account.namespace.path).joinpath(payload.path))
+
+    db_session.commit()
+
+    return file
+
+
 @router.post("/get_download_url")
 async def get_download_url(
     payload: schemas.FolderPath,

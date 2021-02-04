@@ -218,3 +218,11 @@ def move(
             synchronize_session=False,
         )
     )
+
+
+def delete(db_session: Session, namespace_id: int, path: str):
+    return (
+        db_session.query(File)
+        .filter(File.namespace_id == namespace_id, File.path == path,)
+        .delete(synchronize_session=False)
+    )

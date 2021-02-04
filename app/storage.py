@@ -96,5 +96,12 @@ class LocalStorage:
         attachment = zipfly.ZipFly(paths=paths)
         return attachment.generator()
 
+    def delete(self, path: Union[str, Path]) -> None:
+        fullpath = self.root_dir.joinpath(path)
+        if fullpath.is_dir():
+            shutil.rmtree(fullpath)
+        else:
+            fullpath.unlink()
+
 
 storage = LocalStorage(config.STATIC_DIR)
