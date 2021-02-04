@@ -36,6 +36,12 @@ async def api_error_exception_handler(_, exc: APIError):
     )
 
 
+class MissingToken(APIError):
+    status_code = 401
+    default_code = "MISSING_TOKEN"
+    default_message = "Missing token."
+
+
 class InvalidToken(APIError):
     status_code = 403
     default_code = "INVALID_TOKEN"

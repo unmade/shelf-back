@@ -17,7 +17,7 @@ __all__ = [
     "current_user",
 ]
 
-reusable_oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/tokens")
+reusable_oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/tokens", auto_error=False)
 
 
 def db_session():
@@ -31,6 +31,9 @@ def db_session():
 def current_user(
     session: Session = Depends(db_session), token: str = Depends(reusable_oauth2)
 ) -> User:
+    if token is None:
+        raise exceptions.MissingToken() from None
+
     try:
         token_data = security.check_token(token)
     except security.InvalidToken as exc:
@@ -45,6 +48,9 @@ def current_user(
 def current_account(
     session: Session = Depends(db_session), token: str = Depends(reusable_oauth2)
 ) -> Account:
+    if token is None:
+        raise exceptions.MissingToken() from None
+
     try:
         token_data = security.check_token(token)
     except security.InvalidToken as exc:

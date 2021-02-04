@@ -31,7 +31,12 @@ def get(
 
 
 def get_account(db_session: Session, user_id: int) -> Optional[Account]:
-    result = db_session.query(User, Namespace).join(Namespace).first()
+    result = (
+        db_session.query(User, Namespace)
+        .join(Namespace)
+        .filter(User.id == user_id)
+        .first()
+    )
     if not result:
         return None
     user, namespace = result
