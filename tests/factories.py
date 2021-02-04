@@ -1,6 +1,6 @@
 import factory
 
-from app import db
+from app import db, security
 from app.models import Namespace, User
 
 session = db.SessionLocal()
@@ -16,7 +16,7 @@ class NamespaceFactory(factory.alchemy.SQLAlchemyModelFactory):
 class UserFactory(factory.alchemy.SQLAlchemyModelFactory):
     id = factory.Sequence(lambda n: n + 1)
     username = factory.Sequence(lambda n: f"User {n + 1}")
-    password = "123"
+    password = security.make_password("root")
 
     namespace = factory.RelatedFactory(
         NamespaceFactory,

@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 from pathlib import Path
 
 
@@ -9,7 +10,7 @@ def _get_bool(key: str) -> bool:
     return False
 
 
-ACCESS_TOKEN_EXPIRE_MINUTES = 15
+ACCESS_TOKEN_EXPIRE = timedelta(os.getenv("ACCESS_TOKEN_EXPIRE_IN_MINUTES", 15))
 
 APP_NAME = os.getenv("APP_NAME", "Shelf")
 APP_DEBUG = _get_bool("APP_DEBUG")

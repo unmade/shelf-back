@@ -11,7 +11,7 @@ from app.models import Namespace, User
 
 
 def create(db_session: Session, username: str, password: str) -> User:
-    user = User(username=username, password=security.get_password_hash(password))
+    user = User(username=username, password=security.make_password(password))
     db_session.add(user)
     db_session.flush()
 

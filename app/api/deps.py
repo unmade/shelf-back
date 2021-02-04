@@ -4,8 +4,7 @@ from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
-from app import crud, security
-from app.db import SessionLocal
+from app import crud, db, security
 from app.entities.account import Account
 from app.models import User
 
@@ -19,13 +18,8 @@ __all__ = [
 
 reusable_oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/tokens", auto_error=False)
 
-
-def db_session():
-    try:
-        session = SessionLocal()
-        yield session
-    finally:
-        session.close()
+# This is just an alias to be consistent and import all deps from one place
+db_session = db.get_session
 
 
 def current_user(
@@ -35,7 +29,7 @@ def current_user(
         raise exceptions.MissingToken() from None
 
     try:
-        token_data = security.check_token(token)
+        token_data = security.decode_token(token)
     except security.InvalidToken as exc:
         raise exceptions.InvalidToken() from exc
 
@@ -52,7 +46,7 @@ def current_account(
         raise exceptions.MissingToken() from None
 
     try:
-        token_data = security.check_token(token)
+        token_data = security.decode_token(token)
     except security.InvalidToken as exc:
         raise exceptions.InvalidToken() from exc
 
