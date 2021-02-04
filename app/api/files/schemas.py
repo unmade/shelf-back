@@ -40,6 +40,14 @@ class CreateFolderResult(File):
     pass
 
 
+class DeleteImmediatelyResult(File):
+    pass
+
+
+class EmptyTrashResult(File):
+    pass
+
+
 class MoveFolderRequest(BaseModel):
     from_path: str
     to_path: str

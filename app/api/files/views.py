@@ -245,7 +245,7 @@ def delete(
     return file
 
 
-@router.post("/delete_immediately")
+@router.post("/delete_immediately", response_model=schemas.DeleteImmediatelyResult)
 def delete_immediately(
     payload: schemas.FolderPath,
     db_session: Session = Depends(deps.db_session),
@@ -255,6 +255,7 @@ def delete_immediately(
     if not file:
         raise exceptions.PathNotFound()
 
+    result = schemas.DeleteImmediatelyResult.from_orm(file)
     crud.file.inc_folders_size(
         db_session,
         account.namespace.id,
@@ -267,10 +268,10 @@ def delete_immediately(
 
     db_session.commit()
 
-    return file
+    return result
 
 
-@router.post("/empty_trash")
+@router.post("/empty_trash", response_model=schemas.EmptyTrashResult)
 def empty_trash(
     db_session: Session = Depends(deps.db_session),
     account: Account = Depends(deps.current_account),
@@ -280,9 +281,11 @@ def empty_trash(
         Path(account.namespace.path).joinpath(config.TRASH_FOLDER_NAME)
     )
 
+    trash = crud.file.get(db_session, account.namespace.id, config.TRASH_FOLDER_NAME)
+
     db_session.commit()
 
-    return {}
+    return trash
 
 
 @router.post("/get_download_url")

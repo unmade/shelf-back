@@ -209,9 +209,11 @@ def move(
 ):
     return (
         db_session.query(File)
+        .filter(File.namespace_id == namespace_id)
         .filter(
-            File.namespace_id == namespace_id,
-            File.path.like(f"{from_path}%"),  # todo: from_path should be escaped
+            # todo: from_path should be escaped
+            (File.path == from_path)
+            | (File.path.like(f"{from_path}/%")),
         )
         .update(
             {"path": func.replace(File.path, from_path, to_path)},
