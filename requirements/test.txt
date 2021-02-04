@@ -8,21 +8,39 @@ appdirs==1.4.4
     # via virtualenv
 appnope==0.1.2
     # via ipython
+attrs==20.3.0
+    # via pytest
 backcall==0.2.0
     # via ipython
+certifi==2020.12.5
+    # via requests
 cfgv==3.2.0
     # via pre-commit
+chardet==4.0.0
+    # via requests
+coverage==5.4
+    # via pytest-cov
 decorator==4.4.2
     # via ipython
 distlib==0.3.1
     # via virtualenv
+factory-boy==3.2.0
+    # via pytest-factoryboy
+faker==6.0.0
+    # via factory-boy
 filelock==3.0.12
     # via virtualenv
 identify==1.5.13
     # via pre-commit
+idna==2.10
+    # via requests
+inflection==0.5.1
+    # via pytest-factoryboy
+iniconfig==1.1.1
+    # via pytest
 ipython-genutils==0.2.0
     # via traitlets
-ipython==7.19.0
+ipython==7.20.0
     # via -r requirements/test.in
 jedi==0.18.0
     # via ipython
@@ -34,30 +52,58 @@ mypy==0.800
     #   sqlalchemy-stubs
 nodeenv==1.5.0
     # via pre-commit
+packaging==20.9
+    # via pytest
 parso==0.8.1
     # via jedi
 pexpect==4.8.0
     # via ipython
 pickleshare==0.7.5
     # via ipython
-pre-commit==2.9.3
+pluggy==0.13.1
+    # via pytest
+pre-commit==2.10.0
     # via -r requirements/test.in
 prompt-toolkit==3.0.14
     # via ipython
 ptyprocess==0.7.0
     # via pexpect
+py==1.10.0
+    # via pytest
 pygments==2.7.4
     # via ipython
+pyparsing==2.4.7
+    # via packaging
+pytest-cov==2.11.1
+    # via -r requirements/test.in
+pytest-factoryboy==2.1.0
+    # via -r requirements/test.in
+pytest==6.2.2
+    # via
+    #   -r requirements/test.in
+    #   pytest-cov
+    #   pytest-factoryboy
+python-dateutil==2.8.1
+    # via
+    #   -c requirements/base.txt
+    #   faker
 pyyaml==5.4.1
     # via pre-commit
+requests==2.25.1
+    # via -r requirements/test.in
 six==1.15.0
     # via
     #   -c requirements/base.txt
+    #   python-dateutil
     #   virtualenv
 sqlalchemy-stubs==0.4
     # via -r requirements/test.in
+text-unidecode==1.3
+    # via faker
 toml==0.10.2
-    # via pre-commit
+    # via
+    #   pre-commit
+    #   pytest
 traitlets==5.0.5
     # via ipython
 typed-ast==1.4.2
@@ -66,7 +112,9 @@ typing-extensions==3.7.4.3
     # via
     #   mypy
     #   sqlalchemy-stubs
-virtualenv==20.4.0
+urllib3==1.26.3
+    # via requests
+virtualenv==20.4.2
     # via pre-commit
 wcwidth==0.2.5
     # via prompt-toolkit

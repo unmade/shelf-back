@@ -1,0 +1,14 @@
+[paths]
+source =
+   app
+
+[run]
+branch = true
+source =
+    app
+    tests
+parallel = true
+
+[report]
+precision = 2
+show_missing = true
