@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import pathlib
 import shutil
 from pathlib import Path
@@ -102,6 +103,15 @@ class LocalStorage:
             shutil.rmtree(fullpath)
         else:
             fullpath.unlink()
+
+    def delete_dir_content(self, path: Union[str, Path]) -> None:
+        fullpath = self.root_dir.joinpath(path)
+        with os.scandir(fullpath) as it:
+            for entry in it:
+                if entry.is_dir():
+                    shutil.rmtree(entry.path)
+                else:
+                    os.unlink(entry.path)
 
 
 storage = LocalStorage(config.STATIC_DIR)

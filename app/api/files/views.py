@@ -269,6 +269,21 @@ def delete_immediately(
     return file
 
 
+@router.post("/empty_trash")
+def empty_trash(
+    db_session: Session = Depends(deps.db_session),
+    account: Account = Depends(deps.current_account),
+):
+    crud.file.empty_trash(db_session, account.namespace.id)
+    storage.delete_dir_content(
+        Path(account.namespace.path).joinpath(config.TRASH_FOLDER_NAME)
+    )
+
+    db_session.commit()
+
+    return {}
+
+
 @router.post("/get_download_url")
 async def get_download_url(
     payload: schemas.FolderPath,

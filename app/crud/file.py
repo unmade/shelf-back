@@ -226,3 +226,18 @@ def delete(db_session: Session, namespace_id: int, path: str):
         .filter(File.namespace_id == namespace_id, File.path == path,)
         .delete(synchronize_session=False)
     )
+
+
+def empty_trash(db_session: Session, namespace_id: int):
+    (
+        db_session.query(File)
+        .filter(File.namespace_id == namespace_id, File.path == TRASH_FOLDER_NAME,)
+        .update({"size": 0}, synchronize_session=False)
+    )
+    return (
+        db_session.query(File)
+        .filter(
+            File.namespace_id == namespace_id, File.path.like(f"{TRASH_FOLDER_NAME}/%")
+        )
+        .delete(synchronize_session=False)
+    )
