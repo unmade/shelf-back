@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -290,7 +291,10 @@ async def get_download_url(
     db_session: Session = Depends(deps.db_session),
     account: Account = Depends(deps.current_account),
 ):
-    file = crud.file.get(db_session, account.namespace.id, payload.path)
+    loop = asyncio.get_event_loop()
+    file = await loop.run_in_executor(
+        None, crud.file.get, db_session, account.namespace.id, payload.path
+    )
     if not file:
         raise exceptions.PathNotFound()
 
