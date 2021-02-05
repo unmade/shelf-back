@@ -36,10 +36,6 @@ class UploadResult(BaseModel):
         orm_mode = True
 
 
-class EmptyTrashResult(File):
-    pass
-
-
 class MoveFolderRequest(BaseModel):
     from_path: str
     to_path: str

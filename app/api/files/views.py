@@ -94,7 +94,7 @@ def delete_immediately(
     return result
 
 
-@router.post("/empty_trash", response_model=schemas.EmptyTrashResult)
+@router.post("/empty_trash", response_model=schemas.File)
 def empty_trash(
     db_session: Session = Depends(deps.db_session),
     account: Account = Depends(deps.current_account),
@@ -102,7 +102,7 @@ def empty_trash(
     """Deletes all files and folders in the Trash folder."""
     crud.file.empty_trash(db_session, account.namespace.id)
     storage.delete_dir_content(
-        Path(account.namespace.path).joinpath(config.TRASH_FOLDER_NAME)
+        Path(account.namespace.path) / config.TRASH_FOLDER_NAME
     )
 
     trash = crud.file.get(db_session, account.namespace.id, config.TRASH_FOLDER_NAME)
@@ -143,6 +143,59 @@ def move(
             namespace_id=account.namespace.id,
             rel_to=account.namespace.path,
         )
+
+    file.parent_id = next_parent.id
+    file.name = to_path.name
+    crud.file.move(db_session, account.namespace.id, str(from_path), str(to_path))
+
+    folders_to_decrease = set(from_path.parents).difference(to_path.parents)
+    if folders_to_decrease:
+        crud.file.inc_folders_size(
+            db_session,
+            account.namespace.id,
+            paths=(str(p) for p in folders_to_decrease),
+            size=-file.size,
+        )
+
+    folders_to_increase = set(to_path.parents).difference(from_path.parents)
+    if folders_to_increase:
+        crud.file.inc_folders_size(
+            db_session,
+            account.namespace.id,
+            paths=(str(p) for p in folders_to_increase),
+            size=file.size,
+        )
+
+    storage.move(ns_path.joinpath(from_path), ns_path.joinpath(to_path))
+    db_session.commit()
+    return file
+
+
+@router.post("/move_to_trash", response_model=schemas.MoveToTrashResult)
+def move_to_trash(
+    payload: schemas.FolderPath,
+    db_session: Session = Depends(deps.db_session),
+    account: Account = Depends(deps.current_account),
+):
+    if payload.path == config.TRASH_FOLDER_NAME:
+        raise exceptions.InvalidOperation()
+    if payload.path.startswith(config.TRASH_FOLDER_NAME):
+        raise exceptions.AlreadyDeleted()
+
+    from_path = Path(payload.path)
+    to_path = Path(config.TRASH_FOLDER_NAME).joinpath(from_path.name)
+    ns_path = Path(account.namespace.path)
+
+    file = crud.file.get(db_session, account.namespace.id, str(from_path))
+    if not file:
+        raise exceptions.PathNotFound()
+
+    if crud.file.get(db_session, account.namespace.id, str(to_path)):
+        name = to_path.name.strip(to_path.suffix)
+        suffix = datetime.now().strftime("%H%M%S%f")
+        to_path = to_path.parent.joinpath(f"{name} {suffix}{to_path.suffix}")
+
+    next_parent = crud.file.get(db_session, account.namespace.id, str(to_path.parent))
 
     file.parent_id = next_parent.id
     file.name = to_path.name
@@ -243,59 +296,6 @@ def upload_file(
         file=result,
         updates=crud.file.list_parents(db_session, account.namespace.id, path),
     )
-
-
-@router.post("/delete", response_model=schemas.MoveToTrashResult)
-def delete(
-    payload: schemas.FolderPath,
-    db_session: Session = Depends(deps.db_session),
-    account: Account = Depends(deps.current_account),
-):
-    if payload.path == config.TRASH_FOLDER_NAME:
-        raise exceptions.InvalidOperation()
-    if payload.path.startswith(config.TRASH_FOLDER_NAME):
-        raise exceptions.AlreadyDeleted()
-
-    from_path = Path(payload.path)
-    to_path = Path(config.TRASH_FOLDER_NAME).joinpath(from_path.name)
-    ns_path = Path(account.namespace.path)
-
-    file = crud.file.get(db_session, account.namespace.id, str(from_path))
-    if not file:
-        raise exceptions.PathNotFound()
-
-    if crud.file.get(db_session, account.namespace.id, str(to_path)):
-        name = to_path.name.strip(to_path.suffix)
-        suffix = datetime.now().strftime("%H%M%S%f")
-        to_path = to_path.parent.joinpath(f"{name} {suffix}{to_path.suffix}")
-
-    next_parent = crud.file.get(db_session, account.namespace.id, str(to_path.parent))
-
-    file.parent_id = next_parent.id
-    file.name = to_path.name
-    crud.file.move(db_session, account.namespace.id, str(from_path), str(to_path))
-
-    folders_to_decrease = set(from_path.parents).difference(to_path.parents)
-    if folders_to_decrease:
-        crud.file.inc_folders_size(
-            db_session,
-            account.namespace.id,
-            paths=(str(p) for p in folders_to_decrease),
-            size=-file.size,
-        )
-
-    folders_to_increase = set(to_path.parents).difference(from_path.parents)
-    if folders_to_increase:
-        crud.file.inc_folders_size(
-            db_session,
-            account.namespace.id,
-            paths=(str(p) for p in folders_to_increase),
-            size=file.size,
-        )
-
-    storage.move(ns_path.joinpath(from_path), ns_path.joinpath(to_path))
-    db_session.commit()
-    return file
 
 
 @router.post("/get_download_url")
