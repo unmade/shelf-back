@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 
 
 def test_get_account_me(client: TestClient, user_factory):
-    user = user_factory.create()
+    user = user_factory()
     response = client.login(user.id).get("/accounts/me")
     assert response.status_code == 200
     data = response.json()

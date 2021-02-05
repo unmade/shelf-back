@@ -10,7 +10,7 @@ from app.storage import storage
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
-    from app.models.namespace import Namespace
+    from app.models import Namespace
 
 cli = typer.Typer()
 

@@ -20,16 +20,21 @@ from . import exceptions, schemas
 router = APIRouter()
 
 
-@router.post("/create_folder", response_model=schemas.CreateFolderResult)
+@router.post("/create_folder", response_model=schemas.File)
 def create_folder(
     payload: schemas.FolderPath,
     db_session: Session = Depends(deps.db_session),
     account: Account = Depends(deps.current_account),
 ):
-    # TODO: don't forget to strip input path
-    relpath = Path(payload.path)
+    """
+    Creates a new folder within a given path.
+
+    If a path provided in a format a/b/c, then 'a' and 'b' folders will be created,
+    if not existed, and 'c' will be returned as a response.
+    """
+    relpath = Path(payload.path.strip())
     ns_path = Path(account.namespace.path)
-    fullpath = ns_path.joinpath(relpath)
+    fullpath = ns_path / relpath
 
     if storage.is_dir_exists(fullpath):
         raise exceptions.AlreadyExists()
@@ -41,7 +46,7 @@ def create_folder(
     if not parent:
         parent = crud.file.create_parents(
             db_session,
-            [storage.get(ns_path.joinpath(p)) for p in relpath.parents],
+            [storage.get(ns_path / p) for p in relpath.parents],
             namespace_id=account.namespace.id,
             rel_to=account.namespace.path,
         )
