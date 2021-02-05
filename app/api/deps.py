@@ -38,10 +38,9 @@ def current_user_id(
     session: Session = Depends(db_session),
     payload: TokenPayload = Depends(token_payload),
 ) -> int:
-    user = crud.user.get_by_id(session, user_id=payload.sub)
-    if not user:
+    if not crud.user.exists(session, user_id=payload.sub):
         raise exceptions.UserNotFound()
-    return user.id
+    return payload.sub
 
 
 def current_account(

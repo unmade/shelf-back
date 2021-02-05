@@ -24,7 +24,7 @@ engine = create_engine(config.DATABASE_DSN, **get_db_params(config.DATABASE_DSN)
 
 Base = declarative_base()
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, binds={Base: engine})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def get_session():

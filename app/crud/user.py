@@ -19,13 +19,11 @@ def create(db_session: Session, username: str, password: str) -> User:
     return user
 
 
-def get_by_id(db_session: Session, user_id: int) -> Optional[User]:
+def exists(db_session: Session, user_id: int) -> bool:
     """Returns a User with a given user_id."""
-    return (
-        db_session.query(User)
-        .filter(User.id == user_id)
-        .first()
-    )
+    return db_session.query(
+        db_session.query(User).filter(User.id == user_id).exists()
+    ).scalar()
 
 
 def get_by_username(db_session: Session, username: str) -> Optional[User]:
