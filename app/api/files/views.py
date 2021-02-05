@@ -242,15 +242,16 @@ def move(
     return file
 
 
-@router.post("/move_to_trash", response_model=schemas.MoveToTrashResult)
+@router.post("/move_to_trash", response_model=schemas.File)
 def move_to_trash(
     payload: schemas.FolderPath,
     db_session: Session = Depends(deps.db_session),
     account: Account = Depends(deps.current_account),
 ):
+    """Moves file to Trash folder."""
     if payload.path == config.TRASH_FOLDER_NAME:
         raise exceptions.InvalidOperation()
-    if payload.path.startswith(config.TRASH_FOLDER_NAME):
+    if payload.path.startswith(f"{config.TRASH_FOLDER_NAME}/"):
         raise exceptions.AlreadyDeleted()
 
     from_path = Path(payload.path)

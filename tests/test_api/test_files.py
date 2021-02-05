@@ -265,3 +265,54 @@ def test_move_but_file_already_exists(client: TestClient, user_factory, file_fac
         "code": "ALREADY_EXISTS",
         "message": "Already exists.",
     }
+
+
+@pytest.mark.parametrize(["file_path", "path", "expected_path"], [
+    ("file.txt", "file.txt", "Trash/file.txt"),  # move file to trash
+    ("a/b/c/d.txt", "a/b", "Trash/b"),  # move folder to trash
+])
+def test_move_to_trash(
+    client: TestClient, user_factory, file_factory, file_path, path, expected_path,
+):
+    user = user_factory()
+    file_factory(user.id, path=file_path)
+    payload = {"path": path}
+    response = client.login(user.id).post("/files/move_to_trash", json=payload)
+    assert response.status_code == 200
+    assert response.json()["path"] == expected_path
+
+
+def test_move_to_trash_but_it_is_a_trash(client: TestClient, user_factory):
+    user = user_factory()
+    payload = {"path": "Trash"}
+    response = client.login(user.id).post("/files/move_to_trash", json=payload)
+    assert response.status_code == 400
+    assert response.json() == {
+        "code": "INVALID_OPERATION",
+        "message": "Invalid operation.",
+    }
+
+
+def test_move_to_trash_but_file_is_in_trash(
+    client: TestClient, user_factory, file_factory,
+):
+    user = user_factory()
+    file = file_factory(user.id, path="Trash/file.txt")
+    payload = {"path": file.path}
+    response = client.login(user.id).post("/files/move_to_trash", json=payload)
+    assert response.status_code == 400
+    assert response.json() == {
+        "code": "ALREADY_DELETED",
+        "message": "Already deleted.",
+    }
+
+
+def test_move_to_trash_but_file_not_found(client: TestClient, user_factory):
+    user = user_factory()
+    payload = {"path": "file.txt"}
+    response = client.login(user.id).post("/files/move_to_trash", json=payload)
+    assert response.status_code == 404
+    assert response.json() == {
+        "code": "PATH_NOT_FOUND",
+        "message": "Path not found."
+    }
