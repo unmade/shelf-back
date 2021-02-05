@@ -94,6 +94,21 @@ def delete_immediately(
     return result
 
 
+@router.get("/download")
+async def download(key: str = Query(None)):
+    """Downloads a file or a folder as a ZIP archive."""
+    path = await cache.get(key)
+    if not path:
+        raise exceptions.DownloadNotFound()
+
+    await cache.delete(key)
+
+    filename = Path(path).name.encode("utf-8").decode("latin-1")
+    headers = {"Content-Disposition": f'attachment; filename="{filename}.zip"'}
+    attachment = storage.download(path)
+    return StreamingResponse(attachment, media_type="attachment/zip", headers=headers)
+
+
 @router.post("/empty_trash", response_model=schemas.File)
 def empty_trash(
     db_session: Session = Depends(deps.db_session),
@@ -110,6 +125,41 @@ def empty_trash(
     db_session.commit()
 
     return trash
+
+
+@router.post("/get_download_url")
+async def get_download_url(
+    payload: schemas.FolderPath,
+    db_session: Session = Depends(deps.db_session),
+    account: Account = Depends(deps.current_account),
+):
+    loop = asyncio.get_event_loop()
+    file = await loop.run_in_executor(
+        None, crud.file.get, db_session, account.namespace.id, payload.path
+    )
+    if not file:
+        raise exceptions.PathNotFound()
+
+    key = uuid.uuid4().hex
+    path = Path(account.namespace.path).joinpath(file.path)
+    await cache.set(key=key, value=path, expire=60)
+
+    return {"download_url": f"http://localhost:8000/files/download?key={key}"}
+
+
+@router.post("/list_folder", response_model=schemas.ListFolderResult)
+def list_folder(
+    payload: schemas.FolderPath,
+    db_session: Session = Depends(deps.db_session),
+    account: Account = Depends(deps.current_account),
+):
+    folder = crud.file.get_folder(db_session, account.namespace.id, payload.path)
+    if not folder:
+        raise exceptions.PathNotFound()
+
+    files = crud.file.list_folder_by_id(db_session, folder.id, hide_trash_folder=True)
+
+    return schemas.ListFolderResult(path=payload.path, items=files, count=len(files))
 
 
 @router.post("/move", response_model=schemas.MoveFolderResult)
@@ -224,21 +274,6 @@ def move_to_trash(
     return file
 
 
-@router.post("/list_folder", response_model=schemas.ListFolderResult)
-def list_folder(
-    payload: schemas.FolderPath,
-    db_session: Session = Depends(deps.db_session),
-    account: Account = Depends(deps.current_account),
-):
-    folder = crud.file.get_folder(db_session, account.namespace.id, payload.path)
-    if not folder:
-        raise exceptions.PathNotFound()
-
-    files = crud.file.list_folder_by_id(db_session, folder.id, hide_trash_folder=True)
-
-    return schemas.ListFolderResult(path=payload.path, items=files, count=len(files))
-
-
 @router.post("/upload", response_model=schemas.UploadResult)
 def upload_file(
     file: UploadFile = File(...),
@@ -296,37 +331,3 @@ def upload_file(
         file=result,
         updates=crud.file.list_parents(db_session, account.namespace.id, path),
     )
-
-
-@router.post("/get_download_url")
-async def get_download_url(
-    payload: schemas.FolderPath,
-    db_session: Session = Depends(deps.db_session),
-    account: Account = Depends(deps.current_account),
-):
-    loop = asyncio.get_event_loop()
-    file = await loop.run_in_executor(
-        None, crud.file.get, db_session, account.namespace.id, payload.path
-    )
-    if not file:
-        raise exceptions.PathNotFound()
-
-    key = uuid.uuid4().hex
-    path = Path(account.namespace.path).joinpath(file.path)
-    await cache.set(key=key, value=path, expire=60)
-
-    return {"download_url": f"http://localhost:8000/files/download?key={key}"}
-
-
-@router.get("/download")
-async def download(key: str = Query(None)):
-    path = await cache.get(key)
-    if not path:
-        raise exceptions.DownloadNotFound()
-
-    await cache.delete(key)
-
-    filename = Path(path).name.encode("utf-8").decode("latin-1")
-    headers = {"Content-Disposition": f'attachment; filename="{filename}.zip"'}
-    attachment = storage.download(path)
-    return StreamingResponse(attachment, media_type="attachment/zip", headers=headers)

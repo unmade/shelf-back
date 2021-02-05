@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from io import BytesIO
 from pathlib import Path
 
 import pytest
@@ -66,3 +67,63 @@ def user_factory():
             db_session.refresh(user)
             return user
     return _user_factory
+
+
+@pytest.fixture
+def file_factory():
+    """Creates dummy file, put it in a storage and save to database."""
+    def _file_factory(user_id: int, path: str = None):
+        path = path or fake.file_name(category="text", extension="txt")
+        with db.SessionManager() as db_session:
+            file = BytesIO(b"I'm Dummy File!")
+            account = crud.user.get_account(db_session, user_id)
+            namespace = account.namespace
+
+            relpath = Path(path)
+            ns_path = Path(namespace.path)
+            fullpath = ns_path / relpath
+
+            if not storage.is_dir_exists(fullpath.parent):
+                # todo: catch exception if creation fails
+                storage.mkdir(fullpath.parent)
+
+            parent = crud.file.get_folder(db_session, namespace.id, str(relpath.parent))
+            if not parent:
+                parent = crud.file.create_parents(
+                    db_session,
+                    [storage.get(ns_path / p) for p in relpath.parents],
+                    namespace_id=namespace.id,
+                    rel_to=namespace.path,
+                )
+
+            file_exists = storage.is_exists(fullpath)
+            storage_file = storage.save(fullpath, file)
+
+            if file_exists:
+                prev_file = storage.get(fullpath)
+                result = crud.file.update(
+                    db_session,
+                    storage_file,
+                    namespace_id=namespace.id,
+                    rel_to=namespace.path,
+                )
+                size_inc = storage_file.size - prev_file.size
+            else:
+                result = crud.file.create(
+                    db_session,
+                    storage_file,
+                    namespace_id=namespace.id,
+                    rel_to=namespace.path,
+                    parent_id=parent.id,
+                )
+                size_inc = storage_file.size
+
+            crud.file.inc_folder_size(
+                db_session, namespace_id=namespace.id, path=result.path, size=size_inc,
+            )
+
+            db_session.commit()
+            db_session.refresh(result)
+
+            return result
+    return _file_factory
