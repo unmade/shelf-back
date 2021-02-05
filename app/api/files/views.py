@@ -169,15 +169,28 @@ def list_folder(
     return schemas.ListFolderResult(path=payload.path, items=files, count=len(files))
 
 
-@router.post("/move", response_model=schemas.MoveFolderResult)
+@router.post("/move", response_model=schemas.File)
 def move(
     payload: schemas.MoveFolderRequest,
     db_session: Session = Depends(deps.db_session),
     account: Account = Depends(deps.current_account),
 ):
+    """
+    Moves file or a folder (including content) to a new path.
+
+    The last part of a new path would become new file/folder name.
+    For example, to rename file with path 'file.txt', the new path should be
+    'renamed_file.txt'.
+
+    Note, this method doesn't allow to move file/folder to/from Trash folder.
+    """
     if (
         payload.from_path == payload.to_path
         or payload.from_path == config.TRASH_FOLDER_NAME
+        or payload.to_path == config.TRASH_FOLDER_NAME
+        or payload.from_path == "."
+        or payload.to_path == "."
+        or payload.to_path.startswith(f"{config.TRASH_FOLDER_NAME}/")
     ):
         raise exceptions.InvalidOperation()
 
@@ -194,9 +207,10 @@ def move(
 
     next_parent = crud.file.get(db_session, account.namespace.id, str(to_path.parent))
     if not next_parent:
+        storage.mkdir(ns_path / to_path.parent)
         next_parent = crud.file.create_parents(
             db_session,
-            [storage.get(ns_path.joinpath(p)) for p in to_path.parents],
+            [storage.get(ns_path / p) for p in to_path.parents],
             namespace_id=account.namespace.id,
             rel_to=account.namespace.path,
         )

@@ -45,10 +45,6 @@ class MoveFolderRequest(BaseModel):
     to_path: str
 
 
-class MoveFolderResult(File):
-    pass
-
-
 class MoveToTrashResult(File):
     pass
 

@@ -189,7 +189,79 @@ def test_list_folder_but_path_does_not_exists(client: TestClient, user_factory):
     user = user_factory()
     payload = {"path": "wrong/path"}
     response = client.login(user.id).post("/files/list_folder", json=payload)
+    assert response.status_code == 404
     assert response.json() == {
         "code": "PATH_NOT_FOUND",
         "message": "Path not found."
+    }
+
+
+@pytest.mark.parametrize(["from_path", "to_path"], [
+    ("{name}", "folder/{name}"),
+    ("folder/{name}", "{name}"),
+    ("{name}", ".{name}"),
+])
+def test_move(client: TestClient, user_factory, file_factory, from_path, to_path):
+    name = "file.txt"
+    from_path = from_path.format(name=name)
+    to_path = to_path.format(name=name)
+    user = user_factory()
+    file_factory(user.id, path=from_path)
+    payload = {"from_path": from_path, "to_path": to_path}
+    response = client.login(user.id).post("/files/move", json=payload)
+    assert response.status_code == 200
+    assert response.json()["type"] == "file"
+    assert response.json()["path"] == to_path
+
+
+@pytest.mark.parametrize("from_path", [".", "Trash"])
+def test_move_but_it_is_a_special_path(
+    client: TestClient, user_factory, file_factory, from_path,
+):
+    user = user_factory()
+    payload = {"from_path": from_path, "to_path": "Trashbin"}
+    response = client.login(user.id).post("/files/move", json=payload)
+    assert response.status_code == 400
+    assert response.json() == {
+        "code": "INVALID_OPERATION",
+        "message": "Invalid operation.",
+    }
+
+
+@pytest.mark.parametrize("to_path", [".", "Trash"])
+def test_move_but_to_a_special_path(
+    client: TestClient, user_factory, file_factory, to_path,
+):
+    user = user_factory()
+    file = file_factory(user.id)
+    payload = {"from_path": file.path, "to_path": to_path}
+    response = client.login(user.id).post("/files/move", json=payload)
+    assert response.status_code == 400
+    assert response.json() == {
+        "code": "INVALID_OPERATION",
+        "message": "Invalid operation.",
+    }
+
+
+def test_move_but_file_not_found(client: TestClient, user_factory):
+    user = user_factory()
+    payload = {"from_path": "file_a.txt", "to_path": "file_b.txt"}
+    response = client.login(user.id).post("/files/move", json=payload)
+    assert response.status_code == 404
+    assert response.json() == {
+        "code": "PATH_NOT_FOUND",
+        "message": "Path not found."
+    }
+
+
+def test_move_but_file_already_exists(client: TestClient, user_factory, file_factory):
+    user = user_factory()
+    file_a = file_factory(user.id, path="folder/file.txt")
+    file_b = file_factory(user.id, path="file.txt")
+    payload = {"from_path": file_a.path, "to_path": file_b.path}
+    response = client.login(user.id).post("/files/move", json=payload)
+    assert response.status_code == 400
+    assert response.json() == {
+        "code": "ALREADY_EXISTS",
+        "message": "Already exists.",
     }
