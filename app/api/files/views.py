@@ -155,6 +155,11 @@ def list_folder(
     db_session: Session = Depends(deps.db_session),
     account: Account = Depends(deps.current_account),
 ):
+    """
+    Lists content of a folder with a given path.
+
+    Note, that Trash folder is never present in a result list.
+    """
     folder = crud.file.get_folder(db_session, account.namespace.id, payload.path)
     if not folder:
         raise exceptions.PathNotFound()

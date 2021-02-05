@@ -171,6 +171,25 @@ def test_get_download_url_but_file_not_found(client: TestClient, user_factory):
     }
 
 
-def test_list_folder_unauthorized(client: TestClient):
-    response = client.post("/files/list_folder")
-    assert response.status_code == 401
+def test_list_folder(client: TestClient, user_factory, file_factory):
+    user = user_factory()
+    file_factory(user.id, path="file.txt")
+    file_factory(user.id, path="folder/file.txt")
+    payload = {"path": "."}
+    response = client.login(user.id).post("/files/list_folder", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["path"] == "."
+    assert data["count"] == 2
+    assert data["items"][0]["name"] == "folder"
+    assert data["items"][1]["name"] == "file.txt"
+
+
+def test_list_folder_but_path_does_not_exists(client: TestClient, user_factory):
+    user = user_factory()
+    payload = {"path": "wrong/path"}
+    response = client.login(user.id).post("/files/list_folder", json=payload)
+    assert response.json() == {
+        "code": "PATH_NOT_FOUND",
+        "message": "Path not found."
+    }
