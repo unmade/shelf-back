@@ -90,6 +90,22 @@ def test_delete_immediately_but_it_is_a_special_folder(
     }
 
 
+def test_empty_trash(client: TestClient, user_factory):
+    user = user_factory()
+    response = client.login(user.id).post("/files/empty_trash")
+    assert response.status_code == 200
+    data = response.json()
+    assert data.pop("id")
+    assert data.pop("mtime")
+    assert data == {
+        "type": "folder",
+        "name": "Trash",
+        "path": "Trash",
+        "size": 0,
+        "hidden": True,
+    }
+
+
 def test_list_folder_unauthorized(client: TestClient):
     response = client.post("/files/list_folder")
     assert response.status_code == 401

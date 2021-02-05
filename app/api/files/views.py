@@ -99,6 +99,7 @@ def empty_trash(
     db_session: Session = Depends(deps.db_session),
     account: Account = Depends(deps.current_account),
 ):
+    """Deletes all files and folders in the Trash folder."""
     crud.file.empty_trash(db_session, account.namespace.id)
     storage.delete_dir_content(
         Path(account.namespace.path).joinpath(config.TRASH_FOLDER_NAME)
