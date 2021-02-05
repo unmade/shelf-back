@@ -36,10 +36,6 @@ class UploadResult(BaseModel):
         orm_mode = True
 
 
-class DeleteImmediatelyResult(File):
-    pass
-
-
 class EmptyTrashResult(File):
     pass
 
