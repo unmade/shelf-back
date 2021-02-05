@@ -7,6 +7,10 @@ from pydantic import BaseModel, validator
 from app.config import TRASH_FOLDER_NAME
 
 
+class DownloadUrl(BaseModel):
+    download_url: str
+
+
 class FolderPath(BaseModel):
     path: str
 

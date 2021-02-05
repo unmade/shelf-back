@@ -151,6 +151,26 @@ def test_empty_trash(client: TestClient, user_factory):
     }
 
 
+def test_get_download_url(client: TestClient, user_factory, file_factory):
+    user = user_factory()
+    file = file_factory(user.id)
+    payload = {"path": file.path}
+    response = client.login(user.id).post("/files/get_download_url", json=payload)
+    assert response.status_code == 200
+    download_url = response.json()["download_url"]
+    assert download_url.startswith(client.base_url)
+
+
+def test_get_download_url_but_file_not_found(client: TestClient, user_factory):
+    user = user_factory()
+    payload = {"path": "wrong/path"}
+    response = client.login(user.id).post("/files/get_download_url", json=payload)
+    assert response.json() == {
+        "code": "PATH_NOT_FOUND",
+        "message": "Path not found."
+    }
+
+
 def test_list_folder_unauthorized(client: TestClient):
     response = client.post("/files/list_folder")
     assert response.status_code == 401

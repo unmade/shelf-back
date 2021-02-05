@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import asyncio
-import uuid
+import secrets
 from datetime import datetime
 from pathlib import Path
 
 from cashews import cache
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -127,12 +127,14 @@ def empty_trash(
     return trash
 
 
-@router.post("/get_download_url")
+@router.post("/get_download_url", response_model=schemas.DownloadUrl)
 async def get_download_url(
+    request: Request,
     payload: schemas.FolderPath,
     db_session: Session = Depends(deps.db_session),
     account: Account = Depends(deps.current_account),
 ):
+    """Generates and returns a link to download requested file or folder."""
     loop = asyncio.get_event_loop()
     file = await loop.run_in_executor(
         None, crud.file.get, db_session, account.namespace.id, payload.path
@@ -140,11 +142,11 @@ async def get_download_url(
     if not file:
         raise exceptions.PathNotFound()
 
-    key = uuid.uuid4().hex
+    key = secrets.token_urlsafe()
     path = Path(account.namespace.path).joinpath(file.path)
     await cache.set(key=key, value=path, expire=60)
 
-    return {"download_url": f"http://localhost:8000/files/download?key={key}"}
+    return {"download_url": f"{request.base_url}files/download?key={key}"}
 
 
 @router.post("/list_folder", response_model=schemas.ListFolderResult)
