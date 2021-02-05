@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import secrets
+from io import BytesIO
 from typing import TYPE_CHECKING
 
 import pytest
@@ -315,4 +316,32 @@ def test_move_to_trash_but_file_not_found(client: TestClient, user_factory):
     assert response.json() == {
         "code": "PATH_NOT_FOUND",
         "message": "Path not found."
+    }
+
+
+def test_upload(client: TestClient, user_factory):
+    user = user_factory()
+    payload = {
+        "file": BytesIO(b"Dummy file"),
+        "path": (None, "folder/file.txt"),
+    }
+    response = client.login(user.id).post("/files/upload", files=payload)
+    assert response.status_code == 200
+    file = response.json()["file"]
+    updates = response.json()["updates"]
+    assert file["path"] == "folder/file.txt"
+    assert len(updates) == 2
+
+
+def test_upload_but_to_a_special_path(client: TestClient, user_factory):
+    user = user_factory()
+    payload = {
+        "file": BytesIO(b"Dummy file"),
+        "path": (None, "Trash"),
+    }
+    response = client.login(user.id).post("/files/upload", files=payload)
+    assert response.status_code == 400
+    assert response.json() == {
+        "code": "INVALID_OPERATION",
+        "message": "Invalid operation.",
     }

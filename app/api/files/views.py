@@ -303,6 +303,14 @@ def upload_file(
     db_session: Session = Depends(deps.db_session),
     account: Account = Depends(deps.current_account),
 ):
+    """
+    Uploads file to a specified path.
+
+    Note, that if file with the same name already exists, it will be overriden.
+    """
+    if path == config.TRASH_FOLDER_NAME:
+        raise exceptions.InvalidOperation()
+
     relpath = Path(path)
     ns_path = Path(account.namespace.path)
     fullpath = ns_path.joinpath(relpath)
