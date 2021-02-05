@@ -49,12 +49,20 @@ def replace_storage_root_dir_with_tmp_path(tmp_path):
 @pytest.fixture
 def user_factory():
     """Creates a new user, namespace, root and trash directories"""
-    def _user_factory(username: str = None, password: str = "root"):
+    def _user_factory(
+        username: str = None, password: str = "root", hash_password: bool = False,
+    ):
         with db.SessionManager() as db_session:
             username = username or fake.simple_profile()["username"]
-            # TODO: hashing password is an expensive operation. Maybe it would be better
+            # Hashing password is an expensive operation. Maybe it would be better
             # to have a special flag and hash it only when needed.
-            user = crud.user.create(db_session, username, password)
+            if hash_password:
+                user = crud.user.create(db_session, username, password)
+            else:
+                from unittest import mock
+
+                with mock.patch("app.security.make_password", return_value=password):
+                    user = crud.user.create(db_session, username, password)
             ns = crud.namespace.create(db_session, username, owner_id=user.id)
             root_dir = storage.mkdir(ns.path)
             trash_dir = storage.mkdir(Path(ns.path).joinpath(config.TRASH_FOLDER_NAME))

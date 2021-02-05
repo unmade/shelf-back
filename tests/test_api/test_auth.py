@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 
 def test_get_tokens(client: TestClient, user_factory):
-    user = user_factory()
+    user = user_factory(hash_password=True)
     data = {
         "username": user.username,
         "password": "root",
@@ -30,7 +30,7 @@ def test_get_tokens_but_user_does_not_exists(client: TestClient):
 
 
 def test_get_tokens_but_password_is_invalid(client: TestClient, user_factory):
-    user = user_factory()
+    user = user_factory(hash_password=True)
     data = {
         "username": user.username,
         "password": "wrong password",
