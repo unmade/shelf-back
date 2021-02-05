@@ -6,6 +6,14 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from app.api.files.exceptions import (
+    AlreadyDeleted,
+    AlreadyExists,
+    DownloadNotFound,
+    InvalidOperation,
+    PathNotFound,
+)
+
 if TYPE_CHECKING:
     from ..conftest import TestClient
 
@@ -24,16 +32,9 @@ def test_create_folder(
     payload = {"path": path}
     response = client.login(user.id).post("/files/create_folder", json=payload)
     assert response.status_code == 200
-    data = response.json()
-    assert data.pop("id")
-    assert data.pop("mtime")
-    assert data == {
-        "type": "folder",
-        "name": name,
-        "path": expected_path or path,
-        "size": 0,
-        "hidden": hidden,
-    }
+    assert response.json()["name"] == name
+    assert response.json()["path"] == (expected_path or path)
+    assert response.json()["hidden"] is hidden
 
 
 def test_create_folder_but_folder_already_exists(client: TestClient, user_factory):
@@ -41,10 +42,7 @@ def test_create_folder_but_folder_already_exists(client: TestClient, user_factor
     payload = {"path": "Trash"}
     response = client.login(user.id).post("/files/create_folder", json=payload)
     assert response.status_code == 400
-    assert response.json() == {
-        "code": "ALREADY_EXISTS",
-        "message": "Already exists.",
-    }
+    assert response.json() == AlreadyExists().as_dict()
 
 
 def test_delete_immediately(client: TestClient, user_factory):
@@ -55,16 +53,8 @@ def test_delete_immediately(client: TestClient, user_factory):
     client.post("/files/create_folder", json=payload)
     response = client.post("/files/delete_immediately", json=payload)
     assert response.status_code == 200
-    data = response.json()
-    assert data.pop("id")
-    assert data.pop("mtime")
-    assert data == {
-        "type": "folder",
-        "name": name,
-        "path": path,
-        "size": 0,
-        "hidden": False,
-    }
+    assert response.json()["name"] == name
+    assert response.json()["path"] == path
 
 
 def test_delete_immediately_but_path_not_found(client: TestClient, user_factory):
@@ -72,10 +62,7 @@ def test_delete_immediately_but_path_not_found(client: TestClient, user_factory)
     payload = {"path": "Test Folder"}
     response = client.login(user.id).post("/files/delete_immediately", json=payload)
     assert response.status_code == 404
-    assert response.json() == {
-        "code": "PATH_NOT_FOUND",
-        "message": "Path not found."
-    }
+    assert response.json() == PathNotFound().as_dict()
 
 
 @pytest.mark.parametrize("path", [".", "Trash"])
@@ -86,10 +73,7 @@ def test_delete_immediately_but_it_is_a_special_folder(
     payload = {"path": path}
     response = client.login(user.id).post("/files/delete_immediately", json=payload)
     assert response.status_code == 400
-    assert response.json() == {
-        "code": "INVALID_OPERATION",
-        "message": "Invalid operation.",
-    }
+    assert response.json() == InvalidOperation().as_dict()
 
 
 def test_download_file(client: TestClient, user_factory, file_factory):
@@ -130,26 +114,14 @@ def test_download_but_key_is_invalid(client: TestClient):
     key = secrets.token_urlsafe()
     response = client.get(f"/files/download?key={key}")
     assert response.status_code == 404
-    assert response.json() == {
-        "code": "DOWNLOAD_NOT_FOUND",
-        "message": "Download not found.",
-    }
+    assert response.json() == DownloadNotFound().as_dict()
 
 
 def test_empty_trash(client: TestClient, user_factory):
     user = user_factory()
     response = client.login(user.id).post("/files/empty_trash")
     assert response.status_code == 200
-    data = response.json()
-    assert data.pop("id")
-    assert data.pop("mtime")
-    assert data == {
-        "type": "folder",
-        "name": "Trash",
-        "path": "Trash",
-        "size": 0,
-        "hidden": True,
-    }
+    assert response.json()["path"] == "Trash"
 
 
 def test_get_download_url(client: TestClient, user_factory, file_factory):
@@ -158,18 +130,14 @@ def test_get_download_url(client: TestClient, user_factory, file_factory):
     payload = {"path": file.path}
     response = client.login(user.id).post("/files/get_download_url", json=payload)
     assert response.status_code == 200
-    download_url = response.json()["download_url"]
-    assert download_url.startswith(client.base_url)
+    assert response.json()["download_url"].startswith(client.base_url)
 
 
 def test_get_download_url_but_file_not_found(client: TestClient, user_factory):
     user = user_factory()
     payload = {"path": "wrong/path"}
     response = client.login(user.id).post("/files/get_download_url", json=payload)
-    assert response.json() == {
-        "code": "PATH_NOT_FOUND",
-        "message": "Path not found."
-    }
+    assert response.json() == PathNotFound().as_dict()
 
 
 def test_list_folder(client: TestClient, user_factory, file_factory):
@@ -179,11 +147,10 @@ def test_list_folder(client: TestClient, user_factory, file_factory):
     payload = {"path": "."}
     response = client.login(user.id).post("/files/list_folder", json=payload)
     assert response.status_code == 200
-    data = response.json()
-    assert data["path"] == "."
-    assert data["count"] == 2
-    assert data["items"][0]["name"] == "folder"
-    assert data["items"][1]["name"] == "file.txt"
+    assert response.json()["path"] == "."
+    assert response.json()["count"] == 2
+    assert response.json()["items"][0]["name"] == "folder"
+    assert response.json()["items"][1]["name"] == "file.txt"
 
 
 def test_list_folder_but_path_does_not_exists(client: TestClient, user_factory):
@@ -191,10 +158,7 @@ def test_list_folder_but_path_does_not_exists(client: TestClient, user_factory):
     payload = {"path": "wrong/path"}
     response = client.login(user.id).post("/files/list_folder", json=payload)
     assert response.status_code == 404
-    assert response.json() == {
-        "code": "PATH_NOT_FOUND",
-        "message": "Path not found."
-    }
+    assert response.json() == PathNotFound().as_dict()
 
 
 @pytest.mark.parametrize(["from_path", "to_path"], [
@@ -223,10 +187,7 @@ def test_move_but_it_is_a_special_path(
     payload = {"from_path": from_path, "to_path": "Trashbin"}
     response = client.login(user.id).post("/files/move", json=payload)
     assert response.status_code == 400
-    assert response.json() == {
-        "code": "INVALID_OPERATION",
-        "message": "Invalid operation.",
-    }
+    assert response.json() == InvalidOperation().as_dict()
 
 
 @pytest.mark.parametrize("to_path", [".", "Trash"])
@@ -238,10 +199,7 @@ def test_move_but_to_a_special_path(
     payload = {"from_path": file.path, "to_path": to_path}
     response = client.login(user.id).post("/files/move", json=payload)
     assert response.status_code == 400
-    assert response.json() == {
-        "code": "INVALID_OPERATION",
-        "message": "Invalid operation.",
-    }
+    assert response.json() == InvalidOperation().as_dict()
 
 
 def test_move_but_file_not_found(client: TestClient, user_factory):
@@ -249,10 +207,7 @@ def test_move_but_file_not_found(client: TestClient, user_factory):
     payload = {"from_path": "file_a.txt", "to_path": "file_b.txt"}
     response = client.login(user.id).post("/files/move", json=payload)
     assert response.status_code == 404
-    assert response.json() == {
-        "code": "PATH_NOT_FOUND",
-        "message": "Path not found."
-    }
+    assert response.json() == PathNotFound().as_dict()
 
 
 def test_move_but_file_already_exists(client: TestClient, user_factory, file_factory):
@@ -262,10 +217,7 @@ def test_move_but_file_already_exists(client: TestClient, user_factory, file_fac
     payload = {"from_path": file_a.path, "to_path": file_b.path}
     response = client.login(user.id).post("/files/move", json=payload)
     assert response.status_code == 400
-    assert response.json() == {
-        "code": "ALREADY_EXISTS",
-        "message": "Already exists.",
-    }
+    assert response.json() == AlreadyExists().as_dict()
 
 
 @pytest.mark.parametrize(["file_path", "path", "expected_path"], [
@@ -288,10 +240,7 @@ def test_move_to_trash_but_it_is_a_trash(client: TestClient, user_factory):
     payload = {"path": "Trash"}
     response = client.login(user.id).post("/files/move_to_trash", json=payload)
     assert response.status_code == 400
-    assert response.json() == {
-        "code": "INVALID_OPERATION",
-        "message": "Invalid operation.",
-    }
+    assert response.json() == InvalidOperation().as_dict()
 
 
 def test_move_to_trash_but_file_is_in_trash(
@@ -302,10 +251,7 @@ def test_move_to_trash_but_file_is_in_trash(
     payload = {"path": file.path}
     response = client.login(user.id).post("/files/move_to_trash", json=payload)
     assert response.status_code == 400
-    assert response.json() == {
-        "code": "ALREADY_DELETED",
-        "message": "Already deleted.",
-    }
+    assert response.json() == AlreadyDeleted().as_dict()
 
 
 def test_move_to_trash_but_file_not_found(client: TestClient, user_factory):
@@ -313,10 +259,7 @@ def test_move_to_trash_but_file_not_found(client: TestClient, user_factory):
     payload = {"path": "file.txt"}
     response = client.login(user.id).post("/files/move_to_trash", json=payload)
     assert response.status_code == 404
-    assert response.json() == {
-        "code": "PATH_NOT_FOUND",
-        "message": "Path not found."
-    }
+    assert response.json() == PathNotFound().as_dict()
 
 
 def test_upload(client: TestClient, user_factory):
@@ -327,10 +270,8 @@ def test_upload(client: TestClient, user_factory):
     }
     response = client.login(user.id).post("/files/upload", files=payload)
     assert response.status_code == 200
-    file = response.json()["file"]
-    updates = response.json()["updates"]
-    assert file["path"] == "folder/file.txt"
-    assert len(updates) == 2
+    assert response.json()["file"]["path"] == "folder/file.txt"
+    assert len(response.json()["updates"]) == 2
 
 
 def test_upload_but_to_a_special_path(client: TestClient, user_factory):
@@ -341,7 +282,4 @@ def test_upload_but_to_a_special_path(client: TestClient, user_factory):
     }
     response = client.login(user.id).post("/files/upload", files=payload)
     assert response.status_code == 400
-    assert response.json() == {
-        "code": "INVALID_OPERATION",
-        "message": "Invalid operation.",
-    }
+    assert response.json() == InvalidOperation().as_dict()

@@ -1,8 +1,13 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, TypedDict
 
 from fastapi.responses import JSONResponse
+
+
+class APIErrorDict(TypedDict):
+    code: str
+    message: str
 
 
 class APIError(Exception):
@@ -22,18 +27,18 @@ class APIError(Exception):
             f"{self.__class__.__name__}("
             f"code='{self.code}',"
             f" message='{self.message}',"
-            f" details={self.details}"
             f")"
         )
 
-    def as_dict(self):
-        return
+    def as_dict(self) -> APIErrorDict:
+        return {
+            "code": self.code,
+            "message": self.message,
+        }
 
 
 async def api_error_exception_handler(_, exc: APIError):
-    return JSONResponse(
-        {"code": exc.code, "message": exc.message}, status_code=exc.status_code,
-    )
+    return JSONResponse(exc.as_dict(), status_code=exc.status_code)
 
 
 class MissingToken(APIError):
