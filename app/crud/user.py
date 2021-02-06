@@ -5,9 +5,9 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from app import security
-from app.entities import Account
-from app.entities import Namespace as NamespaceEntity
-from app.models import Namespace, User
+from app.entities import Account, Namespace
+from app.models import Namespace as NamespaceModel
+from app.models import User
 
 
 def create(db_session: Session, username: str, password: str) -> User:
@@ -40,10 +40,10 @@ def get_account(db_session: Session, user_id: int) -> Optional[Account]:
         db_session.query(
             User.id.label("user_id"),
             User.username.label("username"),
-            Namespace.id.label("namespace_id"),
-            Namespace.path.label("path")
+            NamespaceModel.id.label("namespace_id"),
+            NamespaceModel.path.label("path"),
         )
-        .join(Namespace)
+        .join(NamespaceModel)
         .filter(User.id == user_id)
         .first()
     )
@@ -52,7 +52,7 @@ def get_account(db_session: Session, user_id: int) -> Optional[Account]:
     return Account(
         id=row.user_id,
         username=row.username,
-        namespace=NamespaceEntity(
+        namespace=Namespace(
             id=row.namespace_id,
             path=row.path,
             owner_id=row.user_id,

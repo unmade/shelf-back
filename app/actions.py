@@ -131,10 +131,10 @@ def delete_immediately(
         raise FileNotFound()
 
     file = File.from_orm(file_in_db)
-    crud.file.inc_folders_size(
+    crud.file.inc_folder_size(
         db_session,
         namespace.id,
-        paths=(str(p) for p in Path(path).parents),
+        path=Path(path).parent,
         size=-file.size,
     )
 
@@ -208,19 +208,19 @@ def move(
 
     folders_to_decrease = set(from_path.parents).difference(to_path.parents)
     if folders_to_decrease:
-        crud.file.inc_folders_size(
+        crud.file.inc_folder_size(
             db_session,
             namespace.id,
-            paths=(str(p) for p in folders_to_decrease),
+            path=max((str(p) for p in folders_to_decrease), key=len),
             size=-file.size,
         )
 
     folders_to_increase = set(to_path.parents).difference(from_path.parents)
     if folders_to_increase:
-        crud.file.inc_folders_size(
+        crud.file.inc_folder_size(
             db_session,
             namespace.id,
-            paths=(str(p) for p in folders_to_increase),
+            path=max((str(p) for p in folders_to_increase), key=len),
             size=file.size,
         )
 

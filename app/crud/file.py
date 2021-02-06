@@ -201,20 +201,6 @@ def update(
     return file
 
 
-def inc_folders_size(
-    db_session: Session, namespace_id: int, paths: Iterable[str], size: int,
-):
-    return (
-        db_session.query(File)
-        .filter(
-            File.namespace_id == namespace_id,
-            File.path.in_(paths),
-            File.is_dir.is_(True),
-        )
-        .update({"size": File.size + size}, synchronize_session=False)
-    )
-
-
 def move(
     db_session: Session, namespace_id: int, from_path: StrOrPath, to_path: StrOrPath,
 ):
