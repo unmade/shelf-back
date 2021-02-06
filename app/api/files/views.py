@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app import config, crud
+from app import actions, config, crud
 from app.api import deps
 from app.entities import Account
 from app.storage import storage
@@ -32,35 +32,12 @@ def create_folder(
     If a path provided in a format a/b/c, then 'a' and 'b' folders will be created,
     if not existed, and 'c' will be returned as a response.
     """
-    relpath = Path(payload.path.strip())
-    ns_path = Path(account.namespace.path)
-    fullpath = ns_path / relpath
+    try:
+        folder = actions.create_folder(db_session, account.namespace, payload.path)
+    except actions.AlreadyExists as exc:
+        raise exceptions.AlreadyExists() from exc
 
-    if storage.is_dir_exists(fullpath):
-        raise exceptions.AlreadyExists()
-
-    # todo: catch exception if creation fails
-    storage.mkdir(fullpath)
-
-    parent = crud.file.get_folder(db_session, account.namespace.id, str(relpath.parent))
-    if not parent:
-        parent = crud.file.create_parents(
-            db_session,
-            [storage.get(ns_path / p) for p in relpath.parents],
-            namespace_id=account.namespace.id,
-            rel_to=account.namespace.path,
-        )
-
-    storage_file = storage.get(fullpath)
-    folder = crud.file.create(
-        db_session,
-        storage_file,
-        account.namespace.id,
-        rel_to=account.namespace.path,
-        parent_id=parent.id,
-    )
     db_session.commit()
-
     return folder
 
 

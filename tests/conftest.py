@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from io import BytesIO
 from pathlib import Path
+from unittest import mock
 
 import pytest
 from faker import Faker
 from starlette.testclient import TestClient as StarletteTestClient
 
-from app import config, crud, db, security
+from app import actions, config, crud, db, security
 from app.main import create_app
 from app.storage import storage
 
@@ -52,25 +53,15 @@ def user_factory():
     def _user_factory(
         username: str = None, password: str = "root", hash_password: bool = False,
     ):
+        username = username or fake.simple_profile()["username"]
         with db.SessionManager() as db_session:
-            username = username or fake.simple_profile()["username"]
-            # Hashing password is an expensive operation. Maybe it would be better
-            # to have a special flag and hash it only when needed.
+            # Hashing password is an expensive operation, so do it only when need it.
             if hash_password:
-                user = crud.user.create(db_session, username, password)
+                user = actions.create_account(db_session, username, password)
             else:
-                from unittest import mock
-
                 with mock.patch("app.security.make_password", return_value=password):
-                    user = crud.user.create(db_session, username, password)
-            ns = crud.namespace.create(db_session, username, owner_id=user.id)
-            root_dir = storage.mkdir(ns.path)
-            trash_dir = storage.mkdir(Path(ns.path) / config.TRASH_FOLDER_NAME)
-            root = crud.file.create(db_session, root_dir, ns.id, rel_to=ns.path)
-            db_session.flush()
-            crud.file.create(
-                db_session, trash_dir, ns.id, rel_to=ns.path, parent_id=root.id
-            )
+                    user = actions.create_account(db_session, username, password)
+
             db_session.commit()
             db_session.refresh(user)
             return user
