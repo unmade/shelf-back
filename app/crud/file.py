@@ -16,6 +16,34 @@ if TYPE_CHECKING:
     from app.typedefs import StrOrPath
 
 
+def exists(
+    db_session: Session, namespace_id: int, path: StrOrPath, folder: bool = None
+) -> bool:
+    """
+    Checks whether a file or a folder exists in a given path.
+
+    Args:
+        db_session (Session): Database session.
+        namespace_id (int): Namespace where to look for a path.
+        path (StrOrPath): Path to a file or a folder.
+        folder (bool, optional): If True, will check only if folder exists, otherwise
+            will check for a file. If None (default) will check for both.
+
+    Returns:
+        bool: True if file/folder exists, False otherwise.
+    """
+    query = (
+        db_session.query(File)
+        .filter(
+            File.namespace_id == namespace_id,
+            File.path == str(path),
+        )
+    )
+    if folder is not None:
+        query = query.filter(File.is_dir.is_(folder))
+    return db_session.query(query.exists()).scalar()
+
+
 def get(db_session: Session, namespace_id: int, path: StrOrPath) -> File:
     return (
         db_session.query(File)

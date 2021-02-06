@@ -81,8 +81,7 @@ def create_folder(db_session: Session, namespace: Namespace, path: StrOrPath) ->
     relpath = Path(path)
     fullpath = namespace.path / relpath
 
-    # todo: should check within database
-    if storage.is_dir_exists(fullpath):
+    if crud.file.exists(db_session, namespace.id, relpath, folder=True):
         raise FileAlreadyExists()
 
     # todo: catch exception if creation fails
@@ -189,18 +188,12 @@ def move(
     if not file:
         raise FileNotFound()
 
-    if crud.file.get(db_session, namespace.id, to_path):
+    if crud.file.exists(db_session, namespace.id, to_path):
         raise FileAlreadyExists()
 
     next_parent = crud.file.get(db_session, namespace.id, to_path.parent)
     if not next_parent:
-        storage.mkdir(namespace.path / to_path.parent)
-        next_parent = crud.file.create_parents(
-            db_session,
-            [storage.get(namespace.path / p) for p in to_path.parents],
-            namespace_id=namespace.id,
-            rel_to=namespace.path,
-        )
+        next_parent = create_folder(db_session, namespace, to_path.parent)
 
     file.parent_id = next_parent.id
     file.name = to_path.name
@@ -253,7 +246,7 @@ def move_to_trash(db_session: Session, namespace: Namespace, path: StrOrPath) ->
     if not file:
         raise FileNotFound()
 
-    if crud.file.get(db_session, namespace.id, to_path):
+    if crud.file.exists(db_session, namespace.id, to_path):
         name = to_path.name.strip(to_path.suffix)
         suffix = datetime.now().strftime("%H%M%S%f")
         to_path = to_path.parent / f"{name} {suffix}{to_path.suffix}"
@@ -268,8 +261,8 @@ def reconcile(db_session: Session, namespace: Namespace, path: StrOrPath) -> Non
     Args:
         db_session (Session): Database session.
         namespace (Namespace): Namespace where file should be reconciled.
-        path (StrOrPath): Path to a folder that should be reconciled. For home directory
-        use ".".
+        path (StrOrPath): Path to a folder that should be reconciled. For home
+            directory use ".".
     """
     fullpath = namespace.path / path
     files = {f.name: f for f in storage.iterdir(fullpath)}
@@ -322,18 +315,9 @@ def save_file(
     relpath = Path(path)
     fullpath = namespace.path / relpath
 
-    if not storage.is_dir_exists(fullpath.parent):
-        # todo: catch exception if creation fails
-        storage.mkdir(fullpath.parent)
-
     parent = crud.file.get_folder(db_session, namespace.id, relpath.parent)
     if not parent:
-        parent = crud.file.create_parents(
-            db_session,
-            [storage.get(namespace.path / p) for p in relpath.parents],
-            namespace_id=namespace.id,
-            rel_to=namespace.path,
-        )
+        parent = create_folder(db_session, namespace, relpath.parent)
 
     file_exists = storage.is_exists(fullpath)
     storage_file = storage.save(fullpath, file)
