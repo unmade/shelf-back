@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import secrets
-from datetime import datetime
 from pathlib import Path
 
 from cashews import cache
@@ -181,45 +180,13 @@ def move_to_trash(
     if payload.path.startswith(f"{config.TRASH_FOLDER_NAME}/"):
         raise exceptions.AlreadyDeleted()
 
-    from_path = Path(payload.path)
-    to_path = Path(config.TRASH_FOLDER_NAME) / from_path.name
-    ns_path = Path(account.namespace.path)
+    try:
+        file = actions.move_to_trash(db_session, account.namespace, payload.path)
+    except actions.FileNotFound as exc:
+        raise exceptions.PathNotFound from exc
+    else:
+        db_session.commit()
 
-    file = crud.file.get(db_session, account.namespace.id, str(from_path))
-    if not file:
-        raise exceptions.PathNotFound()
-
-    if crud.file.get(db_session, account.namespace.id, str(to_path)):
-        name = to_path.name.strip(to_path.suffix)
-        suffix = datetime.now().strftime("%H%M%S%f")
-        to_path = to_path.parent / f"{name} {suffix}{to_path.suffix}"
-
-    next_parent = crud.file.get(db_session, account.namespace.id, str(to_path.parent))
-
-    file.parent_id = next_parent.id
-    file.name = to_path.name
-    crud.file.move(db_session, account.namespace.id, str(from_path), str(to_path))
-
-    folders_to_decrease = set(from_path.parents).difference(to_path.parents)
-    if folders_to_decrease:
-        crud.file.inc_folders_size(
-            db_session,
-            account.namespace.id,
-            paths=(str(p) for p in folders_to_decrease),
-            size=-file.size,
-        )
-
-    folders_to_increase = set(to_path.parents).difference(from_path.parents)
-    if folders_to_increase:
-        crud.file.inc_folders_size(
-            db_session,
-            account.namespace.id,
-            paths=(str(p) for p in folders_to_increase),
-            size=file.size,
-        )
-
-    storage.move(ns_path / from_path, ns_path / to_path)
-    db_session.commit()
     return file
 
 

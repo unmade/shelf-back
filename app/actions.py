@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -226,3 +227,33 @@ def move(
     db_session.refresh(file)
 
     return File.from_orm(file)
+
+
+def move_to_trash(db_session: Session, namespace: Namespace, path: str) -> File:
+    """
+    Moves a file or folder to the Trash folder in the given Namespace.
+    If the path is a folder all its contents will be moved.
+
+    Args:
+        db_session (Session): Database session.
+        namespace (Namespace): Namespace where path located.
+        path (str): Path to a file or folder to be moved to the Trash folder.
+
+    Raises:
+        FileNotFound: If source path does not exists.
+
+    Returns:
+        File: Moved file.
+    """
+    from_path = Path(path)
+    to_path = Path(TRASH_FOLDER_NAME) / from_path.name
+    file = crud.file.get(db_session, namespace.id, str(from_path))
+    if not file:
+        raise FileNotFound()
+
+    if crud.file.get(db_session, namespace.id, str(to_path)):
+        name = to_path.name.strip(to_path.suffix)
+        suffix = datetime.now().strftime("%H%M%S%f")
+        to_path = to_path.parent / f"{name} {suffix}{to_path.suffix}"
+
+    return move(db_session, namespace, path, str(to_path))
