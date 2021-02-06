@@ -31,8 +31,9 @@ def create_folder(
     If a path provided in a format a/b/c, then 'a' and 'b' folders will be created,
     if not existed, and 'c' will be returned as a response.
     """
+    path = payload.path.strip()
     try:
-        folder = actions.create_folder(db_session, account.namespace, payload.path)
+        folder = actions.create_folder(db_session, account.namespace, path)
     except actions.FileAlreadyExists as exc:
         raise exceptions.AlreadyExists() from exc
     else:

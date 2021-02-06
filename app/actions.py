@@ -11,6 +11,7 @@ from app.storage import storage
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+    from app.typedefs import StrOrPath
 
 
 class FileAlreadyExists(Exception):
@@ -62,14 +63,14 @@ def _create_home_folder(db_session: Session, namespace: Namespace) -> File:
     )
 
 
-def create_folder(db_session: Session, namespace: Namespace, path: str) -> File:
+def create_folder(db_session: Session, namespace: Namespace, path: StrOrPath) -> File:
     """
     Creates a folder in a given Namespace.
 
     Args:
         db_session (Session): Database session.
         namespace (Namespace): Namespace where a folder should be created.
-        path (str): Path to a folder to create.
+        path (StrOrPath): Path to a folder to create.
 
     Raises:
         FileAlreadyExists: If folder with a given path already exists.
@@ -77,9 +78,8 @@ def create_folder(db_session: Session, namespace: Namespace, path: str) -> File:
     Returns:
         File: Created folder.
     """
-    relpath = Path(path.strip())
-    ns_path = Path(namespace.path)
-    fullpath = ns_path / relpath
+    relpath = Path(path)
+    fullpath = namespace.path / relpath
 
     # todo: should check within database
     if storage.is_dir_exists(fullpath):
@@ -88,11 +88,11 @@ def create_folder(db_session: Session, namespace: Namespace, path: str) -> File:
     # todo: catch exception if creation fails
     storage.mkdir(fullpath)
 
-    parent = crud.file.get_folder(db_session, namespace.id, str(relpath.parent))
+    parent = crud.file.get_folder(db_session, namespace.id, relpath.parent)
     if not parent:
         parent = crud.file.create_parents(
             db_session,
-            [storage.get(ns_path / p) for p in relpath.parents],
+            [storage.get(namespace.path / p) for p in relpath.parents],
             namespace_id=namespace.id,
             rel_to=namespace.path,
         )
@@ -109,14 +109,16 @@ def create_folder(db_session: Session, namespace: Namespace, path: str) -> File:
     )
 
 
-def delete_immediately(db_session: Session, namespace: Namespace, path: str) -> File:
+def delete_immediately(
+    db_session: Session, namespace: Namespace, path: StrOrPath,
+) -> File:
     """
     Permanently deletes file or a folder with all of its contents.
 
     Args:
         db_session (Session): Database session.
         namespace (Namespace): Namespace where file/folder should be deleted.
-        path (str): Path to a file/folder to delete.
+        path (StrOrPath): Path to a file/folder to delete.
 
     Raises:
         FileNotFound: If file/folder with a given path does not exists.
@@ -137,7 +139,7 @@ def delete_immediately(db_session: Session, namespace: Namespace, path: str) -> 
     )
 
     crud.file.delete(db_session, namespace.id, path)
-    storage.delete(Path(namespace.path) / path)
+    storage.delete(namespace.path / path)
 
     return file
 
@@ -154,14 +156,14 @@ def empty_trash(db_session: Session, namespace: Namespace) -> File:
         File: Trash folder.
     """
     crud.file.empty_trash(db_session, namespace.id)
-    storage.delete_dir_content(Path(namespace.path) / TRASH_FOLDER_NAME)
+    storage.delete_dir_content(namespace.path / TRASH_FOLDER_NAME)
     return File.from_orm(
         crud.file.get(db_session, namespace.id, TRASH_FOLDER_NAME)
     )
 
 
 def move(
-    db_session: Session, namespace: Namespace, from_path: str, to_path: str,
+    db_session: Session, namespace: Namespace, from_path: StrOrPath, to_path: StrOrPath,
 ) -> File:
     """
     Moves a file or folder to a different location in the given Namespace.
@@ -170,8 +172,8 @@ def move(
     Args:
         db_session (Session): Database session.
         namespace (Namespace): Namespace, where file/folder should be moved.
-        from_path (str): Path to be moved.
-        to_path (str): Path that is the destination.
+        from_path (StrOrPath): Path to be moved.
+        to_path (StrOrPath): Path that is the destination.
 
     Raises:
         FileNotFound: If source path does not exists.
@@ -182,28 +184,27 @@ def move(
     """
     from_path = Path(from_path)
     to_path = Path(to_path)
-    ns_path = Path(namespace.path)
 
-    file = crud.file.get(db_session, namespace.id, str(from_path))
+    file = crud.file.get(db_session, namespace.id, from_path)
     if not file:
         raise FileNotFound()
 
-    if crud.file.get(db_session, namespace.id, str(to_path)):
+    if crud.file.get(db_session, namespace.id, to_path):
         raise FileAlreadyExists()
 
-    next_parent = crud.file.get(db_session, namespace.id, str(to_path.parent))
+    next_parent = crud.file.get(db_session, namespace.id, to_path.parent)
     if not next_parent:
-        storage.mkdir(ns_path / to_path.parent)
+        storage.mkdir(namespace.path / to_path.parent)
         next_parent = crud.file.create_parents(
             db_session,
-            [storage.get(ns_path / p) for p in to_path.parents],
+            [storage.get(namespace.path / p) for p in to_path.parents],
             namespace_id=namespace.id,
             rel_to=namespace.path,
         )
 
     file.parent_id = next_parent.id
     file.name = to_path.name
-    crud.file.move(db_session, namespace.id, str(from_path), str(to_path))
+    crud.file.move(db_session, namespace.id, from_path, to_path)
 
     folders_to_decrease = set(from_path.parents).difference(to_path.parents)
     if folders_to_decrease:
@@ -223,14 +224,14 @@ def move(
             size=file.size,
         )
 
-    storage.move(ns_path / from_path, ns_path / to_path)
+    storage.move(namespace.path / from_path, namespace.path / to_path)
 
     db_session.refresh(file)
 
     return File.from_orm(file)
 
 
-def move_to_trash(db_session: Session, namespace: Namespace, path: str) -> File:
+def move_to_trash(db_session: Session, namespace: Namespace, path: StrOrPath) -> File:
     """
     Moves a file or folder to the Trash folder in the given Namespace.
     If the path is a folder all its contents will be moved.
@@ -238,7 +239,7 @@ def move_to_trash(db_session: Session, namespace: Namespace, path: str) -> File:
     Args:
         db_session (Session): Database session.
         namespace (Namespace): Namespace where path located.
-        path (str): Path to a file or folder to be moved to the Trash folder.
+        path (StrOrPath): Path to a file or folder to be moved to the Trash folder.
 
     Raises:
         FileNotFound: If source path does not exists.
@@ -248,36 +249,36 @@ def move_to_trash(db_session: Session, namespace: Namespace, path: str) -> File:
     """
     from_path = Path(path)
     to_path = Path(TRASH_FOLDER_NAME) / from_path.name
-    file = crud.file.get(db_session, namespace.id, str(from_path))
+    file = crud.file.get(db_session, namespace.id, from_path)
     if not file:
         raise FileNotFound()
 
-    if crud.file.get(db_session, namespace.id, str(to_path)):
+    if crud.file.get(db_session, namespace.id, to_path):
         name = to_path.name.strip(to_path.suffix)
         suffix = datetime.now().strftime("%H%M%S%f")
         to_path = to_path.parent / f"{name} {suffix}{to_path.suffix}"
 
-    return move(db_session, namespace, path, str(to_path))
+    return move(db_session, namespace, path, to_path)
 
 
-def reconcile(db_session: Session, namespace: Namespace, path: str) -> None:
+def reconcile(db_session: Session, namespace: Namespace, path: StrOrPath) -> None:
     """
     Reconciles storage and database in a given folder.
 
     Args:
         db_session (Session): Database session.
         namespace (Namespace): Namespace where file should be reconciled.
-        path (str): Path to a folder that should be reconciled. For home directory
+        path (StrOrPath): Path to a folder that should be reconciled. For home directory
         use ".".
     """
-    path = Path(namespace.path) / path
-    files = {f.name: f for f in storage.iterdir(path)}
+    fullpath = namespace.path / path
+    files = {f.name: f for f in storage.iterdir(fullpath)}
 
-    rel_path = str(path.relative_to(namespace.path))
-    parent = crud.file.get_folder(db_session, namespace.id, path=rel_path)
+    relpath = fullpath.relative_to(namespace.path)
+    parent = crud.file.get_folder(db_session, namespace.id, path=relpath)
     assert parent is not None
     files_db = crud.file.list_folder_by_id(
-        db_session, parent.id, hide_trash_folder=False
+        db_session, parent.id, hide_trash_folder=False,
     )
 
     names_from_storage = set(files.keys())
@@ -294,41 +295,42 @@ def reconcile(db_session: Session, namespace: Namespace, path: str) -> None:
         crud.file.inc_folder_size(
             db_session,
             namespace.id,
-            path=rel_path,
+            path=relpath,
             size=sum(files[name].size for name in names),
         )
 
-    subdirs = (f for f in storage.iterdir(path) if f.is_dir())
+    subdirs = (f for f in storage.iterdir(fullpath) if f.is_dir())
     for subdir in subdirs:
         reconcile(db_session, namespace, subdir.path.relative_to(namespace.path))
 
 
-def save_file(db_session: Session, namespace: Namespace, path: str, file: IO) -> File:
+def save_file(
+    db_session: Session, namespace: Namespace, path: StrOrPath, file: IO,
+) -> File:
     """
     Saves file to storage and database.
 
     Args:
         db_session (Session): Database session.
         namespace (Namespace): Namespace where a file should be saved.
-        path (str): Path where a file should be saved.
+        path (StrOrPath): Path where a file should be saved.
         file (IO): Actual file.
 
     Returns:
         File: Saved file.
     """
     relpath = Path(path)
-    ns_path = Path(namespace.path)
-    fullpath = ns_path / relpath
+    fullpath = namespace.path / relpath
 
     if not storage.is_dir_exists(fullpath.parent):
         # todo: catch exception if creation fails
         storage.mkdir(fullpath.parent)
 
-    parent = crud.file.get_folder(db_session, namespace.id, str(relpath.parent))
+    parent = crud.file.get_folder(db_session, namespace.id, relpath.parent)
     if not parent:
         parent = crud.file.create_parents(
             db_session,
-            [storage.get(ns_path / p) for p in relpath.parents],
+            [storage.get(namespace.path / p) for p in relpath.parents],
             namespace_id=namespace.id,
             rel_to=namespace.path,
         )
@@ -359,7 +361,6 @@ def save_file(db_session: Session, namespace: Namespace, path: str, file: IO) ->
         db_session, namespace_id=namespace.id, path=result.path, size=size_inc,
     )
 
-    db_session.flush()
     db_session.refresh(result)
 
     return File.from_orm(result)

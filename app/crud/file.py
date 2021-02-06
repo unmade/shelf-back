@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import operator
 from pathlib import Path
-from typing import Iterable, Optional, Union
+from typing import TYPE_CHECKING, Iterable
 
 import sqlalchemy.exc
 from sqlalchemy import func
@@ -12,33 +12,41 @@ from app.config import TRASH_FOLDER_NAME
 from app.models import File
 from app.storage import StorageFile
 
-
-def get(db_session: Session, namespace_id: int, path: str) -> Optional[File]:
-    return (
-        db_session.query(File)
-        .filter(File.namespace_id == namespace_id, File.path == str(path))
-        .scalar()
-    )
+if TYPE_CHECKING:
+    from app.typedefs import StrOrPath
 
 
-def get_folder(db_session: Session, namespace_id: int, path: str) -> Optional[File]:
+def get(db_session: Session, namespace_id: int, path: StrOrPath) -> File:
     return (
         db_session.query(File)
         .filter(
-            File.namespace_id == namespace_id, File.path == path, File.is_dir.is_(True)
+            File.namespace_id == namespace_id,
+            File.path == str(path),
         )
         .scalar()
     )
 
 
-def list_folder(db_session: Session, namespace_id: int, path: str):
+def get_folder(db_session: Session, namespace_id: int, path: StrOrPath) -> File:
+    return (
+        db_session.query(File)
+        .filter(
+            File.namespace_id == namespace_id,
+            File.path == str(path),
+            File.is_dir.is_(True)
+        )
+        .scalar()
+    )
+
+
+def list_folder(db_session: Session, namespace_id: int, path: StrOrPath):
     parent = aliased(File)
     return (
         db_session.query(File)
         .join(parent, parent.id == File.parent_id)
         .filter(
             parent.namespace_id == namespace_id,
-            parent.path == path,
+            parent.path == str(path),
             parent.is_dir.is_(True),
         )
         .order_by(File.is_dir.desc(), File.name.collate("NOCASE"))
@@ -47,7 +55,7 @@ def list_folder(db_session: Session, namespace_id: int, path: str):
 
 
 def list_folder_by_id(
-    db_session: Session, folder_id: int, hide_trash_folder: bool = False
+    db_session: Session, folder_id: int, hide_trash_folder: bool = False,
 ):
     query = (
         db_session.query(File)
@@ -63,7 +71,7 @@ def create(
     db_session: Session,
     storage_file: StorageFile,
     namespace_id: int,
-    rel_to: Union[str, Path],
+    rel_to: StrOrPath,
     parent_id: int = None,
 ) -> File:
     file = File(
@@ -85,7 +93,7 @@ def bulk_create(
     db_session: Session,
     storage_files: Iterable[StorageFile],
     namespace_id: int,
-    rel_to: Union[str, Path],
+    rel_to: StrOrPath,
     parent_id: int,
 ) -> None:
     db_session.bulk_insert_mappings(
@@ -106,14 +114,14 @@ def bulk_create(
 
 
 def inc_folder_size(
-    db_session: Session, namespace_id: int, path: str, size: int,
+    db_session: Session, namespace_id: int, path: StrOrPath, size: int,
 ):
     parents = (str(p) for p in Path(path).parents)
     return (
         db_session.query(File)
         .filter(
             File.namespace_id == namespace_id,
-            File.path.in_([path, *parents]),
+            File.path.in_([str(path), *parents]),
             File.is_dir.is_(True),
         )
         .update({"size": File.size + size}, synchronize_session=False)
@@ -121,7 +129,7 @@ def inc_folder_size(
 
 
 def list_parents(
-    db_session: Session, namespace_id: int, path: str,
+    db_session: Session, namespace_id: int, path: StrOrPath,
 ):
     parents = (str(p) for p in Path(path).parents)
     return (
@@ -137,7 +145,10 @@ def list_parents(
 
 
 def create_parents(
-    db_session: Session, parents: Iterable[StorageFile], namespace_id: int, rel_to: str
+    db_session: Session,
+    parents: Iterable[StorageFile],
+    namespace_id: int,
+    rel_to: StrOrPath,
 ) -> File:
     parents_in_db = (
         db_session.query(File.id, File.path)
@@ -160,18 +171,17 @@ def create_parents(
             db_session, storage_file, namespace_id, rel_to=rel_to, parent_id=parent.id,
         )
         try:
-            # we want to commit this earlier, so other requests
-            # can see changes
+            # we want to commit this earlier, so other requests can see changes
             db_session.commit()
-        except sqlalchemy.exc.IntegrityError:
+        except sqlalchemy.exc.IntegrityError as exc:
             # this folder already created by other request,
             # so just refetch the right parent
             db_session.rollback()
             parent = get_folder(
-                db_session, namespace_id, str(storage_file.path.relative_to(rel_to))
+                db_session, namespace_id, storage_file.path.relative_to(rel_to),
             )
             if not parent:
-                raise Exception("Failed to create parent")
+                raise Exception("Failed to create parent") from exc
 
     return parent
 
@@ -180,9 +190,9 @@ def update(
     db_session: Session,
     storage_file: StorageFile,
     namespace_id: int,
-    rel_to: Union[str, Path],
+    rel_to: StrOrPath,
 ) -> File:
-    file = get(db_session, namespace_id, str(storage_file.path.relative_to(rel_to)))
+    file = get(db_session, namespace_id, storage_file.path.relative_to(rel_to)),
 
     file.size = storage_file.size
     file.mtime = storage_file.mtime
@@ -206,27 +216,27 @@ def inc_folders_size(
 
 
 def move(
-    db_session: Session, namespace_id: int, from_path: str, to_path: str,
+    db_session: Session, namespace_id: int, from_path: StrOrPath, to_path: StrOrPath,
 ):
     return (
         db_session.query(File)
         .filter(File.namespace_id == namespace_id)
         .filter(
             # todo: from_path should be escaped
-            (File.path == from_path)
+            (File.path == str(from_path))
             | (File.path.like(f"{from_path}/%")),
         )
         .update(
-            {"path": func.replace(File.path, from_path, to_path)},
+            {"path": func.replace(File.path, str(from_path), str(to_path))},
             synchronize_session=False,
         )
     )
 
 
-def delete(db_session: Session, namespace_id: int, path: str):
+def delete(db_session: Session, namespace_id: int, path: StrOrPath):
     return (
         db_session.query(File)
-        .filter(File.namespace_id == namespace_id, File.path == path,)
+        .filter(File.namespace_id == namespace_id, File.path == str(path))
         .delete(synchronize_session=False)
     )
 
@@ -234,13 +244,17 @@ def delete(db_session: Session, namespace_id: int, path: str):
 def empty_trash(db_session: Session, namespace_id: int):
     (
         db_session.query(File)
-        .filter(File.namespace_id == namespace_id, File.path == TRASH_FOLDER_NAME,)
+        .filter(
+            File.namespace_id == namespace_id,
+            File.path == TRASH_FOLDER_NAME,
+        )
         .update({"size": 0}, synchronize_session=False)
     )
     return (
         db_session.query(File)
         .filter(
-            File.namespace_id == namespace_id, File.path.like(f"{TRASH_FOLDER_NAME}/%")
+            File.namespace_id == namespace_id,
+            File.path.like(f"{TRASH_FOLDER_NAME}/%"),
         )
         .delete(synchronize_session=False)
     )

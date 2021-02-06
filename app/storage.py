@@ -4,11 +4,14 @@ import os
 import pathlib
 import shutil
 from pathlib import Path
-from typing import Generator, Iterator, Union
+from typing import TYPE_CHECKING, Generator, Iterator, Union
 
 import zipfly
 
 from app import config
+
+if TYPE_CHECKING:
+    from app.typedefs import StrOrPath
 
 
 class NotADirectory(Exception):
@@ -49,41 +52,41 @@ class LocalStorage:
     def __init__(self, root_dir: Path):
         self.root_dir = root_dir
 
-    def iterdir(self, path: Union[str, Path]) -> Iterator[StorageFile]:
+    def iterdir(self, path: StrOrPath) -> Iterator[StorageFile]:
         dir_path = self.root_dir / path
         try:
             return (StorageFile(file, self.root_dir) for file in dir_path.iterdir())
         except pathlib.NotADirectoryError as exc:
             raise NotADirectory() from exc
 
-    def save(self, path: Union[str, Path], file) -> StorageFile:
+    def save(self, path: StrOrPath, file) -> StorageFile:
         fullpath = self.root_dir / path
         with fullpath.open("wb") as buffer:
             shutil.copyfileobj(file, buffer)
 
         return StorageFile(fullpath, self.root_dir)
 
-    def mkdir(self, path: Union[str, Path]) -> StorageFile:
+    def mkdir(self, path: StrOrPath) -> StorageFile:
         dir_path = self.root_dir / path
         dir_path.mkdir(parents=True, exist_ok=True)
         return StorageFile(dir_path, self.root_dir)
 
-    def get(self, path: Union[str, Path]) -> StorageFile:
+    def get(self, path: StrOrPath) -> StorageFile:
         fullpath = self.root_dir / path
         return StorageFile(fullpath, self.root_dir)
 
-    def is_exists(self, path: Union[str, Path]) -> bool:
+    def is_exists(self, path: StrOrPath) -> bool:
         fullpath = self.root_dir / path
         return fullpath.exists()
 
-    def is_dir_exists(self, path: Union[str, Path]) -> bool:
+    def is_dir_exists(self, path: StrOrPath) -> bool:
         fullpath = self.root_dir / path
         return fullpath.exists() and fullpath.is_dir()
 
-    def move(self, from_path: Union[str, Path], to_path: Union[str, Path]) -> None:
+    def move(self, from_path: StrOrPath, to_path: StrOrPath) -> None:
         shutil.move(self.root_dir / from_path, self.root_dir / to_path)
 
-    def download(self, path: Union[str, Path]) -> Generator:
+    def download(self, path: StrOrPath) -> Generator:
         fullpath = self.root_dir / path
         if fullpath.is_dir():
             paths = [
@@ -100,14 +103,14 @@ class LocalStorage:
         attachment = zipfly.ZipFly(paths=paths)
         return attachment.generator()
 
-    def delete(self, path: Union[str, Path]) -> None:
+    def delete(self, path: StrOrPath) -> None:
         fullpath = self.root_dir / path
         if fullpath.is_dir():
             shutil.rmtree(fullpath)
         else:
             fullpath.unlink()
 
-    def delete_dir_content(self, path: Union[str, Path]) -> None:
+    def delete_dir_content(self, path: StrOrPath) -> None:
         fullpath = self.root_dir / path
         with os.scandir(fullpath) as it:
             for entry in it:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Optional
 
 from pydantic import BaseModel, validator
@@ -9,7 +10,7 @@ from app.config import TRASH_FOLDER_NAME
 
 class Namespace(BaseModel):
     id: int
-    path: str
+    path: Path
     owner_id: int
 
     class Config:
