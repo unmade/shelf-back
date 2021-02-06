@@ -205,53 +205,10 @@ def upload_file(
     if path == config.TRASH_FOLDER_NAME:
         raise exceptions.InvalidOperation()
 
-    relpath = Path(path)
-    ns_path = Path(account.namespace.path)
-    fullpath = ns_path / relpath
-
-    if not storage.is_dir_exists(fullpath.parent):
-        # todo: catch exception if creation fails
-        storage.mkdir(fullpath.parent)
-
-    parent = crud.file.get_folder(db_session, account.namespace.id, str(relpath.parent))
-    if not parent:
-        parent = crud.file.create_parents(
-            db_session,
-            [storage.get(ns_path / p) for p in relpath.parents],
-            namespace_id=account.namespace.id,
-            rel_to=account.namespace.path,
-        )
-
-    file_exists = storage.is_exists(fullpath)
-    storage_file = storage.save(fullpath, file.file)
-
-    if file_exists:
-        prev_file = storage.get(fullpath)
-        result = crud.file.update(
-            db_session,
-            storage_file,
-            namespace_id=account.namespace.id,
-            rel_to=account.namespace.path,
-        )
-        size_inc = storage_file.size - prev_file.size
-    else:
-        result = crud.file.create(
-            db_session,
-            storage_file,
-            namespace_id=account.namespace.id,
-            rel_to=account.namespace.path,
-            parent_id=parent.id,
-        )
-        size_inc = storage_file.size
-
-    crud.file.inc_folder_size(
-        db_session, namespace_id=account.namespace.id, path=result.path, size=size_inc,
-    )
-
+    saved_file = actions.save_file(db_session, account.namespace, path, file.file)
     db_session.commit()
-    db_session.refresh(result)
 
     return schemas.UploadResult(
-        file=result,
+        file=saved_file,
         updates=crud.file.list_parents(db_session, account.namespace.id, path),
     )

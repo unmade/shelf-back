@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import IO, TYPE_CHECKING
 
 from app import crud
 from app.config import TRASH_FOLDER_NAME
@@ -257,3 +257,65 @@ def move_to_trash(db_session: Session, namespace: Namespace, path: str) -> File:
         to_path = to_path.parent / f"{name} {suffix}{to_path.suffix}"
 
     return move(db_session, namespace, path, str(to_path))
+
+
+def save_file(db_session: Session, namespace: Namespace, path: str, file: IO) -> File:
+    """
+    Saves file to storage and database.
+
+    Args:
+        db_session (Session): Database session.
+        namespace (Namespace): Namespace where a file should be saved.
+        path (str): Path where a file should be saved.
+        file (IO): Actual file.
+
+    Returns:
+        File: Saved file.
+    """
+    relpath = Path(path)
+    ns_path = Path(namespace.path)
+    fullpath = ns_path / relpath
+
+    if not storage.is_dir_exists(fullpath.parent):
+        # todo: catch exception if creation fails
+        storage.mkdir(fullpath.parent)
+
+    parent = crud.file.get_folder(db_session, namespace.id, str(relpath.parent))
+    if not parent:
+        parent = crud.file.create_parents(
+            db_session,
+            [storage.get(ns_path / p) for p in relpath.parents],
+            namespace_id=namespace.id,
+            rel_to=namespace.path,
+        )
+
+    file_exists = storage.is_exists(fullpath)
+    storage_file = storage.save(fullpath, file)
+
+    if file_exists:
+        prev_file = storage.get(fullpath)
+        result = crud.file.update(
+            db_session,
+            storage_file,
+            namespace_id=namespace.id,
+            rel_to=namespace.path,
+        )
+        size_inc = storage_file.size - prev_file.size
+    else:
+        result = crud.file.create(
+            db_session,
+            storage_file,
+            namespace_id=namespace.id,
+            rel_to=namespace.path,
+            parent_id=parent.id,
+        )
+        size_inc = storage_file.size
+
+    crud.file.inc_folder_size(
+        db_session, namespace_id=namespace.id, path=result.path, size=size_inc,
+    )
+
+    db_session.flush()
+    db_session.refresh(result)
+
+    return File.from_orm(result)
