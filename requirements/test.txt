@@ -24,20 +24,14 @@ decorator==4.4.2
     # via ipython
 distlib==0.3.1
     # via virtualenv
-factory-boy==3.2.0
-    # via pytest-factoryboy
 faker==6.0.0
-    # via
-    #   -r requirements/test.in
-    #   factory-boy
+    # via -r requirements/test.in
 filelock==3.0.12
     # via virtualenv
 identify==1.5.13
     # via pre-commit
 idna==2.10
     # via requests
-inflection==0.5.1
-    # via pytest-factoryboy
 iniconfig==1.1.1
     # via pytest
 ipython-genutils==0.2.0
@@ -78,13 +72,10 @@ pyparsing==2.4.7
     # via packaging
 pytest-cov==2.11.1
     # via -r requirements/test.in
-pytest-factoryboy==2.1.0
-    # via -r requirements/test.in
 pytest==6.2.2
     # via
     #   -r requirements/test.in
     #   pytest-cov
-    #   pytest-factoryboy
 python-dateutil==2.8.1
     # via
     #   -c requirements/base.txt

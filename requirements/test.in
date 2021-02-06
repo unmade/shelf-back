@@ -6,6 +6,5 @@ mypy
 pre-commit
 pytest
 pytest-cov
-pytest-factoryboy
 requests
 sqlalchemy-stubs
