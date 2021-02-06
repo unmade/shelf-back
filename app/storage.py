@@ -50,41 +50,41 @@ class LocalStorage:
         self.root_dir = root_dir
 
     def iterdir(self, path: Union[str, Path]) -> Iterator[StorageFile]:
-        dir_path = self.root_dir.joinpath(path)
+        dir_path = self.root_dir / path
         try:
             return (StorageFile(file, self.root_dir) for file in dir_path.iterdir())
         except pathlib.NotADirectoryError as exc:
             raise NotADirectory() from exc
 
     def save(self, path: Union[str, Path], file) -> StorageFile:
-        fpath = self.root_dir.joinpath(path)
-        with fpath.open("wb") as buffer:
+        fullpath = self.root_dir / path
+        with fullpath.open("wb") as buffer:
             shutil.copyfileobj(file, buffer)
 
-        return StorageFile(fpath, self.root_dir)
+        return StorageFile(fullpath, self.root_dir)
 
     def mkdir(self, path: Union[str, Path]) -> StorageFile:
-        dir_path = self.root_dir.joinpath(path)
+        dir_path = self.root_dir / path
         dir_path.mkdir(parents=True, exist_ok=True)
         return StorageFile(dir_path, self.root_dir)
 
     def get(self, path: Union[str, Path]) -> StorageFile:
-        fullpath = self.root_dir.joinpath(path)
+        fullpath = self.root_dir / path
         return StorageFile(fullpath, self.root_dir)
 
     def is_exists(self, path: Union[str, Path]) -> bool:
-        fullpath = self.root_dir.joinpath(path)
+        fullpath = self.root_dir / path
         return fullpath.exists()
 
     def is_dir_exists(self, path: Union[str, Path]) -> bool:
-        fullpath = self.root_dir.joinpath(path)
+        fullpath = self.root_dir / path
         return fullpath.exists() and fullpath.is_dir()
 
     def move(self, from_path: Union[str, Path], to_path: Union[str, Path]) -> None:
-        shutil.move(self.root_dir.joinpath(from_path), self.root_dir.joinpath(to_path))
+        shutil.move(self.root_dir / from_path, self.root_dir / to_path)
 
     def download(self, path: Union[str, Path]) -> Generator:
-        fullpath = self.root_dir.joinpath(path)
+        fullpath = self.root_dir / path
         if fullpath.is_dir():
             paths = [
                 {
@@ -101,14 +101,14 @@ class LocalStorage:
         return attachment.generator()
 
     def delete(self, path: Union[str, Path]) -> None:
-        fullpath = self.root_dir.joinpath(path)
+        fullpath = self.root_dir / path
         if fullpath.is_dir():
             shutil.rmtree(fullpath)
         else:
             fullpath.unlink()
 
     def delete_dir_content(self, path: Union[str, Path]) -> None:
-        fullpath = self.root_dir.joinpath(path)
+        fullpath = self.root_dir / path
         with os.scandir(fullpath) as it:
             for entry in it:
                 if entry.is_dir():

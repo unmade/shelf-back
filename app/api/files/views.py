@@ -143,7 +143,7 @@ async def get_download_url(
         raise exceptions.PathNotFound()
 
     key = secrets.token_urlsafe()
-    path = Path(account.namespace.path).joinpath(file.path)
+    path = Path(account.namespace.path) / file.path
     await cache.set(key=key, value=path, expire=60)
 
     return {"download_url": f"{request.base_url}files/download?key={key}"}
@@ -237,7 +237,7 @@ def move(
             size=file.size,
         )
 
-    storage.move(ns_path.joinpath(from_path), ns_path.joinpath(to_path))
+    storage.move(ns_path / from_path, ns_path / to_path)
     db_session.commit()
     return file
 
@@ -255,7 +255,7 @@ def move_to_trash(
         raise exceptions.AlreadyDeleted()
 
     from_path = Path(payload.path)
-    to_path = Path(config.TRASH_FOLDER_NAME).joinpath(from_path.name)
+    to_path = Path(config.TRASH_FOLDER_NAME) / from_path.name
     ns_path = Path(account.namespace.path)
 
     file = crud.file.get(db_session, account.namespace.id, str(from_path))
@@ -265,7 +265,7 @@ def move_to_trash(
     if crud.file.get(db_session, account.namespace.id, str(to_path)):
         name = to_path.name.strip(to_path.suffix)
         suffix = datetime.now().strftime("%H%M%S%f")
-        to_path = to_path.parent.joinpath(f"{name} {suffix}{to_path.suffix}")
+        to_path = to_path.parent / f"{name} {suffix}{to_path.suffix}"
 
     next_parent = crud.file.get(db_session, account.namespace.id, str(to_path.parent))
 
@@ -291,7 +291,7 @@ def move_to_trash(
             size=file.size,
         )
 
-    storage.move(ns_path.joinpath(from_path), ns_path.joinpath(to_path))
+    storage.move(ns_path / from_path, ns_path / to_path)
     db_session.commit()
     return file
 
@@ -313,7 +313,7 @@ def upload_file(
 
     relpath = Path(path)
     ns_path = Path(account.namespace.path)
-    fullpath = ns_path.joinpath(relpath)
+    fullpath = ns_path / relpath
 
     if not storage.is_dir_exists(fullpath.parent):
         # todo: catch exception if creation fails
@@ -323,7 +323,7 @@ def upload_file(
     if not parent:
         parent = crud.file.create_parents(
             db_session,
-            [storage.get(ns_path.joinpath(p)) for p in relpath.parents],
+            [storage.get(ns_path / p) for p in relpath.parents],
             namespace_id=account.namespace.id,
             rel_to=account.namespace.path,
         )

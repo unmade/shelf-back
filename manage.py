@@ -26,7 +26,7 @@ def createuser(
         user = crud.user.create(db_session, username, password)
         ns = crud.namespace.create(db_session, username, owner_id=user.id)
         root_dir = storage.mkdir(ns.path)
-        trash_dir = storage.mkdir(Path(ns.path).joinpath(config.TRASH_FOLDER_NAME))
+        trash_dir = storage.mkdir(Path(ns.path) / config.TRASH_FOLDER_NAME)
         root = crud.file.create(db_session, root_dir, ns.id, rel_to=ns.path)
         db_session.flush()
         crud.file.create(
