@@ -47,7 +47,7 @@ def replace_storage_root_dir_with_tmp_path(tmp_path):
 
 @pytest.fixture
 def user_factory():
-    """Creates a new user, namespace, root and trash directories"""
+    """Creates a new user, namespace, home and trash directories"""
     def _user_factory(
         username: str = None, password: str = "root", hash_password: bool = False,
     ):

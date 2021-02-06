@@ -4,7 +4,7 @@ import os
 import pathlib
 import shutil
 from pathlib import Path
-from typing import TYPE_CHECKING, Generator, Iterator, Union
+from typing import IO, TYPE_CHECKING, Generator, Iterator, Type, TypeVar
 
 import zipfly
 
@@ -13,39 +13,37 @@ from app import config
 if TYPE_CHECKING:
     from app.typedefs import StrOrPath
 
+T = TypeVar("T", bound="StorageFile")
+
 
 class NotADirectory(Exception):
     pass
 
 
 class StorageFile:
-    __slots__ = ("_file", "_rel_to")
+    __slots__ = ("name", "path", "size", "mtime", "is_dir")
 
-    def __init__(self, file: Path, rel_to: Union[str, Path]):
-        self._file = file
-        self._rel_to = rel_to
+    def __init__(self, name: str, path: Path, size: int, mtime: float, is_dir: bool):
+        self.name = name
+        self.path = path
+        self.size = size
+        self.mtime = mtime
+        self.is_dir = is_dir
+
+    @classmethod
+    def from_path(cls: Type[T], path: StrOrPath, rel_to: StrOrPath) -> T:
+        path = Path(path)
+        stat = path.lstat()
+        return cls(
+            name=path.name,
+            path=path.relative_to(rel_to),
+            size=stat.st_size,
+            mtime=stat.st_mtime,
+            is_dir=path.is_dir,
+        )
 
     def __str__(self) -> str:
         return self.path
-
-    @property
-    def name(self) -> str:
-        return self._file.name
-
-    @property
-    def path(self) -> Path:
-        return self._file.relative_to(self._rel_to)
-
-    @property
-    def size(self) -> int:
-        return self._file.lstat().st_size
-
-    @property
-    def mtime(self) -> float:
-        return self._file.lstat().st_mtime
-
-    def is_dir(self) -> bool:
-        return self._file.is_dir()
 
 
 class LocalStorage:
@@ -55,25 +53,28 @@ class LocalStorage:
     def iterdir(self, path: StrOrPath) -> Iterator[StorageFile]:
         dir_path = self.root_dir / path
         try:
-            return (StorageFile(file, self.root_dir) for file in dir_path.iterdir())
+            return (
+                StorageFile.from_path(file, self.root_dir)
+                for file in dir_path.iterdir()
+            )
         except pathlib.NotADirectoryError as exc:
             raise NotADirectory() from exc
 
-    def save(self, path: StrOrPath, file) -> StorageFile:
+    def save(self, path: StrOrPath, file: IO) -> StorageFile:
         fullpath = self.root_dir / path
         with fullpath.open("wb") as buffer:
             shutil.copyfileobj(file, buffer)
 
-        return StorageFile(fullpath, self.root_dir)
+        return StorageFile.from_path(fullpath, self.root_dir)
 
     def mkdir(self, path: StrOrPath) -> StorageFile:
         dir_path = self.root_dir / path
         dir_path.mkdir(parents=True, exist_ok=True)
-        return StorageFile(dir_path, self.root_dir)
+        return StorageFile.from_path(dir_path, self.root_dir)
 
     def get(self, path: StrOrPath) -> StorageFile:
         fullpath = self.root_dir / path
-        return StorageFile(fullpath, self.root_dir)
+        return StorageFile.from_path(fullpath, self.root_dir)
 
     def is_exists(self, path: StrOrPath) -> bool:
         fullpath = self.root_dir / path
