@@ -36,8 +36,9 @@ def create_folder(
         folder = actions.create_folder(db_session, account.namespace, payload.path)
     except actions.AlreadyExists as exc:
         raise exceptions.AlreadyExists() from exc
+    else:
+        db_session.commit()
 
-    db_session.commit()
     return folder
 
 
@@ -51,24 +52,14 @@ def delete_immediately(
     if payload.path in (config.TRASH_FOLDER_NAME, "."):
         raise exceptions.InvalidOperation()
 
-    file = crud.file.get(db_session, account.namespace.id, payload.path)
-    if not file:
-        raise exceptions.PathNotFound()
+    try:
+        file = actions.delete_immediately(db_session, account.namespace, payload.path)
+    except actions.FileNotFound as exc:
+        raise exceptions.PathNotFound() from exc
+    else:
+        db_session.commit()
 
-    result = schemas.File.from_orm(file)
-    crud.file.inc_folders_size(
-        db_session,
-        account.namespace.id,
-        paths=(str(p) for p in Path(payload.path).parents),
-        size=-file.size,
-    )
-
-    crud.file.delete(db_session, account.namespace.id, payload.path)
-    storage.delete(Path(account.namespace.path) / payload.path)
-
-    db_session.commit()
-
-    return result
+    return file
 
 
 @router.get("/download")

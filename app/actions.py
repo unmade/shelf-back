@@ -5,15 +5,20 @@ from typing import TYPE_CHECKING
 
 from app import crud
 from app.config import TRASH_FOLDER_NAME
-from app.entities import Namespace
+from app.entities import File, Namespace
 from app.storage import storage
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
-    from app.models import File, User
+    from app.models import User
+    from app.models import File as FileModel
 
 
 class AlreadyExists(Exception):
+    pass
+
+
+class FileNotFound(Exception):
     pass
 
 
@@ -38,7 +43,7 @@ def create_account(db_session: Session, username: str, password: str) -> User:
     return user
 
 
-def _create_home_folder(db_session: Session, namespace: Namespace) -> File:
+def _create_home_folder(db_session: Session, namespace: Namespace) -> FileModel:
     """
     Creates home folder in a given Namespace.
 
@@ -55,14 +60,14 @@ def _create_home_folder(db_session: Session, namespace: Namespace) -> File:
     )
 
 
-def create_folder(db_session: Session, namespace: Namespace, path: str) -> File:
+def create_folder(db_session: Session, namespace: Namespace, path: str) -> FileModel:
     """
     Creates a folder in a given Namespace.
 
     Args:
         db_session (Session): Database session.
         namespace (Namespace): Namespace where a folder should be created.
-        path (str): Folder path.
+        path (str): Path to a folder to create.
 
     Raises:
         AlreadyExists: If folder with a given path already exists.
@@ -100,3 +105,36 @@ def create_folder(db_session: Session, namespace: Namespace, path: str) -> File:
     )
 
     return folder
+
+
+def delete_immediately(db_session: Session, namespace: Namespace, path: str) -> File:
+    """
+    Permanently deletes file or a folder with all of its contents.
+
+    Args:
+        db_session (Session): Database session.
+        namespace (Namespace): Namespace where file/folder should be deleted.
+        path (str): Path to a file/folder to delete.
+
+    Raises:
+        FileNotFound: If file/folder with a given path does not exists.
+
+    Returns:
+        File: Deleted file.
+    """
+    file_in_db = crud.file.get(db_session, namespace.id, path)
+    if not file_in_db:
+        raise FileNotFound()
+
+    file = File.from_orm(file_in_db)
+    crud.file.inc_folders_size(
+        db_session,
+        namespace.id,
+        paths=(str(p) for p in Path(path).parents),
+        size=-file.size,
+    )
+
+    crud.file.delete(db_session, namespace.id, path)
+    storage.delete(Path(namespace.path) / path)
+
+    return file
