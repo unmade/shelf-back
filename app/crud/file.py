@@ -51,7 +51,7 @@ def list_folder_by_id(
 ):
     query = (
         db_session.query(File)
-        .filter(File.parent_id == folder_id, File.path != "Trash")
+        .filter(File.parent_id == folder_id)
         .order_by(File.is_dir.desc(), File.name.collate("NOCASE"))
     )
     if hide_trash_folder:
