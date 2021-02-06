@@ -34,7 +34,7 @@ def create_folder(
     """
     try:
         folder = actions.create_folder(db_session, account.namespace, payload.path)
-    except actions.AlreadyExists as exc:
+    except actions.FileAlreadyExists as exc:
         raise exceptions.AlreadyExists() from exc
     else:
         db_session.commit()
@@ -155,51 +155,17 @@ def move(
     ):
         raise exceptions.InvalidOperation()
 
-    from_path = Path(payload.from_path)
-    to_path = Path(payload.to_path)
-    ns_path = Path(account.namespace.path)
-
-    file = crud.file.get(db_session, account.namespace.id, str(from_path))
-    if not file:
-        raise exceptions.PathNotFound()
-
-    if crud.file.get(db_session, account.namespace.id, str(to_path)):
-        raise exceptions.AlreadyExists()
-
-    next_parent = crud.file.get(db_session, account.namespace.id, str(to_path.parent))
-    if not next_parent:
-        storage.mkdir(ns_path / to_path.parent)
-        next_parent = crud.file.create_parents(
-            db_session,
-            [storage.get(ns_path / p) for p in to_path.parents],
-            namespace_id=account.namespace.id,
-            rel_to=account.namespace.path,
+    try:
+        file = actions.move(
+            db_session, account.namespace, payload.from_path, payload.to_path,
         )
+    except actions.FileAlreadyExists as exc:
+        raise exceptions.AlreadyExists() from exc
+    except actions.FileNotFound as exc:
+        raise exceptions.PathNotFound from exc
+    else:
+        db_session.commit()
 
-    file.parent_id = next_parent.id
-    file.name = to_path.name
-    crud.file.move(db_session, account.namespace.id, str(from_path), str(to_path))
-
-    folders_to_decrease = set(from_path.parents).difference(to_path.parents)
-    if folders_to_decrease:
-        crud.file.inc_folders_size(
-            db_session,
-            account.namespace.id,
-            paths=(str(p) for p in folders_to_decrease),
-            size=-file.size,
-        )
-
-    folders_to_increase = set(to_path.parents).difference(from_path.parents)
-    if folders_to_increase:
-        crud.file.inc_folders_size(
-            db_session,
-            account.namespace.id,
-            paths=(str(p) for p in folders_to_increase),
-            size=file.size,
-        )
-
-    storage.move(ns_path / from_path, ns_path / to_path)
-    db_session.commit()
     return file
 
 

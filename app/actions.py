@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from app.models import File as FileModel
 
 
-class AlreadyExists(Exception):
+class FileAlreadyExists(Exception):
     pass
 
 
@@ -70,7 +70,7 @@ def create_folder(db_session: Session, namespace: Namespace, path: str) -> FileM
         path (str): Path to a folder to create.
 
     Raises:
-        AlreadyExists: If folder with a given path already exists.
+        FileAlreadyExists: If folder with a given path already exists.
 
     Returns:
         File: Created folder.
@@ -81,7 +81,7 @@ def create_folder(db_session: Session, namespace: Namespace, path: str) -> FileM
 
     # todo: should check within database
     if storage.is_dir_exists(fullpath):
-        raise AlreadyExists()
+        raise FileAlreadyExists()
 
     # todo: catch exception if creation fails
     storage.mkdir(fullpath)
@@ -156,3 +156,73 @@ def empty_trash(db_session: Session, namespace: Namespace) -> File:
     return File.from_orm(
         crud.file.get(db_session, namespace.id, TRASH_FOLDER_NAME)
     )
+
+
+def move(
+    db_session: Session, namespace: Namespace, from_path: str, to_path: str,
+) -> File:
+    """
+    Moves a file or folder to a different location in the given Namespace.
+    If the source path is a folder all its contents will be moved.
+
+    Args:
+        db_session (Session): Database session.
+        namespace (Namespace): Namespace, where file/folder should be moved.
+        from_path (str): Path to be moved.
+        to_path (str): Path that is the destination.
+
+    Raises:
+        FileNotFound: If source path does not exists.
+        FileAlreadyExists: If some file already in the destionation path.
+
+    Returns:
+        File: Moved file/folder.
+    """
+    from_path = Path(from_path)
+    to_path = Path(to_path)
+    ns_path = Path(namespace.path)
+
+    file = crud.file.get(db_session, namespace.id, str(from_path))
+    if not file:
+        raise FileNotFound()
+
+    if crud.file.get(db_session, namespace.id, str(to_path)):
+        raise FileAlreadyExists()
+
+    next_parent = crud.file.get(db_session, namespace.id, str(to_path.parent))
+    if not next_parent:
+        storage.mkdir(ns_path / to_path.parent)
+        next_parent = crud.file.create_parents(
+            db_session,
+            [storage.get(ns_path / p) for p in to_path.parents],
+            namespace_id=namespace.id,
+            rel_to=namespace.path,
+        )
+
+    file.parent_id = next_parent.id
+    file.name = to_path.name
+    crud.file.move(db_session, namespace.id, str(from_path), str(to_path))
+
+    folders_to_decrease = set(from_path.parents).difference(to_path.parents)
+    if folders_to_decrease:
+        crud.file.inc_folders_size(
+            db_session,
+            namespace.id,
+            paths=(str(p) for p in folders_to_decrease),
+            size=-file.size,
+        )
+
+    folders_to_increase = set(to_path.parents).difference(from_path.parents)
+    if folders_to_increase:
+        crud.file.inc_folders_size(
+            db_session,
+            namespace.id,
+            paths=(str(p) for p in folders_to_increase),
+            size=file.size,
+        )
+
+    storage.move(ns_path / from_path, ns_path / to_path)
+
+    db_session.refresh(file)
+
+    return File.from_orm(file)
