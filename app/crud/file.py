@@ -76,6 +76,7 @@ def create(
         is_dir=storage_file.is_dir(),
     )
     db_session.add(file)
+    db_session.flush()
 
     return file
 

@@ -12,11 +12,17 @@ class Namespace(BaseModel):
     path: str
     owner_id: int
 
+    class Config:
+        orm_mode = True
+
 
 class Account(BaseModel):
     id: int
     username: str
     namespace: Namespace
+
+    class Config:
+        orm_mode = True
 
 
 class File(BaseModel):

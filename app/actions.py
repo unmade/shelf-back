@@ -6,13 +6,11 @@ from typing import IO, TYPE_CHECKING
 
 from app import crud
 from app.config import TRASH_FOLDER_NAME
-from app.entities import File, Namespace
+from app.entities import Account, File, Namespace
 from app.storage import storage
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
-    from app.models import User
-    from app.models import File as FileModel
 
 
 class FileAlreadyExists(Exception):
@@ -23,7 +21,7 @@ class FileNotFound(Exception):
     pass
 
 
-def create_account(db_session: Session, username: str, password: str) -> User:
+def create_account(db_session: Session, username: str, password: str) -> Account:
     """
     Creates a new user, namespace, home and trash directories.
 
@@ -38,13 +36,16 @@ def create_account(db_session: Session, username: str, password: str) -> User:
     user = crud.user.create(db_session, username, password)
     namespace = crud.namespace.create(db_session, username, owner_id=user.id)
     _create_home_folder(db_session, namespace)
-    db_session.flush()
     create_folder(db_session, namespace, path=TRASH_FOLDER_NAME)
 
-    return user
+    return Account(
+        id=user.id,
+        username=user.username,
+        namespace=Namespace.from_orm(namespace)
+    )
 
 
-def _create_home_folder(db_session: Session, namespace: Namespace) -> FileModel:
+def _create_home_folder(db_session: Session, namespace: Namespace) -> File:
     """
     Creates home folder in a given Namespace.
 
@@ -56,12 +57,12 @@ def _create_home_folder(db_session: Session, namespace: Namespace) -> FileModel:
         File: Created home folder.
     """
     home_dir = storage.mkdir(namespace.path)
-    return crud.file.create(
-        db_session, home_dir, namespace.id, rel_to=namespace.path
+    return File.from_orm(
+        crud.file.create(db_session, home_dir, namespace.id, rel_to=namespace.path)
     )
 
 
-def create_folder(db_session: Session, namespace: Namespace, path: str) -> FileModel:
+def create_folder(db_session: Session, namespace: Namespace, path: str) -> File:
     """
     Creates a folder in a given Namespace.
 
@@ -97,15 +98,15 @@ def create_folder(db_session: Session, namespace: Namespace, path: str) -> FileM
         )
 
     storage_file = storage.get(fullpath)
-    folder = crud.file.create(
-        db_session,
-        storage_file,
-        namespace.id,
-        rel_to=namespace.path,
-        parent_id=parent.id,
+    return File.from_orm(
+        crud.file.create(
+            db_session,
+            storage_file,
+            namespace.id,
+            rel_to=namespace.path,
+            parent_id=parent.id,
+        )
     )
-
-    return folder
 
 
 def delete_immediately(db_session: Session, namespace: Namespace, path: str) -> File:

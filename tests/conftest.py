@@ -57,14 +57,14 @@ def user_factory():
         with db.SessionManager() as db_session:
             # Hashing password is an expensive operation, so do it only when need it.
             if hash_password:
-                user = actions.create_account(db_session, username, password)
+                account = actions.create_account(db_session, username, password)
             else:
                 with mock.patch("app.security.make_password", return_value=password):
-                    user = actions.create_account(db_session, username, password)
+                    account = actions.create_account(db_session, username, password)
 
             db_session.commit()
-            db_session.refresh(user)
-            return user
+            # db_session.refresh(user)
+            return account
     return _user_factory
 
 
