@@ -138,3 +138,21 @@ def delete_immediately(db_session: Session, namespace: Namespace, path: str) -> 
     storage.delete(Path(namespace.path) / path)
 
     return file
+
+
+def empty_trash(db_session: Session, namespace: Namespace) -> File:
+    """
+    Deletes all files and folders in the Trash folder in a given Namespace.
+
+    Args:
+        db_session (Session): Database session.
+        namespace (Namespace): Namespace where Trash folder should be emptied.
+
+    Returns:
+        File: Trash folder.
+    """
+    crud.file.empty_trash(db_session, namespace.id)
+    storage.delete_dir_content(Path(namespace.path) / TRASH_FOLDER_NAME)
+    return File.from_orm(
+        crud.file.get(db_session, namespace.id, TRASH_FOLDER_NAME)
+    )

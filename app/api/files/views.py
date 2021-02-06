@@ -83,16 +83,9 @@ def empty_trash(
     account: Account = Depends(deps.current_account),
 ):
     """Deletes all files and folders in the Trash folder."""
-    crud.file.empty_trash(db_session, account.namespace.id)
-    storage.delete_dir_content(
-        Path(account.namespace.path) / config.TRASH_FOLDER_NAME
-    )
-
-    trash = crud.file.get(db_session, account.namespace.id, config.TRASH_FOLDER_NAME)
-
+    trash_folder = actions.empty_trash(db_session, account.namespace)
     db_session.commit()
-
-    return trash
+    return trash_folder
 
 
 @router.post("/get_download_url", response_model=schemas.DownloadUrl)
