@@ -10,7 +10,7 @@ from app.api.files.exceptions import (
     AlreadyDeleted,
     AlreadyExists,
     DownloadNotFound,
-    InvalidOperation,
+    InvalidPath,
     PathNotFound,
 )
 
@@ -73,7 +73,7 @@ def test_delete_immediately_but_it_is_a_special_folder(
     payload = {"path": path}
     response = client.login(user.id).post("/files/delete_immediately", json=payload)
     assert response.status_code == 400
-    assert response.json() == InvalidOperation().as_dict()
+    assert response.json() == InvalidPath().as_dict()
 
 
 def test_download_file(client: TestClient, user_factory, file_factory):
@@ -187,7 +187,8 @@ def test_move_but_it_is_a_special_path(
     payload = {"from_path": from_path, "to_path": "Trashbin"}
     response = client.login(user.id).post("/files/move", json=payload)
     assert response.status_code == 400
-    assert response.json() == InvalidOperation().as_dict()
+    message = "should not be Home or Trash folder."
+    assert response.json() == InvalidPath(message).as_dict()
 
 
 @pytest.mark.parametrize("to_path", [".", "Trash"])
@@ -199,7 +200,8 @@ def test_move_but_to_a_special_path(
     payload = {"from_path": file.path, "to_path": to_path}
     response = client.login(user.id).post("/files/move", json=payload)
     assert response.status_code == 400
-    assert response.json() == InvalidOperation().as_dict()
+    message = "should not be Home or Trash folder."
+    assert response.json() == InvalidPath(message).as_dict()
 
 
 def test_move_but_file_not_found(client: TestClient, user_factory):
@@ -221,8 +223,8 @@ def test_move_but_file_already_exists(client: TestClient, user_factory, file_fac
 
 
 @pytest.mark.parametrize(["file_path", "path", "expected_path"], [
-    ("file.txt", "file.txt", "Trash/file.txt"),  # move file to trash
-    ("a/b/c/d.txt", "a/b", "Trash/b"),  # move folder to trash
+    ("file.txt", "file.txt", "Trash/file.txt"),  # move file to the Trash
+    ("a/b/c/d.txt", "a/b", "Trash/b"),  # move folder to the Trash
 ])
 def test_move_to_trash(
     client: TestClient, user_factory, file_factory, file_path, path, expected_path,
@@ -240,7 +242,7 @@ def test_move_to_trash_but_it_is_a_trash(client: TestClient, user_factory):
     payload = {"path": "Trash"}
     response = client.login(user.id).post("/files/move_to_trash", json=payload)
     assert response.status_code == 400
-    assert response.json() == InvalidOperation().as_dict()
+    assert response.json() == InvalidPath().as_dict()
 
 
 def test_move_to_trash_but_file_is_in_trash(
@@ -282,4 +284,4 @@ def test_upload_but_to_a_special_path(client: TestClient, user_factory):
     }
     response = client.login(user.id).post("/files/upload", files=payload)
     assert response.status_code == 400
-    assert response.json() == InvalidOperation().as_dict()
+    assert response.json() == InvalidPath().as_dict()

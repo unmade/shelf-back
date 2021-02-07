@@ -1,10 +1,10 @@
 from app.api.exceptions import APIError
 
 
-class PathNotFound(APIError):
-    status_code = 404
-    default_code = "PATH_NOT_FOUND"
-    default_message = "Path not found."
+class AlreadyDeleted(APIError):
+    status_code = 400
+    default_code = "ALREADY_DELETED"
+    default_message = "Already deleted."
 
 
 class AlreadyExists(APIError):
@@ -19,13 +19,13 @@ class DownloadNotFound(APIError):
     default_message = "Download not found."
 
 
-class InvalidOperation(APIError):
+class InvalidPath(APIError):
     status_code = 400
-    default_code = "INVALID_OPERATION"
-    default_message = "Invalid operation."
+    default_code = "INVALID_PATH"
+    default_message = "Invalid path."
 
 
-class AlreadyDeleted(APIError):
-    status_code = 400
-    default_code = "ALREADY_DELETED"
-    default_message = "Already deleted."
+class PathNotFound(APIError):
+    status_code = 404
+    default_code = "PATH_NOT_FOUND"
+    default_message = "Path not found."

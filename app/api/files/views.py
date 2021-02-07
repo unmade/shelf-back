@@ -5,7 +5,9 @@ import secrets
 from pathlib import Path
 
 from cashews import cache
-from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
+from fastapi import APIRouter, Depends
+from fastapi import File as FileParam
+from fastapi import Form, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -21,7 +23,7 @@ router = APIRouter()
 
 @router.post("/create_folder", response_model=schemas.File)
 def create_folder(
-    payload: schemas.FolderPath,
+    payload: schemas.PathRequest,
     db_session: Session = Depends(deps.db_session),
     account: Account = Depends(deps.current_account),
 ):
@@ -31,9 +33,8 @@ def create_folder(
     If a path provided in a format a/b/c, then 'a' and 'b' folders will be created,
     if not existed, and 'c' will be returned as a response.
     """
-    path = payload.path.strip()
     try:
-        folder = actions.create_folder(db_session, account.namespace, path)
+        folder = actions.create_folder(db_session, account.namespace, payload.path)
     except actions.FileAlreadyExists as exc:
         raise exceptions.AlreadyExists() from exc
     else:
@@ -44,13 +45,13 @@ def create_folder(
 
 @router.post("/delete_immediately", response_model=schemas.File)
 def delete_immediately(
-    payload: schemas.FolderPath,
+    payload: schemas.PathRequest,
     db_session: Session = Depends(deps.db_session),
     account: Account = Depends(deps.current_account),
 ):
     """Permanently deletes file or folder (recursively) with a given path."""
     if payload.path in (config.TRASH_FOLDER_NAME, "."):
-        raise exceptions.InvalidOperation()
+        raise exceptions.InvalidPath()
 
     try:
         file = actions.delete_immediately(db_session, account.namespace, payload.path)
@@ -88,23 +89,23 @@ def empty_trash(
     return trash_folder
 
 
-@router.post("/get_download_url", response_model=schemas.DownloadUrl)
+@router.post("/get_download_url", response_model=schemas.GetDownloadUrlResult)
 async def get_download_url(
     request: Request,
-    payload: schemas.FolderPath,
+    payload: schemas.PathRequest,
     db_session: Session = Depends(deps.db_session),
     account: Account = Depends(deps.current_account),
 ):
     """Generates and returns a link to download requested file or folder."""
     loop = asyncio.get_event_loop()
-    file = await loop.run_in_executor(
-        None, crud.file.get, db_session, account.namespace.id, payload.path
+    file_exists = await loop.run_in_executor(
+        None, crud.file.exists, db_session, account.namespace.id, payload.path,
     )
-    if not file:
+    if not file_exists:
         raise exceptions.PathNotFound()
 
     key = secrets.token_urlsafe()
-    path = Path(account.namespace.path) / file.path
+    path = account.namespace.path / payload.path
     await cache.set(key=key, value=path, expire=60)
 
     return {"download_url": f"{request.base_url}files/download?key={key}"}
@@ -112,7 +113,7 @@ async def get_download_url(
 
 @router.post("/list_folder", response_model=schemas.ListFolderResult)
 def list_folder(
-    payload: schemas.FolderPath,
+    payload: schemas.PathRequest,
     db_session: Session = Depends(deps.db_session),
     account: Account = Depends(deps.current_account),
 ):
@@ -145,16 +146,6 @@ def move(
 
     Note, this method doesn't allow to move file/folder to/from Trash folder.
     """
-    if (
-        payload.from_path == payload.to_path
-        or payload.from_path == config.TRASH_FOLDER_NAME
-        or payload.to_path == config.TRASH_FOLDER_NAME
-        or payload.from_path == "."
-        or payload.to_path == "."
-        or payload.to_path.startswith(f"{config.TRASH_FOLDER_NAME}/")
-    ):
-        raise exceptions.InvalidOperation()
-
     try:
         file = actions.move(
             db_session, account.namespace, payload.from_path, payload.to_path,
@@ -171,13 +162,13 @@ def move(
 
 @router.post("/move_to_trash", response_model=schemas.File)
 def move_to_trash(
-    payload: schemas.FolderPath,
+    payload: schemas.PathRequest,
     db_session: Session = Depends(deps.db_session),
     account: Account = Depends(deps.current_account),
 ):
     """Moves file to Trash folder."""
     if payload.path == config.TRASH_FOLDER_NAME:
-        raise exceptions.InvalidOperation()
+        raise exceptions.InvalidPath()
     if payload.path.startswith(f"{config.TRASH_FOLDER_NAME}/"):
         raise exceptions.AlreadyDeleted()
 
@@ -193,7 +184,7 @@ def move_to_trash(
 
 @router.post("/upload", response_model=schemas.UploadResult)
 def upload_file(
-    file: UploadFile = File(...),
+    file: UploadFile = FileParam(...),
     path: str = Form(...),
     db_session: Session = Depends(deps.db_session),
     account: Account = Depends(deps.current_account),
@@ -204,7 +195,7 @@ def upload_file(
     Note, that if file with the same name already exists, it will be overriden.
     """
     if path == config.TRASH_FOLDER_NAME:
-        raise exceptions.InvalidOperation()
+        raise exceptions.InvalidPath()
 
     saved_file = actions.save_file(db_session, account.namespace, path, file.file)
     db_session.commit()
