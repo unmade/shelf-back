@@ -219,6 +219,7 @@ def move(
 
     storage.move(namespace.path / from_path, namespace.path / to_path)
 
+    db_session.flush()
     db_session.refresh(file)
 
     return File.from_orm(file)
