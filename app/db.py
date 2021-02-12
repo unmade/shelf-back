@@ -4,7 +4,7 @@ from typing import Any, Dict
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import NullPool
 
 from app import config
 
@@ -15,7 +15,7 @@ def get_db_params(dsn: str) -> Dict[str, Any]:
             "connect_args": {
                 "check_same_thread": False,
             },
-            "poolclass": StaticPool,
+            "poolclass": NullPool,
         }
     return {}
 

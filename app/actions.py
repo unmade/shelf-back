@@ -86,26 +86,16 @@ def create_folder(db_session: Session, namespace: Namespace, path: StrOrPath) ->
 
     # todo: catch exception if creation fails
     storage.mkdir(fullpath)
-
-    parent = crud.file.get_folder(db_session, namespace.id, relpath.parent)
-    if not parent:
-        parent = crud.file.create_parents(
-            db_session,
-            [storage.get(namespace.path / p) for p in relpath.parents],
-            namespace_id=namespace.id,
-            rel_to=namespace.path,
-        )
-
     storage_file = storage.get(fullpath)
-    return File.from_orm(
-        crud.file.create(
-            db_session,
-            storage_file,
-            namespace.id,
-            rel_to=namespace.path,
-            parent_id=parent.id,
-        )
+
+    folder = crud.file.create_parents(
+        db_session,
+        [storage.get(namespace.path / p) for p in relpath.parents] + [storage_file],
+        namespace_id=namespace.id,
+        rel_to=namespace.path,
     )
+
+    return File.from_orm(folder)
 
 
 def delete_immediately(
@@ -320,18 +310,14 @@ def save_file(
     if not parent:
         parent = create_folder(db_session, namespace, relpath.parent)
 
-    file_exists = storage.is_exists(fullpath)
     storage_file = storage.save(fullpath, file)
-
-    if file_exists:
-        prev_file = storage.get(fullpath)
+    if prev_file := crud.file.get(db_session, namespace.id, fullpath):
         result = crud.file.update(
             db_session,
             storage_file,
             namespace_id=namespace.id,
             rel_to=namespace.path,
         )
-        size_inc = storage_file.size - prev_file.size
     else:
         result = crud.file.create(
             db_session,
@@ -340,11 +326,13 @@ def save_file(
             rel_to=namespace.path,
             parent_id=parent.id,
         )
+
+    if prev_file is not None:
+        size_inc = storage_file.size - prev_file.size
+    else:
         size_inc = storage_file.size
 
-    crud.file.inc_folder_size(
-        db_session, namespace_id=namespace.id, path=result.path, size=size_inc,
-    )
+    crud.file.inc_folder_size(db_session, namespace.id, result.path, size=size_inc)
 
     db_session.refresh(result)
 

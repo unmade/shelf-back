@@ -93,7 +93,7 @@ class LocalStorage:
             paths = [
                 {
                     "fs": str(filepath),
-                    "n": filepath.relative_to(fullpath)
+                    "n": filepath.relative_to(fullpath),
                 }
                 for filepath in fullpath.glob("**/*")
                 if filepath.is_file()

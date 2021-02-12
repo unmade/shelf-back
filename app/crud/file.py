@@ -195,10 +195,14 @@ def create_parents(
     )
     parent = parents_in_db[-1]
     for storage_file in new_parents:
-        parent = create(
-            db_session, storage_file, namespace_id, rel_to=rel_to, parent_id=parent.id,
-        )
         try:
+            parent = create(
+                db_session,
+                storage_file,
+                namespace_id,
+                rel_to=rel_to,
+                parent_id=parent.id,
+            )
             # we want to commit this earlier, so other requests can see changes
             db_session.commit()
         except sqlalchemy.exc.IntegrityError as exc:
@@ -220,11 +224,12 @@ def update(
     namespace_id: int,
     rel_to: StrOrPath,
 ) -> File:
-    file = get(db_session, namespace_id, storage_file.path.relative_to(rel_to)),
+    file = get(db_session, namespace_id, storage_file.path.relative_to(rel_to))
 
     file.size = storage_file.size
     file.mtime = storage_file.mtime
     db_session.add(file)
+    db_session.flush()
 
     return file
 
