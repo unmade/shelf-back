@@ -1,0 +1,13 @@
+services:
+  edgedb:
+    image: edgedb/edgedb:latest
+    environment:
+      - EDGEDB_USER=edgedb
+      - EDGEDB_PASSWORD=root
+    volumes:
+      - dbvolume:/var/lib/edgedb/data
+    ports:
+      - "5656:5656"
+
+volumes:
+  dbvolume: {}

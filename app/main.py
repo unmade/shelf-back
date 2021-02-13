@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app import api, config
+from app import api, config, db
 
 
 def create_app():
@@ -26,6 +26,14 @@ def create_app():
     app.add_exception_handler(
         api.exceptions.APIError, api.exceptions.api_error_exception_handler
     )
+
+    @app.on_event("startup")
+    async def create_pool():
+        await db.create_pool()
+
+    @app.on_event("shutdown")
+    async def close_pool():
+        await db.close_pool()
 
     return app
 

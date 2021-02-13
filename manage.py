@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import asyncio
+from pathlib import Path
+
+import edgedb
 import typer
 
-from app import actions, crud, db
+from app import actions, config, crud, db
 
 cli = typer.Typer()
 
@@ -29,6 +33,20 @@ def reconcile() -> None:
         for namespace in namespaces:
             actions.reconcile(db_session, namespace, ".")
         db_session.commit()
+
+
+@cli.command()
+def migrate(schema: Path) -> None:
+    """Apply target schema to a database."""
+    async def run_migration(schema: str) -> None:
+        conn = await edgedb.async_connect(dsn=config.EDGEDB_DSN)
+        await db.migrate(conn, schema)
+        await conn.aclose()
+
+    with open(schema.resolve(), 'r') as f:
+        schema_declaration = f.read()
+
+    asyncio.run(run_migration(schema_declaration))
 
 
 if __name__ == "__main__":
