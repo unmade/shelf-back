@@ -14,7 +14,9 @@ type Namespace {
 
 type File {
     required property name -> str;
-    required property path -> str;
+    required property path -> str {
+        delegated constraint exclusive;
+    };
     required property size -> int64;
     required property mtime -> float64;
     required property is_dir -> bool;

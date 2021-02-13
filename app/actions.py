@@ -6,10 +6,11 @@ from typing import IO, TYPE_CHECKING
 
 from app import crud
 from app.config import TRASH_FOLDER_NAME
-from app.entities import Account, File, Namespace
+from app.entities import File, Namespace
 from app.storage import storage
 
 if TYPE_CHECKING:
+    from edgedb import AsyncIOConnection
     from sqlalchemy.orm import Session
     from app.typedefs import StrOrPath
 
@@ -22,9 +23,9 @@ class FileNotFound(Exception):
     pass
 
 
-def create_account(db_session: Session, username: str, password: str) -> Account:
+async def create_account(conn: AsyncIOConnection, username: str, password: str) -> None:
     """
-    Creates a new user, namespace, home and trash directories.
+    Creates a new user, namespace, home and trash folders.
 
     Args:
         db_session (Session): Database session.
@@ -34,33 +35,11 @@ def create_account(db_session: Session, username: str, password: str) -> Account
     Returns:
         User: Created User.
     """
-    user = crud.user.create(db_session, username, password)
-    namespace = crud.namespace.create(db_session, username, owner_id=user.id)
-    _create_home_folder(db_session, namespace)
-    create_folder(db_session, namespace, path=TRASH_FOLDER_NAME)
-
-    return Account(
-        id=user.id,
-        username=user.username,
-        namespace=Namespace.from_orm(namespace)
-    )
-
-
-def _create_home_folder(db_session: Session, namespace: Namespace) -> File:
-    """
-    Creates home folder in a given Namespace.
-
-    Args:
-        db_session (Session): Database session.
-        namespace (Namespace): Namespace where home folder should be created.
-
-    Returns:
-        File: Created home folder.
-    """
-    home_dir = storage.mkdir(namespace.path)
-    return File.from_orm(
-        crud.file.create(db_session, home_dir, namespace.id, rel_to=namespace.path)
-    )
+    async with conn.transaction():
+        await crud.user.create(conn, username, password)
+        await crud.file.create(conn, username, TRASH_FOLDER_NAME, folder=True)
+        storage.mkdir(username)
+        storage.mkdir(Path(username) / TRASH_FOLDER_NAME)
 
 
 def create_folder(db_session: Session, namespace: Namespace, path: StrOrPath) -> File:
