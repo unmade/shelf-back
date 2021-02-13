@@ -1,60 +1,126 @@
 from __future__ import annotations
 
-from typing import Optional
+import time
+from typing import TYPE_CHECKING
 
-from sqlalchemy.orm import Session
+import edgedb
 
 from app import security
-from app.entities import Account, Namespace
-from app.models import Namespace as NamespaceModel
-from app.models import User
+from app.entities import Account, User
+
+if TYPE_CHECKING:
+    from edgedb import AsyncIOConnection
 
 
-def create(db_session: Session, username: str, password: str) -> User:
-    """Creates, saves and returns a User."""
-    user = User(username=username, password=security.make_password(password))
-    db_session.add(user)
-    db_session.flush()
-
-    return user
+class UserNotFound(Exception):
+    pass
 
 
-def exists(db_session: Session, user_id: int) -> bool:
-    """Returns a User with a given user_id."""
-    return db_session.query(
-        db_session.query(User).filter(User.id == user_id).exists()
-    ).scalar()
+async def create(conn: AsyncIOConnection, username: str, password: str) -> None:
+    """
+    Create user, namespace and home folder.
 
+    Args:
+        conn (AsyncIOConnection): Connecion to a database.
+        username (str): Username for a new user.
+        password (str): Plain-text password.
+    """
+    query = """
+        INSERT File {
+            name := <str>$username,
+            path := '.',
+            size := 0,
+            mtime := <float64>$mtime,
+            is_dir := True,
+            namespace := (
+                INSERT Namespace {
+                    path := <str>$username,
+                    owner := (
+                        INSERT User {
+                            username := <str>$username,
+                            password := <str>$password,
+                        }
+                    )
+                }
+            )
+        }
+    """
 
-def get_by_username(db_session: Session, username: str) -> Optional[User]:
-    """Returns a User with a given username."""
-    return (
-        db_session.query(User)
-        .filter(User.username == username)
-        .first()
+    await conn.query(
+        query,
+        username=username,
+        password=security.make_password(password),
+        mtime=time.time(),
     )
 
 
-def get_account(db_session: Session, user_id: int) -> Optional[Account]:
-    row = (
-        db_session.query(
-            User.id.label("user_id"),
-            User.username.label("username"),
-            NamespaceModel.id.label("namespace_id"),
-            NamespaceModel.path.label("path"),
+async def exists(conn: AsyncIOConnection, user_id: str) -> bool:
+    """True if User with a given user_id exists, otherwise False."""
+    query = """
+        SELECT EXISTS (
+            SELECT User
+            FILTER
+                .id = <uuid>$user_id
         )
-        .join(NamespaceModel)
-        .filter(User.id == user_id)
-        .first()
-    )
-    if not row:
-        return None
-    return Account(
-        id=row.user_id,
-        username=row.username,
-        namespace=Namespace(
-            id=row.namespace_id,
-            path=row.path,
-            owner_id=row.user_id,
-        ),
-    )
+    """
+
+    return await conn.query_one(query, user_id=str(user_id))
+
+
+async def get_by_username(conn: AsyncIOConnection, username: str) -> User:
+    """
+    Returns a User with a target username.
+
+    Args:
+        conn (AsyncIOConnection): Database connection.
+        username (str): Username to search for.
+
+    Raises:
+        UserNotFound: If User with a target username does not exists.
+
+    Returns:
+        User: User with a target username.
+    """
+    query = """
+        SELECT User { id, username, password}
+        FILTER
+            .username = <str>$username
+    """
+
+    try:
+        return User.from_orm(await conn.query_one(query, username=username))
+    except edgedb.NoDataError as exc:
+        raise UserNotFound() from exc
+
+
+async def get_account(conn: AsyncIOConnection, user_id: str) -> Account:
+    """
+    Returns a User with a Namespace.
+
+    Args:
+        conn (AsyncIOConnection): Database connection.
+        user_id (str): User ID to search for.
+
+    Raises:
+        UserNotFound: If User with a target user_id does not exists.
+
+    Returns:
+        Account:
+    """
+    query = """
+        SELECT User {
+            id,
+            username,
+            namespace := (
+                SELECT Namespace { id, path }
+                FILTER .owner = User
+                LIMIT 1
+            ),
+        }
+        FILTER
+            .id = <uuid>$user_id
+    """
+    try:
+        Account.from_orm(await conn.query_one(query, user_id=user_id))
+    except edgedb.NoDataError as exc:
+        raise UserNotFound() from exc

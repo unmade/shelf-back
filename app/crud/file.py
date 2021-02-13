@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import operator
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Iterable
 
@@ -13,7 +14,71 @@ from app.models import File
 from app.storage import StorageFile
 
 if TYPE_CHECKING:
+    from edgedb import AsyncIOConnection
     from app.typedefs import StrOrPath
+
+
+async def create(
+    conn: AsyncIOConnection,
+    namespace: StrOrPath,
+    path: StrOrPath,
+    size: int = 0,
+    mtime: float = None,
+    folder: bool = False,
+) -> None:
+    """
+    Create new file.
+
+    Args:
+        conn (AsyncIOConnection): Connection to a database.
+        namespace (StrOrPath): Namespace path where a file should be created.
+        path (StrOrPath): Path to a file to create.
+        size (int, optional): File size. Defaults to 0.
+        mtime (float, optional): Time of last modification. Defaults to current time.
+        folder (bool, optional): Whether it is a folder or a file. Defaults to False.
+    """
+    namespace = Path(namespace)
+    path = namespace / path
+    mtime = mtime or time.time()
+    query = """
+        WITH
+            MODULE default,
+            namespace := (
+                SELECT Namespace
+                FILTER
+                    .path = <str>$namespace
+                LIMIT 1
+            ),
+            parent := (
+                SELECT File
+                FILTER
+                    .path = <str>$parent
+                    AND
+                    .namespace = namespace
+                LIMIT 1
+            )
+        INSERT File {
+            name := <str>$name,
+            path := <str>$path,
+            size := 0,
+            mtime := <float64>$mtime,
+            is_dir := <bool>$is_dir,
+            parent := parent,
+            namespace := namespace,
+        }
+    """
+
+    relpath = path.relative_to(namespace)
+
+    await conn.query(
+        query,
+        name=path.name,
+        path=str(relpath),
+        mtime=time.time(),
+        is_dir=folder,
+        namespace=str(namespace),
+        parent=str(relpath.parent),
+    )
 
 
 def exists(
@@ -93,28 +158,6 @@ def list_folder_by_id(
     if hide_trash_folder:
         query = query.filter(File.path != TRASH_FOLDER_NAME)
     return query.all()
-
-
-def create(
-    db_session: Session,
-    storage_file: StorageFile,
-    namespace_id: int,
-    rel_to: StrOrPath,
-    parent_id: int = None,
-) -> File:
-    file = File(
-        namespace_id=namespace_id,
-        parent_id=parent_id,
-        name=storage_file.name,
-        path=str(storage_file.path.relative_to(rel_to)),
-        size=0 if storage_file.is_dir() else storage_file.size,
-        mtime=storage_file.mtime,
-        is_dir=storage_file.is_dir(),
-    )
-    db_session.add(file)
-    db_session.flush()
-
-    return file
 
 
 def bulk_create(

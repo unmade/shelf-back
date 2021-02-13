@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from edgedb import AsyncIOConnection
 from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
 
 from app import crud, security
 from app.api import deps, exceptions
@@ -13,15 +13,15 @@ router = APIRouter()
 
 
 @router.post("/tokens", response_model=Tokens)
-def get_tokens(
+async def get_tokens(
     form_data: OAuth2PasswordRequestForm = Depends(),
-    db_session: Session = Depends(deps.db_session),
+    conn: AsyncIOConnection = Depends(deps.db_conn),
 ):
     """Returns new access token for a given credentials."""
-    user = crud.user.get_by_username(db_session, username=form_data.username)
-
-    if not user:
-        raise exceptions.UserNotFound()
+    try:
+        user = await crud.user.get_by_username(conn, username=form_data.username)
+    except crud.user.UserNotFound as exc:
+        raise exceptions.UserNotFound() from exc
 
     if not security.verify_password(form_data.password, user.password):
         raise exceptions.UserNotFound()
@@ -32,7 +32,7 @@ def get_tokens(
 
 
 @router.put("/tokens", response_model=Tokens)
-def refresh_token(curr_user_id: int = Depends(deps.current_user_id)):
+async def refresh_token(curr_user_id: int = Depends(deps.current_user_id)):
     """Returns new access token based on current access token."""
     return Tokens(
         access_token=security.create_access_token(curr_user_id)

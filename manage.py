@@ -19,10 +19,13 @@ def createuser(
     ),
 ) -> None:
     """Creates a new user, namespace, home and trash directories."""
-    with db.SessionManager() as db_session:
-        actions.create_account(db_session, username, password)
-        db_session.commit()
-    typer.echo("User created successfully")
+    async def _createuser(username: str, password: str):
+        conn = await edgedb.async_connect(dsn=config.EDGEDB_DSN)
+        await actions.create_account(conn, username, password)
+        await conn.aclose()
+
+    asyncio.run(_createuser(username, password))
+    typer.echo("User created successfully.")
 
 
 @cli.command()

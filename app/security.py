@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Union, cast
+from typing import cast
 
 from jose import jwt
 from passlib.context import CryptContext
@@ -19,10 +19,10 @@ class InvalidToken(Exception):
 
 
 class TokenPayload(BaseModel):
-    sub: int
+    sub: str
 
 
-def create_access_token(subject: Union[int, str], expires_in: timedelta = None) -> str:
+def create_access_token(subject: str, expires_in: timedelta = None) -> str:
     """
     Creates new access token with a given subject.
 

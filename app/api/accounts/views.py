@@ -11,6 +11,6 @@ router = APIRouter()
 
 
 @router.get("/me", response_model=AccountMe)
-def get_user_me(account: Account = Depends(deps.current_account)):
+async def get_user_me(account: Account = Depends(deps.current_account)):
     """Returns account information for a current user."""
     return account
