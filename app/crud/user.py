@@ -96,9 +96,8 @@ async def get_by_id(conn: AsyncIOConnection, user_id: str) -> User:
             id,
             username,
             namespace := (
-                SELECT Namespace { id, path }
-                FILTER .owner = User
-                LIMIT 1
+              SELECT User.<owner[IS Namespace] { id, path }
+              LIMIT 1
             ),
         }
         FILTER

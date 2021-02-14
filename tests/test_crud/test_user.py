@@ -21,16 +21,10 @@ async def test_create_user(db_conn: AsyncIOConnection):
             username,
             password,
             namespace := (
-                SELECT Namespace {
+                SELECT User.<owner[IS Namespace] {
                     path,
-                    files := (
-                        SELECT File { name, path }
-                        FILTER
-                            .namespace = Namespace
-                    )
+                    files := Namespace.<namespace[IS File] { name, path }
                 }
-                FILTER
-                    .owner = User
                 LIMIT 1
             )
         } FILTER .username = 'user'
