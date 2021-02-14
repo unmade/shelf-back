@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from app import crud
+from app import crud, errors
 
 if TYPE_CHECKING:
     from edgedb import AsyncIOConnection
@@ -41,8 +41,10 @@ async def test_create_user(db_conn: AsyncIOConnection):
 async def test_create_user_but_it_already_exists(db_conn: AsyncIOConnection):
     await crud.user.create(db_conn, "user", "psswd")
 
-    with pytest.raises(crud.user.UserAlreadyExists):
+    with pytest.raises(errors.UserAlreadyExists) as excinfo:
         await crud.user.create(db_conn, "user", "psswd")
+
+    assert str(excinfo.value) == "Username 'user' is taken"
 
 
 async def test_exists(db_conn: AsyncIOConnection):
@@ -65,7 +67,7 @@ async def test_get_by_id(db_conn: AsyncIOConnection):
 
 
 async def test_get_by_id_but_it_not_found(db_conn: AsyncIOConnection):
-    with pytest.raises(crud.user.UserNotFound):
+    with pytest.raises(errors.UserNotFound):
         await crud.user.get_by_id(db_conn, user_id=uuid.uuid4())
 
 
@@ -78,5 +80,5 @@ async def test_get_user_by_username(db_conn: AsyncIOConnection):
 
 
 async def test_get_user_by_username_but_it_not_found(db_conn: AsyncIOConnection):
-    with pytest.raises(crud.user.UserNotFound):
+    with pytest.raises(errors.UserNotFound):
         await crud.user.get_by_username(db_conn, username="user")

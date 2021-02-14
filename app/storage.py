@@ -7,16 +7,12 @@ from typing import IO, TYPE_CHECKING, Generator, Iterator, Type, TypeVar
 
 import zipfly
 
-from app import config
+from app import config, errors
 
 if TYPE_CHECKING:
     from app.typedefs import StrOrPath
 
 T = TypeVar("T", bound="StorageFile")
-
-
-class NotADirectory(Exception):
-    pass
 
 
 class StorageFile:
@@ -57,7 +53,7 @@ class LocalStorage:
                 for file in dir_path.iterdir()
             )
         except NotADirectoryError as exc:
-            raise NotADirectory() from exc
+            raise errors.NotADirectory() from exc
 
     def save(self, path: StrOrPath, file: IO) -> StorageFile:
         fullpath = self.root_dir / path
@@ -71,7 +67,7 @@ class LocalStorage:
         try:
             dir_path.mkdir(parents=True, exist_ok=True)
         except NotADirectoryError as exc:
-            raise NotADirectory() from exc
+            raise errors.NotADirectory() from exc
         return StorageFile.from_path(dir_path, self.root_dir)
 
     def get(self, path: StrOrPath) -> StorageFile:

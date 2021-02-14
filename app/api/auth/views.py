@@ -4,7 +4,7 @@ from edgedb import AsyncIOConnection
 from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 
-from app import crud, security
+from app import crud, errors, security
 from app.api import deps, exceptions
 from app.entities import User
 
@@ -27,7 +27,7 @@ async def get_tokens(
     """Returns new access token for a given credentials."""
     try:
         user = await crud.user.get_by_username(conn, username=form_data.username)
-    except crud.user.UserNotFound as exc:
+    except errors.UserNotFound as exc:
         raise exceptions.UserNotFound() from exc
 
     if not security.verify_password(form_data.password, user.password):

@@ -5,19 +5,11 @@ from typing import TYPE_CHECKING
 
 import edgedb
 
-from app import security
+from app import errors, security
 from app.entities import User
 
 if TYPE_CHECKING:
     from edgedb import AsyncIOConnection
-
-
-class UserNotFound(Exception):
-    pass
-
-
-class UserAlreadyExists(Exception):
-    pass
 
 
 async def create(conn: AsyncIOConnection, username: str, password: str) -> None:
@@ -60,8 +52,8 @@ async def create(conn: AsyncIOConnection, username: str, password: str) -> None:
             password=security.make_password(password),
             mtime=time.time(),
         )
-    except edgedb.errors.ConstraintViolationError as exc:
-        raise UserAlreadyExists() from exc
+    except edgedb.ConstraintViolationError as exc:
+        raise errors.UserAlreadyExists(f"Username '{username}' is taken") from exc
 
 
 async def exists(conn: AsyncIOConnection, user_id: str) -> bool:
@@ -106,7 +98,7 @@ async def get_by_id(conn: AsyncIOConnection, user_id: str) -> User:
     try:
         return User.from_orm(await conn.query_one(query, user_id=user_id))
     except edgedb.NoDataError as exc:
-        raise UserNotFound() from exc
+        raise errors.UserNotFound() from exc
 
 
 async def get_by_username(conn: AsyncIOConnection, username: str) -> User:
@@ -132,4 +124,4 @@ async def get_by_username(conn: AsyncIOConnection, username: str) -> User:
     try:
         return User.from_orm(await conn.query_one(query, username=username))
     except edgedb.NoDataError as exc:
-        raise UserNotFound() from exc
+        raise errors.UserNotFound() from exc

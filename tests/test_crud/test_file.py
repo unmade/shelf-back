@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from app import crud
+from app import crud, errors
 
 if TYPE_CHECKING:
     from edgedb import AsyncIOConnection as Connection, AsyncIOPool as Pool
@@ -40,12 +40,12 @@ async def test_create(db_conn: Connection, user: User):
 
 
 async def test_create_but_parent_is_missing(db_conn: Connection, user: User):
-    with pytest.raises(crud.file.MissingParent):
+    with pytest.raises(errors.MissingParent):
         await crud.file.create(db_conn, user.namespace.path, "New Folder/file")
 
 
 async def test_create_but_file_already_exists(db_conn: Connection, user: User):
-    with pytest.raises(crud.file.FileAlreadyExists):
+    with pytest.raises(errors.FileAlreadyExists):
         await crud.file.create(db_conn, user.namespace.path, ".")
 
 
@@ -143,14 +143,14 @@ async def test_create_folder_but_with_overlapping_parents(
 async def test_create_folder_but_folder_exists(db_conn: Connection, user: User):
     await crud.file.create_folder(db_conn, user.namespace.path, "folder")
 
-    with pytest.raises(crud.file.FileAlreadyExists):
+    with pytest.raises(errors.FileAlreadyExists):
         await crud.file.create_folder(db_conn, user.namespace.path, "folder")
 
 
 async def test_create_folder_but_path_not_a_dir(db_conn: Connection, user: User):
     await crud.file.create(db_conn, user.namespace.path, "data")
 
-    with pytest.raises(crud.file.NotADirectory):
+    with pytest.raises(errors.NotADirectory):
         await crud.file.create_folder(db_conn, user.namespace.path, "data/file")
 
 
@@ -165,7 +165,6 @@ async def test_create_folder_but_path_not_a_dir(db_conn: Connection, user: User)
 async def test_exists(db_conn: Connection, user: User, is_dir, folder, exists):
     namespace = user.namespace.path
     await crud.file.create(db_conn, namespace, "file", folder=is_dir)
-
     assert await crud.file.exists(db_conn, namespace, "file", folder=folder) is exists
 
 
@@ -183,5 +182,5 @@ async def test_get(db_conn: Connection, user_factory):
 
 
 async def test_get_but_file_does_not_exists(db_conn: Connection, user: User):
-    with pytest.raises(crud.file.FileNotFound):
+    with pytest.raises(errors.FileNotFound):
         await crud.file.get(db_conn, user.namespace.path, "file")
