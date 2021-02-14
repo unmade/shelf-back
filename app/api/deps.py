@@ -7,14 +7,14 @@ from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 
 from app import crud, db, security
-from app.entities import Account
+from app.entities import User
 from app.security import TokenPayload
 
 from . import exceptions
 
 __all__ = [
     "db_conn",
-    "current_account",
+    "current_user",
     "current_user_id",
 ]
 
@@ -44,11 +44,11 @@ async def current_user_id(
     return payload.sub
 
 
-async def current_account(
+async def current_user(
     conn: AsyncIOConnection = Depends(db_conn),
     payload: TokenPayload = Depends(token_payload),
-) -> Account:
+) -> User:
     try:
-        return await crud.user.get_account(conn, user_id=payload.sub)
+        return await crud.user.get_by_id(conn, user_id=payload.sub)
     except crud.user.UserNotFound as exc:
         raise exceptions.UserNotFound() from exc

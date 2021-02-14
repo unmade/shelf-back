@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import edgedb
 
 from app import security
-from app.entities import Account, User
+from app.entities import User
 
 if TYPE_CHECKING:
     from edgedb import AsyncIOConnection
@@ -77,7 +77,7 @@ async def exists(conn: AsyncIOConnection, user_id: str) -> bool:
     return await conn.query_one(query, user_id=str(user_id))
 
 
-async def get_account(conn: AsyncIOConnection, user_id: str) -> Account:
+async def get_by_id(conn: AsyncIOConnection, user_id: str) -> User:
     """
     Returns a User with a Namespace.
 
@@ -105,7 +105,7 @@ async def get_account(conn: AsyncIOConnection, user_id: str) -> Account:
             .id = <uuid>$user_id
     """
     try:
-        return Account.from_orm(await conn.query_one(query, user_id=user_id))
+        return User.from_orm(await conn.query_one(query, user_id=user_id))
     except edgedb.NoDataError as exc:
         raise UserNotFound() from exc
 
