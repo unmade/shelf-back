@@ -5,10 +5,8 @@ from os.path import join as joinpath
 from pathlib import Path
 from typing import IO, TYPE_CHECKING
 
-import app.storage
-from app import crud
+from app import crud, errors
 from app.config import TRASH_FOLDER_NAME
-from app.crud.user import UserAlreadyExists
 from app.entities import File, Namespace
 from app.storage import storage
 
@@ -16,22 +14,6 @@ if TYPE_CHECKING:
     from edgedb import AsyncIOConnection
     from sqlalchemy.orm import Session
     from app.typedefs import StrOrPath
-
-
-class FileAlreadyExists(Exception):
-    pass
-
-
-class FileNotFound(Exception):
-    pass
-
-
-class NotADirectory(Exception):
-    pass
-
-
-class UserAlreadyExist(Exception):
-    pass
 
 
 async def create_account(conn: AsyncIOConnection, username: str, password: str) -> None:
@@ -42,16 +24,15 @@ async def create_account(conn: AsyncIOConnection, username: str, password: str) 
         db_session (Session): Database session.
         username (str): Username for a new user.
         password (str): Plain-text password.
+
+    Raises:
+        UserAlreadyExists: If user with this username already exists.
     """
     async with conn.transaction():
-        try:
-            await crud.user.create(conn, username, password)
-        except crud.user.UserAlreadyExists as exc:
-            raise UserAlreadyExists() from exc
-        else:
-            await crud.file.create(conn, username, TRASH_FOLDER_NAME, folder=True)
-            storage.mkdir(username)
-            storage.mkdir(joinpath(username, TRASH_FOLDER_NAME))
+        await crud.user.create(conn, username, password)
+        await crud.file.create(conn, username, TRASH_FOLDER_NAME, folder=True)
+        storage.mkdir(username)
+        storage.mkdir(joinpath(username, TRASH_FOLDER_NAME))
 
 
 async def create_folder(
@@ -73,16 +54,8 @@ async def create_folder(
         File: Created folder.
     """
 
-    try:
-        storage.mkdir(joinpath(namespace, path))
-    except app.storage.NotADirectory as exc:
-        raise NotADirectory() from exc
-
-    try:
-        await crud.file.create_folder(conn, namespace, path)
-    except crud.file.FileAlreadyExists as exc:
-        raise FileAlreadyExists() from exc
-
+    storage.mkdir(joinpath(namespace, path))
+    await crud.file.create_folder(conn, namespace, path)
     return await crud.file.get(conn, namespace, path)
 
 
@@ -105,7 +78,7 @@ def delete_immediately(
     """
     file_in_db = crud.file.get(db_session, namespace.id, path)
     if not file_in_db:
-        raise FileNotFound()
+        raise errors.FileNotFound()
 
     file = File.from_orm(file_in_db)
     crud.file.inc_folder_size(
@@ -164,10 +137,10 @@ def move(
 
     file = crud.file.get(db_session, namespace.id, from_path)
     if not file:
-        raise FileNotFound()
+        raise errors.FileNotFound()
 
     if crud.file.exists(db_session, namespace.id, to_path):
-        raise FileAlreadyExists()
+        raise errors.FileAlreadyExists()
 
     next_parent = crud.file.get(db_session, namespace.id, to_path.parent)
     if not next_parent:
@@ -223,7 +196,7 @@ def move_to_trash(db_session: Session, namespace: Namespace, path: StrOrPath) ->
     to_path = Path(TRASH_FOLDER_NAME) / from_path.name
     file = crud.file.get(db_session, namespace.id, from_path)
     if not file:
-        raise FileNotFound()
+        raise errors.FileNotFound()
 
     if crud.file.exists(db_session, namespace.id, to_path):
         name = to_path.name.strip(to_path.suffix)

@@ -10,6 +10,7 @@ import sqlalchemy.exc
 from sqlalchemy import func
 from sqlalchemy.orm import Session, aliased
 
+from app import errors
 from app.config import TRASH_FOLDER_NAME
 from app.models import File
 from app.storage import StorageFile
@@ -17,22 +18,6 @@ from app.storage import StorageFile
 if TYPE_CHECKING:
     from edgedb import AsyncIOConnection
     from app.typedefs import StrOrPath
-
-
-class FileAlreadyExists(Exception):
-    pass
-
-
-class FileNotFound(Exception):
-    pass
-
-
-class MissingParent(Exception):
-    pass
-
-
-class NotADirectory(Exception):
-    pass
 
 
 async def create(
@@ -65,7 +50,7 @@ async def create(
     mtime = mtime or time.time()
 
     if path != "." and not await exists(conn, namespace, relpath.parent, folder=True):
-        raise MissingParent()
+        raise errors.MissingParent()
 
     query = """
         WITH
@@ -107,7 +92,7 @@ async def create(
             parent=str(relpath.parent),
         )
     except edgedb.ConstraintViolationError as exc:
-        raise FileAlreadyExists from exc
+        raise errors.FileAlreadyExists from exc
 
 
 async def create_folder(
@@ -139,16 +124,16 @@ async def create_folder(
     parents = await conn.query(query, namespace=str(namespace), paths=paths)
     assert len(parents) > 0, f"No home folder in a namespace {namespace}"
     if any(not p.is_dir for p in parents):
-        raise NotADirectory()
+        raise errors.NotADirectory()
     if parents[-1].path == str(path):
-        raise FileAlreadyExists()
+        raise errors.FileAlreadyExists()
 
     to_create = list(reversed(paths[:paths.index(parents[-1].path)]))
 
     for p in to_create:
         try:
             await create(conn, namespace, p, folder=True)
-        except (FileAlreadyExists, MissingParent):
+        except (errors.FileAlreadyExists, errors.MissingParent):
             pass
 
 
@@ -214,7 +199,7 @@ async def get(conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath) ->
     try:
         return await conn.query_one(query, namespace=str(namespace), path=str(path))
     except edgedb.NoDataError as exc:
-        raise FileNotFound() from exc
+        raise errors.FileNotFound() from exc
 
 
 def get_folder(db_session: Session, namespace_id: int, path: StrOrPath) -> File:

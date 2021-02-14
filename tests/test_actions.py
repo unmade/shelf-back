@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from app import actions
+from app import actions, errors
 from app.storage import storage
 
 if TYPE_CHECKING:
@@ -48,7 +48,7 @@ async def test_create_account(db_conn: Connection):
 async def test_create_account_but_username_is_taken(db_conn: Connection):
     await actions.create_account(db_conn, "user", "psswd")
 
-    with pytest.raises(actions.UserAlreadyExists):
+    with pytest.raises(errors.UserAlreadyExists):
         await actions.create_account(db_conn, "user", "psswd")
 
 
@@ -79,7 +79,7 @@ async def test_create_folder_but_folder_exists(db_conn: Connection, user: User):
     path = Path("a/b/c")
     await actions.create_folder(db_conn, user.namespace.path, path)
 
-    with pytest.raises(actions.FileAlreadyExists):
+    with pytest.raises(errors.FileAlreadyExists):
         await actions.create_folder(db_conn, user.namespace.path, path.parent)
 
     assert storage.get(user.namespace.path / path.parent)
@@ -90,5 +90,5 @@ async def test_create_folder_but_parent_is_file(
 ):
     await file_factory(user.id, path="file")
 
-    with pytest.raises(actions.NotADirectory):
+    with pytest.raises(errors.NotADirectory):
         await actions.create_folder(db_conn, user.namespace.path, "file/folder")

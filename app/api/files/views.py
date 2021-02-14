@@ -12,7 +12,7 @@ from fastapi import Form, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app import actions, config, crud
+from app import actions, config, crud, errors
 from app.api import deps
 from app.entities import User
 from app.storage import storage
@@ -37,9 +37,9 @@ async def create_folder(
     """
     try:
         folder = await actions.create_folder(db_conn, user.namespace.path, payload.path)
-    except actions.FileAlreadyExists as exc:
+    except errors.FileAlreadyExists as exc:
         raise exceptions.AlreadyExists() from exc
-    except actions.NotADirectory as exc:
+    except errors.NotADirectory as exc:
         raise exceptions.InvalidPath() from exc
 
     return folder
