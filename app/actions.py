@@ -6,6 +6,7 @@ from typing import IO, TYPE_CHECKING
 
 from app import crud
 from app.config import TRASH_FOLDER_NAME
+from app.crud.user import UserAlreadyExists
 from app.entities import File, Namespace
 from app.storage import storage
 
@@ -23,6 +24,10 @@ class FileNotFound(Exception):
     pass
 
 
+class UserAlreadyExist(Exception):
+    pass
+
+
 async def create_account(conn: AsyncIOConnection, username: str, password: str) -> None:
     """
     Creates a new user, namespace, home and trash folders.
@@ -33,10 +38,14 @@ async def create_account(conn: AsyncIOConnection, username: str, password: str) 
         password (str): Plain-text password.
     """
     async with conn.transaction():
-        await crud.user.create(conn, username, password)
-        await crud.file.create(conn, username, TRASH_FOLDER_NAME, folder=True)
-        storage.mkdir(username)
-        storage.mkdir(Path(username) / TRASH_FOLDER_NAME)
+        try:
+            await crud.user.create(conn, username, password)
+        except crud.user.UserAlreadyExists as exc:
+            raise UserAlreadyExists() from exc
+        else:
+            await crud.file.create(conn, username, TRASH_FOLDER_NAME, folder=True)
+            storage.mkdir(username)
+            storage.mkdir(Path(username) / TRASH_FOLDER_NAME)
 
 
 def create_folder(db_session: Session, namespace: Namespace, path: StrOrPath) -> File:
