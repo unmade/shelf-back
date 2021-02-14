@@ -15,7 +15,8 @@ from app.api.files.exceptions import (
 )
 
 if TYPE_CHECKING:
-    from ..conftest import TestClient
+    from app.entities import User
+    from tests.conftest import TestClient
 
 
 @pytest.mark.asyncio
@@ -26,9 +27,8 @@ if TYPE_CHECKING:
     (" Whitespaces ", "Whitespaces", "Whitespaces", False),
 ])
 async def test_create_folder(
-    client: TestClient, user_factory, path, name, expected_path, hidden,
+    client: TestClient, user: User, path, name, expected_path, hidden,
 ):
-    user = await user_factory()
     payload = {"path": path}
     response = await client.login(user.id).post("/files/create_folder", json=payload)
     assert response.status_code == 200
@@ -38,8 +38,7 @@ async def test_create_folder(
 
 
 @pytest.mark.asyncio
-async def test_create_folder_but_folder_exists(client: TestClient, user_factory):
-    user = await user_factory()
+async def test_create_folder_but_folder_exists(client: TestClient, user: User):
     payload = {"path": "Trash"}
     response = await client.login(user.id).post("/files/create_folder", json=payload)
     assert response.status_code == 400
@@ -48,9 +47,8 @@ async def test_create_folder_but_folder_exists(client: TestClient, user_factory)
 
 @pytest.mark.asyncio
 async def test_create_folder_but_parent_is_a_file(
-    client: TestClient, user_factory, file_factory
+    client: TestClient, user: User, file_factory
 ):
-    user = await user_factory()
     await file_factory(user.id, path="file")
     payload = {"path": "file/folder"}
     response = await client.login(user.id).post("/files/create_folder", json=payload)

@@ -157,3 +157,9 @@ def user_factory(db_conn: AsyncIOConnection):
         return await crud.user.get_by_id(db_conn, user_id=user.id)
 
     return _user_factory
+
+
+@pytest.fixture
+async def user(user_factory):
+    """User instances with created namespace, home and trash directories."""
+    return await user_factory()
