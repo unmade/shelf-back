@@ -6,10 +6,17 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 from app import crud, security
 from app.api import deps, exceptions
+from app.entities import User
 
-from .schemas import Tokens
+from .schemas import Tokens, UserMe
 
 router = APIRouter()
+
+
+@router.get("/me", response_model=UserMe)
+async def get_me(user: User = Depends(deps.current_user)):
+    """Returns account information for a current user."""
+    return user
 
 
 @router.post("/tokens", response_model=Tokens)

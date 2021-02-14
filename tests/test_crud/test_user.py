@@ -61,18 +61,18 @@ async def test_exists_but_it_is_not(db_conn: AsyncIOConnection):
     assert not await crud.user.exists(db_conn, user_id=uuid.uuid4())
 
 
-async def test_get_account(db_conn: AsyncIOConnection):
+async def test_get_by_id(db_conn: AsyncIOConnection):
     await crud.user.create(db_conn, "user", "psswd")
-    user = await db_conn.query_one("SELECT User FILTER .username = 'user'")
-    account = await crud.user.get_account(db_conn, user_id=user.id)
+    user_id = (await db_conn.query_one("SELECT User FILTER .username = 'user'")).id
+    user = await crud.user.get_by_id(db_conn, user_id=user_id)
 
-    assert account.username == "user"
-    assert str(account.namespace.path) == "user"
+    assert user.username == "user"
+    assert str(user.namespace.path) == "user"
 
 
-async def test_get_account_but_it_not_found(db_conn: AsyncIOConnection):
+async def test_get_by_id_but_it_not_found(db_conn: AsyncIOConnection):
     with pytest.raises(crud.user.UserNotFound):
-        await crud.user.get_account(db_conn, user_id=uuid.uuid4())
+        await crud.user.get_by_id(db_conn, user_id=uuid.uuid4())
 
 
 async def test_get_user_by_username(db_conn: AsyncIOConnection):

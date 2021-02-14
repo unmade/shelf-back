@@ -16,6 +16,7 @@ from app.main import create_app
 
 if TYPE_CHECKING:
     from edgedb import AsyncIOConnection, AsyncIOPool
+    from app.entities import User
 
 fake = Faker()
 
@@ -60,7 +61,7 @@ def file_factory():
         path = path or fake.file_name(category="text", extension="txt")
         with db.SessionManager() as db_session:
             file = BytesIO(b"I'm Dummy File!")
-            account = crud.user.get_account(db_session, user_id)
+            account = crud.user.get_by_id(db_session, user_id)
             namespace = account.namespace
             result = actions.save_file(db_session, namespace, path, file)
             db_session.commit()
@@ -133,7 +134,7 @@ def user_factory(db_conn: AsyncIOConnection):
     """Creates a new user, namespace, home and trash directories."""
     async def _user_factory(
         username: str = None, password: str = "root", hash_password: bool = False,
-    ):
+    ) -> User:
         username = username or fake.simple_profile()["username"]
         # Hashing password is an expensive operation, so do it only when need it.
         if hash_password:
@@ -142,6 +143,6 @@ def user_factory(db_conn: AsyncIOConnection):
             with mock.patch("app.security.make_password", return_value=password):
                 await actions.create_account(db_conn, username, password)
         user = await crud.user.get_by_username(db_conn, username=username)
-        return await crud.user.get_account(db_conn, user_id=user.id)
+        return await crud.user.get_by_id(db_conn, user_id=user.id)
 
     return _user_factory

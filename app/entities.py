@@ -17,15 +17,6 @@ class Namespace(BaseModel):
         orm_mode = True
 
 
-class Account(BaseModel):
-    id: UUID
-    username: str
-    namespace: Namespace
-
-    class Config:
-        orm_mode = True
-
-
 class File(BaseModel):
     id: int
     parent_id: Optional[int]
@@ -47,7 +38,8 @@ class File(BaseModel):
 class User(BaseModel):
     id: UUID
     username: str
-    password: str
+    password: str = None
+    namespace: Namespace = None
 
     class Config:
         orm_mode = True
