@@ -56,7 +56,11 @@ async def create_pool() -> None:
     """Create a new connection pool."""
     global _pool
 
-    _pool = await edgedb.create_async_pool(dsn=config.EDGEDB_DSN)
+    _pool = await edgedb.create_async_pool(
+        dsn=config.EDGEDB_DSN,
+        min_size=4,
+        max_size=4,
+    )
 
 
 async def close_pool() -> None:

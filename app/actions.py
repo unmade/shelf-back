@@ -31,9 +31,6 @@ async def create_account(conn: AsyncIOConnection, username: str, password: str) 
         db_session (Session): Database session.
         username (str): Username for a new user.
         password (str): Plain-text password.
-
-    Returns:
-        User: Created User.
     """
     async with conn.transaction():
         await crud.user.create(conn, username, password)

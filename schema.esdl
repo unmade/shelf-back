@@ -1,22 +1,22 @@
 type User {
     required property username -> str {
-        delegated constraint exclusive;
+        constraint exclusive;
     };
     required property password -> str;
 }
 
 type Namespace {
     required property path -> str {
-        delegated constraint exclusive;
+        constraint exclusive;
     };
-    required link owner -> User;
+    required link owner -> User {
+        on target delete DELETE SOURCE;
+    };
 }
 
 type File {
     required property name -> str;
-    required property path -> str {
-        delegated constraint exclusive;
-    };
+    required property path -> str;
     required property size -> int64;
     required property mtime -> float64;
     required property is_dir -> bool;
