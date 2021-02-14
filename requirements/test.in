@@ -1,10 +1,11 @@
 -c base.txt
 
 faker
+httpx
 ipython
 mypy
 pre-commit
 pytest
+pytest-asyncio
 pytest-cov
-requests
 sqlalchemy-stubs
