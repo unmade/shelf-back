@@ -1,12 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, validator
-
-from app.config import TRASH_FOLDER_NAME
+from pydantic import BaseModel
 
 
 class Namespace(BaseModel):
@@ -18,21 +15,14 @@ class Namespace(BaseModel):
 
 
 class File(BaseModel):
-    id: int
-    parent_id: Optional[int]
-    type: str
+    id: UUID
     name: str
     path: str
     size: int
     mtime: float
-    hidden: bool = None
 
     class Config:
         orm_mode = True
-
-    @validator("hidden", always=True)
-    def is_hidden(cls, value, values, config, field):
-        return values["name"].startswith(".") or values["name"] == TRASH_FOLDER_NAME
 
 
 class User(BaseModel):

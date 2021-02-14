@@ -23,7 +23,15 @@ class FileAlreadyExists(Exception):
     pass
 
 
+class FileNotFound(Exception):
+    pass
+
+
 class MissingParent(Exception):
+    pass
+
+
+class NotADirectory(Exception):
     pass
 
 
@@ -49,6 +57,7 @@ async def create(
     Raises:
         FileAlreadyExists: If file in a target path already exists
         MissingParent: If target path does not have a parent.
+        NotADirectory: If parent path is not a directory.
     """
     namespace = Path(namespace)
     fullpath = namespace / path
@@ -60,29 +69,29 @@ async def create(
 
     query = """
         WITH
-            MODULE default,
-            namespace := (
-                SELECT Namespace
-                FILTER
-                    .path = <str>$namespace
-                LIMIT 1
-            ),
-            parent := (
-                SELECT File
-                FILTER
-                    .path = <str>$parent
-                    AND
-                    .namespace = namespace
-                LIMIT 1
-            )
+            Parent := File,
         INSERT File {
             name := <str>$name,
             path := <str>$path,
             size := <int64>$size,
             mtime := <float64>$mtime,
             is_dir := <bool>$is_dir,
-            parent := parent,
-            namespace := namespace,
+            parent := (
+                SELECT Parent
+                FILTER
+                    .path = <str>$parent
+                    AND
+                    .namespace.path = <str>$namespace
+                    AND
+                    .is_dir = true
+                LIMIT 1
+            ),
+            namespace := (
+                SELECT Namespace
+                FILTER
+                    .path = <str>$namespace
+                LIMIT 1
+            )
         }
     """
 
@@ -102,7 +111,7 @@ async def create(
 
 
 async def create_folder(
-    conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath
+    conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath,
 ) -> None:
     """
     Create a folder with any missing parents of the target path.
@@ -115,23 +124,24 @@ async def create_folder(
         path (StrOrPath): Path in the namespace to create the folder.
 
     Raises:
-        MissingParent: If target path does not have parents at all.
+        FileAlreadyExists: If folder at target path already exists.
+        NotADirectory: If one of the parents is not a directory.
     """
     paths = [str(path)] + [str(p) for p in Path(path).parents]
     query = """
-        SELECT File { id, path }
+        SELECT File { id, path, is_dir }
         FILTER
             .path IN {array_unpack(<array<str>>$paths)}
             AND
             .namespace.path = <str>$namespace
-            AND
-            .is_dir = true
+        ORDER BY .path ASC
     """
     parents = await conn.query(query, namespace=str(namespace), paths=paths)
-    if not parents:
-        raise MissingParent()
-    if parents[0].path == str(path):
-        return
+    assert len(parents) > 0, f"No home folder in a namespace {namespace}"
+    if any(not p.is_dir for p in parents):
+        raise NotADirectory()
+    if parents[-1].path == str(path):
+        raise FileAlreadyExists()
 
     to_create = list(reversed(paths[:paths.index(parents[-1].path)]))
 
@@ -139,7 +149,7 @@ async def create_folder(
         try:
             await create(conn, namespace, p, folder=True)
         except (FileAlreadyExists, MissingParent):
-            continue
+            pass
 
 
 async def exists(
@@ -179,15 +189,32 @@ async def exists(
     return await conn.query_one(query, **params)
 
 
-def get(db_session: Session, namespace_id: int, path: StrOrPath) -> File:
-    return (
-        db_session.query(File)
-        .filter(
-            File.namespace_id == namespace_id,
-            File.path == str(path),
-        )
-        .scalar()
-    )
+async def get(conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath) -> File:
+    """
+    Returns file with a target path.
+
+    Args:
+        conn (AsyncIOConnection): Database connection.
+        namespace (StrOrPath): Namespace where to look for a file.
+        path (StrOrPath): Path to a file.
+
+    Raises:
+        FileNotFound: If file with a target does not exists.
+
+    Returns:
+        File:
+    """
+    query = """
+        SELECT File { id, name, path, size, mtime, is_dir }
+        FILTER
+            .path = <str>$path
+            AND
+            .namespace.path = <str>$namespace
+    """
+    try:
+        return await conn.query_one(query, namespace=str(namespace), path=str(path))
+    except edgedb.NoDataError as exc:
+        raise FileNotFound() from exc
 
 
 def get_folder(db_session: Session, namespace_id: int, path: StrOrPath) -> File:

@@ -5,6 +5,7 @@ import secrets
 from pathlib import Path
 
 from cashews import cache
+from edgedb import AsyncIOConnection
 from fastapi import APIRouter, Depends
 from fastapi import File as FileParam
 from fastapi import Form, Query, Request, UploadFile
@@ -22,23 +23,24 @@ router = APIRouter()
 
 
 @router.post("/create_folder", response_model=schemas.File)
-def create_folder(
+async def create_folder(
     payload: schemas.PathRequest,
-    db_session: Session = Depends(deps.db_session),
+    db_conn: AsyncIOConnection = Depends(deps.db_conn),
     user: User = Depends(deps.current_user),
 ):
     """
-    Creates a new folder within a given path.
+    Creates a new folder with a target path.
 
-    If a path provided in a format a/b/c, then 'a' and 'b' folders will be created,
+    Any missing parents of the folder path are created as needed.
+    If a path provided in a format 'a/b/c', then 'a' and 'b' folders will be created,
     if not existed, and 'c' will be returned as a response.
     """
     try:
-        folder = actions.create_folder(db_session, user.namespace, payload.path)
+        folder = await actions.create_folder(db_conn, user.namespace.path, payload.path)
     except actions.FileAlreadyExists as exc:
         raise exceptions.AlreadyExists() from exc
-    else:
-        db_session.commit()
+    except actions.NotADirectory as exc:
+        raise exceptions.InvalidPath() from exc
 
     return folder
 

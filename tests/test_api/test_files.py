@@ -18,31 +18,44 @@ if TYPE_CHECKING:
     from ..conftest import TestClient
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize(["path", "name", "expected_path", "hidden"], [
     ("Folder", "Folder", None, False),
     ("Nested/Path/Folder", "Folder", None, False),
     (".Hidden Folder", ".Hidden Folder", None, True),
     (" Whitespaces ", "Whitespaces", "Whitespaces", False),
-    # TODO: test with path like './Folder', '../Folder', 'Folder/./Folder', etc...
 ])
-def test_create_folder(
+async def test_create_folder(
     client: TestClient, user_factory, path, name, expected_path, hidden,
 ):
-    user = user_factory()
+    user = await user_factory()
     payload = {"path": path}
-    response = client.login(user.id).post("/files/create_folder", json=payload)
+    response = await client.login(user.id).post("/files/create_folder", json=payload)
     assert response.status_code == 200
     assert response.json()["name"] == name
     assert response.json()["path"] == (expected_path or path)
     assert response.json()["hidden"] is hidden
 
 
-def test_create_folder_but_folder_already_exists(client: TestClient, user_factory):
-    user = user_factory()
+@pytest.mark.asyncio
+async def test_create_folder_but_folder_exists(client: TestClient, user_factory):
+    user = await user_factory()
     payload = {"path": "Trash"}
-    response = client.login(user.id).post("/files/create_folder", json=payload)
+    response = await client.login(user.id).post("/files/create_folder", json=payload)
     assert response.status_code == 400
     assert response.json() == AlreadyExists().as_dict()
+
+
+@pytest.mark.asyncio
+async def test_create_folder_but_parent_is_a_file(
+    client: TestClient, user_factory, file_factory
+):
+    user = await user_factory()
+    await file_factory(user.id, path="file")
+    payload = {"path": "file/folder"}
+    response = await client.login(user.id).post("/files/create_folder", json=payload)
+    assert response.status_code == 400
+    assert response.json() == InvalidPath().as_dict()
 
 
 def test_delete_immediately(client: TestClient, user_factory):

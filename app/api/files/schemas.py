@@ -23,15 +23,18 @@ class GetDownloadUrlResult(BaseModel):
 
 class File(BaseModel):
     id: int
-    type: str
     name: str
     path: str
     size: int
     mtime: float
+    type: str = None
     hidden: bool = None
 
     class Config:
         orm_mode = True
+
+    def get_type(cls, value, values, config, field) -> str:
+        return "folder" if values["is_dir"] else "file"
 
     @validator("hidden", always=True)
     def is_hidden(cls, value, values, config, field):

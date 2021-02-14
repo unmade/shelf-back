@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -8,12 +9,12 @@ from app import actions
 from app.storage import storage
 
 if TYPE_CHECKING:
-    from edgedb import AsyncIOConnection
+    from edgedb import AsyncIOConnection as Connection
 
 pytestmark = [pytest.mark.asyncio]
 
 
-async def test_create_account(db_conn: AsyncIOConnection):
+async def test_create_account(db_conn: Connection):
     await actions.create_account(db_conn, "user", "psswd")
 
     assert storage.get("user")
@@ -31,7 +32,7 @@ async def test_create_account(db_conn: AsyncIOConnection):
                 LIMIT 1
             )
         } FILTER .username = 'user'
-        """)
+    """)
 
     assert user.username == "user"
     assert user.password != "psswd"
@@ -43,8 +44,53 @@ async def test_create_account(db_conn: AsyncIOConnection):
     assert user.namespace.files[1].path == "Trash"
 
 
-async def test_create_account_but_username_is_taken(db_conn: AsyncIOConnection):
+async def test_create_account_but_username_is_taken(db_conn: Connection):
     await actions.create_account(db_conn, "user", "psswd")
 
     with pytest.raises(actions.UserAlreadyExists):
         await actions.create_account(db_conn, "user", "psswd")
+
+
+async def test_create_folder(db_conn: Connection, user_factory):
+    user = await user_factory()
+    path = Path("a/b/c")
+    await actions.create_folder(db_conn, user.namespace.path, path)
+
+    assert storage.get(user.namespace.path / path)
+
+    query = """
+        SELECT File { id }
+        FILTER
+            .path IN array_unpack(<array<str>>$paths)
+            AND
+            .namespace.path = <str>$namespace
+    """
+
+    folders = await db_conn.query(
+        query,
+        namespace=str(user.namespace.path),
+        paths=[str(path)] + [str(p) for p in Path(path).parents]
+    )
+
+    assert len(folders) == 4
+
+
+async def test_create_folder_but_folder_exists(db_conn: Connection, user_factory):
+    user = await user_factory()
+    path = Path("a/b/c")
+    await actions.create_folder(db_conn, user.namespace.path, path)
+
+    with pytest.raises(actions.FileAlreadyExists):
+        await actions.create_folder(db_conn, user.namespace.path, path.parent)
+
+    assert storage.get(user.namespace.path / path.parent)
+
+
+async def test_create_folder_but_parent_is_file(
+    db_conn: Connection, user_factory, file_factory
+):
+    user = await user_factory()
+    await file_factory(user.id, path="file")
+
+    with pytest.raises(actions.NotADirectory):
+        await actions.create_folder(db_conn, user.namespace.path, "file/folder")
