@@ -120,7 +120,7 @@ async def db_pool(create_test_db) -> None:
     del create_test_db  # required only to preserve fixtures correct execution order
 
     _, dsn, _ = _build_test_db_dsn()
-    async with edgedb.create_async_pool(dsn=dsn, min_size=4, max_size=4) as pool:
+    async with edgedb.create_async_pool(dsn=dsn, min_size=5, max_size=5) as pool:
         with mock.patch("app.db._pool", pool):
             yield pool
 

@@ -22,5 +22,7 @@ type File {
     required property is_dir -> bool;
 
     required link namespace -> Namespace;
-    link parent -> File;
+    single link parent -> File;
+
+    constraint exclusive on ((.path, .namespace));
 }
