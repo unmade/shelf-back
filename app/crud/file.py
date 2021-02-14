@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Iterable
 
+import edgedb
 import sqlalchemy.exc
 from sqlalchemy import func
 from sqlalchemy.orm import Session, aliased
@@ -16,6 +17,14 @@ from app.storage import StorageFile
 if TYPE_CHECKING:
     from edgedb import AsyncIOConnection
     from app.typedefs import StrOrPath
+
+
+class FileAlreadyExists(Exception):
+    pass
+
+
+class MissingParent(Exception):
+    pass
 
 
 async def create(
@@ -36,10 +45,19 @@ async def create(
         size (int, optional): File size. Defaults to 0.
         mtime (float, optional): Time of last modification. Defaults to current time.
         folder (bool, optional): Whether it is a folder or a file. Defaults to False.
+
+    Raises:
+        FileAlreadyExists: If file in a target path already exists
+        MissingParent: If target path does not have a parent.
     """
     namespace = Path(namespace)
-    path = namespace / path
+    fullpath = namespace / path
+    relpath = fullpath.relative_to(namespace)
     mtime = mtime or time.time()
+
+    if path != "." and not await exists(conn, namespace, relpath.parent, folder=True):
+        raise MissingParent()
+
     query = """
         WITH
             MODULE default,
@@ -60,7 +78,7 @@ async def create(
         INSERT File {
             name := <str>$name,
             path := <str>$path,
-            size := 0,
+            size := <int64>$size,
             mtime := <float64>$mtime,
             is_dir := <bool>$is_dir,
             parent := parent,
@@ -68,28 +86,71 @@ async def create(
         }
     """
 
-    relpath = path.relative_to(namespace)
+    try:
+        await conn.query_one(
+            query,
+            name=fullpath.name,
+            path=str(relpath),
+            size=size,
+            mtime=time.time(),
+            is_dir=folder,
+            namespace=str(namespace),
+            parent=str(relpath.parent),
+        )
+    except edgedb.ConstraintViolationError as exc:
+        raise FileAlreadyExists from exc
 
-    await conn.query(
-        query,
-        name=path.name,
-        path=str(relpath),
-        mtime=time.time(),
-        is_dir=folder,
-        namespace=str(namespace),
-        parent=str(relpath.parent),
-    )
+
+async def create_folder(
+    conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath
+) -> None:
+    """
+    Create a folder with any missing parents of the target path.
+
+    If target path already exists, do nothing.
+
+    Args:
+        conn (AsyncIOConnection): Database connection.
+        namespace (StrOrPath): Namespace where to create folder to.
+        path (StrOrPath): Path in the namespace to create the folder.
+
+    Raises:
+        MissingParent: If target path does not have parents at all.
+    """
+    paths = [str(path)] + [str(p) for p in Path(path).parents]
+    query = """
+        SELECT File { id, path }
+        FILTER
+            .path IN {array_unpack(<array<str>>$paths)}
+            AND
+            .namespace.path = <str>$namespace
+            AND
+            .is_dir = true
+    """
+    parents = await conn.query(query, namespace=str(namespace), paths=paths)
+    if not parents:
+        raise MissingParent()
+    if parents[0].path == str(path):
+        return
+
+    to_create = list(reversed(paths[:paths.index(parents[-1].path)]))
+
+    for p in to_create:
+        try:
+            await create(conn, namespace, p, folder=True)
+        except (FileAlreadyExists, MissingParent):
+            continue
 
 
-def exists(
-    db_session: Session, namespace_id: int, path: StrOrPath, folder: bool = None
+async def exists(
+    conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath, folder: bool = None,
 ) -> bool:
     """
     Checks whether a file or a folder exists in a given path.
 
     Args:
-        db_session (Session): Database session.
-        namespace_id (int): Namespace where to look for a path.
+        conn (AsyncIOConnection): Database connection.
+        namespace (StrOrPath): Namespace where to look for a path.
         path (StrOrPath): Path to a file or a folder.
         folder (bool, optional): If True, will check only if folder exists, otherwise
             will check for a file. If None (default) will check for both.
@@ -97,16 +158,25 @@ def exists(
     Returns:
         bool: True if file/folder exists, False otherwise.
     """
-    query = (
-        db_session.query(File)
-        .filter(
-            File.namespace_id == namespace_id,
-            File.path == str(path),
+    query = f"""
+        SELECT EXISTS (
+            SELECT File
+            FILTER
+                .path = <str>$path
+                AND
+                .namespace.path = <str>$namespace
+                {"AND .is_dir = <bool>$is_dir" if folder is not None else ""}
         )
-    )
+    """
+
+    params = {
+        "namespace": str(namespace),
+        "path": str(path),
+    }
     if folder is not None:
-        query = query.filter(File.is_dir.is_(folder))
-    return db_session.query(query.exists()).scalar()
+        params["is_dir"] = folder
+
+    return await conn.query_one(query, **params)
 
 
 def get(db_session: Session, namespace_id: int, path: StrOrPath) -> File:
