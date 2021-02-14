@@ -10,12 +10,12 @@ from app import crud
 
 if TYPE_CHECKING:
     from edgedb import AsyncIOConnection as Connection, AsyncIOPool as Pool
+    from app.entities import User
 
 pytestmark = [pytest.mark.asyncio]
 
 
-async def test_create(db_conn: Connection, user_factory):
-    user = await user_factory()
+async def test_create(db_conn: Connection, user: User):
     await crud.file.create(db_conn, user.namespace.path, "New Folder", folder=True)
     await crud.file.create(db_conn, user.namespace.path, "New Folder/file", size=32)
 
@@ -39,22 +39,17 @@ async def test_create(db_conn: Connection, user_factory):
     assert file.parent.parent.path == "."
 
 
-async def test_create_but_parent_is_missing(db_conn: Connection, user_factory):
-    user = await user_factory()
-
+async def test_create_but_parent_is_missing(db_conn: Connection, user: User):
     with pytest.raises(crud.file.MissingParent):
         await crud.file.create(db_conn, user.namespace.path, "New Folder/file")
 
 
-async def test_create_but_file_already_exists(db_conn: Connection, user_factory):
-    user = await user_factory()
-
+async def test_create_but_file_already_exists(db_conn: Connection, user: User):
     with pytest.raises(crud.file.FileAlreadyExists):
         await crud.file.create(db_conn, user.namespace.path, ".")
 
 
-async def test_create_folder(db_conn: Connection, user_factory):
-    user = await user_factory()
+async def test_create_folder(db_conn: Connection, user: User):
     path = Path("a/b/c")
     await crud.file.create_folder(db_conn, user.namespace.path, path)
 
@@ -84,10 +79,8 @@ async def test_create_folder(db_conn: Connection, user_factory):
 
 
 async def test_create_folder_but_with_overlapping_parents(
-    db_pool: Pool, db_conn: Connection, user_factory,
+    db_pool: Pool, db_conn: Connection, user: User,
 ):
-    user = await user_factory()
-
     paths = [
         Path("a/b"),
         Path("a/b/c/d"),
@@ -147,16 +140,14 @@ async def test_create_folder_but_with_overlapping_parents(
         parent = file
 
 
-async def test_create_folder_but_folder_exists(db_conn: Connection, user_factory):
-    user = await user_factory()
+async def test_create_folder_but_folder_exists(db_conn: Connection, user: User):
     await crud.file.create_folder(db_conn, user.namespace.path, "folder")
 
     with pytest.raises(crud.file.FileAlreadyExists):
         await crud.file.create_folder(db_conn, user.namespace.path, "folder")
 
 
-async def test_create_folder_but_path_not_a_dir(db_conn: Connection, user_factory):
-    user = await user_factory()
+async def test_create_folder_but_path_not_a_dir(db_conn: Connection, user: User):
     await crud.file.create(db_conn, user.namespace.path, "data")
 
     with pytest.raises(crud.file.NotADirectory):
@@ -171,8 +162,7 @@ async def test_create_folder_but_path_not_a_dir(db_conn: Connection, user_factor
     (False, True, False),
     (False, False, True),
 ])
-async def test_exists(db_conn: Connection, user_factory, is_dir, folder, exists):
-    user = await user_factory()
+async def test_exists(db_conn: Connection, user: User, is_dir, folder, exists):
     namespace = user.namespace.path
     await crud.file.create(db_conn, namespace, "file", folder=is_dir)
 
@@ -192,7 +182,6 @@ async def test_get(db_conn: Connection, user_factory):
     assert file.path == "file"
 
 
-async def test_get_but_file_does_not_exists(db_conn: Connection, user_factory):
-    user = await user_factory()
+async def test_get_but_file_does_not_exists(db_conn: Connection, user: User):
     with pytest.raises(crud.file.FileNotFound):
         await crud.file.get(db_conn, user.namespace.path, "file")

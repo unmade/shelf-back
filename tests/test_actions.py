@@ -10,6 +10,7 @@ from app.storage import storage
 
 if TYPE_CHECKING:
     from edgedb import AsyncIOConnection as Connection
+    from app.entities import User
 
 pytestmark = [pytest.mark.asyncio]
 
@@ -51,8 +52,7 @@ async def test_create_account_but_username_is_taken(db_conn: Connection):
         await actions.create_account(db_conn, "user", "psswd")
 
 
-async def test_create_folder(db_conn: Connection, user_factory):
-    user = await user_factory()
+async def test_create_folder(db_conn: Connection, user: User):
     path = Path("a/b/c")
     await actions.create_folder(db_conn, user.namespace.path, path)
 
@@ -75,8 +75,7 @@ async def test_create_folder(db_conn: Connection, user_factory):
     assert len(folders) == 4
 
 
-async def test_create_folder_but_folder_exists(db_conn: Connection, user_factory):
-    user = await user_factory()
+async def test_create_folder_but_folder_exists(db_conn: Connection, user: User):
     path = Path("a/b/c")
     await actions.create_folder(db_conn, user.namespace.path, path)
 
@@ -87,9 +86,8 @@ async def test_create_folder_but_folder_exists(db_conn: Connection, user_factory
 
 
 async def test_create_folder_but_parent_is_file(
-    db_conn: Connection, user_factory, file_factory
+    db_conn: Connection, user: User, file_factory
 ):
-    user = await user_factory()
     await file_factory(user.id, path="file")
 
     with pytest.raises(actions.NotADirectory):

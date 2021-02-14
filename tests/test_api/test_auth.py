@@ -7,7 +7,8 @@ import pytest
 from app.api.exceptions import InvalidToken, MissingToken, UserNotFound
 
 if TYPE_CHECKING:
-    from ..conftest import TestClient
+    from app.entities import User
+    from tests.conftest import TestClient
 
 pytestmark = [pytest.mark.asyncio]
 
@@ -44,15 +45,13 @@ async def test_get_tokens_but_password_is_invalid(client: TestClient, user_facto
     assert response.json() == UserNotFound().as_dict()
 
 
-async def test_refresh_token(client: TestClient, user_factory):
-    user = await user_factory()
+async def test_refresh_token(client: TestClient, user: User):
     response = await client.login(user.id).put("/auth/tokens")
     assert response.status_code == 200
     assert "access_token" in response.json()
 
 
-async def test_get_me(client: TestClient, user_factory):
-    user = await user_factory()
+async def test_get_me(client: TestClient, user: User):
     response = await client.login(user.id).get("/auth/me")
     assert response.status_code == 200
     data = response.json()
