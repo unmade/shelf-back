@@ -55,21 +55,6 @@ def replace_storage_root_dir_with_tmp_path(tmp_path):
     storage.root_dir = tmp_path
 
 
-@pytest.fixture
-def file_factory():
-    """Creates dummy file, put it in a storage and save to database."""
-    def _file_factory(user_id: int, path: str = None):
-        path = path or fake.file_name(category="text", extension="txt")
-        with db.SessionManager() as db_session:
-            file = BytesIO(b"I'm Dummy File!")
-            account = crud.user.get_by_id(db_session, user_id)
-            namespace = account.namespace
-            result = actions.save_file(db_session, namespace, path, file)
-            db_session.commit()
-            return result
-    return _file_factory
-
-
 def _build_test_db_dsn() -> tuple[str, str, str]:
     scheme, netloc, path, query, fragments = urlsplit(config.EDGEDB_DSN)
     server_dsn = urlunsplit((scheme, netloc, "", query, fragments))
@@ -137,6 +122,22 @@ async def db_conn(apply_migration, db_pool: AsyncIOPool):
             await conn.execute("DELETE File")
             await conn.execute("DELETE Namespace")
             await conn.execute("DELETE User")
+
+
+@pytest.fixture
+def file_factory(db_conn: AsyncIOConnection):
+    """Creates dummy file, put it in a storage and save to database."""
+    from app.storage import storage
+
+    async def _file_factory(user_id: int, path: str = None):
+        path = path or fake.file_name(category="text", extension="txt")
+        file = BytesIO(b"I'm Dummy File!")
+        user = await crud.user.get_by_id(db_conn, user_id=user_id)
+        storage.save(user.namespace.path / path, file)
+        st_file = storage.get(user.namespace.path / path)
+        await crud.file.create(db_conn, user.namespace.path, path, size=st_file.size)
+        return await crud.file.get(db_conn, user.namespace.path, path)
+    return _file_factory
 
 
 @pytest.fixture

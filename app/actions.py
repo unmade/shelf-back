@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime
+from os.path import join as joinpath
 from pathlib import Path
 from typing import IO, TYPE_CHECKING
 
+import app.storage
 from app import crud
 from app.config import TRASH_FOLDER_NAME
 from app.crud.user import UserAlreadyExists
@@ -24,13 +26,17 @@ class FileNotFound(Exception):
     pass
 
 
+class NotADirectory(Exception):
+    pass
+
+
 class UserAlreadyExist(Exception):
     pass
 
 
 async def create_account(conn: AsyncIOConnection, username: str, password: str) -> None:
     """
-    Creates a new user, namespace, home and trash folders.
+    Create new user, namespace, home and trash folders.
 
     Args:
         db_session (Session): Database session.
@@ -45,42 +51,39 @@ async def create_account(conn: AsyncIOConnection, username: str, password: str) 
         else:
             await crud.file.create(conn, username, TRASH_FOLDER_NAME, folder=True)
             storage.mkdir(username)
-            storage.mkdir(Path(username) / TRASH_FOLDER_NAME)
+            storage.mkdir(joinpath(username, TRASH_FOLDER_NAME))
 
 
-def create_folder(db_session: Session, namespace: Namespace, path: StrOrPath) -> File:
+async def create_folder(
+    conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath,
+) -> File:
     """
-    Creates a folder in a given Namespace.
+    Create folder in a target Namespace.
 
     Args:
-        db_session (Session): Database session.
+        conn (AsyncIOConnection): Database connection.
         namespace (Namespace): Namespace where a folder should be created.
         path (StrOrPath): Path to a folder to create.
 
     Raises:
-        FileAlreadyExists: If folder with a given path already exists.
+        FileAlreadyExists: If folder with this path already exists.
+        NotADirectory: If one of the path parents is not a directory.
 
     Returns:
         File: Created folder.
     """
-    relpath = Path(path)
-    fullpath = namespace.path / relpath
 
-    if crud.file.exists(db_session, namespace.id, relpath, folder=True):
-        raise FileAlreadyExists()
+    try:
+        storage.mkdir(joinpath(namespace, path))
+    except app.storage.NotADirectory as exc:
+        raise NotADirectory() from exc
 
-    # todo: catch exception if creation fails
-    storage.mkdir(fullpath)
-    storage_file = storage.get(fullpath)
+    try:
+        await crud.file.create_folder(conn, namespace, path)
+    except crud.file.FileAlreadyExists as exc:
+        raise FileAlreadyExists() from exc
 
-    folder = crud.file.create_parents(
-        db_session,
-        [storage.get(namespace.path / p) for p in relpath.parents] + [storage_file],
-        namespace_id=namespace.id,
-        rel_to=namespace.path,
-    )
-
-    return File.from_orm(folder)
+    return await crud.file.get(conn, namespace, path)
 
 
 def delete_immediately(

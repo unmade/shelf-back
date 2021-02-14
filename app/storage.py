@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import pathlib
 import shutil
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Generator, Iterator, Type, TypeVar
@@ -57,7 +56,7 @@ class LocalStorage:
                 StorageFile.from_path(file, self.root_dir)
                 for file in dir_path.iterdir()
             )
-        except pathlib.NotADirectoryError as exc:
+        except NotADirectoryError as exc:
             raise NotADirectory() from exc
 
     def save(self, path: StrOrPath, file: IO) -> StorageFile:
@@ -69,7 +68,10 @@ class LocalStorage:
 
     def mkdir(self, path: StrOrPath) -> StorageFile:
         dir_path = self.root_dir / path
-        dir_path.mkdir(parents=True, exist_ok=True)
+        try:
+            dir_path.mkdir(parents=True, exist_ok=True)
+        except NotADirectoryError as exc:
+            raise NotADirectory() from exc
         return StorageFile.from_path(dir_path, self.root_dir)
 
     def get(self, path: StrOrPath) -> StorageFile:
