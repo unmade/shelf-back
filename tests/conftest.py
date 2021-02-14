@@ -5,6 +5,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest import mock
+from urllib.parse import urlsplit, urlunsplit
 
 import edgedb
 import pytest
@@ -69,6 +70,14 @@ def file_factory():
     return _file_factory
 
 
+def _build_test_db_dsn() -> tuple[str, str, str]:
+    scheme, netloc, path, query, fragments = urlsplit(config.EDGEDB_DSN)
+    server_dsn = urlunsplit((scheme, netloc, "", query, fragments))
+    db_name = f"{path.strip('/')}_test"
+    db_dsn = urlunsplit((scheme, netloc, f"/{db_name}", query, fragments))
+    return server_dsn, db_dsn, db_name
+
+
 @pytest.fixture(scope="session")
 def event_loop():
     """Redefines pytest-asyncio event_loop fixture with 'session' scope"""
@@ -84,12 +93,13 @@ async def create_test_db() -> None:
 
     If DB already exists, then drop it first.
     """
-    conn = await edgedb.async_connect(dsn="edgedb://edgedb:root@localhost:5656")
+    dsn, _, db_name = _build_test_db_dsn()
+    conn = await edgedb.async_connect(dsn=dsn)
     try:
-        await conn.execute("CREATE DATABASE shelf_test")
+        await conn.execute(f"CREATE DATABASE {db_name}")
     except edgedb.errors.SchemaError:
-        await conn.execute("DROP DATABASE shelf_test")
-        await conn.execute("CREATE DATABASE shelf_test")
+        await conn.execute(f"DROP DATABASE {db_name}")
+        await conn.execute(f"CREATE DATABASE {db_name}")
     finally:
         await conn.aclose()
 
@@ -109,7 +119,7 @@ async def db_pool(create_test_db) -> None:
     """Create connection pool to a database."""
     del create_test_db  # required only to preserve fixtures correct execution order
 
-    dsn = "edgedb://edgedb:root@localhost:5656/shelf_test"
+    _, dsn, _ = _build_test_db_dsn()
     async with edgedb.create_async_pool(dsn=dsn, min_size=4, max_size=4) as pool:
         with mock.patch("app.db._pool", pool):
             yield pool
