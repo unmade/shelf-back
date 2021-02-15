@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from app import actions, errors
+from app import actions, crud, errors
 from app.storage import storage
 
 if TYPE_CHECKING:
@@ -54,7 +54,7 @@ async def test_create_account_but_username_is_taken(db_conn: Connection):
 
 async def test_create_folder(db_conn: Connection, user: User):
     path = Path("a/b/c")
-    await actions.create_folder(db_conn, user.namespace.path, path)
+    await actions.create_folder(db_conn, user.namespace, path)
 
     assert storage.get(user.namespace.path / path)
 
@@ -77,10 +77,10 @@ async def test_create_folder(db_conn: Connection, user: User):
 
 async def test_create_folder_but_folder_exists(db_conn: Connection, user: User):
     path = Path("a/b/c")
-    await actions.create_folder(db_conn, user.namespace.path, path)
+    await actions.create_folder(db_conn, user.namespace, path)
 
     with pytest.raises(errors.FileAlreadyExists):
-        await actions.create_folder(db_conn, user.namespace.path, path.parent)
+        await actions.create_folder(db_conn, user.namespace, path.parent)
 
     assert storage.get(user.namespace.path / path.parent)
 
@@ -91,4 +91,21 @@ async def test_create_folder_but_parent_is_file(
     await file_factory(user.id, path="file")
 
     with pytest.raises(errors.NotADirectory):
-        await actions.create_folder(db_conn, user.namespace.path, "file/folder")
+        await actions.create_folder(db_conn, user.namespace, "file/folder")
+
+
+async def test_delete_immediately_file(db_conn: Connection, user: User, file_factory):
+    file = await file_factory(user.id, path="file")
+    path = Path(file.path)
+    deleted_file = await actions.delete_immediately(db_conn, user.namespace, path)
+    assert deleted_file.path == "file"
+
+    with pytest.raises(errors.FileNotFound):
+        storage.get(user.namespace.path / file.path)
+
+    assert not await crud.file.exists(db_conn, user.namespace.path, path)
+
+
+async def test_delete_immediately_but_file_not_exists(db_conn: Connection, user: User):
+    with pytest.raises(errors.FileNotFound):
+        await actions.delete_immediately(db_conn, user.namespace, "file")

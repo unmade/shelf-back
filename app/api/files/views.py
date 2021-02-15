@@ -36,33 +36,27 @@ async def create_folder(
     if not existed, and 'c' will be returned as a response.
     """
     try:
-        folder = await actions.create_folder(db_conn, user.namespace.path, payload.path)
+        return await actions.create_folder(db_conn, user.namespace, payload.path)
     except errors.FileAlreadyExists as exc:
         raise exceptions.AlreadyExists() from exc
     except errors.NotADirectory as exc:
         raise exceptions.InvalidPath() from exc
 
-    return folder
-
 
 @router.post("/delete_immediately", response_model=schemas.File)
-def delete_immediately(
+async def delete_immediately(
     payload: schemas.PathRequest,
-    db_session: Session = Depends(deps.db_session),
+    db_conn: Session = Depends(deps.db_conn),
     user: User = Depends(deps.current_user),
 ):
-    """Permanently deletes file or folder (recursively) with a given path."""
+    """Permanently deletes file or folder with its contents."""
     if payload.path in (config.TRASH_FOLDER_NAME, "."):
         raise exceptions.InvalidPath()
 
     try:
-        file = actions.delete_immediately(db_session, user.namespace, payload.path)
-    except actions.FileNotFound as exc:
+        return await actions.delete_immediately(db_conn, user.namespace, payload.path)
+    except errors.FileNotFound as exc:
         raise exceptions.PathNotFound() from exc
-    else:
-        db_session.commit()
-
-    return file
 
 
 @router.get("/download")

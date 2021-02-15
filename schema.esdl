@@ -22,7 +22,9 @@ type File {
     required property is_dir -> bool;
 
     required link namespace -> Namespace;
-    single link parent -> File;
+    single link parent -> File {
+        on target delete DELETE SOURCE;
+    };
 
     constraint exclusive on ((.path, .namespace));
 }

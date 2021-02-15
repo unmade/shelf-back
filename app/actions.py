@@ -36,7 +36,7 @@ async def create_account(conn: AsyncIOConnection, username: str, password: str) 
 
 
 async def create_folder(
-    conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath,
+    conn: AsyncIOConnection, namespace: Namespace, path: StrOrPath,
 ) -> File:
     """
     Create folder in a target Namespace.
@@ -54,16 +54,16 @@ async def create_folder(
         File: Created folder.
     """
 
-    storage.mkdir(joinpath(namespace, path))
-    await crud.file.create_folder(conn, namespace, path)
-    return await crud.file.get(conn, namespace, path)
+    storage.mkdir(namespace.path / path)
+    await crud.file.create_folder(conn, namespace.path, path)
+    return await crud.file.get(conn, namespace.path, path)
 
 
-def delete_immediately(
-    db_session: Session, namespace: Namespace, path: StrOrPath,
+async def delete_immediately(
+    conn: AsyncIOConnection, namespace: Namespace, path: StrOrPath,
 ) -> File:
     """
-    Permanently deletes file or a folder with all of its contents.
+    Permanently delete file or a folder with all of its contents.
 
     Args:
         db_session (Session): Database session.
@@ -76,20 +76,11 @@ def delete_immediately(
     Returns:
         File: Deleted file.
     """
-    file_in_db = crud.file.get(db_session, namespace.id, path)
-    if not file_in_db:
-        raise errors.FileNotFound()
+    file = await crud.file.get(conn, namespace.path, path)
 
-    file = File.from_orm(file_in_db)
-    crud.file.inc_folder_size(
-        db_session,
-        namespace.id,
-        path=Path(path).parent,
-        size=-file.size,
-    )
-
-    crud.file.delete(db_session, namespace.id, path)
-    storage.delete(namespace.path / path)
+    async with conn.transaction():
+        await crud.file.delete(conn, namespace.path, path)
+        storage.delete(namespace.path / path)
 
     return file
 

@@ -72,7 +72,10 @@ class LocalStorage:
 
     def get(self, path: StrOrPath) -> StorageFile:
         fullpath = self.root_dir / path
-        return StorageFile.from_path(fullpath, self.root_dir)
+        try:
+            return StorageFile.from_path(fullpath, self.root_dir)
+        except FileNotFoundError as exc:
+            raise errors.FileNotFound() from exc
 
     def is_exists(self, path: StrOrPath) -> bool:
         fullpath = self.root_dir / path
