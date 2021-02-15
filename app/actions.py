@@ -66,7 +66,7 @@ async def delete_immediately(
     Permanently delete file or a folder with all of its contents.
 
     Args:
-        db_session (Session): Database session.
+        db_session (Session): Database connection.
         namespace (Namespace): Namespace where file/folder should be deleted.
         path (StrOrPath): Path to a file/folder to delete.
 
@@ -85,22 +85,21 @@ async def delete_immediately(
     return file
 
 
-def empty_trash(db_session: Session, namespace: Namespace) -> File:
+async def empty_trash(conn: AsyncIOConnection, namespace: Namespace) -> File:
     """
-    Deletes all files and folders in the Trash folder in a given Namespace.
+    Delete all files and folders in the Trash folder within a target Namespace.
 
     Args:
-        db_session (Session): Database session.
+        db_session (AsyncIOConnection): Database connection.
         namespace (Namespace): Namespace where Trash folder should be emptied.
 
     Returns:
         File: Trash folder.
     """
-    crud.file.empty_trash(db_session, namespace.id)
-    storage.delete_dir_content(namespace.path / TRASH_FOLDER_NAME)
-    return File.from_orm(
-        crud.file.get(db_session, namespace.id, TRASH_FOLDER_NAME)
-    )
+    async with conn.transaction():
+        await crud.file.empty_trash(conn, namespace.path)
+        storage.delete_dir_content(namespace.path / TRASH_FOLDER_NAME)
+    return await crud.file.get(conn, namespace.path, TRASH_FOLDER_NAME)
 
 
 def move(

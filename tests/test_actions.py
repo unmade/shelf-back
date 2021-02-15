@@ -109,3 +109,27 @@ async def test_delete_immediately_file(db_conn: Connection, user: User, file_fac
 async def test_delete_immediately_but_file_not_exists(db_conn: Connection, user: User):
     with pytest.raises(errors.FileNotFound):
         await actions.delete_immediately(db_conn, user.namespace, "file")
+
+
+async def test_empty_trash(db_conn: Connection, user: User, file_factory):
+    await file_factory(user.id, path="Trash/a/b/c/d/file")
+    await file_factory(user.id, path="file")
+
+    await actions.empty_trash(db_conn, user.namespace)
+
+    assert not list(storage.iterdir(user.namespace.path / "Trash"))
+    trash = await db_conn.query_one("""
+        SELECT File {
+            size,
+            file_count := (
+                SELECT count((
+                    SELECT File
+                    FILTER .path LIKE 'Trash/%' AND .namespace.path = <str>$namespace
+                ))
+            ),
+        }
+        FILTER .path = 'Trash' AND .namespace.path = <str>$namespace
+    """, namespace=str(user.namespace.path))
+
+    assert trash.size == 0
+    assert trash.file_count == 0

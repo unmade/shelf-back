@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import secrets
 from pathlib import Path
 
@@ -29,7 +28,7 @@ async def create_folder(
     user: User = Depends(deps.current_user),
 ):
     """
-    Creates a new folder with a target path.
+    Create a new folder with a target path.
 
     Any missing parents of the folder path are created as needed.
     If a path provided in a format 'a/b/c', then 'a' and 'b' folders will be created,
@@ -49,7 +48,7 @@ async def delete_immediately(
     db_conn: Session = Depends(deps.db_conn),
     user: User = Depends(deps.current_user),
 ):
-    """Permanently deletes file or folder with its contents."""
+    """Permanently delete file or folder with its contents"""
     if payload.path in (config.TRASH_FOLDER_NAME, "."):
         raise exceptions.InvalidPath()
 
@@ -61,7 +60,7 @@ async def delete_immediately(
 
 @router.get("/download")
 async def download(key: str = Query(None)):
-    """Downloads a file or a folder as a ZIP archive."""
+    """Download a file or a folder as a ZIP archive"""
     path = await cache.get(key)
     if not path:
         raise exceptions.DownloadNotFound()
@@ -79,7 +78,7 @@ async def empty_trash(
     db_conn: AsyncIOConnection = Depends(deps.db_conn),
     user: User = Depends(deps.current_user),
 ):
-    """Deletes all files and folders in the Trash folder."""
+    """Delete all files and folders in the Trash folder."""
     return await actions.empty_trash(db_conn, user.namespace)
 
 
@@ -87,15 +86,11 @@ async def empty_trash(
 async def get_download_url(
     request: Request,
     payload: schemas.PathRequest,
-    db_session: Session = Depends(deps.db_session),
+    db_conn: AsyncIOConnection = Depends(deps.db_conn),
     user: User = Depends(deps.current_user),
 ):
-    """Generates and returns a link to download requested file or folder."""
-    loop = asyncio.get_event_loop()
-    file_exists = await loop.run_in_executor(
-        None, crud.file.exists, db_session, user.namespace.id, payload.path,
-    )
-    if not file_exists:
+    """Return a link to download requested file or folder."""
+    if not await crud.file.exists(db_conn, user.namespace.path, payload.path):
         raise exceptions.PathNotFound()
 
     key = secrets.token_urlsafe()
