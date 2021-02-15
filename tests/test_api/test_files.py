@@ -141,12 +141,12 @@ async def test_get_download_url_but_file_not_found(client: TestClient, user: Use
     assert response.json() == PathNotFound().as_dict()
 
 
-def test_list_folder(client: TestClient, user_factory, file_factory):
-    user = user_factory()
-    file_factory(user.id, path="file.txt")
-    file_factory(user.id, path="folder/file.txt")
+@pytest.mark.asyncio
+async def test_list_folder(client: TestClient, user: User, file_factory):
+    await file_factory(user.id, path="file.txt")
+    await file_factory(user.id, path="folder/file.txt")
     payload = {"path": "."}
-    response = client.login(user.id).post("/files/list_folder", json=payload)
+    response = await client.login(user.id).post("/files/list_folder", json=payload)
     assert response.status_code == 200
     assert response.json()["path"] == "."
     assert response.json()["count"] == 2
@@ -154,10 +154,10 @@ def test_list_folder(client: TestClient, user_factory, file_factory):
     assert response.json()["items"][1]["name"] == "file.txt"
 
 
-def test_list_folder_but_path_does_not_exists(client: TestClient, user_factory):
-    user = user_factory()
+@pytest.mark.asyncio
+async def test_list_folder_but_path_does_not_exists(client: TestClient, user: User):
     payload = {"path": "wrong/path"}
-    response = client.login(user.id).post("/files/list_folder", json=payload)
+    response = await client.login(user.id).post("/files/list_folder", json=payload)
     assert response.status_code == 404
     assert response.json() == PathNotFound().as_dict()
 

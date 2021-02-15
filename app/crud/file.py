@@ -8,11 +8,11 @@ from typing import TYPE_CHECKING, Iterable
 import edgedb
 import sqlalchemy.exc
 from sqlalchemy import func
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Session
 
 from app import errors
 from app.config import TRASH_FOLDER_NAME
-from app.models import File
+from app.entities import File
 from app.storage import StorageFile
 
 if TYPE_CHECKING:
@@ -186,6 +186,13 @@ async def delete(
 
 
 async def empty_trash(conn: AsyncIOConnection, namespace: StrOrPath) -> None:
+    """
+    Delete all files and folders in the Trash.
+
+    Args:
+        conn (AsyncIOConnection): Database connection.
+        namespace (StrOrPath): Namespace where to empty the Trash folder.
+    """
     # todo: try to make it atomic with one query
     async with conn.transaction():
         await conn.query("""
@@ -272,6 +279,55 @@ async def get(conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath) ->
         raise errors.FileNotFound() from exc
 
 
+async def list_folder(
+    conn: AsyncIOConnection,
+    namespace: StrOrPath, path: StrOrPath,
+    with_trash: bool = False,
+) -> list[File]:
+    """
+    Return folder contents.
+
+    To list home folder, use '.'.
+
+    Args:
+        conn (AsyncIOConnection): Database connection.
+        namespace (StrOrPath): Namespace where a folder located.
+        path (StrOrPath): Path to a folder in this namespace.
+        with_trash (bool, optional): Whether to include Trash folder. Defaults to False.
+
+    Raises:
+        FileNotFound: If folder at this path does not exists.
+        NotADirectory: If path points to a file.
+
+    Returns:
+        List[File]: List of all files/folders in a folder with a target path.
+    """
+    query = f"""
+        SELECT File {{
+            is_dir,
+            children := (
+                SELECT File.<parent[IS File] {{ id, name, path, size, mtime, is_dir }}
+                {"FILTER .path != 'Trash'" if not with_trash and path == "." else ""}
+                ORDER BY .is_dir DESC THEN .path ASC
+            )
+        }}
+        FILTER
+            .path = <str>$path
+            AND
+            .namespace.path = <str>$namespace
+        LIMIT 1
+    """
+    try:
+        parent = await conn.query_one(query, namespace=str(namespace), path=str(path))
+    except edgedb.NoDataError as exc:
+        raise errors.FileNotFound() from exc
+
+    if not parent.is_dir:
+        raise errors.NotADirectory()
+
+    return [File.from_orm(child) for child in parent.children]
+
+
 def get_folder(db_session: Session, namespace_id: int, path: StrOrPath) -> File:
     return (
         db_session.query(File)
@@ -281,21 +337,6 @@ def get_folder(db_session: Session, namespace_id: int, path: StrOrPath) -> File:
             File.is_dir.is_(True)
         )
         .scalar()
-    )
-
-
-def list_folder(db_session: Session, namespace_id: int, path: StrOrPath):
-    parent = aliased(File)
-    return (
-        db_session.query(File)
-        .join(parent, parent.id == File.parent_id)
-        .filter(
-            parent.namespace_id == namespace_id,
-            parent.path == str(path),
-            parent.is_dir.is_(True),
-        )
-        .order_by(File.is_dir.desc(), File.name.collate("NOCASE"))
-        .all()
     )
 
 

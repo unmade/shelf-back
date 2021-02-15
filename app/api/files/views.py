@@ -101,21 +101,22 @@ async def get_download_url(
 
 
 @router.post("/list_folder", response_model=schemas.ListFolderResult)
-def list_folder(
+async def list_folder(
     payload: schemas.PathRequest,
-    db_session: Session = Depends(deps.db_session),
+    db_conn: Session = Depends(deps.db_conn),
     user: User = Depends(deps.current_user),
 ):
     """
-    Lists content of a folder with a given path.
+    List content of a folder with a given path.
 
-    Note, that Trash folder is never present in a result list.
+    Note, that Trash folder is never present in a result.
     """
-    folder = crud.file.get_folder(db_session, user.namespace.id, payload.path)
-    if not folder:
-        raise exceptions.PathNotFound()
-
-    files = crud.file.list_folder_by_id(db_session, folder.id, hide_trash_folder=True)
+    try:
+        files = await crud.file.list_folder(db_conn, user.namespace.path, payload.path)
+    except errors.FileNotFound as exc:
+        raise exceptions.PathNotFound() from exc
+    except errors.NotADirectory as exc:
+        raise exceptions.InvalidPath() from exc  # todo: this should be more informative
 
     return schemas.ListFolderResult(path=payload.path, items=files, count=len(files))
 

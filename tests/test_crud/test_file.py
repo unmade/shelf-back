@@ -235,3 +235,40 @@ async def test_get(db_conn: Connection, user: User):
 async def test_get_but_file_does_not_exists(db_conn: Connection, user: User):
     with pytest.raises(errors.FileNotFound):
         await crud.file.get(db_conn, user.namespace.path, "file")
+
+
+async def test_list_folder(db_conn: Connection, user: User):
+    await crud.file.create_folder(db_conn, user.namespace.path, "a/c")
+    await crud.file.create(db_conn, user.namespace.path, "a/b")
+    files = await crud.file.list_folder(db_conn, user.namespace.path, "a")
+    assert len(files) == 2
+    assert files[0].path == "a/c"  # folders listed first
+    assert files[1].path == "a/b"
+
+
+async def test_list_home_folder_without_trash_folder(db_conn: Connection, user: User):
+    files = await crud.file.list_folder(db_conn, user.namespace.path, ".")
+    assert files == []
+
+
+async def test_list_home_folder_with_trash_folder(db_conn: Connection, user: User):
+    namespace = user.namespace.path
+    files = await crud.file.list_folder(db_conn, namespace, ".", with_trash=True)
+    assert files[0].path == "Trash"
+
+
+async def test_list_folder_but_it_is_empty(db_conn: Connection, user: User):
+    await crud.file.create_folder(db_conn, user.namespace.path, "a")
+    files = await crud.file.list_folder(db_conn, user.namespace.path, "a")
+    assert files == []
+
+
+async def test_list_folder_but_it_not_found(db_conn: Connection, user: User):
+    with pytest.raises(errors.FileNotFound):
+        await crud.file.list_folder(db_conn, user.namespace.path, "a")
+
+
+async def test_list_folder_but_it_a_file(db_conn: Connection, user: User, file_factory):
+    file = await file_factory(user.id)
+    with pytest.raises(errors.NotADirectory):
+        await crud.file.list_folder(db_conn, user.namespace.path, file.path)
