@@ -185,6 +185,28 @@ async def delete(
     )
 
 
+async def empty_trash(conn: AsyncIOConnection, namespace: StrOrPath) -> None:
+    # todo: try to make it atomic with one query
+    async with conn.transaction():
+        await conn.query("""
+            DELETE File
+                FILTER
+                    .path LIKE <str>$path ++ '/%'
+                    AND
+                    .namespace.path = <str>$namespace
+        """, namespace=str(namespace), path=TRASH_FOLDER_NAME)
+        await conn.query("""
+            UPDATE File
+            FILTER
+                .path = <str>$path
+                AND
+                .namespace.path = <str>$namespace
+            SET {
+                size := 0
+            }
+        """, namespace=str(namespace), path=TRASH_FOLDER_NAME)
+
+
 async def exists(
     conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath, folder: bool = None,
 ) -> bool:
@@ -422,23 +444,4 @@ def move(
             {"path": func.replace(File.path, str(from_path), str(to_path))},
             synchronize_session=False,
         )
-    )
-
-
-def empty_trash(db_session: Session, namespace_id: int):
-    (
-        db_session.query(File)
-        .filter(
-            File.namespace_id == namespace_id,
-            File.path == TRASH_FOLDER_NAME,
-        )
-        .update({"size": 0}, synchronize_session=False)
-    )
-    return (
-        db_session.query(File)
-        .filter(
-            File.namespace_id == namespace_id,
-            File.path.like(f"{TRASH_FOLDER_NAME}/%"),
-        )
-        .delete(synchronize_session=False)
     )

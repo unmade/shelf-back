@@ -118,26 +118,26 @@ async def test_download_but_key_is_invalid(client: TestClient):
     assert response.json() == DownloadNotFound().as_dict()
 
 
-def test_empty_trash(client: TestClient, user_factory):
-    user = user_factory()
-    response = client.login(user.id).post("/files/empty_trash")
+@pytest.mark.asyncio
+async def test_empty_trash(client: TestClient, user: User):
+    response = await client.login(user.id).post("/files/empty_trash")
     assert response.status_code == 200
     assert response.json()["path"] == "Trash"
 
 
-def test_get_download_url(client: TestClient, user_factory, file_factory):
-    user = user_factory()
-    file = file_factory(user.id)
+@pytest.mark.asyncio
+async def test_get_download_url(client: TestClient, user: User, file_factory):
+    file = await file_factory(user.id)
     payload = {"path": file.path}
-    response = client.login(user.id).post("/files/get_download_url", json=payload)
+    response = await client.login(user.id).post("/files/get_download_url", json=payload)
     assert response.status_code == 200
-    assert response.json()["download_url"].startswith(client.base_url)
+    assert response.json()["download_url"].startswith(str(client.base_url))
 
 
-def test_get_download_url_but_file_not_found(client: TestClient, user_factory):
-    user = user_factory()
+@pytest.mark.asyncio
+async def test_get_download_url_but_file_not_found(client: TestClient, user: User):
     payload = {"path": "wrong/path"}
-    response = client.login(user.id).post("/files/get_download_url", json=payload)
+    response = await client.login(user.id).post("/files/get_download_url", json=payload)
     assert response.json() == PathNotFound().as_dict()
 
 

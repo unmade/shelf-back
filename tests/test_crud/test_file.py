@@ -154,6 +154,33 @@ async def test_create_folder_but_path_not_a_dir(db_conn: Connection, user: User)
         await crud.file.create_folder(db_conn, user.namespace.path, "data/file")
 
 
+async def test_empty_trash(db_conn: Connection, user: User):
+    path = Path("Trash/a/b/c/d")
+    await crud.file.create_folder(db_conn, user.namespace.path, path)
+    await db_conn.query("""
+        UPDATE File
+        FILTER .path = 'Trash' AND .namespace.path = <str>$namespace
+        SET { size := 32 }
+    """, namespace=str(user.namespace.path))
+    await crud.file.empty_trash(db_conn, user.namespace.path)
+
+    trash = await db_conn.query_one("""
+        SELECT File {
+            size,
+            file_count := (
+                SELECT count((
+                    SELECT File
+                    FILTER .path LIKE 'Trash/%' AND .namespace.path = <str>$namespace
+                ))
+            ),
+        }
+        FILTER .path = 'Trash' AND .namespace.path = <str>$namespace
+    """, namespace=str(user.namespace.path))
+
+    assert trash.size == 0
+    assert trash.file_count == 0
+
+
 @pytest.mark.parametrize(["is_dir", "folder", "exists"], [
     (True, None, True),
     (False, None, True),
@@ -166,6 +193,10 @@ async def test_exists(db_conn: Connection, user: User, is_dir, folder, exists):
     namespace = user.namespace.path
     await crud.file.create(db_conn, namespace, "file", folder=is_dir)
     assert await crud.file.exists(db_conn, namespace, "file", folder=folder) is exists
+
+
+async def test_exists_but_it_is_not(db_conn: Connection, user: User):
+    assert not await crud.file.exists(db_conn, user.namespace.path, "file")
 
 
 async def test_delete_file(db_conn: Connection, user: User):
@@ -192,10 +223,6 @@ async def test_delete_non_empty_folder(db_conn: Connection, user: User):
 
     parent = await crud.file.get(db_conn, namespace, "a")
     assert parent.size == 8
-
-
-async def test_exists_but_it_is_not(db_conn: Connection, user: User):
-    assert not await crud.file.exists(db_conn, user.namespace.path, "file")
 
 
 async def test_get(db_conn: Connection, user: User):
