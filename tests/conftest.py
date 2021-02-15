@@ -12,7 +12,7 @@ import pytest
 from faker import Faker
 from httpx import AsyncClient
 
-from app import actions, config, crud, db, security
+from app import actions, config, crud, db, errors, security
 from app.main import create_app
 
 if TYPE_CHECKING:
@@ -135,7 +135,10 @@ def file_factory(db_conn: AsyncIOConnection):
         user = await crud.user.get_by_id(db_conn, user_id=user_id)
         if str(path.parent) != ".":
             storage.mkdir(user.namespace.path / path.parent)
-            await crud.file.create_folder(db_conn, user.namespace.path, path.parent)
+            try:
+                await crud.file.create_folder(db_conn, user.namespace.path, path.parent)
+            except errors.FileAlreadyExists:
+                pass
         storage.save(user.namespace.path / path, file)
         st_file = storage.get(user.namespace.path / path)
         await crud.file.create(db_conn, user.namespace.path, path, size=st_file.size)
