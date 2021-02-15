@@ -194,13 +194,11 @@ async def test_delete_non_empty_folder(db_conn: Connection, user: User):
     assert parent.size == 8
 
 
-async def test_exists_but_it_is_not(db_conn: Connection, user_factory):
-    user = await user_factory()
+async def test_exists_but_it_is_not(db_conn: Connection, user: User):
     assert not await crud.file.exists(db_conn, user.namespace.path, "file")
 
 
-async def test_get(db_conn: Connection, user_factory):
-    user = await user_factory()
+async def test_get(db_conn: Connection, user: User):
     await crud.file.create(db_conn, user.namespace.path, "file")
     file = await crud.file.get(db_conn, user.namespace.path, "file")
     assert file.name == "file"

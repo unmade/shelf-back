@@ -130,9 +130,12 @@ def file_factory(db_conn: AsyncIOConnection):
     from app.storage import storage
 
     async def _file_factory(user_id: int, path: str = None):
-        path = path or fake.file_name(category="text", extension="txt")
+        path = Path(path or fake.file_name(category="text", extension="txt"))
         file = BytesIO(b"I'm Dummy File!")
         user = await crud.user.get_by_id(db_conn, user_id=user_id)
+        if str(path.parent) != ".":
+            storage.mkdir(user.namespace.path / path.parent)
+            await crud.file.create_folder(db_conn, user.namespace.path, path.parent)
         storage.save(user.namespace.path / path, file)
         st_file = storage.get(user.namespace.path / path)
         await crud.file.create(db_conn, user.namespace.path, path, size=st_file.size)

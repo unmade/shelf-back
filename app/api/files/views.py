@@ -75,14 +75,12 @@ async def download(key: str = Query(None)):
 
 
 @router.post("/empty_trash", response_model=schemas.File)
-def empty_trash(
-    db_session: Session = Depends(deps.db_session),
+async def empty_trash(
+    db_conn: AsyncIOConnection = Depends(deps.db_conn),
     user: User = Depends(deps.current_user),
 ):
     """Deletes all files and folders in the Trash folder."""
-    trash_folder = actions.empty_trash(db_session, user.namespace)
-    db_session.commit()
-    return trash_folder
+    return await actions.empty_trash(db_conn, user.namespace)
 
 
 @router.post("/get_download_url", response_model=schemas.GetDownloadUrlResult)

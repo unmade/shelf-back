@@ -5,6 +5,7 @@ from io import BytesIO
 from typing import TYPE_CHECKING
 
 import pytest
+from cashews import cache
 
 from app.api.files.exceptions import (
     AlreadyDeleted,
@@ -76,54 +77,43 @@ async def test_delete_immediately_but_path_not_found(client: TestClient, user: U
     assert response.json() == PathNotFound().as_dict()
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize("path", [".", "Trash"])
-def test_delete_immediately_but_it_is_a_special_folder(
-    client: TestClient, user_factory, path,
+async def test_delete_immediately_but_it_is_a_special_folder(
+    client: TestClient, user: User, path: str,
 ):
-    user = user_factory()
-    payload = {"path": path}
-    response = client.login(user.id).post("/files/delete_immediately", json=payload)
+    data = {"path": path}
+    response = await client.login(user.id).post("/files/delete_immediately", json=data)
     assert response.status_code == 400
     assert response.json() == InvalidPath().as_dict()
 
 
-def test_download_file(client: TestClient, user_factory, file_factory):
-    from pathlib import Path
-    from unittest import mock
-
-    user = user_factory()
-    file = file_factory(user.id)
+@pytest.mark.asyncio
+async def test_download_file(client: TestClient, user: User, file_factory):
+    file = await file_factory(user.id)
     key = secrets.token_urlsafe()
-    with mock.patch(
-        "app.api.files.views.cache.get",
-        mock.AsyncMock(return_value=Path(user.username) / file.path),
-    ):
-        response = client.login(user.id).get(f"/files/download?key={key}")
+    await cache.set(key, f"{user.username}/{file.path}")
+    response = await client.login(user.id).get(f"/files/download?key={key}")
     assert response.status_code == 200
     assert response.headers["Content-Type"] == "attachment/zip"
     assert response.content
 
 
-def test_download_folder_with_files(client: TestClient, user_factory, file_factory):
-    from pathlib import Path
-    from unittest import mock
-
-    user = user_factory()
-    file_factory(user.id, path="a/b/c/d.txt")
+@pytest.mark.asyncio
+async def test_download_folder_with_files(client: TestClient, user: User, file_factory):
+    await file_factory(user.id, path="a/b/c/d.txt")
     key = secrets.token_urlsafe()
-    with mock.patch(
-        "app.api.files.views.cache.get",
-        mock.AsyncMock(return_value=Path(user.username) / "a"),
-    ):
-        response = client.login(user.id).get(f"/files/download?key={key}")
+    await cache.set(key, f"{user.username}/a")
+    response = await client.login(user.id).get(f"/files/download?key={key}")
     assert response.status_code == 200
     assert response.headers["Content-Type"] == "attachment/zip"
     assert response.content
 
 
-def test_download_but_key_is_invalid(client: TestClient):
+@pytest.mark.asyncio
+async def test_download_but_key_is_invalid(client: TestClient):
     key = secrets.token_urlsafe()
-    response = client.get(f"/files/download?key={key}")
+    response = await client.get(f"/files/download?key={key}")
     assert response.status_code == 404
     assert response.json() == DownloadNotFound().as_dict()
 
