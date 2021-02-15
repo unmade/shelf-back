@@ -55,28 +55,30 @@ async def create(
     query = """
         WITH
             Parent := File,
+            namespace := (
+                SELECT Namespace
+                FILTER
+                    .path = <str>$namespace
+                LIMIT 1
+            ),
+            parent := (
+                SELECT Parent
+                FILTER
+                    .path = <str>$parent
+                    AND
+                    .namespace = namespace
+                    AND
+                    .is_dir = true
+                LIMIT 1
+            )
         INSERT File {
             name := <str>$name,
             path := <str>$path,
             size := <int64>$size,
             mtime := <float64>$mtime,
             is_dir := <bool>$is_dir,
-            parent := (
-                SELECT Parent
-                FILTER
-                    .path = <str>$parent
-                    AND
-                    .namespace.path = <str>$namespace
-                    AND
-                    .is_dir = true
-                LIMIT 1
-            ),
-            namespace := (
-                SELECT Namespace
-                FILTER
-                    .path = <str>$namespace
-                LIMIT 1
-            )
+            parent := parent,
+            namespace := namespace,
         }
     """
 
@@ -135,6 +137,52 @@ async def create_folder(
             await create(conn, namespace, p, folder=True)
         except (errors.FileAlreadyExists, errors.MissingParent):
             pass
+
+
+async def delete(
+    conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath,
+) -> None:
+    """
+    Permanently delete file or a folder with all of its contents and decrease size
+    of the parents folders decreases accordingly.
+
+    Args:
+        conn (AsyncIOConnection): Database connection.
+        namespace (StrOrPath): Namespace where to delete a file.
+        path (StrOrPath): Path to a file.
+    """
+    query = """
+        WITH
+            Parent := File,
+            namespace := (
+                SELECT Namespace
+                FILTER
+                    .path = <str>$namespace
+                LIMIT 1
+            )
+        UPDATE Parent
+        FILTER
+            namespace = namespace
+            AND
+            .path IN {array_unpack(<array<str>>$parents)}
+        SET {
+            size := .size - (
+                SELECT (
+                    DELETE File
+                    FILTER
+                        namespace = namespace
+                        AND
+                        .path = <str>$path
+                ) { size }
+            ).size
+        }
+    """
+    await conn.query(
+        query,
+        namespace=str(namespace),
+        path=str(path),
+        parents=[str(p) for p in Path(path).parents],
+    )
 
 
 async def exists(
@@ -374,14 +422,6 @@ def move(
             {"path": func.replace(File.path, str(from_path), str(to_path))},
             synchronize_session=False,
         )
-    )
-
-
-def delete(db_session: Session, namespace_id: int, path: StrOrPath):
-    return (
-        db_session.query(File)
-        .filter(File.namespace_id == namespace_id, File.path == str(path))
-        .delete(synchronize_session=False)
     )
 
 

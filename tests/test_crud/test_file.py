@@ -168,6 +168,32 @@ async def test_exists(db_conn: Connection, user: User, is_dir, folder, exists):
     assert await crud.file.exists(db_conn, namespace, "file", folder=folder) is exists
 
 
+async def test_delete_file(db_conn: Connection, user: User):
+    path = Path("folder/file")
+    namespace = user.namespace.path
+    await crud.file.create(db_conn, namespace, path.parent, size=32, folder=True)
+    await crud.file.create(db_conn, namespace, path, size=8)
+    await crud.file.delete(db_conn, namespace, path)
+    assert not await crud.file.exists(db_conn, namespace, path)
+
+    parent = await crud.file.get(db_conn, namespace, path.parent)
+    assert parent.size == 24
+
+
+async def test_delete_non_empty_folder(db_conn: Connection, user: User):
+    namespace = user.namespace.path
+    await crud.file.create(db_conn, namespace, "a", size=32, folder=True)
+    await crud.file.create(db_conn, namespace, "a/b", size=24, folder=True)
+    await crud.file.create(db_conn, namespace, "a/b/c", size=16)
+
+    await crud.file.delete(db_conn, namespace, "a/b")
+    assert not await crud.file.exists(db_conn, namespace, "a/b")
+    assert not await crud.file.exists(db_conn, namespace, "a/b/c")
+
+    parent = await crud.file.get(db_conn, namespace, "a")
+    assert parent.size == 8
+
+
 async def test_exists_but_it_is_not(db_conn: Connection, user_factory):
     user = await user_factory()
     assert not await crud.file.exists(db_conn, user.namespace.path, "file")

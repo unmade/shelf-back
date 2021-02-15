@@ -56,22 +56,22 @@ async def test_create_folder_but_parent_is_a_file(
     assert response.json() == InvalidPath().as_dict()
 
 
-def test_delete_immediately(client: TestClient, user_factory):
-    user = user_factory()
+@pytest.mark.asyncio
+async def test_delete_immediately(client: TestClient, user: User):
     name = path = "Test Folder"
     payload = {"path": path}
     client.login(user.id)
-    client.post("/files/create_folder", json=payload)
-    response = client.post("/files/delete_immediately", json=payload)
+    await client.post("/files/create_folder", json=payload)
+    response = await client.post("/files/delete_immediately", json=payload)
     assert response.status_code == 200
     assert response.json()["name"] == name
     assert response.json()["path"] == path
 
 
-def test_delete_immediately_but_path_not_found(client: TestClient, user_factory):
-    user = user_factory()
-    payload = {"path": "Test Folder"}
-    response = client.login(user.id).post("/files/delete_immediately", json=payload)
+@pytest.mark.asyncio
+async def test_delete_immediately_but_path_not_found(client: TestClient, user: User):
+    data = {"path": "Test Folder"}
+    response = await client.login(user.id).post("/files/delete_immediately", json=data)
     assert response.status_code == 404
     assert response.json() == PathNotFound().as_dict()
 
