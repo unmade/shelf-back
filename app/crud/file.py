@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import operator
+import json
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Iterable
 
 import edgedb
-import sqlalchemy.exc
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app import errors
@@ -16,6 +14,7 @@ from app.entities import File
 from app.storage import StorageFile
 
 if TYPE_CHECKING:
+    from uuid import UUID
     from edgedb import AsyncIOConnection
     from app.typedefs import StrOrPath
 
@@ -328,16 +327,131 @@ async def list_folder(
     return [File.from_orm(child) for child in parent.children]
 
 
-def get_folder(db_session: Session, namespace_id: int, path: StrOrPath) -> File:
-    return (
-        db_session.query(File)
-        .filter(
-            File.namespace_id == namespace_id,
-            File.path == str(path),
-            File.is_dir.is_(True)
+async def move(
+    conn: AsyncIOConnection,
+    namespace: StrOrPath,
+    path: StrOrPath,
+    next_path: StrOrPath,
+) -> None:
+    """
+    Move a file or folder to a different location in the given Namespace.
+    If the source path is a folder all its contents will be moved.
+
+    Args:
+        conn (AsyncIOConnection): Database connection.
+        namespace (StrOrPath): Namespace where a file is located.
+        path (StrOrPath): Path to be moved.
+        next_path (StrOrPath): Path that is the destination.
+
+    Raises:
+        errors.FileAlreadyExists: If some file already at the destination path.
+        errors.FileNotFound: If source path does not exists.
+        errors.MissingParent: If 'next_path' parent does not exists.
+        errors.NotADirectory: If one of the 'next_path' parents is not a folder.
+    """
+    assert path not in (".", TRASH_FOLDER_NAME), "Can't move Home or Trash folder."
+    assert not str(next_path).startswith(str(path)), "Can't move to itself."
+
+    path = Path(path)
+    next_path = Path(next_path)
+
+    target = await get(conn, namespace, path)
+
+    try:
+        next_parent = await get(conn, namespace, next_path.parent)
+    except errors.FileNotFound as exc:
+        raise errors.MissingParent() from exc
+    else:
+        if not next_parent.is_dir:
+            raise errors.NotADirectory()
+
+    if await exists(conn, namespace, next_path):
+        raise errors.FileAlreadyExists()
+
+    await _move_file(conn, target.id, next_path)
+    if target.is_dir:
+        await _move_folder_content(conn, namespace, path, next_path)
+
+    to_decrease = set(path.parents).difference(next_path.parents)
+    to_increase = set(next_path.parents).difference(path.parents)
+
+    query = """
+        FOR item IN {array_unpack(<array<json>>$data)}
+        UNION (
+            UPDATE
+                File
+            FILTER
+                .path IN {array_unpack(<array<str>>item['parents'])}
+                AND
+                .namespace.path = <str>$namespace
+            SET {
+                size := .size + <int64>item['size']
+            }
         )
-        .scalar()
+    """
+
+    await conn.query(
+        query,
+        namespace=str(namespace),
+        data=[
+            json.dumps({
+                "size": sign * target.size,
+                "parents": [str(p) for p in parents]
+            })
+            for sign, parents in zip((-1, 1), (to_decrease, to_increase))
+        ]
     )
+
+
+async def _move_file(
+    conn: AsyncIOConnection, file_id: UUID, next_path: StrOrPath
+) -> None:
+    """
+    Update file name and path.
+
+    Args:
+        conn (AsyncIOConnection): Database connection.
+        file_id (UUID): File ID to be updated.
+        next_path (StrOrPath): New path for a file.
+    """
+    await conn.query("""
+        UPDATE
+            File
+        FILTER
+            .id = <uuid>$file_id
+        SET {
+            name := <str>$name,
+            path := <str>$path,
+        }
+    """, file_id=str(file_id), name=next_path.name, path=str(next_path))
+
+
+async def _move_folder_content(
+    conn: AsyncIOConnection,
+    namespace: StrOrPath,
+    path: StrOrPath,
+    next_path: StrOrPath,
+) -> None:
+    """
+    Replace 'path' to 'next_path' for all files with path that starts with 'path'.
+
+    Args:
+        conn (AsyncIOConnection): Database connection.
+        namespace (StrOrPath): Namespace where files should be updated.
+        path (StrOrPath): Path to be replace.
+        next_path (StrOrPath): Path to replace.
+    """
+    await conn.query("""
+        UPDATE
+            File
+        FILTER
+            .path LIKE <str>$path ++ '/%'
+            AND
+            .namespace.path = <str>$namespace
+        SET {
+            path := re_replace(<str>$path, <str>$next_path, .path)
+        }
+    """, namespace=str(namespace), path=str(path), next_path=str(next_path))
 
 
 def list_folder_by_id(
@@ -408,52 +522,6 @@ def list_parents(
     )
 
 
-def create_parents(
-    db_session: Session,
-    parents: Iterable[StorageFile],
-    namespace_id: int,
-    rel_to: StrOrPath,
-) -> File:
-    parents_in_db = (
-        db_session.query(File.id, File.path)
-        .filter(
-            File.namespace_id == namespace_id,
-            File.path.in_(str(p.path.relative_to(rel_to)) for p in parents),
-            File.is_dir.is_(True),
-        )
-        .order_by(File.path.collate("NOCASE"))
-        .all()
-    )
-    paths = set(item.path for item in parents_in_db)
-    new_parents = sorted(
-        (p for p in parents if str(p.path.relative_to(rel_to)) not in paths),
-        key=operator.attrgetter("path"),
-    )
-    parent = parents_in_db[-1]
-    for storage_file in new_parents:
-        try:
-            parent = create(
-                db_session,
-                storage_file,
-                namespace_id,
-                rel_to=rel_to,
-                parent_id=parent.id,
-            )
-            # we want to commit this earlier, so other requests can see changes
-            db_session.commit()
-        except sqlalchemy.exc.IntegrityError as exc:
-            # this folder already created by other request,
-            # so just refetch the right parent
-            db_session.rollback()
-            parent = get_folder(
-                db_session, namespace_id, storage_file.path.relative_to(rel_to),
-            )
-            if not parent:
-                raise Exception("Failed to create parent") from exc
-
-    return parent
-
-
 def update(
     db_session: Session,
     storage_file: StorageFile,
@@ -470,19 +538,19 @@ def update(
     return file
 
 
-def move(
-    db_session: Session, namespace_id: int, from_path: StrOrPath, to_path: StrOrPath,
-):
-    return (
-        db_session.query(File)
-        .filter(File.namespace_id == namespace_id)
-        .filter(
-            # todo: from_path should be escaped
-            (File.path == str(from_path))
-            | (File.path.like(f"{from_path}/%")),
-        )
-        .update(
-            {"path": func.replace(File.path, str(from_path), str(to_path))},
-            synchronize_session=False,
-        )
-    )
+# def move(
+#     db_session: Session, namespace_id: int, from_path: StrOrPath, to_path: StrOrPath,
+# ):
+#     return (
+#         db_session.query(File)
+#         .filter(File.namespace_id == namespace_id)
+#         .filter(
+#             # todo: from_path should be escaped
+#             (File.path == str(from_path))
+#             | (File.path.like(f"{from_path}/%")),
+#         )
+#         .update(
+#             {"path": func.replace(File.path, str(from_path), str(to_path))},
+#             synchronize_session=False,
+#         )
+#     )
