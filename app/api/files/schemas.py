@@ -61,6 +61,8 @@ class MoveFolderRequest(BaseModel):
             raise InvalidPath("should not be path located in Trash folder.")
         return value.strip()
 
+    # todo: check recursive path (e.g move from 'a/b' to 'a/b/c')
+
 
 class PathRequest(BaseModel):
     path: str

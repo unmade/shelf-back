@@ -268,7 +268,102 @@ async def test_list_folder_but_it_not_found(db_conn: Connection, user: User):
         await crud.file.list_folder(db_conn, user.namespace.path, "a")
 
 
-async def test_list_folder_but_it_a_file(db_conn: Connection, user: User, file_factory):
-    file = await file_factory(user.id)
+async def test_list_folder_but_it_a_file(db_conn: Connection, user: User):
+    await crud.file.create(db_conn, user.namespace.path, "f")
     with pytest.raises(errors.NotADirectory):
-        await crud.file.list_folder(db_conn, user.namespace.path, file.path)
+        await crud.file.list_folder(db_conn, user.namespace.path, "f")
+
+# todo: test case-insensitive list_folder
+
+
+async def test_move(db_conn: Connection, user: User):
+    namespace = user.namespace.path
+    await crud.file.create(db_conn, namespace, "a", size=32, folder=True)
+    await crud.file.create(db_conn, namespace, "a/b", size=24, folder=True)
+    await crud.file.create(db_conn, namespace, "a/b/c", size=24, folder=True)
+    await crud.file.create(db_conn, namespace, "a/b/c/f", size=24)
+    await crud.file.create(db_conn, namespace, "a/g", size=8, folder=True)
+
+    # move folder 'c' from 'a/b' to 'a/g'
+    await crud.file.move(db_conn, namespace, "a/b/c", "a/g/c")
+
+    with pytest.raises(errors.FileNotFound):
+        await crud.file.get(db_conn, namespace, "a/b/c")
+
+    b = await crud.file.get(db_conn, namespace, "a/b")
+    assert b.size == 0
+
+    g = await crud.file.get(db_conn, namespace, "a/g")
+    assert g.size == 32
+
+    c = await crud.file.get(db_conn, namespace, "a/g/c")
+    assert c.size == 24
+
+    f = await crud.file.get(db_conn, namespace, "a/g/c/f")
+    assert f.size == 24
+
+
+async def test_move_with_renaming(db_conn: Connection, user: User):
+    namespace = user.namespace.path
+    await crud.file.create(db_conn, namespace, "a", folder=True)
+    await crud.file.create(db_conn, namespace, "a/b")
+
+    # rename file 'b' to 'c'
+    await crud.file.move(db_conn, namespace, "a/b", "a/c")
+
+    with pytest.raises(errors.FileNotFound):
+        await crud.file.get(db_conn, namespace, "a/b")
+
+    c = await crud.file.get(db_conn, namespace, "a/c")
+    assert c.name == "c"
+
+
+async def test_move_but_next_path_is_already_taken(db_conn: Connection, user: User):
+    namespace = user.namespace.path
+
+    await crud.file.create_folder(db_conn, namespace, "a/b")
+    await crud.file.create_folder(db_conn, namespace, "a/c")
+
+    with pytest.raises(errors.FileAlreadyExists):
+        await crud.file.move(db_conn, namespace, "a/b", "a/c")
+
+
+async def test_move_but_from_path_that_not_exists(db_conn: Connection, user: User):
+    namespace = user.namespace.path
+
+    with pytest.raises(errors.FileNotFound):
+        await crud.file.move(db_conn, namespace, "f", "a")
+
+
+async def test_move_but_to_path_with_missing_parent(db_conn: Connection, user: User):
+    namespace = user.namespace.path
+    await crud.file.create(db_conn, namespace, "f")
+
+    with pytest.raises(errors.MissingParent):
+        await crud.file.move(db_conn, namespace, "f", "a/f")
+
+
+async def test_move_but_to_path_that_not_a_folder(db_conn: Connection, user: User):
+    namespace = user.namespace.path
+    await crud.file.create(db_conn, namespace, "a")
+    await crud.file.create(db_conn, namespace, "f")
+
+    with pytest.raises(errors.NotADirectory):
+        await crud.file.move(db_conn, namespace, "a", "f/a")
+
+
+@pytest.mark.parametrize("path", [".", "Trash"])
+async def test_move_special_folder(db_conn: Connection, user: User, path):
+    namespace = user.namespace.path
+    with pytest.raises(AssertionError) as excinfo:
+        await crud.file.move(db_conn, namespace, path, "a/b")
+
+    assert str(excinfo.value) == "Can't move Home or Trash folder."
+
+
+async def test_move_but_paths_are_recursive(db_conn: Connection, user: User):
+    namespace = user.namespace.path
+    with pytest.raises(AssertionError) as excinfo:
+        await crud.file.move(db_conn, namespace, "a/b", "a/b/b")
+
+    assert str(excinfo.value) == "Can't move to itself."
