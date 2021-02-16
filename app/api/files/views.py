@@ -137,10 +137,9 @@ async def move(
 
     Note, this method doesn't allow to move file/folder to/from Trash folder.
     """
+    from_path, to_path = payload.from_path, payload.to_path
     try:
-        return await actions.move(
-            db_conn, user.namespace, payload.from_path, payload.to_path,
-        )
+        return await actions.move(db_conn, user.namespace, from_path, to_path)
     except errors.FileAlreadyExists as exc:
         raise exceptions.AlreadyExists() from exc
     except errors.FileNotFound as exc:
@@ -150,25 +149,21 @@ async def move(
 
 
 @router.post("/move_to_trash", response_model=schemas.File)
-def move_to_trash(
+async def move_to_trash(
     payload: schemas.PathRequest,
-    db_session: Session = Depends(deps.db_session),
+    db_conn: Session = Depends(deps.db_conn),
     user: User = Depends(deps.current_user),
 ):
-    """Moves file to Trash folder."""
+    """Moves file to the Trash folder."""
     if payload.path == config.TRASH_FOLDER_NAME:
         raise exceptions.InvalidPath()
     if payload.path.startswith(f"{config.TRASH_FOLDER_NAME}/"):
         raise exceptions.AlreadyDeleted()
 
     try:
-        file = actions.move_to_trash(db_session, user.namespace, payload.path)
-    except actions.FileNotFound as exc:
-        raise exceptions.PathNotFound from exc
-    else:
-        db_session.commit()
-
-    return file
+        return await actions.move_to_trash(db_conn, user.namespace, payload.path)
+    except errors.FileNotFound as exc:
+        raise exceptions.PathNotFound() from exc
 
 
 @router.post("/upload", response_model=schemas.UploadResult)

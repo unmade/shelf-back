@@ -222,44 +222,44 @@ async def test_move_but_file_exists(client: TestClient, user: User, file_factory
     assert response.json() == AlreadyExists().as_dict()
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize(["file_path", "path", "expected_path"], [
     ("file.txt", "file.txt", "Trash/file.txt"),  # move file to the Trash
     ("a/b/c/d.txt", "a/b", "Trash/b"),  # move folder to the Trash
 ])
-def test_move_to_trash(
-    client: TestClient, user_factory, file_factory, file_path, path, expected_path,
+async def test_move_to_trash(
+    client: TestClient, user: User, file_factory, file_path, path, expected_path,
 ):
-    user = user_factory()
-    file_factory(user.id, path=file_path)
+    await file_factory(user.id, path=file_path)
     payload = {"path": path}
-    response = client.login(user.id).post("/files/move_to_trash", json=payload)
+    response = await client.login(user.id).post("/files/move_to_trash", json=payload)
     assert response.status_code == 200
     assert response.json()["path"] == expected_path
 
 
-def test_move_to_trash_but_it_is_a_trash(client: TestClient, user_factory):
-    user = user_factory()
+@pytest.mark.asyncio
+async def test_move_to_trash_but_it_is_a_trash(client: TestClient, user: User):
     payload = {"path": "Trash"}
-    response = client.login(user.id).post("/files/move_to_trash", json=payload)
+    response = await client.login(user.id).post("/files/move_to_trash", json=payload)
     assert response.status_code == 400
     assert response.json() == InvalidPath().as_dict()
 
 
-def test_move_to_trash_but_file_is_in_trash(
-    client: TestClient, user_factory, file_factory,
+@pytest.mark.asyncio
+async def test_move_to_trash_but_file_is_in_trash(
+    client: TestClient, user: User, file_factory,
 ):
-    user = user_factory()
-    file = file_factory(user.id, path="Trash/file.txt")
+    file = await file_factory(user.id, path="Trash/file.txt")
     payload = {"path": file.path}
-    response = client.login(user.id).post("/files/move_to_trash", json=payload)
+    response = await client.login(user.id).post("/files/move_to_trash", json=payload)
     assert response.status_code == 400
     assert response.json() == AlreadyDeleted().as_dict()
 
 
-def test_move_to_trash_but_file_not_found(client: TestClient, user_factory):
-    user = user_factory()
+@pytest.mark.asyncio
+async def test_move_to_trash_but_file_not_found(client: TestClient, user: User):
     payload = {"path": "file.txt"}
-    response = client.login(user.id).post("/files/move_to_trash", json=payload)
+    response = await client.login(user.id).post("/files/move_to_trash", json=payload)
     assert response.status_code == 404
     assert response.json() == PathNotFound().as_dict()
 
