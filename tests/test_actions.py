@@ -143,9 +143,45 @@ async def test_move(db_conn: Connection, user: User, file_factory):
     assert not storage.is_exists(user.namespace.path / "a/b")
     assert not (await crud.file.exists(db_conn, user.namespace.path, "a/b"))
 
-    assert storage.get(user.namespace.path / "a/c")
-    assert await crud.file.get(db_conn, user.namespace.path, "a/c")
+    assert storage.is_exists(user.namespace.path / "a/c")
+    assert await crud.file.exists(db_conn, user.namespace.path, "a/c")
 
 
 # todo: check that move is atomic - if something went
 # wrong with storage, then database should rollback.
+
+
+async def test_move_to_trash(db_conn: Connection, user: User, file_factory):
+    await file_factory(user.id, path="a/b/f1")
+
+    await actions.move_to_trash(db_conn, user.namespace, "a/b")
+
+    assert not storage.is_exists(user.namespace.path / "a/b")
+    assert not (await crud.file.exists(db_conn, user.namespace.path, "a/b"))
+
+    assert storage.is_exists(user.namespace.path / "Trash/b")
+    assert storage.is_exists(user.namespace.path / "Trash/b/f1")
+    assert await crud.file.exists(db_conn, user.namespace.path, "Trash/b")
+    assert await crud.file.exists(db_conn, user.namespace.path, "Trash/b/f1")
+
+
+async def test_move_to_trash_autorename(db_conn: Connection, user: User, file_factory):
+    namespace = user.namespace.path
+    await file_factory(user.id, path="Trash/b")
+    await file_factory(user.id, path="a/b/f1")
+
+    file = await actions.move_to_trash(db_conn, user.namespace, "a/b")
+
+    assert not storage.is_exists(namespace / "a/b")
+    assert not (await crud.file.exists(db_conn, namespace, "a/b"))
+
+    assert storage.is_exists(namespace / "Trash/b")
+    assert not storage.is_exists(namespace / "Trash/b/f1")
+    assert await crud.file.exists(db_conn, namespace, "Trash/b")
+    assert not await crud.file.exists(db_conn, namespace, "Trash/b/f1")
+
+    assert file.path.startswith("Trash")
+    assert storage.is_exists(namespace / file.path)
+    assert storage.is_exists(namespace / f"{file.path}/f1")
+    assert await crud.file.exists(db_conn, namespace, file.path)
+    assert await crud.file.exists(db_conn, namespace, f"{file.path}/f1")

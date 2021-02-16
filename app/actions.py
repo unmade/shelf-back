@@ -5,7 +5,7 @@ from os.path import join as joinpath
 from pathlib import Path
 from typing import IO, TYPE_CHECKING
 
-from app import crud, errors
+from app import crud
 from app.config import TRASH_FOLDER_NAME
 from app.entities import File, Namespace
 from app.storage import storage
@@ -133,34 +133,35 @@ async def move(
     return await crud.file.get(conn, namespace.path, next_path)
 
 
-def move_to_trash(db_session: Session, namespace: Namespace, path: StrOrPath) -> File:
+async def move_to_trash(
+    conn: AsyncIOConnection,
+    namespace: Namespace,
+    path: StrOrPath
+) -> File:
     """
-    Moves a file or folder to the Trash folder in the given Namespace.
+    Move a file or folder to the Trash folder in the target Namespace.
     If the path is a folder all its contents will be moved.
+    If file with the same name already in the Trash, then path will be renamed.
 
     Args:
-        db_session (Session): Database session.
+        conn (AsyncIOConnection): Database session.
         namespace (Namespace): Namespace where path located.
         path (StrOrPath): Path to a file or folder to be moved to the Trash folder.
 
     Raises:
-        FileNotFound: If source path does not exists.
+        errors.FileNotFound: If source path does not exists.
 
     Returns:
         File: Moved file.
     """
-    from_path = Path(path)
-    to_path = Path(TRASH_FOLDER_NAME) / from_path.name
-    file = crud.file.get(db_session, namespace.id, from_path)
-    if not file:
-        raise errors.FileNotFound()
+    next_path = Path(TRASH_FOLDER_NAME) / Path(path).name
 
-    if crud.file.exists(db_session, namespace.id, to_path):
-        name = to_path.name.strip(to_path.suffix)
-        suffix = datetime.now().strftime("%H%M%S%f")
-        to_path = to_path.parent / f"{name} {suffix}{to_path.suffix}"
+    if await crud.file.exists(conn, namespace.path, next_path):
+        name = next_path.name.strip(next_path.suffix)
+        timestamp = datetime.now().strftime("%H%M%S%f")
+        next_path = next_path.parent / f"{name} {timestamp}{next_path.suffix}"
 
-    return move(db_session, namespace, path, to_path)
+    return await move(conn, namespace, path, next_path)
 
 
 def reconcile(db_session: Session, namespace: Namespace, path: StrOrPath) -> None:
