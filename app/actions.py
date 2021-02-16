@@ -102,68 +102,35 @@ async def empty_trash(conn: AsyncIOConnection, namespace: Namespace) -> File:
     return await crud.file.get(conn, namespace.path, TRASH_FOLDER_NAME)
 
 
-def move(
-    db_session: Session, namespace: Namespace, from_path: StrOrPath, to_path: StrOrPath,
+async def move(
+    conn: AsyncIOConnection,
+    namespace: Namespace,
+    path: StrOrPath,
+    next_path: StrOrPath,
 ) -> File:
     """
-    Moves a file or folder to a different location in the given Namespace.
+    Move a file or folder to a different location in the target Namespace.
     If the source path is a folder all its contents will be moved.
 
     Args:
-        db_session (Session): Database session.
+        conn (AsyncIOConnection): Database connection.
         namespace (Namespace): Namespace, where file/folder should be moved.
-        from_path (StrOrPath): Path to be moved.
-        to_path (StrOrPath): Path that is the destination.
+        path (StrOrPath): Path to be moved.
+        next_path (StrOrPath): Path that is the destination.
 
     Raises:
-        FileNotFound: If source path does not exists.
-        FileAlreadyExists: If some file already in the destionation path.
+        errors.FileNotFound: If source path does not exists.
+        errors.FileAlreadyExists: If some file already in the destionation path.
+        errors.MissingParent: If 'next_path' parent does not exists.
+        errors.NotADirectory: If one of the 'next_path' parents is not a folder.
 
     Returns:
         File: Moved file/folder.
     """
-    from_path = Path(from_path)
-    to_path = Path(to_path)
-
-    file = crud.file.get(db_session, namespace.id, from_path)
-    if not file:
-        raise errors.FileNotFound()
-
-    if crud.file.exists(db_session, namespace.id, to_path):
-        raise errors.FileAlreadyExists()
-
-    next_parent = crud.file.get(db_session, namespace.id, to_path.parent)
-    if not next_parent:
-        next_parent = create_folder(db_session, namespace, to_path.parent)
-
-    file.parent_id = next_parent.id
-    file.name = to_path.name
-    crud.file.move(db_session, namespace.id, from_path, to_path)
-
-    folders_to_decrease = set(from_path.parents).difference(to_path.parents)
-    if folders_to_decrease:
-        crud.file.inc_folder_size(
-            db_session,
-            namespace.id,
-            path=max((str(p) for p in folders_to_decrease), key=len),
-            size=-file.size,
-        )
-
-    folders_to_increase = set(to_path.parents).difference(from_path.parents)
-    if folders_to_increase:
-        crud.file.inc_folder_size(
-            db_session,
-            namespace.id,
-            path=max((str(p) for p in folders_to_increase), key=len),
-            size=file.size,
-        )
-
-    storage.move(namespace.path / from_path, namespace.path / to_path)
-
-    db_session.flush()
-    db_session.refresh(file)
-
-    return File.from_orm(file)
+    async with conn.transaction():
+        await crud.file.move(conn, namespace.path, path, next_path)
+        storage.move(namespace.path / path, namespace.path / next_path)
+    return await crud.file.get(conn, namespace.path, next_path)
 
 
 def move_to_trash(db_session: Session, namespace: Namespace, path: StrOrPath) -> File:

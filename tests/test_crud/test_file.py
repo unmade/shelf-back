@@ -287,8 +287,7 @@ async def test_move(db_conn: Connection, user: User):
     # move folder 'c' from 'a/b' to 'a/g'
     await crud.file.move(db_conn, namespace, "a/b/c", "a/g/c")
 
-    with pytest.raises(errors.FileNotFound):
-        await crud.file.get(db_conn, namespace, "a/b/c")
+    assert not (await crud.file.exists(db_conn, namespace, "a/b/c"))
 
     b = await crud.file.get(db_conn, namespace, "a/b")
     assert b.size == 0
@@ -311,8 +310,7 @@ async def test_move_with_renaming(db_conn: Connection, user: User):
     # rename file 'b' to 'c'
     await crud.file.move(db_conn, namespace, "a/b", "a/c")
 
-    with pytest.raises(errors.FileNotFound):
-        await crud.file.get(db_conn, namespace, "a/b")
+    assert not (await crud.file.exists(db_conn, namespace, "a/b"))
 
     c = await crud.file.get(db_conn, namespace, "a/c")
     assert c.name == "c"
