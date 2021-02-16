@@ -12,7 +12,7 @@ import pytest
 from faker import Faker
 from httpx import AsyncClient
 
-from app import actions, config, crud, db, errors, security
+from app import actions, config, crud, db, security
 from app.main import create_app
 
 if TYPE_CHECKING:
@@ -82,8 +82,10 @@ async def create_test_db() -> None:
     try:
         await conn.execute(f"CREATE DATABASE {db_name}")
     except edgedb.errors.SchemaError:
-        await conn.execute(f"DROP DATABASE {db_name}")
-        await conn.execute(f"CREATE DATABASE {db_name}")
+        await conn.execute(f"""
+            DROP DATABASE {db_name};
+            CREATE DATABASE {db_name};
+        """)
     finally:
         await conn.aclose()
 
@@ -118,36 +120,28 @@ async def db_conn(apply_migration, db_pool: AsyncIOPool):
         try:
             yield conn
         finally:
-            await conn.execute("DELETE File")
-            await conn.execute("DELETE Namespace")
-            await conn.execute("DELETE User")
+            await conn.execute("""
+                DELETE File;
+                DELETE Namespace;
+                DELETE User;
+            """)
 
 
 @pytest.fixture
 def file_factory(db_conn: AsyncIOConnection):
-    """Creates dummy file, put it in a storage and save to database."""
-    from app.storage import storage
-
+    """Create dummy file, put it in a storage and save to database."""
     async def _file_factory(user_id: int, path: str = None):
         path = Path(path or fake.file_name(category="text", extension="txt"))
         file = BytesIO(b"I'm Dummy File!")
         user = await crud.user.get_by_id(db_conn, user_id=user_id)
-        if str(path.parent) != ".":
-            storage.mkdir(user.namespace.path / path.parent)
-            try:
-                await crud.file.create_folder(db_conn, user.namespace.path, path.parent)
-            except errors.FileAlreadyExists:
-                pass
-        storage.save(user.namespace.path / path, file)
-        st_file = storage.get(user.namespace.path / path)
-        await crud.file.create(db_conn, user.namespace.path, path, size=st_file.size)
+        await actions.save_file(db_conn, user.namespace, path, file)
         return await crud.file.get(db_conn, user.namespace.path, path)
     return _file_factory
 
 
 @pytest.fixture
 def user_factory(db_conn: AsyncIOConnection):
-    """Creates a new user, namespace, home and trash directories."""
+    """Create a new user, namespace, home and trash directories."""
     async def _user_factory(
         username: str = None, password: str = "root", hash_password: bool = False,
     ) -> User:
@@ -166,5 +160,5 @@ def user_factory(db_conn: AsyncIOConnection):
 
 @pytest.fixture
 async def user(user_factory):
-    """User instances with created namespace, home and trash directories."""
+    """User instance with namespace, home and trash directories."""
     return await user_factory()

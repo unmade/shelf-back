@@ -60,7 +60,8 @@ async def exists(conn: AsyncIOConnection, user_id: str) -> bool:
     """True if User with a given user_id exists, otherwise False."""
     query = """
         SELECT EXISTS (
-            SELECT User
+            SELECT
+                User
             FILTER
                 .id = <uuid>$user_id
         )
@@ -71,7 +72,7 @@ async def exists(conn: AsyncIOConnection, user_id: str) -> bool:
 
 async def get_by_id(conn: AsyncIOConnection, user_id: str) -> User:
     """
-    Returns a User with a Namespace.
+    Return a User with a Namespace.
 
     Args:
         conn (AsyncIOConnection): Database connection.
@@ -84,14 +85,18 @@ async def get_by_id(conn: AsyncIOConnection, user_id: str) -> User:
         Account:
     """
     query = """
-        SELECT User {
-            id,
-            username,
-            namespace := (
-              SELECT User.<owner[IS Namespace] { id, path }
-              LIMIT 1
-            ),
-        }
+        SELECT
+            User {
+                id,
+                username,
+                namespace := (
+                    SELECT
+                        .<owner[IS Namespace] {
+                            id, path
+                        }
+                    LIMIT 1
+                ),
+            }
         FILTER
             .id = <uuid>$user_id
     """
@@ -103,7 +108,7 @@ async def get_by_id(conn: AsyncIOConnection, user_id: str) -> User:
 
 async def get_by_username(conn: AsyncIOConnection, username: str) -> User:
     """
-    Returns a User with a target username.
+    Return a User with a target username.
 
     Args:
         conn (AsyncIOConnection): Database connection.
@@ -116,7 +121,10 @@ async def get_by_username(conn: AsyncIOConnection, username: str) -> User:
         User: User with a target username.
     """
     query = """
-        SELECT User { id, username, password }
+        SELECT
+            User {
+                id, username, password
+            }
         FILTER
             .username = <str>$username
     """

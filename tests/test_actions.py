@@ -119,21 +119,18 @@ async def test_empty_trash(db_conn: Connection, user: User, file_factory):
     await actions.empty_trash(db_conn, user.namespace)
 
     assert not list(storage.iterdir(user.namespace.path / "Trash"))
-    trash = await db_conn.query_one("""
-        SELECT File {
-            size,
-            file_count := (
-                SELECT count((
-                    SELECT File
-                    FILTER .path LIKE 'Trash/%' AND .namespace.path = <str>$namespace
-                ))
-            ),
-        }
-        FILTER .path = 'Trash' AND .namespace.path = <str>$namespace
-    """, namespace=str(user.namespace.path))
 
+    trash = await crud.file.get(db_conn, user.namespace.path, "Trash")
+    files = await crud.file.list_folder(db_conn, user.namespace.path, "Trash")
     assert trash.size == 0
-    assert trash.file_count == 0
+    assert files == []
+
+
+async def test_empty_trash_but_its_already_empty(db_conn: Connection, user: User):
+    await actions.empty_trash(db_conn, user.namespace)
+
+    trash = await crud.file.get(db_conn, user.namespace.path, "Trash")
+    assert trash.size == 0
 
 
 async def test_move(db_conn: Connection, user: User, file_factory):

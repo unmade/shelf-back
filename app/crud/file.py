@@ -102,22 +102,26 @@ async def create(
         NotADirectory: If parent path is not a directory.
     """
     namespace = Path(namespace)
-    fullpath = namespace / path
-    relpath = fullpath.relative_to(namespace)
+    path = Path(path)
     mtime = mtime or time.time()
 
-    if path != "." and not await exists(conn, namespace, relpath.parent, folder=True):
-        raise errors.MissingParent()
+    try:
+        parent = await get(conn, namespace, path.parent)
+    except errors.FileNotFound as exc:
+        raise errors.MissingParent() from exc
+    else:
+        if not parent.is_dir:
+            raise errors.NotADirectory
 
-    params = dict(
-        name=fullpath.name,
-        path=str(relpath),
-        size=size,
-        mtime=time.time(),
-        is_dir=folder,
-        namespace=str(namespace),
-        parent=str(relpath.parent),
-    )
+    params = {
+        "name": (namespace / path).name,
+        "path": str(path),
+        "size": size,
+        "mtime": time.time(),
+        "is_dir": folder,
+        "namespace": str(namespace),
+        "parent": str(path.parent),
+    }
 
     insert_query = """
         INSERT File {
@@ -126,18 +130,8 @@ async def create(
             size := <int64>$size,
             mtime := <float64>$mtime,
             is_dir := <bool>$is_dir,
-            parent := (
-                SELECT
-                    Parent
-                FILTER
-                    .path = <str>$parent
-                    AND
-                    .namespace = namespace
-                    AND
-                    .is_dir = true
-                LIMIT 1
-            ),
-            namespace := namespace,
+            parent := parent,
+            namespace := parent.namespace,
         }
     """
 
@@ -147,24 +141,28 @@ async def create(
             UPDATE
                 Parents
             FILTER
-                .path IN {{array_unpack(<array<str>>($parents))}}
+                .path IN array_unpack(<array<str>>($parents))
                 AND
-                .namespace = namespace
+                .namespace = parent.namespace
             SET {{
                 size := .size + (SELECT ({insert_query}).size)
             }}
         """
-        params["parents"] = [str(p) for p in relpath.parents]
+        params["parents"] = [str(p) for p in path.parents]
 
     query = f"""
         WITH
             Parent := File,
             {'Parents := File,' if size else ''}
-            namespace := (
+            parent := (
                 SELECT
-                    Namespace
+                    Parent
                 FILTER
-                    .path = <str>$namespace
+                    .path = <str>$parent
+                    AND
+                    .namespace.path = <str>$namespace
+                    AND
+                    .is_dir = true
                 LIMIT 1
             )
         {update_query if size else insert_query}
@@ -226,7 +224,8 @@ async def delete(
         WITH
             Parent := File,
             namespace := (
-                SELECT Namespace
+                SELECT
+                    Namespace
                 FILTER
                     .path = <str>$namespace
                 LIMIT 1
@@ -235,16 +234,15 @@ async def delete(
         FILTER
             namespace = namespace
             AND
-            .path IN {array_unpack(<array<str>>$parents)}
+            .path IN array_unpack(<array<str>>$parents)
         SET {
             size := .size - (
-                SELECT (
-                    DELETE File
-                    FILTER
-                        namespace = namespace
-                        AND
-                        .path = <str>$path
-                ) { size }
+                DELETE
+                    File
+                FILTER
+                    namespace = namespace
+                    AND
+                    .path = <str>$path
             ).size
         }
     """
@@ -264,25 +262,30 @@ async def empty_trash(conn: AsyncIOConnection, namespace: StrOrPath) -> None:
         conn (AsyncIOConnection): Database connection.
         namespace (StrOrPath): Namespace where to empty the Trash folder.
     """
-    # todo: try to make it atomic with one query
     async with conn.transaction():
+        trash = await get(conn, namespace, TRASH_FOLDER_NAME)
         await conn.query("""
-            DELETE File
-                FILTER
-                    .path LIKE <str>$path ++ '/%'
-                    AND
-                    .namespace.path = <str>$namespace
-        """, namespace=str(namespace), path=TRASH_FOLDER_NAME)
-        await conn.query("""
-            UPDATE File
+            DELETE
+                File
             FILTER
-                .path = <str>$path
+                .path LIKE <str>$path ++ '/%'
                 AND
                 .namespace.path = <str>$namespace
-            SET {
-                size := 0
-            }
         """, namespace=str(namespace), path=TRASH_FOLDER_NAME)
+        await conn.query("""
+            FOR path IN {array_unpack(<array<str>>$paths)}
+            UNION (
+                UPDATE
+                    File
+                FILTER
+                    .path = path
+                    AND
+                    .namespace.path = <str>$namespace
+                SET {
+                    size := .size - <int64>$size
+                }
+            )
+        """, namespace=str(namespace), paths=[".", TRASH_FOLDER_NAME], size=trash.size)
 
 
 async def exists(
@@ -303,7 +306,8 @@ async def exists(
     """
     query = f"""
         SELECT EXISTS (
-            SELECT File
+            SELECT
+                File
             FILTER
                 .path = <str>$path
                 AND
@@ -338,14 +342,19 @@ async def get(conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath) ->
         File: File with a target path.
     """
     query = """
-        SELECT File { id, name, path, size, mtime, is_dir }
+        SELECT
+            File {
+                id, name, path, size, mtime, is_dir
+            }
         FILTER
             .path = <str>$path
             AND
             .namespace.path = <str>$namespace
     """
     try:
-        return await conn.query_one(query, namespace=str(namespace), path=str(path))
+        return File.from_orm(
+            await conn.query_one(query, namespace=str(namespace), path=str(path))
+        )
     except edgedb.NoDataError as exc:
         raise errors.FileNotFound() from exc
 
@@ -410,13 +419,18 @@ async def list_folder(
     Returns:
         List[File]: List of all files/folders in a folder with a target path.
     """
+    filter_clause = "FILTER .path != 'Trash'" if not with_trash and path == "." else ""
     query = f"""
-        SELECT File {{
-            is_dir,
-            children := (
-                SELECT File.<parent[IS File] {{ id, name, path, size, mtime, is_dir }}
-                {"FILTER .path != 'Trash'" if not with_trash and path == "." else ""}
-                ORDER BY .is_dir DESC THEN .path ASC
+        SELECT
+            File {{
+                is_dir,
+                children := (
+                    SELECT
+                        .<parent[IS File] {{
+                            id, name, path, size, mtime, is_dir
+                        }}
+                    {filter_clause}
+                    ORDER BY .is_dir DESC THEN .path ASC
             )
         }}
         FILTER
