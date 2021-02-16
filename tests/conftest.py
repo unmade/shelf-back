@@ -41,13 +41,6 @@ async def client():
 
 
 @pytest.fixture(autouse=True)
-def create_schema_for_in_memory_sqlite(request):
-    """Fixture automatically creates schema when running with in-memory SQLite"""
-    if config.DATABASE_DSN == "sqlite://":  # pragma: no cover
-        db.Base.metadata.create_all(bind=db.engine)
-
-
-@pytest.fixture(autouse=True)
 def replace_storage_root_dir_with_tmp_path(tmp_path):
     """Monkey patches storage root_dir with a temporary directory"""
     from app.storage import storage
@@ -56,6 +49,12 @@ def replace_storage_root_dir_with_tmp_path(tmp_path):
 
 
 def _build_test_db_dsn() -> tuple[str, str, str]:
+    """
+    Parse DSN from config and return tuple:
+        - first element is a DSN to server, without database name
+        - second element is a DSN, but database name has suffix '_text'
+        - third element is test database name (with suffix '_text')
+    """
     scheme, netloc, path, query, fragments = urlsplit(config.EDGEDB_DSN)
     server_dsn = urlunsplit((scheme, netloc, "", query, fragments))
     db_name = f"{path.strip('/')}_test"
@@ -76,7 +75,7 @@ async def create_test_db() -> None:
     """
     Create test database.
 
-    If DB already exists, then drop it first.
+    If DB already exists, then drop it first, and create again.
     """
     dsn, _, db_name = _build_test_db_dsn()
     conn = await edgedb.async_connect(dsn=dsn)
@@ -112,7 +111,7 @@ async def db_pool(create_test_db) -> None:
 
 @pytest.fixture
 async def db_conn(apply_migration, db_pool: AsyncIOPool):
-    """Return connection from connection pool."""
+    """Yield connection from connection pool."""
     del apply_migration  # required only to preserve fixtures correct execution order
 
     async with db_pool.acquire() as conn:

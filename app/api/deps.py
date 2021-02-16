@@ -21,7 +21,6 @@ __all__ = [
 reusable_oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/tokens", auto_error=False)
 
 # This is just an alias to be consistent and import all deps from one place
-db_session = db.get_session
 db_conn = db.db_conn
 
 

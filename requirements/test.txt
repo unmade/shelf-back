@@ -49,9 +49,7 @@ jedi==0.18.0
 mypy-extensions==0.4.3
     # via mypy
 mypy==0.800
-    # via
-    #   -r requirements/test.in
-    #   sqlalchemy-stubs
+    # via -r requirements/test.in
 nodeenv==1.5.0
     # via pre-commit
 packaging==20.9
@@ -72,7 +70,7 @@ ptyprocess==0.7.0
     # via pexpect
 py==1.10.0
     # via pytest
-pygments==2.7.4
+pygments==2.8.0
     # via ipython
 pyparsing==2.4.7
     # via packaging
@@ -86,9 +84,7 @@ pytest==6.2.2
     #   pytest-asyncio
     #   pytest-cov
 python-dateutil==2.8.1
-    # via
-    #   -c requirements/base.txt
-    #   faker
+    # via faker
 pyyaml==5.4.1
     # via pre-commit
 rfc3986[idna2008]==1.4.0
@@ -102,8 +98,6 @@ sniffio==1.2.0
     # via
     #   httpcore
     #   httpx
-sqlalchemy-stubs==0.4
-    # via -r requirements/test.in
 text-unidecode==1.3
     # via faker
 toml==0.10.2
@@ -118,7 +112,6 @@ typing-extensions==3.7.4.3
     # via
     #   -c requirements/base.txt
     #   mypy
-    #   sqlalchemy-stubs
 virtualenv==20.4.2
     # via pre-commit
 wcwidth==0.2.5

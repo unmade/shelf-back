@@ -6,12 +6,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Iterable
 
 import edgedb
-from sqlalchemy.orm import Session
 
 from app import errors
 from app.config import TRASH_FOLDER_NAME
 from app.entities import File
-from app.storage import StorageFile
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -366,7 +364,7 @@ async def get_many(
         paths (Iterable[StrOrPath]): Iterable of paths to look for.
 
     Returns:
-        list[File]: Files with target paths.
+        List[File]: Files with target paths.
     """
     query = """
         SELECT
@@ -598,87 +596,3 @@ async def next_path(
         )
     """, namespace=str(namespace), pattern=f"{path_stem} \\([[:digit:]]+\\){suffix}")
     return f"{path_stem} ({count + 1}){suffix}"
-
-
-def list_folder_by_id(
-    db_session: Session, folder_id: int, hide_trash_folder: bool = False,
-):
-    query = (
-        db_session.query(File)
-        .filter(File.parent_id == folder_id)
-        .order_by(File.is_dir.desc(), File.name.collate("NOCASE"))
-    )
-    if hide_trash_folder:
-        query = query.filter(File.path != TRASH_FOLDER_NAME)
-    return query.all()
-
-
-def bulk_create(
-    db_session: Session,
-    storage_files: Iterable[StorageFile],
-    namespace_id: int,
-    rel_to: StrOrPath,
-    parent_id: int,
-) -> None:
-    db_session.bulk_insert_mappings(
-        File,
-        (
-            dict(
-                namespace_id=namespace_id,
-                parent_id=parent_id,
-                name=storage_file.name,
-                path=str(storage_file.path.relative_to(rel_to)),
-                size=0 if storage_file.is_dir() else storage_file.size,
-                mtime=storage_file.mtime,
-                is_dir=storage_file.is_dir(),
-            )
-            for storage_file in storage_files
-        ),
-    )
-
-
-def inc_folder_size(
-    db_session: Session, namespace_id: int, path: StrOrPath, size: int,
-):
-    parents = (str(p) for p in Path(path).parents)
-    return (
-        db_session.query(File)
-        .filter(
-            File.namespace_id == namespace_id,
-            File.path.in_([str(path), *parents]),
-            File.is_dir.is_(True),
-        )
-        .update({"size": File.size + size}, synchronize_session=False)
-    )
-
-
-def list_parents(
-    db_session: Session, namespace_id: int, path: StrOrPath,
-):
-    parents = (str(p) for p in Path(path).parents)
-    return (
-        db_session.query(File)
-        .filter(
-            File.namespace_id == namespace_id,
-            File.path.in_(parents),
-            File.is_dir.is_(True),
-        )
-        .order_by(File.path.collate("NOCASE"))
-        .all()
-    )
-
-
-def update(
-    db_session: Session,
-    storage_file: StorageFile,
-    namespace_id: int,
-    rel_to: StrOrPath,
-) -> File:
-    file = get(db_session, namespace_id, storage_file.path.relative_to(rel_to))
-
-    file.size = storage_file.size
-    file.mtime = storage_file.mtime
-    db_session.add(file)
-    db_session.flush()
-
-    return file
