@@ -20,6 +20,7 @@ class File(BaseModel):
     path: str
     size: int
     mtime: float
+    is_dir: bool
 
     class Config:
         orm_mode = True

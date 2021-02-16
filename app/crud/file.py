@@ -30,6 +30,8 @@ async def create(
     """
     Create new file.
 
+    If the file size is greater than zero, then size of all parents updated accordingly.
+
     Args:
         conn (AsyncIOConnection): Connection to a database.
         namespace (StrOrPath): Namespace path where a file should be created.
@@ -39,7 +41,7 @@ async def create(
         folder (bool, optional): Whether it is a folder or a file. Defaults to False.
 
     Raises:
-        FileAlreadyExists: If file in a target path already exists
+        FileAlreadyExists: If file in a target path already exists.
         MissingParent: If target path does not have a parent.
         NotADirectory: If parent path is not a directory.
     """
@@ -51,17 +53,26 @@ async def create(
     if path != "." and not await exists(conn, namespace, relpath.parent, folder=True):
         raise errors.MissingParent()
 
-    query = """
-        WITH
-            Parent := File,
-            namespace := (
-                SELECT Namespace
-                FILTER
-                    .path = <str>$namespace
-                LIMIT 1
-            ),
+    params = dict(
+        name=fullpath.name,
+        path=str(relpath),
+        size=size,
+        mtime=time.time(),
+        is_dir=folder,
+        namespace=str(namespace),
+        parent=str(relpath.parent),
+    )
+
+    insert_query = """
+        INSERT File {
+            name := <str>$name,
+            path := <str>$path,
+            size := <int64>$size,
+            mtime := <float64>$mtime,
+            is_dir := <bool>$is_dir,
             parent := (
-                SELECT Parent
+                SELECT
+                    Parent
                 FILTER
                     .path = <str>$parent
                     AND
@@ -69,29 +80,42 @@ async def create(
                     AND
                     .is_dir = true
                 LIMIT 1
-            )
-        INSERT File {
-            name := <str>$name,
-            path := <str>$path,
-            size := <int64>$size,
-            mtime := <float64>$mtime,
-            is_dir := <bool>$is_dir,
-            parent := parent,
+            ),
             namespace := namespace,
         }
     """
 
+    update_query = ""
+    if size:
+        update_query = f"""
+            UPDATE
+                Parents
+            FILTER
+                .path IN {{array_unpack(<array<str>>($parents))}}
+                AND
+                .namespace = namespace
+            SET {{
+                size := .size + (SELECT ({insert_query}).size)
+            }}
+        """
+        params["parents"] = [str(p) for p in relpath.parents]
+
+    query = f"""
+        WITH
+            Parent := File,
+            {'Parents := File,' if size else ''}
+            namespace := (
+                SELECT
+                    Namespace
+                FILTER
+                    .path = <str>$namespace
+                LIMIT 1
+            )
+        {update_query if size else insert_query}
+    """
+
     try:
-        await conn.query_one(
-            query,
-            name=fullpath.name,
-            path=str(relpath),
-            size=size,
-            mtime=time.time(),
-            is_dir=folder,
-            namespace=str(namespace),
-            parent=str(relpath.parent),
-        )
+        await conn.query(query, **params)
     except edgedb.ConstraintViolationError as exc:
         raise errors.FileAlreadyExists from exc
 
@@ -114,16 +138,8 @@ async def create_folder(
         NotADirectory: If one of the parents is not a directory.
     """
     paths = [str(path)] + [str(p) for p in Path(path).parents]
-    query = """
-        SELECT File { id, path, is_dir }
-        FILTER
-            .path IN {array_unpack(<array<str>>$paths)}
-            AND
-            .namespace.path = <str>$namespace
-        ORDER BY .path ASC
-    """
-    parents = await conn.query(query, namespace=str(namespace), paths=paths)
-    assert len(parents) > 0, f"No home folder in a namespace {namespace}"
+    parents = await get_many(conn, namespace, paths)
+    assert len(parents) > 0, f"No home folder in a namespace: '{namespace}'"
     if any(not p.is_dir for p in parents):
         raise errors.NotADirectory()
     if parents[-1].path == str(path):
@@ -276,6 +292,41 @@ async def get(conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath) ->
         return await conn.query_one(query, namespace=str(namespace), path=str(path))
     except edgedb.NoDataError as exc:
         raise errors.FileNotFound() from exc
+
+
+async def get_many(
+    conn: AsyncIOConnection,
+    namespace: StrOrPath,
+    paths: Iterable[StrOrPath],
+) -> list[File]:
+    """
+    Returns all files with target paths.
+
+    Args:
+        conn (AsyncIOConnection): Database connection.
+        namespace (StrOrPath): Namespace where files are located.
+        paths (Iterable[StrOrPath]): Iterable of paths to look for.
+
+    Returns:
+        list[File]: Files with target paths.
+    """
+    query = """
+        SELECT
+            File {
+                id, name, path, size, mtime, is_dir
+            }
+        FILTER
+            .path IN {array_unpack(<array<str>>$paths)}
+            AND
+            .namespace.path = <str>$namespace
+    """
+    files = await conn.query(
+        query,
+        namespace=str(namespace),
+        paths=[str(p) for p in paths]
+    )
+
+    return [File.from_orm(f) for f in files]
 
 
 async def list_folder(
@@ -454,6 +505,41 @@ async def _move_folder_content(
     """, namespace=str(namespace), path=str(path), next_path=str(next_path))
 
 
+async def next_path(
+    conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath
+) -> str:
+    """
+    Return a path with modified name if current one already taken, otherwise return
+    path unchanged.
+
+    For example, if path 'a/f.tar.gz' exists, then next path will be 'a/f (1).tar.gz'.
+
+    Args:
+        conn (AsyncIOConnection): Database connection.
+        namespace (StrOrPath): Namespace to check for target path.
+        path (StrOrPath): Target path.
+
+    Returns:
+        str: Path with a modified name if current one already taken, otherwise return
+             path unchanged
+    """
+    if not await exists(conn, namespace, path):
+        return path
+
+    suffix = "".join(Path(path).suffixes)
+    path_stem = str(path).rstrip(suffix)
+    count = await conn.query_one("""
+        SELECT count(
+            File
+            FILTER
+                re_test(<str>$pattern, .path)
+                AND
+                .namespace.path = <str>$namespace
+        )
+    """, namespace=str(namespace), pattern=f"{path_stem} \\([[:digit:]]+\\){suffix}")
+    return f"{path_stem} ({count + 1}){suffix}"
+
+
 def list_folder_by_id(
     db_session: Session, folder_id: int, hide_trash_folder: bool = False,
 ):
@@ -536,21 +622,3 @@ def update(
     db_session.flush()
 
     return file
-
-
-# def move(
-#     db_session: Session, namespace_id: int, from_path: StrOrPath, to_path: StrOrPath,
-# ):
-#     return (
-#         db_session.query(File)
-#         .filter(File.namespace_id == namespace_id)
-#         .filter(
-#             # todo: from_path should be escaped
-#             (File.path == str(from_path))
-#             | (File.path.like(f"{from_path}/%")),
-#         )
-#         .update(
-#             {"path": func.replace(File.path, str(from_path), str(to_path))},
-#             synchronize_session=False,
-#         )
-#     )
