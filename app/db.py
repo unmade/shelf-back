@@ -1,52 +1,13 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING
 
 import edgedb
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import NullPool
 
 from app import config
 
 if TYPE_CHECKING:
     from edgedb import AsyncIOPool, AsyncIOConnection
-
-
-def get_db_params(dsn: str) -> Dict[str, Any]:
-    if dsn.startswith("sqlite"):
-        return {
-            "connect_args": {
-                "check_same_thread": False,
-            },
-            "poolclass": NullPool,
-        }
-    return {}
-
-
-engine = create_engine(config.DATABASE_DSN, **get_db_params(config.DATABASE_DSN))
-
-Base = declarative_base()
-
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-
-def get_session():
-    try:
-        session = SessionLocal()
-        yield session
-    finally:
-        session.close()
-
-
-SessionManager = contextmanager(get_session)
-
-
-def ping_db():
-    with SessionManager() as db_session:
-        db_session.execute("SELECT 1", bind=engine)
 
 
 _pool: AsyncIOPool = None

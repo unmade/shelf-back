@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import List
-
 from pydantic import BaseModel, root_validator, validator
 
 from app.config import TRASH_FOLDER_NAME
@@ -43,7 +41,7 @@ class File(BaseModel):
 
 class ListFolderResult(BaseModel):
     path: str
-    items: List[File]
+    items: list[File]
     count: int
 
 
@@ -76,4 +74,4 @@ class PathRequest(BaseModel):
 
 class UploadResult(BaseModel):
     file: File
-    updates: List[File]
+    updates: list[File]

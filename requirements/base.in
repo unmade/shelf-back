@@ -1,14 +1,11 @@
 aiofiles
-alembic
 bcrypt
 cashews
 edgedb
 fastapi
 passlib
-psycopg2-binary
 python-jose[cryptography]
 python-multipart
-sqlalchemy
 typer
 uvicorn
 zipfly
