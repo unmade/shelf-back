@@ -122,13 +122,14 @@ async def list_folder(
 
 
 @router.post("/move", response_model=schemas.File)
-def move(
+async def move(
     payload: schemas.MoveFolderRequest,
-    db_session: Session = Depends(deps.db_session),
+    db_conn: AsyncIOConnection = Depends(deps.db_conn),
     user: User = Depends(deps.current_user),
 ):
     """
-    Moves file or a folder (including content) to a new path.
+    Move a file or folder to a different location in the target Namespace.
+    If the source path is a folder all its contents will be moved.
 
     The last part of a new path would become new file/folder name.
     For example, to rename file with path 'file.txt', the new path should be
@@ -137,17 +138,15 @@ def move(
     Note, this method doesn't allow to move file/folder to/from Trash folder.
     """
     try:
-        file = actions.move(
-            db_session, user.namespace, payload.from_path, payload.to_path,
+        return await actions.move(
+            db_conn, user.namespace, payload.from_path, payload.to_path,
         )
-    except actions.FileAlreadyExists as exc:
+    except errors.FileAlreadyExists as exc:
         raise exceptions.AlreadyExists() from exc
-    except actions.FileNotFound as exc:
-        raise exceptions.PathNotFound from exc
-    else:
-        db_session.commit()
-
-    return file
+    except errors.FileNotFound as exc:
+        raise exceptions.PathNotFound() from exc
+    except (errors.MissingParent, errors.NotADirectory) as exc:
+        raise exceptions.InvalidPath() from exc
 
 
 @router.post("/move_to_trash", response_model=schemas.File)

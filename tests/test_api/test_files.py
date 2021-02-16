@@ -162,63 +162,62 @@ async def test_list_folder_but_path_does_not_exists(client: TestClient, user: Us
     assert response.json() == PathNotFound().as_dict()
 
 
-@pytest.mark.parametrize(["from_path", "to_path"], [
-    ("{name}", "folder/{name}"),
-    ("folder/{name}", "{name}"),
-    ("{name}", ".{name}"),
-])
-def test_move(client: TestClient, user_factory, file_factory, from_path, to_path):
-    name = "file.txt"
-    from_path = from_path.format(name=name)
-    to_path = to_path.format(name=name)
-    user = user_factory()
-    file_factory(user.id, path=from_path)
-    payload = {"from_path": from_path, "to_path": to_path}
-    response = client.login(user.id).post("/files/move", json=payload)
+@pytest.mark.asyncio
+async def test_move(client: TestClient, user: User, file_factory):
+    await file_factory(user.id, path="file.txt")
+    payload = {"from_path": "file.txt", "to_path": ".file.txt"}
+    response = await client.login(user.id).post("/files/move", json=payload)
     assert response.status_code == 200
-    assert response.json()["type"] == "file"
-    assert response.json()["path"] == to_path
+    assert response.json()["name"] == ".file.txt"
+    assert response.json()["path"] == ".file.txt"
 
 
-@pytest.mark.parametrize("from_path", [".", "Trash"])
-def test_move_but_it_is_a_special_path(
-    client: TestClient, user_factory, file_factory, from_path,
-):
-    user = user_factory()
-    payload = {"from_path": from_path, "to_path": "Trashbin"}
-    response = client.login(user.id).post("/files/move", json=payload)
+@pytest.mark.asyncio
+@pytest.mark.parametrize("path", [".", "Trash"])
+async def test_move_but_it_is_a_special_path(client: TestClient, user: User, path):
+    payload = {"from_path": path, "to_path": "Trashbin"}
+    response = await client.login(user.id).post("/files/move", json=payload)
     assert response.status_code == 400
     message = "should not be Home or Trash folder."
     assert response.json() == InvalidPath(message).as_dict()
 
 
-@pytest.mark.parametrize("to_path", [".", "Trash"])
-def test_move_but_to_a_special_path(
-    client: TestClient, user_factory, file_factory, to_path,
+@pytest.mark.asyncio
+@pytest.mark.parametrize("next_path", [".", "Trash"])
+async def test_move_but_to_a_special_path(
+    client: TestClient, user: User, file_factory, next_path,
 ):
-    user = user_factory()
-    file = file_factory(user.id)
-    payload = {"from_path": file.path, "to_path": to_path}
-    response = client.login(user.id).post("/files/move", json=payload)
+    file = await file_factory(user.id)
+    payload = {"from_path": file.path, "to_path": next_path}
+    response = await client.login(user.id).post("/files/move", json=payload)
     assert response.status_code == 400
     message = "should not be Home or Trash folder."
     assert response.json() == InvalidPath(message).as_dict()
 
 
-def test_move_but_file_not_found(client: TestClient, user_factory):
-    user = user_factory()
+@pytest.mark.asyncio
+async def test_move_but_path_is_recursive(client: TestClient, user: User):
+    payload = {"from_path": "a/b", "to_path": "a/b/c"}
+    response = await client.login(user.id).post("/files/move", json=payload)
+    assert response.status_code == 400
+    message = "destination path should not starts with source path."
+    assert response.json() == InvalidPath(message).as_dict()
+
+
+@pytest.mark.asyncio
+async def test_move_but_file_not_found(client: TestClient, user: User):
     payload = {"from_path": "file_a.txt", "to_path": "file_b.txt"}
-    response = client.login(user.id).post("/files/move", json=payload)
+    response = await client.login(user.id).post("/files/move", json=payload)
     assert response.status_code == 404
     assert response.json() == PathNotFound().as_dict()
 
 
-def test_move_but_file_already_exists(client: TestClient, user_factory, file_factory):
-    user = user_factory()
-    file_a = file_factory(user.id, path="folder/file.txt")
-    file_b = file_factory(user.id, path="file.txt")
+@pytest.mark.asyncio
+async def test_move_but_file_exists(client: TestClient, user: User, file_factory):
+    file_a = await file_factory(user.id, path="folder/file.txt")
+    file_b = await file_factory(user.id, path="file.txt")
     payload = {"from_path": file_a.path, "to_path": file_b.path}
-    response = client.login(user.id).post("/files/move", json=payload)
+    response = await client.login(user.id).post("/files/move", json=payload)
     assert response.status_code == 400
     assert response.json() == AlreadyExists().as_dict()
 

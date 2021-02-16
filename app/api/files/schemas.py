@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List
 
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, root_validator, validator
 
 from app.config import TRASH_FOLDER_NAME
 
@@ -61,7 +61,11 @@ class MoveFolderRequest(BaseModel):
             raise InvalidPath("should not be path located in Trash folder.")
         return value.strip()
 
-    # todo: check recursive path (e.g move from 'a/b' to 'a/b/c')
+    @root_validator
+    def check_path_does_not_contain_itself(cls, values):
+        if values["to_path"].startswith(values["from_path"]):
+            raise InvalidPath("destination path should not starts with source path.")
+        return values
 
 
 class PathRequest(BaseModel):

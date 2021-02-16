@@ -133,3 +133,19 @@ async def test_empty_trash(db_conn: Connection, user: User, file_factory):
 
     assert trash.size == 0
     assert trash.file_count == 0
+
+
+async def test_move(db_conn: Connection, user: User, file_factory):
+    await file_factory(user.id, path="a/b/f1")
+
+    await actions.move(db_conn, user.namespace, "a/b", "a/c")
+
+    assert not storage.is_exists(user.namespace.path / "a/b")
+    assert not (await crud.file.exists(db_conn, user.namespace.path, "a/b"))
+
+    assert storage.get(user.namespace.path / "a/c")
+    assert await crud.file.get(db_conn, user.namespace.path, "a/c")
+
+
+# todo: check that move is atomic - if something went
+# wrong with storage, then database should rollback.
