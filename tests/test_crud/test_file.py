@@ -106,6 +106,13 @@ async def test_create_but_parent_is_missing(db_conn: Connection, user: User):
         await crud.file.create(db_conn, user.namespace.path, "New Folder/file")
 
 
+async def test_create_but_parent_is_not_a_folder(db_conn: Connection, user: User):
+    await crud.file.create(db_conn, user.namespace.path, "f")
+
+    with pytest.raises(errors.NotADirectory):
+        await crud.file.create(db_conn, user.namespace.path, "f/a")
+
+
 async def test_create_but_file_already_exists(db_conn: Connection, user: User):
     with pytest.raises(errors.FileAlreadyExists):
         await crud.file.create(db_conn, user.namespace.path, ".")
@@ -217,30 +224,29 @@ async def test_create_folder_but_path_not_a_dir(db_conn: Connection, user: User)
 
 
 async def test_empty_trash(db_conn: Connection, user: User):
-    path = Path("Trash/a/b/c/d")
-    await crud.file.create_folder(db_conn, user.namespace.path, path)
-    await db_conn.query("""
-        UPDATE File
-        FILTER .path = 'Trash' AND .namespace.path = <str>$namespace
-        SET { size := 32 }
-    """, namespace=str(user.namespace.path))
+    await crud.file.create_folder(db_conn, user.namespace.path, "Trash/a/b")
+    await crud.file.create_folder(db_conn, user.namespace.path, "Trash/a/c")
+    await crud.file.create(db_conn, user.namespace.path, "Trash/f", size=32)
+    await crud.file.create(db_conn, user.namespace.path, "f", size=16)
+
     await crud.file.empty_trash(db_conn, user.namespace.path)
 
-    trash = await db_conn.query_one("""
-        SELECT File {
-            size,
-            file_count := (
-                SELECT count((
-                    SELECT File
-                    FILTER .path LIKE 'Trash/%' AND .namespace.path = <str>$namespace
-                ))
-            ),
-        }
-        FILTER .path = 'Trash' AND .namespace.path = <str>$namespace
-    """, namespace=str(user.namespace.path))
-
+    trash = await crud.file.get(db_conn, user.namespace.path, "Trash")
+    files = await crud.file.list_folder(db_conn, user.namespace.path, "Trash")
     assert trash.size == 0
-    assert trash.file_count == 0
+    assert files == []
+
+    home = await crud.file.get(db_conn, user.namespace.path, ".")
+    assert home.size == 16
+
+
+async def test_empty_trash_but_its_already_empty(db_conn: Connection, user: User):
+    await crud.file.empty_trash(db_conn, user.namespace.path)
+
+    trash = await crud.file.get(db_conn, user.namespace.path, "Trash")
+    files = await crud.file.list_folder(db_conn, user.namespace.path, "Trash")
+    assert trash.size == 0
+    assert files == []
 
 
 @pytest.mark.parametrize(["is_dir", "folder", "exists"], [
