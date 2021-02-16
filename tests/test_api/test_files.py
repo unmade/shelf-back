@@ -264,24 +264,24 @@ async def test_move_to_trash_but_file_not_found(client: TestClient, user: User):
     assert response.json() == PathNotFound().as_dict()
 
 
-def test_upload(client: TestClient, user_factory):
-    user = user_factory()
+@pytest.mark.asyncio
+async def test_upload(client: TestClient, user: User):
     payload = {
         "file": BytesIO(b"Dummy file"),
         "path": (None, "folder/file.txt"),
     }
-    response = client.login(user.id).post("/files/upload", files=payload)
+    response = await client.login(user.id).post("/files/upload", files=payload)
     assert response.status_code == 200
     assert response.json()["file"]["path"] == "folder/file.txt"
     assert len(response.json()["updates"]) == 2
 
 
-def test_upload_but_to_a_special_path(client: TestClient, user_factory):
-    user = user_factory()
+@pytest.mark.asyncio
+async def test_upload_but_to_a_special_path(client: TestClient, user: User):
     payload = {
         "file": BytesIO(b"Dummy file"),
         "path": (None, "Trash"),
     }
-    response = client.login(user.id).post("/files/upload", files=payload)
+    response = await client.login(user.id).post("/files/upload", files=payload)
     assert response.status_code == 400
     assert response.json() == InvalidPath().as_dict()

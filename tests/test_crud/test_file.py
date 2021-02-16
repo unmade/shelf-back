@@ -16,27 +16,45 @@ pytestmark = [pytest.mark.asyncio]
 
 
 async def test_create(db_conn: Connection, user: User):
-    await crud.file.create(db_conn, user.namespace.path, "New Folder", folder=True)
-    await crud.file.create(db_conn, user.namespace.path, "New Folder/file", size=32)
+    path = Path("a/b/f")
+    namespace = user.namespace.path
+    await crud.file.create(db_conn, namespace, path.parent.parent, folder=True)
+    await crud.file.create(db_conn, namespace, path.parent, folder=True)
+
+    folder = await crud.file.get(db_conn, namespace, path.parent)
+    assert folder.size == 0
+
+    await crud.file.create(db_conn, namespace, path, size=32)
 
     file = await db_conn.query_one("""
         SELECT File {
             name, path, size, is_dir, parent: {
                 path, size, is_dir, parent: {
-                    path
+                    path, size
                 }
             }
         }
         FILTER .path = <str>$path AND .namespace.path = <str>$namespace
-    """, namespace=str(user.namespace.path), path="New Folder/file")
+    """, namespace=str(namespace), path=str(path))
 
-    assert file.name == "file"
-    assert file.path == "New Folder/file"
+    assert file.name == path.name
+    assert file.path == str(path)
     assert file.size == 32
     assert file.is_dir is False
-    assert file.parent.path == "New Folder"
+    assert file.parent.path == str(path.parent)
     assert file.parent.is_dir is True
-    assert file.parent.parent.path == "."
+    assert file.parent.parent.path == str(path.parent.parent)
+    assert file.parent.parent.size == 32
+
+
+async def test_create_updates_parents_size(db_conn: Connection, user: User):
+    path = Path("New Folder/file")
+    await crud.file.create(db_conn, user.namespace.path, path.parent, folder=True)
+    await crud.file.create(db_conn, user.namespace.path, path, size=32)
+
+    parents = await crud.file.get_many(db_conn, user.namespace.path, path.parents)
+    for parent in parents:
+        assert parent.size == 32
 
 
 async def test_create_but_parent_is_missing(db_conn: Connection, user: User):
@@ -90,7 +108,7 @@ async def test_create_folder_but_with_overlapping_parents(
 
     MAX_REQUEST = len(paths)
 
-    # ensure we do not acquire more requests that we actually have in the pool
+    # ensure we do not acquire more connections that are actually in the pool
     assert MAX_REQUEST < db_pool.min_size
 
     connections = await asyncio.gather(*(
@@ -208,21 +226,21 @@ async def test_delete_file(db_conn: Connection, user: User):
     assert not await crud.file.exists(db_conn, namespace, path)
 
     parent = await crud.file.get(db_conn, namespace, path.parent)
-    assert parent.size == 24
+    assert parent.size == 32
 
 
 async def test_delete_non_empty_folder(db_conn: Connection, user: User):
     namespace = user.namespace.path
     await crud.file.create(db_conn, namespace, "a", size=32, folder=True)
-    await crud.file.create(db_conn, namespace, "a/b", size=24, folder=True)
-    await crud.file.create(db_conn, namespace, "a/b/c", size=16)
+    await crud.file.create(db_conn, namespace, "a/b", size=16, folder=True)
+    await crud.file.create(db_conn, namespace, "a/b/c", size=8)
 
     await crud.file.delete(db_conn, namespace, "a/b")
     assert not await crud.file.exists(db_conn, namespace, "a/b")
     assert not await crud.file.exists(db_conn, namespace, "a/b/c")
 
     parent = await crud.file.get(db_conn, namespace, "a")
-    assert parent.size == 8
+    assert parent.size == 32
 
 
 async def test_get(db_conn: Connection, user: User):
@@ -235,6 +253,20 @@ async def test_get(db_conn: Connection, user: User):
 async def test_get_but_file_does_not_exists(db_conn: Connection, user: User):
     with pytest.raises(errors.FileNotFound):
         await crud.file.get(db_conn, user.namespace.path, "file")
+
+
+async def test_get_many(db_conn: Connection, user: User):
+    await crud.file.create(db_conn, user.namespace.path, "a", folder=True)
+    await crud.file.create(db_conn, user.namespace.path, "a/b", folder=True)
+    await crud.file.create(db_conn, user.namespace.path, "a/c", folder=True)
+    await crud.file.create(db_conn, user.namespace.path, "a/f")
+
+    paths = ["a", "a/c", "a/f", "a/d"]
+    files = await crud.file.get_many(db_conn, user.namespace.path, paths=paths)
+
+    assert len(files) == 3
+    for file, path in zip(files, paths[:-1]):
+        assert file.path == path
 
 
 async def test_list_folder(db_conn: Connection, user: User):
@@ -278,9 +310,9 @@ async def test_list_folder_but_it_a_file(db_conn: Connection, user: User):
 
 async def test_move(db_conn: Connection, user: User):
     namespace = user.namespace.path
-    await crud.file.create(db_conn, namespace, "a", size=32, folder=True)
-    await crud.file.create(db_conn, namespace, "a/b", size=24, folder=True)
-    await crud.file.create(db_conn, namespace, "a/b/c", size=24, folder=True)
+    await crud.file.create(db_conn, namespace, "a", folder=True)
+    await crud.file.create(db_conn, namespace, "a/b", folder=True)
+    await crud.file.create(db_conn, namespace, "a/b/c", folder=True)
     await crud.file.create(db_conn, namespace, "a/b/c/f", size=24)
     await crud.file.create(db_conn, namespace, "a/g", size=8, folder=True)
 
@@ -365,3 +397,26 @@ async def test_move_but_paths_are_recursive(db_conn: Connection, user: User):
         await crud.file.move(db_conn, namespace, "a/b", "a/b/b")
 
     assert str(excinfo.value) == "Can't move to itself."
+
+
+@pytest.mark.parametrize(["name", "next_name"], [
+    ("f.txt", "f (1).txt"),
+    ("f.tar.gz", "f (1).tar.gz"),
+    ("f (1).tar.gz", "f (1) (1).tar.gz"),
+])
+async def test_next_path(db_conn: Connection, user: User, name, next_name):
+    await crud.file.create_folder(db_conn, user.namespace.path, "a/b")
+    await crud.file.create(db_conn, user.namespace.path, f"a/b/{name}")
+
+    next_path = await crud.file.next_path(db_conn, user.namespace.path, f"a/b/{name}")
+    assert next_path == f"a/b/{next_name}"
+    assert not (await crud.file.exists(db_conn, user.namespace.path, next_name))
+
+
+async def test_next_path_is_sequential(db_conn: Connection, user: User):
+    await crud.file.create(db_conn, user.namespace.path, "f.tar.gz")
+    await crud.file.create(db_conn, user.namespace.path, "f (1).tar.gz")
+
+    next_path = await crud.file.next_path(db_conn, user.namespace.path, "f.tar.gz")
+    assert next_path == "f (2).tar.gz"
+    assert not (await crud.file.exists(db_conn, user.namespace.path, "f (2).tar.gz"))

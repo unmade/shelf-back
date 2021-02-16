@@ -53,7 +53,6 @@ async def create_folder(
     Returns:
         File: Created folder.
     """
-
     storage.mkdir(namespace.path / path)
     await crud.file.create_folder(conn, namespace.path, path)
     return await crud.file.get(conn, namespace.path, path)
@@ -207,52 +206,43 @@ def reconcile(db_session: Session, namespace: Namespace, path: StrOrPath) -> Non
         reconcile(db_session, namespace, subdir.path.relative_to(namespace.path))
 
 
-def save_file(
-    db_session: Session, namespace: Namespace, path: StrOrPath, file: IO,
+async def save_file(
+    conn: AsyncIOConnection, namespace: Namespace, path: StrOrPath, file: IO,
 ) -> File:
     """
-    Saves file to storage and database.
+    Save file to storage and database.
+
+    If file name is already taken, then file will be saved under a new name.
+    For example - if target name 'f.txt' is taken, then new name will be 'f (1).txt'.
 
     Args:
-        db_session (Session): Database session.
+        conn (AsyncIOConnection): Database connection.
         namespace (Namespace): Namespace where a file should be saved.
-        path (StrOrPath): Path where a file should be saved.
+        path (StrOrPath): Path where a file will be saved.
         file (IO): Actual file.
+
+    Raises:
+        NotADirectory: If one of the path parents is not a folder.
 
     Returns:
         File: Saved file.
     """
-    relpath = Path(path)
-    fullpath = namespace.path / relpath
+    path = Path(path)
 
-    parent = crud.file.get_folder(db_session, namespace.id, relpath.parent)
-    if not parent:
-        parent = create_folder(db_session, namespace, relpath.parent)
+    if not await crud.file.exists(conn, namespace.path, path.parent, folder=True):
+        await create_folder(conn, namespace, path.parent)
 
-    storage_file = storage.save(fullpath, file)
-    if prev_file := crud.file.get(db_session, namespace.id, fullpath):
-        result = crud.file.update(
-            db_session,
-            storage_file,
-            namespace_id=namespace.id,
-            rel_to=namespace.path,
+    next_path = await crud.file.next_path(conn, namespace.path, path)
+
+    async with conn.transaction():
+        # todo: update parents size
+        await crud.file.create(
+            conn,
+            namespace.path,
+            next_path,
+            size=file.seek(0, 2),
         )
-    else:
-        result = crud.file.create(
-            db_session,
-            storage_file,
-            namespace_id=namespace.id,
-            rel_to=namespace.path,
-            parent_id=parent.id,
-        )
+        file.seek(0)
+        storage.save(namespace.path / next_path, file)
 
-    if prev_file is not None:
-        size_inc = storage_file.size - prev_file.size
-    else:
-        size_inc = storage_file.size
-
-    crud.file.inc_folder_size(db_session, namespace.id, result.path, size=size_inc)
-
-    db_session.refresh(result)
-
-    return File.from_orm(result)
+    return await crud.file.get(conn, namespace.path, next_path)

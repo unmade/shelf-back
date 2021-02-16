@@ -9,7 +9,6 @@ from fastapi import APIRouter, Depends
 from fastapi import File as FileParam
 from fastapi import Form, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
 
 from app import actions, config, crud, errors
 from app.api import deps
@@ -45,7 +44,7 @@ async def create_folder(
 @router.post("/delete_immediately", response_model=schemas.File)
 async def delete_immediately(
     payload: schemas.PathRequest,
-    db_conn: Session = Depends(deps.db_conn),
+    db_conn: AsyncIOConnection = Depends(deps.db_conn),
     user: User = Depends(deps.current_user),
 ):
     """Permanently delete file or folder with its contents"""
@@ -103,7 +102,7 @@ async def get_download_url(
 @router.post("/list_folder", response_model=schemas.ListFolderResult)
 async def list_folder(
     payload: schemas.PathRequest,
-    db_conn: Session = Depends(deps.db_conn),
+    db_conn: AsyncIOConnection = Depends(deps.db_conn),
     user: User = Depends(deps.current_user),
 ):
     """
@@ -151,10 +150,10 @@ async def move(
 @router.post("/move_to_trash", response_model=schemas.File)
 async def move_to_trash(
     payload: schemas.PathRequest,
-    db_conn: Session = Depends(deps.db_conn),
+    db_conn: AsyncIOConnection = Depends(deps.db_conn),
     user: User = Depends(deps.current_user),
 ):
-    """Moves file to the Trash folder."""
+    """Move file to the Trash folder."""
     if payload.path == config.TRASH_FOLDER_NAME:
         raise exceptions.InvalidPath()
     if payload.path.startswith(f"{config.TRASH_FOLDER_NAME}/"):
@@ -167,24 +166,18 @@ async def move_to_trash(
 
 
 @router.post("/upload", response_model=schemas.UploadResult)
-def upload_file(
+async def upload_file(
     file: UploadFile = FileParam(...),
     path: str = Form(...),
-    db_session: Session = Depends(deps.db_session),
+    db_conn: AsyncIOConnection = Depends(deps.db_conn),
     user: User = Depends(deps.current_user),
 ):
-    """
-    Uploads file to a specified path.
-
-    Note, that if file with the same name already exists, it will be overriden.
-    """
+    """Upload file to a specified path."""
     if path == config.TRASH_FOLDER_NAME:
         raise exceptions.InvalidPath()
 
-    saved_file = actions.save_file(db_session, user.namespace, path, file.file)
-    db_session.commit()
-
+    parents = Path(path).parents
     return schemas.UploadResult(
-        file=saved_file,
-        updates=crud.file.list_parents(db_session, user.namespace.id, path),
+        file=await actions.save_file(db_conn, user.namespace, path, file.file),
+        updates=await crud.file.get_many(db_conn, user.namespace.path, parents),
     )
