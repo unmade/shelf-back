@@ -1,11 +1,41 @@
 from __future__ import annotations
 
-from typing import List
+from typing import TYPE_CHECKING
 
-from sqlalchemy.orm import Session
+import edgedb
 
-from app.models import Namespace
+from app import errors
+from app.entities import Namespace
+
+if TYPE_CHECKING:
+    from edgedb import AsyncIOConnection
+    from app.typedefs import StrOrPath
 
 
-def all(db_session: Session) -> List[Namespace]:
-    return db_session.query(Namespace.id, Namespace.path).all()
+async def get(conn: AsyncIOConnection, path: StrOrPath) -> Namespace:
+    """
+    Returns namespace with a target path.
+
+    Args:
+        conn (AsyncIOConnection): Database connection.
+        path (StrOrPath): Namespace path.
+
+    Raises:
+        errors.NamespaceNotFound: If namespace with a target path does not exists.
+
+    Returns:
+        Namespace: Namespace with a target path.
+    """
+    query = """
+        SELECT
+            Namespace {
+                id, path
+            }
+        FILTER
+            .path = <str>$path
+    """
+
+    try:
+        return Namespace.from_orm(await conn.query_one(query, path=str(path)))
+    except edgedb.NoDataError as exc:
+        raise errors.NamespaceNotFound() from exc

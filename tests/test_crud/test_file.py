@@ -1,18 +1,62 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
 
 from app import crud, errors
+from app.entities import File
 
 if TYPE_CHECKING:
     from edgedb import AsyncIOConnection as Connection, AsyncIOPool as Pool
     from app.entities import User
 
 pytestmark = [pytest.mark.asyncio]
+
+
+async def test_create_batch(db_conn: Connection, user: User):
+    files = [
+        File.construct(
+            name="a",
+            path="a",
+            size=32,
+            mtime=time.time(),
+            is_dir=True,
+        ),
+        File.construct(
+            name="f",
+            path="f",
+            size=16,
+            mtime=time.time(),
+            is_dir=False,
+        )
+    ]
+    await crud.file.create_batch(db_conn, user.namespace.path, ".", files=files)
+
+    files = await crud.file.list_folder(db_conn, user.namespace.path, ".")
+    assert len(files) == 2
+
+    assert files[0].name == "a"
+    assert files[0].size == 32
+    assert files[0].is_dir is True
+
+    assert files[1].name == "f"
+    assert files[1].size == 16
+    assert files[1].is_dir is False
+
+
+async def test_create_batch_but_parent_not_exists(db_conn: Connection, user: User):
+    with pytest.raises(errors.FileNotFound):
+        await crud.file.create_batch(db_conn, user.namespace.path, "a", files=[])
+
+
+async def test_create_batch_but_parent_not_a_folder(db_conn: Connection, user: User):
+    await crud.file.create(db_conn, user.namespace.path, "f")
+    with pytest.raises(errors.NotADirectory):
+        await crud.file.create_batch(db_conn, user.namespace.path, "f", files=[])
 
 
 async def test_create(db_conn: Connection, user: User):

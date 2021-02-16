@@ -29,13 +29,15 @@ def createuser(
 
 
 @cli.command()
-def reconcile() -> None:
+def reconcile(namespace: str) -> None:
     """Reconciles storage and database for all namespaces."""
-    with db.SessionManager() as db_session:
-        namespaces = crud.namespace.all(db_session)
-        for namespace in namespaces:
-            actions.reconcile(db_session, namespace, ".")
-        db_session.commit()
+    async def _reconcile():
+        conn = await edgedb.async_connect(dsn=config.EDGEDB_DSN)
+        ns = await crud.namespace.get(conn, namespace)
+        await actions.reconcile(conn, ns, ".")
+        await conn.aclose()
+
+    asyncio.run(_reconcile())
 
 
 @cli.command()

@@ -10,6 +10,10 @@ class MissingParent(Exception):
     pass
 
 
+class NamespaceNotFound(Exception):
+    pass
+
+
 class NotADirectory(Exception):
     pass
 
