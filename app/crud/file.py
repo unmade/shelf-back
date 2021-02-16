@@ -19,6 +19,64 @@ if TYPE_CHECKING:
     from app.typedefs import StrOrPath
 
 
+async def create_batch(
+    conn: AsyncIOConnection,
+    namespace: StrOrPath,
+    path: StrOrPath,
+    files: list[File],
+) -> None:
+    """
+    Create files in a given path.
+
+    Note, unlike 'create' this will not update parents size.
+
+    Args:
+        conn (AsyncIOConnection): Database connection.
+        namespace (StrOrPath): Namespace where files will be created.
+        path (StrOrPath): Path to a folder where files will be created.
+        files (list[File]): List of files to create. All files must have 'path'
+            as a parent.
+
+    Raises:
+        errors.FileNotFound: If path to a folder does not exists.
+        errors.NotADirectory: If path to a folder is not a directory.
+    """
+    parent = await get(conn, namespace, path)
+    if not parent.is_dir:
+        raise errors.NotADirectory
+
+    query = """
+        WITH
+            parent := (
+                SELECT
+                    File
+                FILTER
+                    .path = <str>$parent
+                    AND
+                    .namespace.path = <str>$namespace
+                LIMIT 1
+            )
+        FOR file IN {array_unpack(<array<json>>$files)}
+        UNION (
+            INSERT File {
+                name := <str>file['name'],
+                path := <str>file['path'],
+                size := <int64>file['size'],
+                mtime := <float64>file['mtime'],
+                is_dir := <bool>file['is_dir'],
+                parent := parent,
+                namespace := parent.namespace,
+            }
+        )
+    """
+    await conn.query(
+        query,
+        namespace=str(namespace),
+        parent=str(path),
+        files=[file.json() for file in files],
+    )
+
+
 async def create(
     conn: AsyncIOConnection,
     namespace: StrOrPath,
@@ -142,7 +200,7 @@ async def create_folder(
     assert len(parents) > 0, f"No home folder in a namespace: '{namespace}'"
     if any(not p.is_dir for p in parents):
         raise errors.NotADirectory()
-    if parents[-1].path == str(path):
+    if str(parents[-1].path) == str(path):
         raise errors.FileAlreadyExists()
 
     to_create = list(reversed(paths[:paths.index(parents[-1].path)]))
@@ -276,10 +334,10 @@ async def get(conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath) ->
         path (StrOrPath): Path to a file.
 
     Raises:
-        FileNotFound: If file with a target does not exists.
+        FileNotFound: If file with a target path does not exists.
 
     Returns:
-        File:
+        File: File with a target path.
     """
     query = """
         SELECT File { id, name, path, size, mtime, is_dir }
@@ -319,6 +377,8 @@ async def get_many(
             .path IN {array_unpack(<array<str>>$paths)}
             AND
             .namespace.path = <str>$namespace
+        ORDER BY
+            .path ASC
     """
     files = await conn.query(
         query,

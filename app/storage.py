@@ -34,7 +34,7 @@ class StorageFile:
             path=path.relative_to(rel_to),
             size=stat.st_size,
             mtime=stat.st_mtime,
-            is_dir=path.is_dir,
+            is_dir=path.is_dir(),
         )
 
     def __str__(self) -> str:

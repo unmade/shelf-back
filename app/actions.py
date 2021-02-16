@@ -12,7 +12,6 @@ from app.storage import storage
 
 if TYPE_CHECKING:
     from edgedb import AsyncIOConnection
-    from sqlalchemy.orm import Session
     from app.typedefs import StrOrPath
 
 
@@ -163,47 +162,50 @@ async def move_to_trash(
     return await move(conn, namespace, path, next_path)
 
 
-def reconcile(db_session: Session, namespace: Namespace, path: StrOrPath) -> None:
+async def reconcile(
+    conn: AsyncIOConnection, namespace: Namespace, path: StrOrPath,
+) -> None:
     """
-    Reconciles storage and database in a given folder.
+    Creates files that are missing in the database, but present in the storage.
 
     Args:
-        db_session (Session): Database session.
-        namespace (Namespace): Namespace where file should be reconciled.
-        path (StrOrPath): Path to a folder that should be reconciled. For home
-            directory use ".".
+        conn (AsyncIOConnection): Database connection.
+        namespace (Namespace): Namespace where file will be reconciled.
+        path (StrOrPath): Path to a folder to reconcile.
+
+    Raises:
+        errors.FileNotFound: If path to a folder does not exists.
+        errors.NotADirectory: If path to a folder is not a directory.
     """
-    fullpath = namespace.path / path
-    files = {f.name: f for f in storage.iterdir(fullpath)}
+    path = Path(path)
 
-    relpath = fullpath.relative_to(namespace.path)
-    parent = crud.file.get_folder(db_session, namespace.id, path=relpath)
-    assert parent is not None
-    files_db = crud.file.list_folder_by_id(
-        db_session, parent.id, hide_trash_folder=False,
-    )
+    files_storage = {f.name: f for f in storage.iterdir(namespace.path / path)}
+    files_db = await crud.file.list_folder(conn, namespace.path, path, with_trash=True)
 
-    names_from_storage = set(files.keys())
-    names_from_db = (f.name for f in files_db)
+    names_storage = set(files_storage.keys())
+    names_db = (f.name for f in files_db)
 
-    if names := names_from_storage.difference(names_from_db):
-        crud.file.bulk_create(
-            db_session,
-            (files[name] for name in names),
-            namespace_id=namespace.id,
-            parent_id=parent.id,
-            rel_to=namespace.path,
-        )
-        crud.file.inc_folder_size(
-            db_session,
-            namespace.id,
-            path=relpath,
-            size=sum(files[name].size for name in names),
+    if names := names_storage.difference(names_db):
+        await crud.file.create_batch(
+            conn,
+            namespace.path,
+            path=path,
+            files=[
+                File.construct(
+                    name=file.name,
+                    path=file.path.relative_to(namespace.path),
+                    size=file.size,
+                    mtime=file.mtime,
+                    is_dir=file.is_dir,
+                )
+                for name in names
+                if (file := files_storage[name])
+            ]
         )
 
-    subdirs = (f for f in storage.iterdir(fullpath) if f.is_dir())
+    subdirs = (f for f in files_storage.values() if f.is_dir)
     for subdir in subdirs:
-        reconcile(db_session, namespace, subdir.path.relative_to(namespace.path))
+        await reconcile(conn, namespace, subdir.path.relative_to(namespace.path))
 
 
 async def save_file(
@@ -235,7 +237,6 @@ async def save_file(
     next_path = await crud.file.next_path(conn, namespace.path, path)
 
     async with conn.transaction():
-        # todo: update parents size
         await crud.file.create(
             conn,
             namespace.path,

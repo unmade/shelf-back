@@ -188,6 +188,27 @@ async def test_move_to_trash_autorename(db_conn: Connection, user: User, file_fa
     assert await crud.file.exists(db_conn, namespace, f"{file.path}/f1")
 
 
+async def test_reconcile(db_conn: Connection, user: User):
+    file = BytesIO(b"Dummy file")
+    storage.mkdir(user.namespace.path / "a")
+    storage.mkdir(user.namespace.path / "b")
+    storage.save(user.namespace.path / "b/f.txt", file)
+
+    await actions.reconcile(db_conn, user.namespace, ".")
+
+    a = await crud.file.get(db_conn, user.namespace.path, "a")
+    assert a.is_dir
+    assert a.size == storage.get(user.namespace.path / "a").size
+
+    b = await crud.file.get(db_conn, user.namespace.path, "b")
+    assert b.is_dir
+    assert b.size == storage.get(user.namespace.path / "b").size
+
+    f = await crud.file.get(db_conn, user.namespace.path, "b/f.txt")
+    assert not f.is_dir
+    assert f.size == 10
+
+
 @pytest.mark.parametrize("path", ["f.txt", "a/b/f.txt"])
 async def test_save_file(db_conn: Connection, user: User, path):
     file = BytesIO(b"Dummy file")
