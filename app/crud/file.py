@@ -79,9 +79,10 @@ async def create(
     conn: AsyncIOConnection,
     namespace: StrOrPath,
     path: StrOrPath,
+    *,
     size: int = 0,
     mtime: float = None,
-    folder: bool = False,
+    is_dir: bool = False,
 ) -> None:
     """
     Create new file.
@@ -94,7 +95,7 @@ async def create(
         path (StrOrPath): Path to a file to create.
         size (int, optional): File size. Defaults to 0.
         mtime (float, optional): Time of last modification. Defaults to current time.
-        folder (bool, optional): Whether it is a folder or a file. Defaults to False.
+        is_dir (bool, optional): Whether it is a folder or a file. Defaults to False.
 
     Raises:
         FileAlreadyExists: If file in a target path already exists.
@@ -118,7 +119,7 @@ async def create(
         "path": str(path),
         "size": size,
         "mtime": time.time(),
-        "is_dir": folder,
+        "is_dir": is_dir,
         "namespace": str(namespace),
         "parent": str(path.parent),
     }
@@ -203,7 +204,7 @@ async def create_folder(
 
     for p in to_create:
         try:
-            await create(conn, namespace, p, folder=True)
+            await create(conn, namespace, p, is_dir=True)
         except (errors.FileAlreadyExists, errors.MissingParent):
             pass
 
@@ -289,7 +290,11 @@ async def empty_trash(conn: AsyncIOConnection, namespace: StrOrPath) -> None:
 
 
 async def exists(
-    conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath, folder: bool = None,
+    conn: AsyncIOConnection,
+    namespace: StrOrPath,
+    path: StrOrPath,
+    *,
+    is_dir: bool = None,
 ) -> bool:
     """
     Checks whether a file or a folder exists in a given path.
@@ -298,7 +303,7 @@ async def exists(
         conn (AsyncIOConnection): Database connection.
         namespace (StrOrPath): Namespace where to look for a path.
         path (StrOrPath): Path to a file or a folder.
-        folder (bool, optional): If True, will check only if folder exists, otherwise
+        is_dir (bool, optional): If True, will check only if folder exists, otherwise
             will check for a file. If None (default) will check for both.
 
     Returns:
@@ -312,7 +317,7 @@ async def exists(
                 .path = <str>$path
                 AND
                 .namespace.path = <str>$namespace
-                {"AND .is_dir = <bool>$is_dir" if folder is not None else ""}
+                {"AND .is_dir = <bool>$is_dir" if is_dir is not None else ""}
         )
     """
 
@@ -320,8 +325,8 @@ async def exists(
         "namespace": str(namespace),
         "path": str(path),
     }
-    if folder is not None:
-        params["is_dir"] = folder
+    if is_dir is not None:
+        params["is_dir"] = is_dir
 
     return await conn.query_one(query, **params)
 
@@ -399,6 +404,7 @@ async def get_many(
 async def list_folder(
     conn: AsyncIOConnection,
     namespace: StrOrPath, path: StrOrPath,
+    *,
     with_trash: bool = False,
 ) -> list[File]:
     """
