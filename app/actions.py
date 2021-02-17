@@ -20,7 +20,7 @@ async def create_account(conn: AsyncIOConnection, username: str, password: str) 
     Create new user, namespace, home and trash folders.
 
     Args:
-        db_session (Session): Database session.
+        conn (AsyncIOConnection): Database session.
         username (str): Username for a new user.
         password (str): Plain-text password.
 
@@ -64,7 +64,7 @@ async def delete_immediately(
     Permanently delete file or a folder with all of its contents.
 
     Args:
-        db_session (Session): Database connection.
+        conn (AsyncIOConnection): Database connection.
         namespace (Namespace): Namespace where file/folder should be deleted.
         path (StrOrPath): Path to a file/folder to delete.
 
@@ -85,7 +85,7 @@ async def empty_trash(conn: AsyncIOConnection, namespace: Namespace) -> File:
     Delete all files and folders in the Trash folder within a target Namespace.
 
     Args:
-        db_session (AsyncIOConnection): Database connection.
+        conn (AsyncIOConnection): Database connection.
         namespace (Namespace): Namespace where Trash folder should be emptied.
 
     Returns:
