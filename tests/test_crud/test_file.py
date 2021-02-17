@@ -62,8 +62,8 @@ async def test_create_batch_but_parent_not_a_folder(db_conn: Connection, user: U
 async def test_create(db_conn: Connection, user: User):
     path = Path("a/b/f")
     namespace = user.namespace.path
-    await crud.file.create(db_conn, namespace, path.parent.parent, folder=True)
-    await crud.file.create(db_conn, namespace, path.parent, folder=True)
+    await crud.file.create(db_conn, namespace, path.parent.parent, is_dir=True)
+    await crud.file.create(db_conn, namespace, path.parent, is_dir=True)
 
     folder = await crud.file.get(db_conn, namespace, path.parent)
     assert folder.size == 0
@@ -93,7 +93,7 @@ async def test_create(db_conn: Connection, user: User):
 
 async def test_create_updates_parents_size(db_conn: Connection, user: User):
     path = Path("New Folder/file")
-    await crud.file.create(db_conn, user.namespace.path, path.parent, folder=True)
+    await crud.file.create(db_conn, user.namespace.path, path.parent, is_dir=True)
     await crud.file.create(db_conn, user.namespace.path, path, size=32)
 
     parents = await crud.file.get_many(db_conn, user.namespace.path, path.parents)
@@ -249,7 +249,7 @@ async def test_empty_trash_but_its_already_empty(db_conn: Connection, user: User
     assert files == []
 
 
-@pytest.mark.parametrize(["is_dir", "folder", "exists"], [
+@pytest.mark.parametrize(["is_dir", "lookup", "exists"], [
     (True, None, True),
     (False, None, True),
     (True, True, True),
@@ -257,10 +257,10 @@ async def test_empty_trash_but_its_already_empty(db_conn: Connection, user: User
     (False, True, False),
     (False, False, True),
 ])
-async def test_exists(db_conn: Connection, user: User, is_dir, folder, exists):
+async def test_exists(db_conn: Connection, user: User, is_dir, lookup, exists):
     namespace = user.namespace.path
-    await crud.file.create(db_conn, namespace, "file", folder=is_dir)
-    assert await crud.file.exists(db_conn, namespace, "file", folder=folder) is exists
+    await crud.file.create(db_conn, namespace, "file", is_dir=is_dir)
+    assert await crud.file.exists(db_conn, namespace, "file", is_dir=lookup) is exists
 
 
 async def test_exists_but_it_is_not(db_conn: Connection, user: User):
@@ -270,7 +270,7 @@ async def test_exists_but_it_is_not(db_conn: Connection, user: User):
 async def test_delete_file(db_conn: Connection, user: User):
     path = Path("folder/file")
     namespace = user.namespace.path
-    await crud.file.create(db_conn, namespace, path.parent, size=32, folder=True)
+    await crud.file.create(db_conn, namespace, path.parent, size=32, is_dir=True)
     await crud.file.create(db_conn, namespace, path, size=8)
     await crud.file.delete(db_conn, namespace, path)
     assert not await crud.file.exists(db_conn, namespace, path)
@@ -281,8 +281,8 @@ async def test_delete_file(db_conn: Connection, user: User):
 
 async def test_delete_non_empty_folder(db_conn: Connection, user: User):
     namespace = user.namespace.path
-    await crud.file.create(db_conn, namespace, "a", size=32, folder=True)
-    await crud.file.create(db_conn, namespace, "a/b", size=16, folder=True)
+    await crud.file.create(db_conn, namespace, "a", size=32, is_dir=True)
+    await crud.file.create(db_conn, namespace, "a/b", size=16, is_dir=True)
     await crud.file.create(db_conn, namespace, "a/b/c", size=8)
 
     await crud.file.delete(db_conn, namespace, "a/b")
@@ -306,9 +306,9 @@ async def test_get_but_file_does_not_exists(db_conn: Connection, user: User):
 
 
 async def test_get_many(db_conn: Connection, user: User):
-    await crud.file.create(db_conn, user.namespace.path, "a", folder=True)
-    await crud.file.create(db_conn, user.namespace.path, "a/b", folder=True)
-    await crud.file.create(db_conn, user.namespace.path, "a/c", folder=True)
+    await crud.file.create(db_conn, user.namespace.path, "a", is_dir=True)
+    await crud.file.create(db_conn, user.namespace.path, "a/b", is_dir=True)
+    await crud.file.create(db_conn, user.namespace.path, "a/c", is_dir=True)
     await crud.file.create(db_conn, user.namespace.path, "a/f")
 
     paths = ["a", "a/c", "a/f", "a/d"]
@@ -360,11 +360,11 @@ async def test_list_folder_but_it_a_file(db_conn: Connection, user: User):
 
 async def test_move(db_conn: Connection, user: User):
     namespace = user.namespace.path
-    await crud.file.create(db_conn, namespace, "a", folder=True)
-    await crud.file.create(db_conn, namespace, "a/b", folder=True)
-    await crud.file.create(db_conn, namespace, "a/b/c", folder=True)
+    await crud.file.create(db_conn, namespace, "a", is_dir=True)
+    await crud.file.create(db_conn, namespace, "a/b", is_dir=True)
+    await crud.file.create(db_conn, namespace, "a/b/c", is_dir=True)
     await crud.file.create(db_conn, namespace, "a/b/c/f", size=24)
-    await crud.file.create(db_conn, namespace, "a/g", size=8, folder=True)
+    await crud.file.create(db_conn, namespace, "a/g", size=8, is_dir=True)
 
     # move folder 'c' from 'a/b' to 'a/g'
     await crud.file.move(db_conn, namespace, "a/b/c", "a/g/c")
@@ -386,7 +386,7 @@ async def test_move(db_conn: Connection, user: User):
 
 async def test_move_with_renaming(db_conn: Connection, user: User):
     namespace = user.namespace.path
-    await crud.file.create(db_conn, namespace, "a", folder=True)
+    await crud.file.create(db_conn, namespace, "a", is_dir=True)
     await crud.file.create(db_conn, namespace, "a/b")
 
     # rename file 'b' to 'c'

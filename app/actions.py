@@ -29,7 +29,7 @@ async def create_account(conn: AsyncIOConnection, username: str, password: str) 
     """
     async with conn.transaction():
         await crud.user.create(conn, username, password)
-        await crud.file.create(conn, username, TRASH_FOLDER_NAME, folder=True)
+        await crud.file.create(conn, username, TRASH_FOLDER_NAME, is_dir=True)
         storage.mkdir(username)
         storage.mkdir(joinpath(username, TRASH_FOLDER_NAME))
 
@@ -231,7 +231,7 @@ async def save_file(
     """
     path = Path(path)
 
-    if not await crud.file.exists(conn, namespace.path, path.parent, folder=True):
+    if not await crud.file.exists(conn, namespace.path, path.parent, is_dir=True):
         await create_folder(conn, namespace, path.parent)
 
     next_path = await crud.file.next_path(conn, namespace.path, path)
