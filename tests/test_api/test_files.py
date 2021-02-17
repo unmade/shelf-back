@@ -19,8 +19,9 @@ if TYPE_CHECKING:
     from app.entities import User
     from tests.conftest import TestClient
 
+pytestmark = [pytest.mark.asyncio]
 
-@pytest.mark.asyncio
+
 @pytest.mark.parametrize(["path", "name", "expected_path", "hidden"], [
     ("Folder", "Folder", None, False),
     ("Nested/Path/Folder", "Folder", None, False),
@@ -38,7 +39,6 @@ async def test_create_folder(
     assert response.json()["hidden"] is hidden
 
 
-@pytest.mark.asyncio
 async def test_create_folder_but_folder_exists(client: TestClient, user: User):
     payload = {"path": "Trash"}
     response = await client.login(user.id).post("/files/create_folder", json=payload)
@@ -46,7 +46,6 @@ async def test_create_folder_but_folder_exists(client: TestClient, user: User):
     assert response.json() == AlreadyExists().as_dict()
 
 
-@pytest.mark.asyncio
 async def test_create_folder_but_parent_is_a_file(
     client: TestClient, user: User, file_factory
 ):
@@ -57,7 +56,6 @@ async def test_create_folder_but_parent_is_a_file(
     assert response.json() == InvalidPath().as_dict()
 
 
-@pytest.mark.asyncio
 async def test_delete_immediately(client: TestClient, user: User):
     name = path = "Test Folder"
     payload = {"path": path}
@@ -69,7 +67,6 @@ async def test_delete_immediately(client: TestClient, user: User):
     assert response.json()["path"] == path
 
 
-@pytest.mark.asyncio
 async def test_delete_immediately_but_path_not_found(client: TestClient, user: User):
     data = {"path": "Test Folder"}
     response = await client.login(user.id).post("/files/delete_immediately", json=data)
@@ -77,7 +74,6 @@ async def test_delete_immediately_but_path_not_found(client: TestClient, user: U
     assert response.json() == PathNotFound().as_dict()
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize("path", [".", "Trash"])
 async def test_delete_immediately_but_it_is_a_special_folder(
     client: TestClient, user: User, path: str,
@@ -88,7 +84,6 @@ async def test_delete_immediately_but_it_is_a_special_folder(
     assert response.json() == InvalidPath().as_dict()
 
 
-@pytest.mark.asyncio
 async def test_download_file(client: TestClient, user: User, file_factory):
     file = await file_factory(user.id)
     key = secrets.token_urlsafe()
@@ -99,7 +94,6 @@ async def test_download_file(client: TestClient, user: User, file_factory):
     assert response.content
 
 
-@pytest.mark.asyncio
 async def test_download_folder_with_files(client: TestClient, user: User, file_factory):
     await file_factory(user.id, path="a/b/c/d.txt")
     key = secrets.token_urlsafe()
@@ -110,7 +104,6 @@ async def test_download_folder_with_files(client: TestClient, user: User, file_f
     assert response.content
 
 
-@pytest.mark.asyncio
 async def test_download_but_key_is_invalid(client: TestClient):
     key = secrets.token_urlsafe()
     response = await client.get(f"/files/download?key={key}")
@@ -118,14 +111,12 @@ async def test_download_but_key_is_invalid(client: TestClient):
     assert response.json() == DownloadNotFound().as_dict()
 
 
-@pytest.mark.asyncio
 async def test_empty_trash(client: TestClient, user: User):
     response = await client.login(user.id).post("/files/empty_trash")
     assert response.status_code == 200
     assert response.json()["path"] == "Trash"
 
 
-@pytest.mark.asyncio
 async def test_get_download_url(client: TestClient, user: User, file_factory):
     file = await file_factory(user.id)
     payload = {"path": file.path}
@@ -134,14 +125,12 @@ async def test_get_download_url(client: TestClient, user: User, file_factory):
     assert response.json()["download_url"].startswith(str(client.base_url))
 
 
-@pytest.mark.asyncio
 async def test_get_download_url_but_file_not_found(client: TestClient, user: User):
     payload = {"path": "wrong/path"}
     response = await client.login(user.id).post("/files/get_download_url", json=payload)
     assert response.json() == PathNotFound().as_dict()
 
 
-@pytest.mark.asyncio
 async def test_list_folder(client: TestClient, user: User, file_factory):
     await file_factory(user.id, path="file.txt")
     await file_factory(user.id, path="folder/file.txt")
@@ -154,7 +143,6 @@ async def test_list_folder(client: TestClient, user: User, file_factory):
     assert response.json()["items"][1]["name"] == "file.txt"
 
 
-@pytest.mark.asyncio
 async def test_list_folder_but_path_does_not_exists(client: TestClient, user: User):
     payload = {"path": "wrong/path"}
     response = await client.login(user.id).post("/files/list_folder", json=payload)
@@ -162,7 +150,6 @@ async def test_list_folder_but_path_does_not_exists(client: TestClient, user: Us
     assert response.json() == PathNotFound().as_dict()
 
 
-@pytest.mark.asyncio
 async def test_move(client: TestClient, user: User, file_factory):
     await file_factory(user.id, path="file.txt")
     payload = {"from_path": "file.txt", "to_path": ".file.txt"}
@@ -172,7 +159,6 @@ async def test_move(client: TestClient, user: User, file_factory):
     assert response.json()["path"] == ".file.txt"
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize("path", [".", "Trash"])
 async def test_move_but_it_is_a_special_path(client: TestClient, user: User, path):
     payload = {"from_path": path, "to_path": "Trashbin"}
@@ -182,7 +168,6 @@ async def test_move_but_it_is_a_special_path(client: TestClient, user: User, pat
     assert response.json() == InvalidPath(message).as_dict()
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize("next_path", [".", "Trash"])
 async def test_move_but_to_a_special_path(
     client: TestClient, user: User, file_factory, next_path,
@@ -195,7 +180,6 @@ async def test_move_but_to_a_special_path(
     assert response.json() == InvalidPath(message).as_dict()
 
 
-@pytest.mark.asyncio
 async def test_move_but_path_is_recursive(client: TestClient, user: User):
     payload = {"from_path": "a/b", "to_path": "a/b/c"}
     response = await client.login(user.id).post("/files/move", json=payload)
@@ -204,7 +188,6 @@ async def test_move_but_path_is_recursive(client: TestClient, user: User):
     assert response.json() == InvalidPath(message).as_dict()
 
 
-@pytest.mark.asyncio
 async def test_move_but_file_not_found(client: TestClient, user: User):
     payload = {"from_path": "file_a.txt", "to_path": "file_b.txt"}
     response = await client.login(user.id).post("/files/move", json=payload)
@@ -212,7 +195,6 @@ async def test_move_but_file_not_found(client: TestClient, user: User):
     assert response.json() == PathNotFound().as_dict()
 
 
-@pytest.mark.asyncio
 async def test_move_but_file_exists(client: TestClient, user: User, file_factory):
     file_a = await file_factory(user.id, path="folder/file.txt")
     file_b = await file_factory(user.id, path="file.txt")
@@ -222,7 +204,6 @@ async def test_move_but_file_exists(client: TestClient, user: User, file_factory
     assert response.json() == AlreadyExists().as_dict()
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(["file_path", "path", "expected_path"], [
     ("file.txt", "file.txt", "Trash/file.txt"),  # move file to the Trash
     ("a/b/c/d.txt", "a/b", "Trash/b"),  # move folder to the Trash
@@ -237,7 +218,6 @@ async def test_move_to_trash(
     assert response.json()["path"] == expected_path
 
 
-@pytest.mark.asyncio
 async def test_move_to_trash_but_it_is_a_trash(client: TestClient, user: User):
     payload = {"path": "Trash"}
     response = await client.login(user.id).post("/files/move_to_trash", json=payload)
@@ -245,7 +225,6 @@ async def test_move_to_trash_but_it_is_a_trash(client: TestClient, user: User):
     assert response.json() == InvalidPath().as_dict()
 
 
-@pytest.mark.asyncio
 async def test_move_to_trash_but_file_is_in_trash(
     client: TestClient, user: User, file_factory,
 ):
@@ -256,7 +235,6 @@ async def test_move_to_trash_but_file_is_in_trash(
     assert response.json() == AlreadyDeleted().as_dict()
 
 
-@pytest.mark.asyncio
 async def test_move_to_trash_but_file_not_found(client: TestClient, user: User):
     payload = {"path": "file.txt"}
     response = await client.login(user.id).post("/files/move_to_trash", json=payload)
@@ -264,7 +242,6 @@ async def test_move_to_trash_but_file_not_found(client: TestClient, user: User):
     assert response.json() == PathNotFound().as_dict()
 
 
-@pytest.mark.asyncio
 async def test_upload(client: TestClient, user: User):
     payload = {
         "file": BytesIO(b"Dummy file"),
@@ -276,7 +253,6 @@ async def test_upload(client: TestClient, user: User):
     assert len(response.json()["updates"]) == 2
 
 
-@pytest.mark.asyncio
 async def test_upload_but_to_a_special_path(client: TestClient, user: User):
     payload = {
         "file": BytesIO(b"Dummy file"),
