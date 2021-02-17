@@ -36,6 +36,7 @@ async def create_batch(
             as a parent.
 
     Raises:
+        errors.FileAlreadyExists: If some file already exists.
         errors.FileNotFound: If path to a folder does not exists.
         errors.NotADirectory: If path to a folder is not a directory.
     """
@@ -67,12 +68,15 @@ async def create_batch(
             }
         )
     """
-    await conn.query(
-        query,
-        namespace=str(namespace),
-        parent=str(path),
-        files=[file.json() for file in files],
-    )
+    try:
+        await conn.query(
+            query,
+            namespace=str(namespace),
+            parent=str(path),
+            files=[file.json() for file in files],
+        )
+    except edgedb.ConstraintViolationError as exc:
+        raise errors.FileAlreadyExists() from exc
 
 
 async def create(
@@ -101,6 +105,9 @@ async def create(
         FileAlreadyExists: If file in a target path already exists.
         MissingParent: If target path does not have a parent.
         NotADirectory: If parent path is not a directory.
+
+    Returns:
+        File: Created file.
     """
     namespace = Path(namespace)
     path = Path(path)
@@ -114,47 +121,9 @@ async def create(
         if not parent.is_dir:
             raise errors.NotADirectory
 
-    params = {
-        "name": (namespace / path).name,
-        "path": str(path),
-        "size": size,
-        "mtime": time.time(),
-        "is_dir": is_dir,
-        "namespace": str(namespace),
-        "parent": str(path.parent),
-    }
-
-    insert_query = """
-        INSERT File {
-            name := <str>$name,
-            path := <str>$path,
-            size := <int64>$size,
-            mtime := <float64>$mtime,
-            is_dir := <bool>$is_dir,
-            parent := parent,
-            namespace := parent.namespace,
-        }
-    """
-
-    update_query = ""
-    if size:
-        update_query = f"""
-            UPDATE
-                Parents
-            FILTER
-                .path IN array_unpack(<array<str>>($parents))
-                AND
-                .namespace = parent.namespace
-            SET {{
-                size := .size + (SELECT ({insert_query}).size)
-            }}
-        """
-        params["parents"] = [str(p) for p in path.parents]
-
-    query = f"""
+    query = """
         WITH
             Parent := File,
-            {'Parents := File,' if size else ''}
             parent := (
                 SELECT
                     Parent
@@ -166,13 +135,41 @@ async def create(
                     .is_dir = true
                 LIMIT 1
             )
-        {update_query if size else insert_query}
+        SELECT (
+            INSERT File {
+                name := <str>$name,
+                path := <str>$path,
+                size := <int64>$size,
+                mtime := <float64>$mtime,
+                is_dir := <bool>$is_dir,
+                parent := parent,
+                namespace := parent.namespace,
+            }
+        ) { id, name, path, size, mtime, is_dir }
     """
 
+    insert_coro = conn.query_one(
+        query,
+        name=(namespace / path).name,
+        path=str(path),
+        size=size,
+        mtime=time.time(),
+        is_dir=is_dir,
+        namespace=str(namespace),
+        parent=str(path.parent),
+    )
+
     try:
-        await conn.query(query, **params)
+        if size:
+            async with conn.transaction():
+                file = await insert_coro
+                await _inc_size(conn, namespace, path.parents, size)
+        else:
+            file = await insert_coro
     except edgedb.ConstraintViolationError as exc:
-        raise errors.FileAlreadyExists from exc
+        raise errors.FileAlreadyExists() from exc
+
+    return File.from_orm(file)
 
 
 async def create_folder(
@@ -193,8 +190,10 @@ async def create_folder(
         NotADirectory: If one of the parents is not a directory.
     """
     paths = [str(path)] + [str(p) for p in Path(path).parents]
+
     parents = await get_many(conn, namespace, paths)
     assert len(parents) > 0, f"No home folder in a namespace: '{namespace}'"
+
     if any(not p.is_dir for p in parents):
         raise errors.NotADirectory()
     if str(parents[-1].path) == str(path):
@@ -211,16 +210,25 @@ async def create_folder(
 
 async def delete(
     conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath,
-) -> None:
+) -> File:
     """
     Permanently delete file or a folder with all of its contents and decrease size
-    of the parents folders decreases accordingly.
+    of the parents accordingly.
 
     Args:
         conn (AsyncIOConnection): Database connection.
         namespace (StrOrPath): Namespace where to delete a file.
         path (StrOrPath): Path to a file.
+
+    Raises:
+        FileNotFound: If file/folder with a given path does not exists.
+
+    Returns:
+        File: Deleted file.
     """
+
+    file = await get(conn, namespace, path)
+
     query = """
         WITH
             Parent := File,
@@ -254,17 +262,22 @@ async def delete(
         parents=[str(p) for p in Path(path).parents],
     )
 
+    return file
 
-async def empty_trash(conn: AsyncIOConnection, namespace: StrOrPath) -> None:
+
+async def empty_trash(conn: AsyncIOConnection, namespace: StrOrPath) -> File:
     """
     Delete all files and folders in the Trash.
 
     Args:
         conn (AsyncIOConnection): Database connection.
         namespace (StrOrPath): Namespace where to empty the Trash folder.
+
+    Returns:
+        File: Trash folder.
     """
+    trash = await get(conn, namespace, TRASH_FOLDER_NAME)
     async with conn.transaction():
-        trash = await get(conn, namespace, TRASH_FOLDER_NAME)
         await conn.query("""
             DELETE
                 File
@@ -273,20 +286,11 @@ async def empty_trash(conn: AsyncIOConnection, namespace: StrOrPath) -> None:
                 AND
                 .namespace.path = <str>$namespace
         """, namespace=str(namespace), path=TRASH_FOLDER_NAME)
-        await conn.query("""
-            FOR path IN {array_unpack(<array<str>>$paths)}
-            UNION (
-                UPDATE
-                    File
-                FILTER
-                    .path = path
-                    AND
-                    .namespace.path = <str>$namespace
-                SET {
-                    size := .size - <int64>$size
-                }
-            )
-        """, namespace=str(namespace), paths=[".", TRASH_FOLDER_NAME], size=trash.size)
+        paths = [".", TRASH_FOLDER_NAME]
+        await _inc_size(conn, str(namespace), paths=paths, size=-trash.size)
+
+    trash.size = 0
+    return trash
 
 
 async def exists(
@@ -297,7 +301,7 @@ async def exists(
     is_dir: bool = None,
 ) -> bool:
     """
-    Checks whether a file or a folder exists in a given path.
+    Check whether a file or a folder exists in a target path.
 
     Args:
         conn (AsyncIOConnection): Database connection.
@@ -333,7 +337,7 @@ async def exists(
 
 async def get(conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath) -> File:
     """
-    Returns file with a target path.
+    Return file with a target path.
 
     Args:
         conn (AsyncIOConnection): Database connection.
@@ -370,7 +374,7 @@ async def get_many(
     paths: Iterable[StrOrPath],
 ) -> list[File]:
     """
-    Returns all files with target paths.
+    Return all files with target paths.
 
     Args:
         conn (AsyncIOConnection): Database connection.
@@ -461,9 +465,9 @@ async def move(
     namespace: StrOrPath,
     path: StrOrPath,
     next_path: StrOrPath,
-) -> None:
+) -> File:
     """
-    Move a file or folder to a different location in the given Namespace.
+    Move a file or folder to a different location in the target Namespace.
     If the source path is a folder all its contents will be moved.
 
     Args:
@@ -477,6 +481,9 @@ async def move(
         errors.FileNotFound: If source path does not exists.
         errors.MissingParent: If 'next_path' parent does not exists.
         errors.NotADirectory: If one of the 'next_path' parents is not a folder.
+
+    Returns:
+        File: Moved file.
     """
     assert path not in (".", TRASH_FOLDER_NAME), "Can't move Home or Trash folder."
     assert not str(next_path).startswith(str(path)), "Can't move to itself."
@@ -484,6 +491,7 @@ async def move(
     path = Path(path)
     next_path = Path(next_path)
 
+    # this call also ensures path exists
     target = await get(conn, namespace, path)
 
     try:
@@ -496,10 +504,6 @@ async def move(
 
     if await exists(conn, namespace, next_path):
         raise errors.FileAlreadyExists()
-
-    await _move_file(conn, target.id, next_path)
-    if target.is_dir:
-        await _move_folder_content(conn, namespace, path, next_path)
 
     to_decrease = set(path.parents).difference(next_path.parents)
     to_increase = set(next_path.parents).difference(path.parents)
@@ -519,22 +523,29 @@ async def move(
         )
     """
 
-    await conn.query(
-        query,
-        namespace=str(namespace),
-        data=[
-            json.dumps({
-                "size": sign * target.size,
-                "parents": [str(p) for p in parents]
-            })
-            for sign, parents in zip((-1, 1), (to_decrease, to_increase))
-        ]
-    )
+    async with conn.transaction():
+        file = await _move_file(conn, target.id, next_path)
+        if target.is_dir:
+            await _move_folder_content(conn, namespace, path, next_path)
+
+        await conn.query(
+            query,
+            namespace=str(namespace),
+            data=[
+                json.dumps({
+                    "size": sign * target.size,
+                    "parents": [str(p) for p in parents]
+                })
+                for sign, parents in zip((-1, 1), (to_decrease, to_increase))
+            ]
+        )
+
+    return file
 
 
 async def _move_file(
     conn: AsyncIOConnection, file_id: UUID, next_path: StrOrPath
-) -> None:
+) -> File:
     """
     Update file name and path.
 
@@ -542,17 +553,24 @@ async def _move_file(
         conn (AsyncIOConnection): Database connection.
         file_id (UUID): File ID to be updated.
         next_path (StrOrPath): New path for a file.
+
+    Returns:
+        File: Updated file.
     """
-    await conn.query("""
-        UPDATE
-            File
-        FILTER
-            .id = <uuid>$file_id
-        SET {
-            name := <str>$name,
-            path := <str>$path,
-        }
-    """, file_id=str(file_id), name=next_path.name, path=str(next_path))
+    return File.from_orm(
+        await conn.query_one("""
+            SELECT (
+                UPDATE
+                    File
+                FILTER
+                    .id = <uuid>$file_id
+                SET {
+                    name := <str>$name,
+                    path := <str>$path,
+                }
+            ) { id, name, path, size, mtime, is_dir }
+        """, file_id=str(file_id), name=Path(next_path).name, path=str(next_path))
+    )
 
 
 async def _move_folder_content(
@@ -616,3 +634,34 @@ async def next_path(
         )
     """, namespace=str(namespace), pattern=f"{path_stem} \\([[:digit:]]+\\){suffix}")
     return f"{path_stem} ({count + 1}){suffix}"
+
+
+async def _inc_size(
+    conn: AsyncIOConnection,
+    namespace: StrOrPath,
+    paths: Iterable[StrOrPath],
+    size: int,
+) -> None:
+    """
+    Increments size for specified paths.
+
+    Args:
+        conn (AsyncIOConnection): Database connection.
+        namespace (StrOrPath): Namespace.
+        paths (Iterable[StrOrPath]): List of path which size will be incremented.
+        size (int): value that will be added to the current file size.
+    """
+    await conn.query("""
+        FOR path IN {array_unpack(<array<str>>$paths)}
+        UNION (
+            UPDATE
+                File
+            FILTER
+                .path = path
+                AND
+                .namespace.path = <str>$namespace
+            SET {
+                size := .size + <int64>$size
+            }
+        )
+    """, namespace=str(namespace), paths=[str(p) for p in paths], size=size)

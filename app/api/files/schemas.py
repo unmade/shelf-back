@@ -28,9 +28,6 @@ class File(BaseModel):
     type: str = None
     hidden: bool = None
 
-    class Config:
-        orm_mode = True
-
     def get_type(cls, value, values, config, field) -> str:
         return "folder" if values["is_dir"] else "file"
 

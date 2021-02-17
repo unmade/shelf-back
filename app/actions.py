@@ -74,12 +74,9 @@ async def delete_immediately(
     Returns:
         File: Deleted file.
     """
-    file = await crud.file.get(conn, namespace.path, path)
-
     async with conn.transaction():
-        await crud.file.delete(conn, namespace.path, path)
+        file = await crud.file.delete(conn, namespace.path, path)
         storage.delete(namespace.path / path)
-
     return file
 
 
@@ -95,9 +92,9 @@ async def empty_trash(conn: AsyncIOConnection, namespace: Namespace) -> File:
         File: Trash folder.
     """
     async with conn.transaction():
-        await crud.file.empty_trash(conn, namespace.path)
+        trash = await crud.file.empty_trash(conn, namespace.path)
         storage.delete_dir_content(namespace.path / TRASH_FOLDER_NAME)
-    return await crud.file.get(conn, namespace.path, TRASH_FOLDER_NAME)
+    return trash
 
 
 async def move(
@@ -126,9 +123,9 @@ async def move(
         File: Moved file/folder.
     """
     async with conn.transaction():
-        await crud.file.move(conn, namespace.path, path, next_path)
+        file = await crud.file.move(conn, namespace.path, path, next_path)
         storage.move(namespace.path / path, namespace.path / next_path)
-    return await crud.file.get(conn, namespace.path, next_path)
+    return file
 
 
 async def move_to_trash(
@@ -237,7 +234,7 @@ async def save_file(
     next_path = await crud.file.next_path(conn, namespace.path, path)
 
     async with conn.transaction():
-        await crud.file.create(
+        file_db = await crud.file.create(
             conn,
             namespace.path,
             next_path,
@@ -246,4 +243,4 @@ async def save_file(
         file.seek(0)
         storage.save(namespace.path / next_path, file)
 
-    return await crud.file.get(conn, namespace.path, next_path)
+    return file_db

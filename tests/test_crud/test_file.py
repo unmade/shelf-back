@@ -48,6 +48,14 @@ async def test_create_batch(db_conn: Connection, user: User):
     assert files[1].is_dir is False
 
 
+async def test_create_batch_but_file_already_exists(db_conn: Connection, user: User):
+    await crud.file.create(db_conn, user.namespace.path, "f")
+    files = [File.construct(name="f", path="f", size=0, mtime=123, is_dir=False)]
+
+    with pytest.raises(errors.FileAlreadyExists):
+        await crud.file.create_batch(db_conn, user.namespace.path, ".", files=files)
+
+
 async def test_create_batch_but_parent_not_exists(db_conn: Connection, user: User):
     with pytest.raises(errors.FileNotFound):
         await crud.file.create_batch(db_conn, user.namespace.path, "a", files=[])
@@ -229,9 +237,9 @@ async def test_empty_trash(db_conn: Connection, user: User):
     await crud.file.create(db_conn, user.namespace.path, "Trash/f", size=32)
     await crud.file.create(db_conn, user.namespace.path, "f", size=16)
 
-    await crud.file.empty_trash(db_conn, user.namespace.path)
+    trash = await crud.file.empty_trash(db_conn, user.namespace.path)
 
-    trash = await crud.file.get(db_conn, user.namespace.path, "Trash")
+    assert await crud.file.get(db_conn, user.namespace.path, "Trash") == trash
     files = await crud.file.list_folder(db_conn, user.namespace.path, "Trash")
     assert trash.size == 0
     assert files == []
@@ -241,9 +249,7 @@ async def test_empty_trash(db_conn: Connection, user: User):
 
 
 async def test_empty_trash_but_its_already_empty(db_conn: Connection, user: User):
-    await crud.file.empty_trash(db_conn, user.namespace.path)
-
-    trash = await crud.file.get(db_conn, user.namespace.path, "Trash")
+    trash = await crud.file.empty_trash(db_conn, user.namespace.path)
     files = await crud.file.list_folder(db_conn, user.namespace.path, "Trash")
     assert trash.size == 0
     assert files == []
@@ -272,11 +278,18 @@ async def test_delete_file(db_conn: Connection, user: User):
     namespace = user.namespace.path
     await crud.file.create(db_conn, namespace, path.parent, size=32, is_dir=True)
     await crud.file.create(db_conn, namespace, path, size=8)
-    await crud.file.delete(db_conn, namespace, path)
+
+    file = await crud.file.delete(db_conn, namespace, path)
+    assert file.path == str(path)
     assert not await crud.file.exists(db_conn, namespace, path)
 
     parent = await crud.file.get(db_conn, namespace, path.parent)
     assert parent.size == 32
+
+
+async def test_delete_file_but_it_not_exists(db_conn: Connection, user: User):
+    with pytest.raises(errors.FileNotFound):
+        await crud.file.delete(db_conn, user.namespace.path, "f")
 
 
 async def test_delete_non_empty_folder(db_conn: Connection, user: User):
