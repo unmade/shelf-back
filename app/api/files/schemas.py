@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from uuid import UUID
+
 from pydantic import BaseModel, root_validator, validator
 
 from app.config import TRASH_FOLDER_NAME
@@ -12,7 +14,10 @@ def _normalize(path: str) -> str:
     for symbol in symbols:
         if path.startswith(symbol):
             raise InvalidPath(f"Path should not start with '{symbol}'")
-    return path.strip()
+    path = path.strip()
+    if path.startswith("./"):
+        return path[2:]
+    return path
 
 
 class GetDownloadUrlResult(BaseModel):
@@ -20,16 +25,13 @@ class GetDownloadUrlResult(BaseModel):
 
 
 class File(BaseModel):
-    id: int
+    id: UUID
     name: str
     path: str
     size: int
     mtime: float
-    type: str = None
+    is_dir: bool
     hidden: bool = None
-
-    def get_type(cls, value, values, config, field) -> str:
-        return "folder" if values["is_dir"] else "file"
 
     @validator("hidden", always=True)
     def is_hidden(cls, value, values, config, field):

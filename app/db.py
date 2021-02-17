@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import asyncio
+from typing import TYPE_CHECKING, AsyncGenerator
 
 import edgedb
 
 from app import config
 
 if TYPE_CHECKING:
-    from edgedb import AsyncIOPool, AsyncIOConnection
+    from edgedb import AsyncIOPool, AsyncIOConnection, AsyncIOTransaction
 
 
 _pool: AsyncIOPool = None
@@ -55,3 +56,49 @@ async def migrate(conn: AsyncIOConnection, schema: str) -> None:
             POPULATE MIGRATION;
             COMMIT MIGRATION;
         """)
+
+
+class _TryTransaction:
+    __slots__ = ("conn", "transaction", "success")
+
+    def __init__(self, conn: AsyncIOConnection):
+        self.conn = conn
+        self.success = False
+        self.transaction: AsyncIOTransaction = None
+
+    async def __aenter__(self) -> None:
+        self.transaction = self.conn.transaction()
+        await self.transaction.start()
+        return None
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        if exc_type is not None:
+            await self.transaction.rollback()
+            if isinstance(exc_value, edgedb.TransactionSerializationError):
+                return True
+        else:
+            await self.transaction.commit()
+            self.success = True
+
+
+# see discussion: https://github.com/edgedb/edgedb/discussions/1738
+async def retry(
+    conn: AsyncIOConnection, *, wait: int = 0.1, max_attempts: int = 3,
+) -> AsyncGenerator[_TryTransaction]:
+    """
+    Start a new transaction, if it fails with `edgedb.TransactionSerializationError`,
+    wait for `wait` seconds and start a new one.
+
+    Args:
+        conn (AsyncIOConnection): Database connection.
+        wait (int, optional): How many seconds to wait before yielding next transaction.
+            Defaults to 0.1s.
+        max_attempts (int, optional): How many times to try. Defaults to 3.
+    """
+    for _ in range(max_attempts):
+        tx = _TryTransaction(conn)
+        yield tx
+        if tx.success:
+            return
+        if wait:
+            await asyncio.sleep(wait)

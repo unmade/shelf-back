@@ -12,3 +12,5 @@ parallel = true
 [report]
 precision = 2
 show_missing = true
+exclude_lines =
+    TYPE_CHECKING

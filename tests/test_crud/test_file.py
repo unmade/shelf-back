@@ -11,7 +11,7 @@ from app import crud, errors
 from app.entities import File
 
 if TYPE_CHECKING:
-    from edgedb import AsyncIOConnection as Connection, AsyncIOPool as Pool
+    from edgedb import AsyncIOConnection as Connection
     from app.entities import User
 
 pytestmark = [pytest.mark.asyncio]
@@ -109,6 +109,33 @@ async def test_create_updates_parents_size(db_conn: Connection, user: User):
         assert parent.size == 32
 
 
+async def test_create_concurrently(db_conn_factory, user: User):
+    paths = [
+        Path("a/b/c/e"),
+        Path("a/b/c/d"),
+        Path("a/b/c/f"),
+        Path("a/b/c/g"),
+    ]
+
+    MAX_REQUEST = len(paths)
+    connections: list[Connection] = await db_conn_factory(MAX_REQUEST)
+    conn = connections[0]
+    await crud.file.create(conn, user.namespace.path, "a", is_dir=True)
+    await crud.file.create(conn, user.namespace.path, "a/b", is_dir=True)
+    await crud.file.create(conn, user.namespace.path, "a/b/c", is_dir=True)
+
+    await asyncio.gather(*(
+        crud.file.create(conn, user.namespace.path, path, size=32)
+        for conn, path in zip(connections, paths)
+    ))
+
+    home = await crud.file.get(conn, user.namespace.path, ".")
+    assert home.size == 32 * MAX_REQUEST
+
+    files = await crud.file.get_many(conn, user.namespace.path, paths)
+    assert len(files) == 4
+
+
 async def test_create_but_parent_is_missing(db_conn: Connection, user: User):
     with pytest.raises(errors.MissingParent):
         await crud.file.create(db_conn, user.namespace.path, "New Folder/file")
@@ -155,8 +182,8 @@ async def test_create_folder(db_conn: Connection, user: User):
     assert c.parent.id == b.id
 
 
-async def test_create_folder_but_with_overlapping_parents(
-    db_pool: Pool, db_conn: Connection, user: User,
+async def test_create_folder_concurrently_with_overlapping_parents(
+    db_conn_factory, user: User,
 ):
     paths = [
         Path("a/b"),
@@ -166,25 +193,15 @@ async def test_create_folder_but_with_overlapping_parents(
     ]
 
     MAX_REQUEST = len(paths)
+    connections = await db_conn_factory(MAX_REQUEST)
+    conn = connections[0]
 
-    # ensure we do not acquire more connections that are actually in the pool
-    assert MAX_REQUEST < db_pool.min_size
-
-    connections = await asyncio.gather(*(
-        db_pool.acquire() for _ in range(MAX_REQUEST)
+    await asyncio.gather(*(
+        crud.file.create_folder(conn, user.namespace.path, path)
+        for conn, path in zip(connections, paths)
     ))
 
-    try:
-        await asyncio.gather(*(
-            crud.file.create_folder(conn, user.namespace.path, path)
-            for conn, path in zip(connections, paths)
-        ))
-    finally:
-        await asyncio.gather(*(
-            db_pool.release(conn) for conn in connections
-        ))
-
-    files = list(await db_conn.query("""
+    files = list(await conn.query("""
         SELECT File { id, path, parent: { id } }
         FILTER
             .path != 'Trash'

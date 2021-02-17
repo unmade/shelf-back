@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Iterable
 
 import edgedb
 
-from app import errors
+from app import db, errors
 from app.config import TRASH_FOLDER_NAME
 from app.entities import File
 
@@ -87,7 +87,7 @@ async def create(
     size: int = 0,
     mtime: float = None,
     is_dir: bool = False,
-) -> None:
+) -> File:
     """
     Create new file.
 
@@ -148,24 +148,28 @@ async def create(
         ) { id, name, path, size, mtime, is_dir }
     """
 
-    insert_coro = conn.query_one(
-        query,
-        name=(namespace / path).name,
-        path=str(path),
-        size=size,
-        mtime=time.time(),
-        is_dir=is_dir,
-        namespace=str(namespace),
-        parent=str(path.parent),
-    )
+    params = {
+        "name": (namespace / path).name,
+        "path": str(path),
+        "size": size,
+        "mtime": time.time(),
+        "is_dir": is_dir,
+        "namespace": str(namespace),
+        "parent": str(path.parent),
+    }
 
     try:
+        # this is bit hacky, but when file size is zero, there is no need to update
+        # parents size and as a result no need for transaction. Also, since transaction
+        # can fail on concurrent update, we want to retry it several times, usually
+        # this is enough for transaction to pass.
         if size:
-            async with conn.transaction():
-                file = await insert_coro
-                await _inc_size(conn, namespace, path.parents, size)
+            async for tx in db.retry(conn, wait=0.1):
+                async with tx:
+                    file = await conn.query_one(query, **params)
+                    await _inc_size(conn, namespace, path.parents, size)
         else:
-            file = await insert_coro
+            file = await conn.query_one(query, **params)
     except edgedb.ConstraintViolationError as exc:
         raise errors.FileAlreadyExists() from exc
 
@@ -407,7 +411,8 @@ async def get_many(
 
 async def list_folder(
     conn: AsyncIOConnection,
-    namespace: StrOrPath, path: StrOrPath,
+    namespace: StrOrPath,
+    path: StrOrPath,
     *,
     with_trash: bool = False,
 ) -> list[File]:
@@ -429,7 +434,9 @@ async def list_folder(
     Returns:
         List[File]: List of all files/folders in a folder with a target path.
     """
-    filter_clause = "FILTER .path != 'Trash'" if not with_trash and path == "." else ""
+    filter_clause = ""
+    if not with_trash and str(path) == ".":
+        filter_clause = "FILTER .path != 'Trash'"
     query = f"""
         SELECT
             File {{
@@ -557,19 +564,37 @@ async def _move_file(
     Returns:
         File: Updated file.
     """
+    query = """
+        WITH
+            Parent := File,
+        SELECT (
+            UPDATE
+                File
+            FILTER
+                .id = <uuid>$file_id
+            SET {
+                name := <str>$name,
+                path := <str>$path,
+                parent := (
+                    SELECT
+                        Parent
+                    FILTER
+                        .path = <str>$next_parent
+                        AND
+                        .namespace = File.namespace
+                    LIMIT 1
+                )
+            }
+        ) { id, name, path, size, mtime, is_dir }
+    """
     return File.from_orm(
-        await conn.query_one("""
-            SELECT (
-                UPDATE
-                    File
-                FILTER
-                    .id = <uuid>$file_id
-                SET {
-                    name := <str>$name,
-                    path := <str>$path,
-                }
-            ) { id, name, path, size, mtime, is_dir }
-        """, file_id=str(file_id), name=Path(next_path).name, path=str(next_path))
+        await conn.query_one(
+            query,
+            file_id=str(file_id),
+            name=Path(next_path).name,
+            path=str(next_path),
+            next_parent=str(Path(next_path.parent)),
+        )
     )
 
 
@@ -652,16 +677,16 @@ async def _inc_size(
         size (int): value that will be added to the current file size.
     """
     await conn.query("""
-        FOR path IN {array_unpack(<array<str>>$paths)}
-        UNION (
+        # FOR path IN {array_unpack(<array<str>>$paths)}
+        # UNION (
             UPDATE
                 File
             FILTER
-                .path = path
+                .path IN array_unpack(<array<str>>$paths)
                 AND
                 .namespace.path = <str>$namespace
             SET {
                 size := .size + <int64>$size
             }
-        )
+        # )
     """, namespace=str(namespace), paths=[str(p) for p in paths], size=size)

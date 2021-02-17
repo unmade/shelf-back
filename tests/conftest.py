@@ -113,7 +113,7 @@ async def db_pool(create_test_db) -> None:
 
 @pytest.fixture
 async def db_conn(apply_migration, db_pool: AsyncIOPool):
-    """Yield connection from connection pool."""
+    """Acquire connection from connection pool."""
     del apply_migration  # required only to preserve fixtures correct execution order
 
     async with db_pool.acquire() as conn:
@@ -125,6 +125,28 @@ async def db_conn(apply_migration, db_pool: AsyncIOPool):
                 DELETE Namespace;
                 DELETE User;
             """)
+
+
+@pytest.fixture
+async def db_conn_factory(apply_migration, db_pool: AsyncIOPool):
+    """Acquire specified amount of connections and return it."""
+    del apply_migration  # required only to preserve fixtures correct execution order
+
+    connections = None
+
+    async def wrapper(amount: int):
+        nonlocal connections
+        connections = await asyncio.gather(*(
+            db_pool.acquire() for _ in range(amount)
+        ))
+        return connections
+
+    try:
+        yield wrapper
+    finally:
+        await asyncio.gather(*(
+            db_pool.release(conn) for conn in connections
+        ))
 
 
 @pytest.fixture

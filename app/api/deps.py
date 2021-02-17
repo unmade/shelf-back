@@ -6,7 +6,7 @@ from edgedb import AsyncIOConnection
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 
-from app import crud, db, security
+from app import crud, db, errors, security
 from app.entities import User
 from app.security import TokenPayload
 
@@ -49,5 +49,5 @@ async def current_user(
 ) -> User:
     try:
         return await crud.user.get_by_id(conn, user_id=payload.sub)
-    except crud.user.UserNotFound as exc:
+    except errors.UserNotFound as exc:
         raise exceptions.UserNotFound() from exc
