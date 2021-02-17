@@ -385,11 +385,12 @@ async def test_list_folder_but_it_a_file(db_conn: Connection, user: User):
     with pytest.raises(errors.NotADirectory):
         await crud.file.list_folder(db_conn, user.namespace.path, "f")
 
+
 # todo: test case-insensitive list_folder
 
 
 async def test_move(db_conn: Connection, user: User):
-    namespace = user.namespace.path
+    namespace = str(user.namespace.path)
     await crud.file.create(db_conn, namespace, "a", is_dir=True)
     await crud.file.create(db_conn, namespace, "a/b", is_dir=True)
     await crud.file.create(db_conn, namespace, "a/b/c", is_dir=True)
@@ -399,19 +400,30 @@ async def test_move(db_conn: Connection, user: User):
     # move folder 'c' from 'a/b' to 'a/g'
     await crud.file.move(db_conn, namespace, "a/b/c", "a/g/c")
 
-    assert not (await crud.file.exists(db_conn, namespace, "a/b/c"))
+    assert not await crud.file.exists(db_conn, namespace, "a/b/c")
 
-    b = await crud.file.get(db_conn, namespace, "a/b")
+    query = """
+        SELECT File { size, parent: { id } }
+        FILTER .path = <str>$path AND .namespace.path = <str>$namespace
+    """
+
+    a = await db_conn.query_one(query, namespace=namespace, path="a")
+
+    b = await db_conn.query_one(query, namespace=namespace, path="a/b")
     assert b.size == 0
+    assert b.parent.id == a.id
 
-    g = await crud.file.get(db_conn, namespace, "a/g")
+    g = await db_conn.query_one(query, namespace=namespace, path="a/g")
     assert g.size == 32
+    assert g.parent.id == a.id
 
-    c = await crud.file.get(db_conn, namespace, "a/g/c")
+    c = await db_conn.query_one(query, namespace=namespace, path="a/g/c")
     assert c.size == 24
+    assert c.parent.id == g.id
 
-    f = await crud.file.get(db_conn, namespace, "a/g/c/f")
+    f = await db_conn.query_one(query, namespace=namespace, path="a/g/c/f")
     assert f.size == 24
+    assert f.parent.id == c.id
 
 
 async def test_move_with_renaming(db_conn: Connection, user: User):
