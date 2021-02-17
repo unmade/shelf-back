@@ -29,7 +29,10 @@ async def test_create_account(db_conn: Connection):
             namespace := (
                 SELECT User.<owner[IS Namespace] {
                     path,
-                    files := Namespace.<namespace[IS File] { name, path }
+                    files := (
+                        SELECT Namespace.<namespace[IS File] { name, path }
+                        ORDER BY .path ASC
+                    )
                 }
                 LIMIT 1
             )
