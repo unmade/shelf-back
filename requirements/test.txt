@@ -4,28 +4,14 @@
 #
 #    pip-compile requirements/test.in
 #
-appdirs==1.4.4
-    # via virtualenv
-appnope==0.1.2
-    # via ipython
 attrs==20.3.0
     # via pytest
-backcall==0.2.0
-    # via ipython
 certifi==2020.12.5
     # via httpx
-cfgv==3.2.0
-    # via pre-commit
 coverage==5.4
     # via pytest-cov
-decorator==4.4.2
-    # via ipython
-distlib==0.3.1
-    # via virtualenv
-faker==6.1.1
+faker==6.4.1
     # via -r requirements/test.in
-filelock==3.0.12
-    # via virtualenv
 h11==0.12.0
     # via
     #   -c requirements/base.txt
@@ -34,44 +20,16 @@ httpcore==0.12.3
     # via httpx
 httpx==0.16.1
     # via -r requirements/test.in
-identify==1.5.13
-    # via pre-commit
 idna==3.1
     # via rfc3986
 iniconfig==1.1.1
     # via pytest
-ipython-genutils==0.2.0
-    # via traitlets
-ipython==7.20.0
-    # via -r requirements/test.in
-jedi==0.18.0
-    # via ipython
-mypy-extensions==0.4.3
-    # via mypy
-mypy==0.800
-    # via -r requirements/test.in
-nodeenv==1.5.0
-    # via pre-commit
 packaging==20.9
     # via pytest
-parso==0.8.1
-    # via jedi
-pexpect==4.8.0
-    # via ipython
-pickleshare==0.7.5
-    # via ipython
 pluggy==0.13.1
     # via pytest
-pre-commit==2.10.1
-    # via -r requirements/test.in
-prompt-toolkit==3.0.16
-    # via ipython
-ptyprocess==0.7.0
-    # via pexpect
 py==1.10.0
     # via pytest
-pygments==2.8.0
-    # via ipython
 pyparsing==2.4.7
     # via packaging
 pytest-asyncio==0.14.0
@@ -85,15 +43,12 @@ pytest==6.2.2
     #   pytest-cov
 python-dateutil==2.8.1
     # via faker
-pyyaml==5.4.1
-    # via pre-commit
 rfc3986[idna2008]==1.4.0
     # via httpx
 six==1.15.0
     # via
     #   -c requirements/base.txt
     #   python-dateutil
-    #   virtualenv
 sniffio==1.2.0
     # via
     #   httpcore
@@ -101,21 +56,4 @@ sniffio==1.2.0
 text-unidecode==1.3
     # via faker
 toml==0.10.2
-    # via
-    #   pre-commit
-    #   pytest
-traitlets==5.0.5
-    # via ipython
-typed-ast==1.4.2
-    # via mypy
-typing-extensions==3.7.4.3
-    # via
-    #   -c requirements/base.txt
-    #   mypy
-virtualenv==20.4.2
-    # via pre-commit
-wcwidth==0.2.5
-    # via prompt-toolkit
-
-# The following packages are considered to be unsafe in a requirements file:
-# setuptools
+    # via pytest

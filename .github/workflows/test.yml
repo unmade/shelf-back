@@ -1,0 +1,72 @@
+name: Test
+
+on:
+    push:
+      branches:
+        - master
+      tags:
+        - '[0-2].[0-9]+.[0-9]+*'
+    pull_request:
+      branches:
+        - '**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      edgedb:
+        image: edgedb/edgedb:1-beta1
+        env:
+          EDGEDB_USER: edgedb
+          EDGEDB_PASSWORD: root
+        ports:
+        - 5656:5656
+        volumes:
+        - data:/var/lib/edgedb/data
+        options: >-
+          --health-cmd="edgedb -c 'SELECT 1;'"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+    - uses: actions/checkout@master
+
+    - name: Set up Python 3.9
+      uses: actions/setup-python@master
+      with:
+        python-version: 3.9
+
+    - name: Cache pip dependencies
+      uses: actions/cache@master
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements/**.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install \
+          -r requirements/base.txt \
+          -r requirements/test.txt
+
+    - name: Run Tests
+      env:
+        EDGEDB_DSN: "edgedb://edgedb:root@localhost:5656/edgedb"
+        PYTHONPATH: .
+        APP_SECRET_KEY: github_actions
+      run: |
+        python manage.py migrate schema.esdl
+        pytest --cov
+
+    - name: Send coverage report
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      # install codecov here as it has dependency conflicts with httpx
+      run: |
+        pip install codecov
+        coverage xml
+        codecov
