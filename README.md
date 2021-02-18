@@ -1,5 +1,8 @@
 # Shelf
 
+[![build](https://github.com/unmade/shelf-back/workflows/Test/badge.svg)](https://github.com/unmade/shelf-back/blob/master/.github/workflows/tests.yml)
+[![codecov](https://codecov.io/gh/unmade/shelf-back/branch/master/graph/badge.svg)](https://codecov.io/gh/unmade/shelf-back)
+
 This is backend application for the Shelf project (in-progress).
 
 ## Development
@@ -16,7 +19,7 @@ source ./.venv/bin/activate && source .env
 Install requirements:
 
 ```bash
-pip install -r requirements/base.txt -r requirements/test.txt
+pip install -r requirements/base.txt requirements/dev.txt requirements/lint.txt requirements/test.txt
 ```
 
 Install pre-commit hooks:

@@ -17,7 +17,6 @@ APP_DEBUG = _get_bool("APP_DEBUG")
 APP_SECRET_KEY = os.environ["APP_SECRET_KEY"]
 APP_VERSION = os.getenv("APP_VERSION")
 
-DATABASE_DSN = os.environ["DATABASE_DSN"]
 EDGEDB_DSN = os.environ["EDGEDB_DSN"]
 
 STATIC_DIR = Path(os.getenv("STATIC_DIR", "./static"))
