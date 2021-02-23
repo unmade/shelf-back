@@ -511,3 +511,15 @@ async def test_next_path_is_sequential(db_conn: Connection, user: User):
     next_path = await crud.file.next_path(db_conn, user.namespace.path, "f.tar.gz")
     assert next_path == "f (2).tar.gz"
     assert not (await crud.file.exists(db_conn, user.namespace.path, "f (2).tar.gz"))
+
+
+async def test_inc_size_batch(db_conn: Connection, user: User):
+    namespace = user.namespace.path
+    await crud.file.create_folder(db_conn, namespace, "a/b")
+    await crud.file.create_folder(db_conn, namespace, "a/c")
+    await crud.file.inc_size_batch(db_conn, namespace, paths=["a", "a/c"], size=16)
+
+    a, b, c = await crud.file.get_many(db_conn, namespace, paths=["a", "a/b", "a/c"])
+    assert a.size == 16
+    assert b.size == 0
+    assert c.size == 16

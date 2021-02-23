@@ -198,11 +198,11 @@ async def test_reconcile(db_conn: Connection, user: User):
 
     a = await crud.file.get(db_conn, user.namespace.path, "a")
     assert a.is_dir
-    assert a.size == storage.get(user.namespace.path / "a").size
+    assert a.size == 0
 
     b = await crud.file.get(db_conn, user.namespace.path, "b")
     assert b.is_dir
-    assert b.size == storage.get(user.namespace.path / "b").size
+    assert b.size == 10
 
     f = await crud.file.get(db_conn, user.namespace.path, "b/f.txt")
     assert not f.is_dir
