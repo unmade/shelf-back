@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, AsyncGenerator
+from typing import TYPE_CHECKING, AsyncGenerator, Optional
 
 import edgedb
 
@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from edgedb import AsyncIOPool, AsyncIOConnection, AsyncIOTransaction
 
 
-_pool: AsyncIOPool = None
+_pool: Optional[AsyncIOPool] = None
 
 
 async def create_pool() -> None:
@@ -29,11 +29,15 @@ async def close_pool() -> None:
     """Gracefully close connection pool."""
     global _pool
 
+    assert _pool is not None, "Connection pool is not initialized."
     await _pool.aclose()
 
 
-async def db_conn() -> AsyncIOConnection:
+async def db_conn() -> AsyncGenerator[AsyncIOConnection, None]:
     """Yield a new connection from a connection pool."""
+    global _pool
+
+    assert _pool is not None, "Connection pool is not initialized."
     async with _pool.acquire() as conn:
         yield conn
 
@@ -64,7 +68,7 @@ class _TryTransaction:
     def __init__(self, conn: AsyncIOConnection):
         self.conn = conn
         self.success = False
-        self.transaction: AsyncIOTransaction = None
+        self.transaction: Optional[AsyncIOTransaction] = None
 
     async def __aenter__(self) -> None:
         self.transaction = self.conn.transaction()

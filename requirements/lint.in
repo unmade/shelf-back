@@ -1,2 +1,13 @@
+-c base.txt
+
 pre-commit
 mypy
+
+
+# these dependencies are needed for mypy:
+
+fastapi
+httpx
+pydantic
+pytest
+typer
