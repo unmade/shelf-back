@@ -206,7 +206,7 @@ async def reconcile(
 
 
 async def save_file(
-    conn: AsyncIOConnection, namespace: Namespace, path: StrOrPath, file: IO,
+    conn: AsyncIOConnection, namespace: Namespace, path: StrOrPath, file: IO[bytes],
 ) -> File:
     """
     Save file to storage and database.
