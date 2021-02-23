@@ -247,7 +247,8 @@ async def test_upload(client: TestClient, user: User):
         "file": BytesIO(b"Dummy file"),
         "path": (None, "folder/file.txt"),
     }
-    response = await client.login(user.id).post("/files/upload", files=payload)
+    client.login(user.id)
+    response = await client.post("/files/upload", files=payload)  # type: ignore
     assert response.status_code == 200
     assert response.json()["file"]["path"] == "folder/file.txt"
     assert len(response.json()["updates"]) == 2
@@ -258,6 +259,7 @@ async def test_upload_but_to_a_special_path(client: TestClient, user: User):
         "file": BytesIO(b"Dummy file"),
         "path": (None, "Trash"),
     }
-    response = await client.login(user.id).post("/files/upload", files=payload)
+    client.login(user.id)
+    response = await client.post("/files/upload", files=payload)  # type: ignore
     assert response.status_code == 400
     assert response.json() == InvalidPath().as_dict()

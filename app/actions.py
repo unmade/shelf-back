@@ -188,9 +188,9 @@ async def reconcile(
             namespace.path,
             path=path,
             files=[
-                File.construct(
+                File.construct(  # type: ignore
                     name=file.name,
-                    path=file.path.relative_to(namespace.path),
+                    path=str(file.path.relative_to(namespace.path)),
                     size=file.size,
                     mtime=file.mtime,
                     is_dir=file.is_dir,

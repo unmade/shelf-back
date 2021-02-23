@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Type, TypeVar
 from uuid import UUID
 
 from pydantic import BaseModel, root_validator, validator
@@ -7,6 +8,11 @@ from pydantic import BaseModel, root_validator, validator
 from app.config import TRASH_FOLDER_NAME
 
 from .exceptions import InvalidPath
+
+if TYPE_CHECKING:
+    from app.entities import File as FileEntity
+
+T = TypeVar("T", bound="File")
 
 
 def _normalize(path: str) -> str:
@@ -31,7 +37,19 @@ class File(BaseModel):
     size: int
     mtime: float
     is_dir: bool
-    hidden: bool = None
+    hidden: bool = None  # type: ignore
+
+    @classmethod
+    def from_file(cls: Type[T], file: FileEntity) -> T:
+        return cls.construct(
+            id=file.id,
+            name=file.name,
+            path=file.path,
+            size=file.size,
+            mtime=file.mtime,
+            is_dir=file.is_dir,
+            hidden=file.name.startswith(".") or file.name == TRASH_FOLDER_NAME
+        )
 
     @validator("hidden", always=True)
     def is_hidden(cls, value, values, config, field):

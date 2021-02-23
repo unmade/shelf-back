@@ -29,8 +29,7 @@ class File(BaseModel):
 class User(BaseModel):
     id: UUID
     username: str
-    password: str = None
-    namespace: Namespace = None
+    namespace: Namespace
 
     class Config:
         orm_mode = True

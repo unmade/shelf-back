@@ -19,14 +19,14 @@ pytestmark = [pytest.mark.asyncio]
 
 async def test_create_batch(db_conn: Connection, user: User):
     files = [
-        File.construct(
+        File.construct(  # type: ignore
             name="a",
             path="a",
             size=32,
             mtime=time.time(),
             is_dir=True,
         ),
-        File.construct(
+        File.construct(  # type: ignore
             name="f",
             path="f",
             size=16,
@@ -49,11 +49,10 @@ async def test_create_batch(db_conn: Connection, user: User):
 
 
 async def test_create_batch_but_file_already_exists(db_conn: Connection, user: User):
-    await crud.file.create(db_conn, user.namespace.path, "f")
-    files = [File.construct(name="f", path="f", size=0, mtime=123, is_dir=False)]
+    file = await crud.file.create(db_conn, user.namespace.path, "f")
 
     with pytest.raises(errors.FileAlreadyExists):
-        await crud.file.create_batch(db_conn, user.namespace.path, ".", files=files)
+        await crud.file.create_batch(db_conn, user.namespace.path, ".", files=[file])
 
 
 async def test_create_batch_but_parent_not_exists(db_conn: Connection, user: User):

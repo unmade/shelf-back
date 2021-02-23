@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import edgedb
 
@@ -9,6 +9,7 @@ from app import errors, security
 from app.entities import User
 
 if TYPE_CHECKING:
+    from uuid import UUID
     from edgedb import AsyncIOConnection
 
 
@@ -67,7 +68,7 @@ async def exists(conn: AsyncIOConnection, user_id: str) -> bool:
         )
     """
 
-    return await conn.query_one(query, user_id=str(user_id))
+    return cast(bool, await conn.query_one(query, user_id=str(user_id)))
 
 
 async def get_by_id(conn: AsyncIOConnection, user_id: str) -> User:
@@ -82,7 +83,7 @@ async def get_by_id(conn: AsyncIOConnection, user_id: str) -> User:
         UserNotFound: If User with a target user_id does not exists.
 
     Returns:
-        Account:
+        User:
     """
     query = """
         SELECT
@@ -106,30 +107,32 @@ async def get_by_id(conn: AsyncIOConnection, user_id: str) -> User:
         raise errors.UserNotFound() from exc
 
 
-async def get_by_username(conn: AsyncIOConnection, username: str) -> User:
+async def get_password(conn: AsyncIOConnection, username: str) -> tuple[UUID, str]:
     """
-    Return a User with a target username.
+    Returns User password by username.
 
     Args:
         conn (AsyncIOConnection): Database connection.
-        username (str): Username to search for.
+        username (str): Target username to return password for.
 
     Raises:
-        UserNotFound: If User with a target username does not exists.
+        errors.UserNotFound: If user with this username does not exists.
 
     Returns:
-        User: User with a target username.
+        tuple[UUID, str]: A tuple with User id and password.
     """
     query = """
         SELECT
             User {
-                id, username, password
+                id, password
             }
         FILTER
             .username = <str>$username
     """
 
     try:
-        return User.from_orm(await conn.query_one(query, username=username))
+        user = await conn.query_one(query, username=username)
     except edgedb.NoDataError as exc:
         raise errors.UserNotFound() from exc
+
+    return user.id, user.password

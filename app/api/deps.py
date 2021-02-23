@@ -37,7 +37,7 @@ def token_payload(token: Optional[str] = Depends(reusable_oauth2)) -> TokenPaylo
 async def current_user_id(
     conn: AsyncIOConnection = Depends(db_conn),
     payload: TokenPayload = Depends(token_payload),
-) -> int:
+) -> str:
     if not await crud.user.exists(conn, user_id=payload.sub):
         raise exceptions.UserNotFound()
     return payload.sub

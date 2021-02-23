@@ -26,20 +26,20 @@ async def get_tokens(
 ):
     """Returns new access token for a given credentials."""
     try:
-        user = await crud.user.get_by_username(conn, username=form_data.username)
+        uid, password = await crud.user.get_password(conn, username=form_data.username)
     except errors.UserNotFound as exc:
         raise exceptions.UserNotFound() from exc
 
-    if not security.verify_password(form_data.password, user.password):
+    if not security.verify_password(form_data.password, password):
         raise exceptions.UserNotFound()
 
     return Tokens(
-        access_token=security.create_access_token(user.id)
+        access_token=security.create_access_token(str(uid))
     )
 
 
 @router.put("/tokens", response_model=Tokens)
-async def refresh_token(curr_user_id: int = Depends(deps.current_user_id)):
+async def refresh_token(curr_user_id: str = Depends(deps.current_user_id)):
     """Returns new access token based on current access token."""
     return Tokens(
         access_token=security.create_access_token(curr_user_id)

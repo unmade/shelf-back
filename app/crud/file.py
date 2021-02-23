@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING, Iterable, cast
 
 import edgedb
 
@@ -334,9 +334,9 @@ async def exists(
         "path": str(path),
     }
     if is_dir is not None:
-        params["is_dir"] = is_dir
+        params["is_dir"] = is_dir  # type: ignore
 
-    return await conn.query_one(query, **params)
+    return cast(bool, await conn.query_one(query, **params))
 
 
 async def get(conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath) -> File:
@@ -593,7 +593,7 @@ async def _move_file(
             file_id=str(file_id),
             name=Path(next_path).name,
             path=str(next_path),
-            next_parent=str(Path(next_path.parent)),
+            next_parent=str(Path(next_path).parent),
         )
     )
 
@@ -645,7 +645,7 @@ async def next_path(
              path unchanged
     """
     if not await exists(conn, namespace, path):
-        return path
+        return str(path)
 
     suffix = "".join(Path(path).suffixes)
     path_stem = str(path).rstrip(suffix)

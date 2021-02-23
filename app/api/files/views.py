@@ -117,7 +117,11 @@ async def list_folder(
     except errors.NotADirectory as exc:
         raise exceptions.InvalidPath() from exc  # todo: this should be more informative
 
-    return schemas.ListFolderResult(path=payload.path, items=files, count=len(files))
+    return schemas.ListFolderResult.construct(
+        path=payload.path,
+        items=[schemas.File.from_file(f) for f in files],
+        count=len(files)
+    )
 
 
 @router.post("/move", response_model=schemas.File)
@@ -177,7 +181,11 @@ async def upload_file(
         raise exceptions.InvalidPath()
 
     parents = Path(path).parents
-    return schemas.UploadResult(
-        file=await actions.save_file(db_conn, user.namespace, path, file.file),
-        updates=await crud.file.get_many(db_conn, user.namespace.path, parents),
+
+    upload = await actions.save_file(db_conn, user.namespace, path, file.file)
+    updates = await crud.file.get_many(db_conn, user.namespace.path, parents)
+
+    return schemas.UploadResult.construct(
+        file=schemas.File.from_file(upload),
+        updates=[schemas.File.from_file(f) for f in updates]
     )
