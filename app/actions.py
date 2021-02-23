@@ -183,22 +183,33 @@ async def reconcile(
     names_db = (f.name for f in files_db)
 
     if names := names_storage.difference(names_db):
-        await crud.file.create_batch(
-            conn,
-            namespace.path,
-            path=path,
-            files=[
-                File.construct(  # type: ignore
-                    name=file.name,
-                    path=str(file.path.relative_to(namespace.path)),
-                    size=file.size,
-                    mtime=file.mtime,
-                    is_dir=file.is_dir,
-                )
-                for name in names
-                if (file := files_storage[name])
-            ]
-        )
+        async with conn.transaction():
+            await crud.file.create_batch(
+                conn,
+                namespace.path,
+                path=path,
+                files=[
+                    File.construct(  # type: ignore
+                        name=file.name,
+                        path=str(file.path.relative_to(namespace.path)),
+                        size=file.size if not file.is_dir else 0,
+                        mtime=file.mtime,
+                        is_dir=file.is_dir,
+                    )
+                    for name in names
+                    if (file := files_storage[name])
+                ]
+            )
+            await crud.file.inc_size_batch(
+                conn,
+                namespace.path,
+                paths=[path] + list(path.parents),
+                size=sum(
+                    files_storage[name].size
+                    for name in names
+                    if not files_storage[name].is_dir
+                ),
+            )
 
     subdirs = (f for f in files_storage.values() if f.is_dir)
     for subdir in subdirs:

@@ -159,7 +159,7 @@ async def create(
     }
 
     try:
-        # this is bit hacky, but when file size is zero, there is no need to update
+        # this is a bit hacky, but when file size is zero, there is no need to update
         # parents size and as a result no need for transaction. Also, since transaction
         # can fail on concurrent update, we want to retry it several times, usually
         # this is enough for transaction to pass.
@@ -167,7 +167,7 @@ async def create(
             async for tx in db.retry(conn, wait=0.1):
                 async with tx:
                     file = await conn.query_one(query, **params)
-                    await _inc_size(conn, namespace, path.parents, size)
+                    await inc_size_batch(conn, namespace, path.parents, size)
         else:
             file = await conn.query_one(query, **params)
     except edgedb.ConstraintViolationError as exc:
@@ -291,7 +291,7 @@ async def empty_trash(conn: AsyncIOConnection, namespace: StrOrPath) -> File:
                 .namespace.path = <str>$namespace
         """, namespace=str(namespace), path=TRASH_FOLDER_NAME)
         paths = [".", TRASH_FOLDER_NAME]
-        await _inc_size(conn, str(namespace), paths=paths, size=-trash.size)
+        await inc_size_batch(conn, str(namespace), paths=paths, size=-trash.size)
 
     trash.size = 0
     return trash
@@ -661,7 +661,7 @@ async def next_path(
     return f"{path_stem} ({count + 1}){suffix}"
 
 
-async def _inc_size(
+async def inc_size_batch(
     conn: AsyncIOConnection,
     namespace: StrOrPath,
     paths: Iterable[StrOrPath],
@@ -677,16 +677,13 @@ async def _inc_size(
         size (int): value that will be added to the current file size.
     """
     await conn.query("""
-        # FOR path IN {array_unpack(<array<str>>$paths)}
-        # UNION (
-            UPDATE
-                File
-            FILTER
-                .path IN array_unpack(<array<str>>$paths)
-                AND
-                .namespace.path = <str>$namespace
-            SET {
-                size := .size + <int64>$size
-            }
-        # )
+        UPDATE
+            File
+        FILTER
+            .path IN array_unpack(<array<str>>$paths)
+            AND
+            .namespace.path = <str>$namespace
+        SET {
+            size := .size + <int64>$size
+        }
     """, namespace=str(namespace), paths=[str(p) for p in paths], size=size)
