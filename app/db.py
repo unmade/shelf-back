@@ -83,15 +83,15 @@ class _TryTransaction:
 
 # see discussion: https://github.com/edgedb/edgedb/discussions/1738
 async def retry(
-    conn: AsyncIOConnection, *, wait: int = 0.1, max_attempts: int = 3,
-) -> AsyncGenerator[_TryTransaction]:
+    conn: AsyncIOConnection, *, wait: float = 0.1, max_attempts: int = 3,
+) -> AsyncGenerator[_TryTransaction, None]:
     """
     Start a new transaction, if it fails with `edgedb.TransactionSerializationError`,
     wait for `wait` seconds and start a new one.
 
     Args:
         conn (AsyncIOConnection): Database connection.
-        wait (int, optional): How many seconds to wait before yielding next transaction.
+        wait (float, optional): How many seconds to wait before yield next transaction.
             Defaults to 0.1s.
         max_attempts (int, optional): How many times to try. Defaults to 3.
     """

@@ -54,7 +54,7 @@ async def test_exists(db_conn: AsyncIOConnection):
 
 
 async def test_exists_but_it_is_not(db_conn: AsyncIOConnection):
-    assert not await crud.user.exists(db_conn, user_id=uuid.uuid4())
+    assert not await crud.user.exists(db_conn, user_id=str(uuid.uuid4()))
 
 
 async def test_get_by_id(db_conn: AsyncIOConnection):
@@ -68,17 +68,17 @@ async def test_get_by_id(db_conn: AsyncIOConnection):
 
 async def test_get_by_id_but_it_not_found(db_conn: AsyncIOConnection):
     with pytest.raises(errors.UserNotFound):
-        await crud.user.get_by_id(db_conn, user_id=uuid.uuid4())
+        await crud.user.get_by_id(db_conn, user_id=str(uuid.uuid4()))
 
 
-async def test_get_user_by_username(db_conn: AsyncIOConnection):
+async def test_get_password(db_conn: AsyncIOConnection):
     await crud.user.create(db_conn, "user", "psswd")
-    user = await crud.user.get_by_username(db_conn, username="user")
+    user_id, password = await crud.user.get_password(db_conn, username="user")
 
-    assert user.username == "user"
-    assert user.password
+    assert user_id
+    assert password
 
 
-async def test_get_user_by_username_but_it_not_found(db_conn: AsyncIOConnection):
+async def test_get_password_but_user_not_found(db_conn: AsyncIOConnection):
     with pytest.raises(errors.UserNotFound):
-        await crud.user.get_by_username(db_conn, username="user")
+        await crud.user.get_password(db_conn, username="user")

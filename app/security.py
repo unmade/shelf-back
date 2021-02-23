@@ -66,6 +66,19 @@ def decode_token(token: str) -> TokenPayload:
         raise InvalidToken()
 
 
+def make_password(password: str) -> str:
+    """
+    Creates a hashed password.
+
+    Args:
+        password (str): Password to be hashed.
+
+    Returns:
+        str: Hashed password.
+    """
+    return cast(str, pwd_context.hash(password))
+
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
     Compares a plain-text password to the hashed password.
@@ -78,16 +91,3 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         bool: True if the password match the hash, False otherwise.
     """
     return cast(bool, pwd_context.verify(plain_password, hashed_password))
-
-
-def make_password(password: str) -> str:
-    """
-    Creates a hashed password.
-
-    Args:
-        password (str): Password to be hashed.
-
-    Returns:
-        str: Hashed password.
-    """
-    return cast(str, pwd_context.hash(password))

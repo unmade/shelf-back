@@ -38,7 +38,7 @@ class StorageFile:
         )
 
     def __str__(self) -> str:
-        return self.path
+        return str(self.path)
 
 
 class LocalStorage:
@@ -103,7 +103,7 @@ class LocalStorage:
             paths = [{"fs": str(fullpath), "n": fullpath.name}]
 
         attachment = zipfly.ZipFly(paths=paths)
-        return attachment.generator()
+        return attachment.generator()  # type: ignore
 
     def delete(self, path: StrOrPath) -> None:
         fullpath = self.root_dir / path
