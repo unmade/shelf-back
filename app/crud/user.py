@@ -11,6 +11,7 @@ from app.entities import User
 if TYPE_CHECKING:
     from uuid import UUID
     from edgedb import AsyncIOConnection
+    from app.typedefs import StrOrUUID
 
 
 async def create(conn: AsyncIOConnection, username: str, password: str) -> None:
@@ -57,7 +58,7 @@ async def create(conn: AsyncIOConnection, username: str, password: str) -> None:
         raise errors.UserAlreadyExists(f"Username '{username}' is taken") from exc
 
 
-async def exists(conn: AsyncIOConnection, user_id: str) -> bool:
+async def exists(conn: AsyncIOConnection, user_id: StrOrUUID) -> bool:
     """True if User with a given user_id exists, otherwise False."""
     query = """
         SELECT EXISTS (
@@ -71,13 +72,13 @@ async def exists(conn: AsyncIOConnection, user_id: str) -> bool:
     return cast(bool, await conn.query_one(query, user_id=str(user_id)))
 
 
-async def get_by_id(conn: AsyncIOConnection, user_id: str) -> User:
+async def get_by_id(conn: AsyncIOConnection, user_id: StrOrUUID) -> User:
     """
     Return a User with a Namespace.
 
     Args:
         conn (AsyncIOConnection): Database connection.
-        user_id (str): User ID to search for.
+        user_id (StrOrUUID): User ID to search for.
 
     Raises:
         UserNotFound: If User with a target user_id does not exists.
