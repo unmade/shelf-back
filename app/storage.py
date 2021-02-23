@@ -55,7 +55,7 @@ class LocalStorage:
         except NotADirectoryError as exc:
             raise errors.NotADirectory() from exc
 
-    def save(self, path: StrOrPath, file: IO) -> StorageFile:
+    def save(self, path: StrOrPath, file: IO[bytes]) -> StorageFile:
         fullpath = self.root_dir / path
         with fullpath.open("wb") as buffer:
             shutil.copyfileobj(file, buffer)
@@ -88,7 +88,7 @@ class LocalStorage:
     def move(self, from_path: StrOrPath, to_path: StrOrPath) -> None:
         shutil.move(self.root_dir / from_path, self.root_dir / to_path)
 
-    def download(self, path: StrOrPath) -> Generator:
+    def download(self, path: StrOrPath) -> Generator[bytes, None, None]:
         fullpath = self.root_dir / path
         if fullpath.is_dir():
             paths = [

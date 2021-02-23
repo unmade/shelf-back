@@ -76,6 +76,7 @@ class _TryTransaction:
         return None
 
     async def __aexit__(self, exc_type, exc_value, traceback):
+        assert self.transaction is not None
         if exc_type is not None:
             await self.transaction.rollback()
             if isinstance(exc_value, edgedb.TransactionSerializationError):
