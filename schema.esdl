@@ -3,7 +3,6 @@ type File {
     required property path -> str;
     required property size -> int64;
     required property mtime -> float64;
-    required property is_dir -> bool;
 
     required link mediatype -> MediaType;
     required link namespace -> Namespace;

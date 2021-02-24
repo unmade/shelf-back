@@ -41,7 +41,7 @@ async def create_folder(
     conn: AsyncIOConnection, namespace: Namespace, path: StrOrPath,
 ) -> File:
     """
-    Create folder in a target Namespace.
+    Create folder with any missing parents in a target Namespace.
 
     Args:
         conn (AsyncIOConnection): Database connection.
@@ -190,9 +190,9 @@ async def reconcile(
             File.construct(  # type: ignore
                 name=file.name,
                 path=str(file.path.relative_to(namespace.path)),
-                size=file.size if not file.is_dir else 0,
+                size=0 if file.is_dir else file.size,
                 mtime=file.mtime,
-                is_dir=file.is_dir,
+                mediatype=mediatypes.folder if file.is_dir else mediatypes.octet_stream
             )
             for name in names_storage.difference(names_db)
             if (file := in_storage[name])

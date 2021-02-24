@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Type
 from uuid import UUID
 
 from pydantic import BaseModel
+
+from app import mediatypes
 
 
 class Namespace(BaseModel):
@@ -20,11 +23,22 @@ class File(BaseModel):
     path: str
     size: int
     mtime: float
-    is_dir: bool
-    mediatype: str = "application/octet-stream"
+    mediatype: str
 
-    class Config:
-        orm_mode = True
+    @classmethod
+    def from_db(cls: Type[File], obj) -> File:
+        return cls.construct(
+            id=obj.id,
+            name=obj.name,
+            path=obj.path,
+            size=obj.size,
+            mtime=obj.mtime,
+            mediatype=obj.mediatype.name,
+        )
+
+    def is_folder(self) -> bool:
+        """True if file is a folder, False otherwise"""
+        return self.mediatype == mediatypes.folder
 
 
 class User(BaseModel):

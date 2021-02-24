@@ -212,11 +212,11 @@ async def test_reconcile(db_conn: Connection, user: User, file_factory):
 
     # ensure missing files in the database has been created
     a, b, f = await crud.file.get_many(db_conn, namespace, paths=["a", "b", "b/f.txt"])
-    assert a.is_dir
+    assert a.is_folder()
     assert a.size == 0
-    assert b.is_dir
+    assert b.is_folder()
     assert b.size == len(dummy_text)
-    assert not f.is_dir
+    assert not f.is_folder()
     assert f.size == len(dummy_text)
 
     # ensure stale files has been deleted
