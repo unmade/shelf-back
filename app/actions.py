@@ -163,7 +163,8 @@ async def reconcile(
     conn: AsyncIOConnection, namespace: Namespace, path: StrOrPath,
 ) -> None:
     """
-    Creates files that are missing in the database, but present in the storage.
+    Create files that are missing in the database, but present in the storage and remove
+    files that are present in the database, but missing in the storage.
 
     Args:
         conn (AsyncIOConnection): Database connection.
@@ -180,36 +181,23 @@ async def reconcile(
     files_db = await crud.file.list_folder(conn, namespace.path, path, with_trash=True)
 
     names_storage = set(files_storage.keys())
-    names_db = (f.name for f in files_db)
+    names_db = set(f.name for f in files_db)
 
-    if names := names_storage.difference(names_db):
-        async with conn.transaction():
-            await crud.file.create_batch(
-                conn,
-                namespace.path,
-                path=path,
-                files=[
-                    File.construct(  # type: ignore
-                        name=file.name,
-                        path=str(file.path.relative_to(namespace.path)),
-                        size=file.size if not file.is_dir else 0,
-                        mtime=file.mtime,
-                        is_dir=file.is_dir,
-                    )
-                    for name in names
-                    if (file := files_storage[name])
-                ]
-            )
-            await crud.file.inc_size_batch(
-                conn,
-                namespace.path,
-                paths=[path] + list(path.parents),
-                size=sum(
-                    files_storage[name].size
-                    for name in names
-                    if not files_storage[name].is_dir
-                ),
-            )
+    missing = [
+        File.construct(  # type: ignore
+            name=file.name,
+            path=str(file.path.relative_to(namespace.path)),
+            size=file.size if not file.is_dir else 0,
+            mtime=file.mtime,
+            is_dir=file.is_dir,
+        )
+        for name in names_storage.difference(names_db)
+        if (file := files_storage[name])
+    ]
+    await crud.file.create_batch(conn, namespace.path, path, files=missing)
+
+    stale = names_db.difference(names_storage)
+    await crud.file.delete_batch(conn, namespace.path, path, names=stale)
 
     subdirs = (f for f in files_storage.values() if f.is_dir)
     for subdir in subdirs:
