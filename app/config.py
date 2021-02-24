@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 from datetime import timedelta
 from pathlib import Path
@@ -18,6 +20,8 @@ APP_NAME = os.getenv("APP_NAME", "Shelf")
 APP_DEBUG = _get_bool("APP_DEBUG")
 APP_SECRET_KEY = os.environ["APP_SECRET_KEY"]
 APP_VERSION = os.getenv("APP_VERSION")
+
+BASE_DIR = Path(__file__).absolute().resolve().parent.parent
 
 EDGEDB_DSN = os.environ["EDGEDB_DSN"]
 

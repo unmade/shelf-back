@@ -1,13 +1,13 @@
 from __future__ import annotations
 
+import csv
 import itertools
 from datetime import datetime
 from os.path import join as joinpath
 from pathlib import Path
 from typing import IO, TYPE_CHECKING
 
-from app import crud
-from app.config import TRASH_FOLDER_NAME
+from app import config, crud, mediatypes
 from app.entities import File, Namespace
 from app.storage import storage
 
@@ -30,9 +30,11 @@ async def create_account(conn: AsyncIOConnection, username: str, password: str) 
     """
     async with conn.transaction():
         await crud.user.create(conn, username, password)
-        await crud.file.create(conn, username, TRASH_FOLDER_NAME, is_dir=True)
+        await crud.file.create(
+            conn, username, config.TRASH_FOLDER_NAME, mediatype=mediatypes.folder
+        )
         storage.mkdir(username)
-        storage.mkdir(joinpath(username, TRASH_FOLDER_NAME))
+        storage.mkdir(joinpath(username, config.TRASH_FOLDER_NAME))
 
 
 async def create_folder(
@@ -94,7 +96,7 @@ async def empty_trash(conn: AsyncIOConnection, namespace: Namespace) -> File:
     """
     async with conn.transaction():
         trash = await crud.file.empty_trash(conn, namespace.path)
-        storage.delete_dir_content(namespace.path / TRASH_FOLDER_NAME)
+        storage.delete_dir_content(namespace.path / config.TRASH_FOLDER_NAME)
     return trash
 
 
@@ -150,11 +152,11 @@ async def move_to_trash(
     Returns:
         File: Moved file.
     """
-    next_path = Path(TRASH_FOLDER_NAME) / Path(path).name
+    next_path = Path(config.TRASH_FOLDER_NAME) / Path(path).name
 
     if await crud.file.exists(conn, namespace.path, next_path):
         name = next_path.name.strip(next_path.suffix)
-        timestamp = datetime.now().strftime("%H%M%S%f")
+        timestamp = f"{datetime.now():%H%M%S%f}"
         next_path = next_path.parent / f"{name} {timestamp}{next_path.suffix}"
 
     return await move(conn, namespace, path, next_path)
@@ -240,3 +242,28 @@ async def save_file(
         storage.save(namespace.path / next_path, file)
 
     return file_db
+
+
+async def sync_media_types(conn: AsyncIOConnection) -> None:
+    """
+    Generate media types constants and sync it to database.
+
+    Args:
+        conn (AsyncIOConnection): Database connection.
+    """
+    with open(config.BASE_DIR / "./mediatypes.csv", newline="") as csvfile:
+        reader = csv.DictReader(csvfile)
+        mediatypes = {row["alias"]: row["name"] for row in reader}
+
+    template = "\n".join((
+        f"# auto-generated: {datetime.now():%Y-%m-%d %H:%M:%S}",
+        "# DO NOT change it manually, USE `syncmediatypes` command instead!",
+        "",
+        "\n".join(f'{alias} = "{name}"' for alias, name in mediatypes.items()),
+        "",
+    ))
+
+    with open(config.BASE_DIR / "./app/mediatypes.py", "w") as file:
+        file.write(template)
+
+    await crud.mediatype.create_batch(conn, mediatypes.values())

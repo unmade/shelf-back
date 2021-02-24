@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Iterable, cast
 
 import edgedb
 
-from app import db, errors
+from app import db, errors, mediatypes
 from app.config import TRASH_FOLDER_NAME
 from app.entities import File
 
@@ -64,6 +64,12 @@ async def create_batch(
                 size := <int64>file['size'],
                 mtime := <float64>file['mtime'],
                 is_dir := <bool>file['is_dir'],
+                mediatype := (
+                    SELECT
+                        MediaType
+                    FILTER
+                        .name = <str>file['mediatype']
+                ),
                 parent := parent,
                 namespace := parent.namespace,
             }
@@ -75,12 +81,11 @@ async def create_batch(
         "parent": str(path),
         "files": [file.json() for file in files],
     }
-    size = sum(f.size for f in files)
 
     try:
         # this is a bit hacky, but when file size is zero, there is no need to update
         # parents size and as a result no need to start a transaction.
-        if size:
+        if size := sum(f.size for f in files):
             async with conn.transaction():
                 await conn.query(query, **params)
                 paths = [str(path)] + [str(p) for p in Path(path).parents]
@@ -98,7 +103,8 @@ async def create(
     *,
     size: int = 0,
     mtime: float = None,
-    is_dir: bool = False,
+    mediatype: str = mediatypes.octet_stream,
+    **kwargs,
 ) -> File:
     """
     Create new file.
@@ -111,6 +117,7 @@ async def create(
         path (StrOrPath): Path to a file to create.
         size (int, optional): File size. Defaults to 0.
         mtime (float, optional): Time of last modification. Defaults to current time.
+        mediatype (str, optional): Media type. Defaults to 'application/octet-stream'.
         is_dir (bool, optional): Whether it is a folder or a file. Defaults to False.
 
     Raises:
@@ -154,11 +161,25 @@ async def create(
                 size := <int64>$size,
                 mtime := <float64>$mtime,
                 is_dir := <bool>$is_dir,
+                mediatype := (
+                    SELECT
+                        MediaType
+                    FILTER
+                        .name = <str>$mediatype
+                ),
                 parent := parent,
                 namespace := parent.namespace,
             }
         ) { id, name, path, size, mtime, is_dir }
     """
+
+    # temporary piece of code
+    is_dir = (mediatype == mediatypes.folder)
+    if not is_dir and "is_dir" in kwargs:
+        is_dir = kwargs["is_dir"]
+        print(f"{__name__}: 'is_dir' is deprecated, use 'mediatype' instead.")
+        mediatype == mediatypes.folder
+    # end
 
     params = {
         "name": (namespace / path).name,
@@ -166,6 +187,7 @@ async def create(
         "size": size,
         "mtime": time.time(),
         "is_dir": is_dir,
+        "mediatype": mediatype,
         "namespace": str(namespace),
         "parent": str(path.parent),
     }

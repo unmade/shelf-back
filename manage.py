@@ -18,11 +18,13 @@ def createuser(
         ..., prompt=True, confirmation_prompt=True, hide_input=True,
     ),
 ) -> None:
-    """Creates a new user, namespace, home and trash directories."""
+    """Create a new user with namespace, home and trash directories."""
     async def _createuser(username: str, password: str):
         conn = await edgedb.async_connect(dsn=config.EDGEDB_DSN)
-        await actions.create_account(conn, username, password)
-        await conn.aclose()
+        try:
+            await actions.create_account(conn, username, password)
+        finally:
+            await conn.aclose()
 
     asyncio.run(_createuser(username, password))
     typer.echo("User created successfully.")
@@ -30,12 +32,14 @@ def createuser(
 
 @cli.command()
 def reconcile(namespace: str) -> None:
-    """Reconciles storage and database for all namespaces."""
+    """Reconcile storage and database for all namespaces."""
     async def _reconcile():
         conn = await edgedb.async_connect(dsn=config.EDGEDB_DSN)
-        ns = await crud.namespace.get(conn, namespace)
-        await actions.reconcile(conn, ns, ".")
-        await conn.aclose()
+        try:
+            ns = await crud.namespace.get(conn, namespace)
+            await actions.reconcile(conn, ns, ".")
+        finally:
+            await conn.aclose()
 
     asyncio.run(_reconcile())
 
@@ -45,13 +49,28 @@ def migrate(schema: Path) -> None:
     """Apply target schema to a database."""
     async def run_migration(schema: str) -> None:
         conn = await edgedb.async_connect(dsn=config.EDGEDB_DSN)
-        await db.migrate(conn, schema)
-        await conn.aclose()
+        try:
+            await db.migrate(conn, schema)
+        finally:
+            await conn.aclose()
 
-    with open(schema.resolve(), 'r') as f:
+    with open(schema.expanduser().resolve(), 'r') as f:
         schema_declaration = f.read()
 
     asyncio.run(run_migration(schema_declaration))
+
+
+@cli.command()
+def syncmediatypes() -> None:
+    """Generate media type constants and sync it to database."""
+    async def _syncmediatypes() -> None:
+        conn = await edgedb.async_connect(dsn=config.EDGEDB_DSN)
+        try:
+            await actions.sync_media_types(conn)
+        finally:
+            await conn.aclose()
+
+    asyncio.run(_syncmediatypes())
 
 
 if __name__ == "__main__":

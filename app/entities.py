@@ -21,6 +21,7 @@ class File(BaseModel):
     size: int
     mtime: float
     is_dir: bool
+    mediatype: str = "application/octet-stream"
 
     class Config:
         orm_mode = True

@@ -93,11 +93,20 @@ async def create_test_db() -> None:
 @pytest.fixture(autouse=True, scope="session")
 async def apply_migration(db_pool: AsyncIOPool) -> None:
     """Apply schema to test database."""
-    with open(Path("./schema.esdl").resolve(), "r") as f:
+    with open(config.BASE_DIR / "./schema.esdl", "r") as f:
         schema = f.read()
 
     async with db_pool.acquire() as conn:
         await db.migrate(conn, schema)
+
+
+@pytest.fixture(autouse=True, scope="session")
+async def sync_media_types(apply_migration, db_pool: AsyncIOPool) -> None:
+    """Sync media types to test database."""
+    del apply_migration  # required only to preserve fixtures correct execution order
+
+    async with db_pool.acquire() as conn:
+        await actions.sync_media_types(conn)
 
 
 @pytest.fixture(scope="session")
