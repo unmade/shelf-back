@@ -40,9 +40,9 @@ async def test_create(db_conn: Connection, user: User):
     assert file.name == path.name
     assert file.path == str(path)
     assert file.size == 32
-    assert file.mediatype.name == mediatypes.octet_stream
+    assert file.mediatype.name == mediatypes.OCTET_STREAM
     assert file.parent.path == str(path.parent)
-    assert file.parent.mediatype.name == mediatypes.folder
+    assert file.parent.mediatype.name == mediatypes.FOLDER
     assert file.parent.parent.path == str(path.parent.parent)
     assert file.parent.parent.size == 32
 
@@ -50,7 +50,7 @@ async def test_create(db_conn: Connection, user: User):
 async def test_create_updates_parents_size(db_conn: Connection, user: User):
     path = Path("New Folder/file")
     namespace = user.namespace.path
-    await crud.file.create(db_conn, namespace, path.parent, mediatype=mediatypes.folder)
+    await crud.file.create(db_conn, namespace, path.parent, mediatype=mediatypes.FOLDER)
     await crud.file.create(db_conn, namespace, path, size=32)
 
     parents = await crud.file.get_many(db_conn, namespace, path.parents)
@@ -108,14 +108,14 @@ async def test_create_batch(db_conn: Connection, user: User):
             path="a",
             size=a_size,
             mtime=time.time(),
-            mediatype=mediatypes.folder,
+            mediatype=mediatypes.FOLDER,
         ),
         File.construct(  # type: ignore
             name="f",
             path="f",
             size=f_size,
             mtime=time.time(),
-            mediatype=mediatypes.octet_stream,
+            mediatype=mediatypes.OCTET_STREAM,
         )
     ]
     await crud.file.create_batch(db_conn, user.namespace.path, ".", files=files)
@@ -129,12 +129,12 @@ async def test_create_batch(db_conn: Connection, user: User):
     assert files[0].name == "a"
     assert files[0].size == a_size
     assert files[0].is_folder() is True
-    assert files[0].mediatype == mediatypes.folder
+    assert files[0].mediatype == mediatypes.FOLDER
 
     assert files[1].name == "f"
     assert files[1].size == f_size
     assert files[1].is_folder() is False
-    assert files[1].mediatype == mediatypes.octet_stream
+    assert files[1].mediatype == mediatypes.OCTET_STREAM
 
 
 async def test_create_batch_but_file_already_exists(db_conn: Connection, user: User):
@@ -297,7 +297,7 @@ async def test_exists_but_it_is_not(db_conn: Connection, user: User):
 async def test_delete_file(db_conn: Connection, user: User):
     path = Path("folder/file")
     namespace = user.namespace.path
-    await crud.file.create(db_conn, namespace, path.parent, mediatype=mediatypes.folder)
+    await crud.file.create(db_conn, namespace, path.parent, mediatype=mediatypes.FOLDER)
     await crud.file.create(db_conn, namespace, path, size=8)
 
     # ensure parent size has increased
@@ -320,8 +320,8 @@ async def test_delete_file_but_it_not_exists(db_conn: Connection, user: User):
 
 async def test_delete_non_empty_folder(db_conn: Connection, user: User):
     namespace = user.namespace.path
-    await crud.file.create(db_conn, namespace, "a", mediatype=mediatypes.folder)
-    await crud.file.create(db_conn, namespace, "a/b", mediatype=mediatypes.folder)
+    await crud.file.create(db_conn, namespace, "a", mediatype=mediatypes.FOLDER)
+    await crud.file.create(db_conn, namespace, "a/b", mediatype=mediatypes.FOLDER)
     await crud.file.create(db_conn, namespace, "a/b/c", size=8)
 
     # ensure parent size has increased
@@ -352,9 +352,9 @@ async def test_get_but_file_does_not_exists(db_conn: Connection, user: User):
 
 async def test_get_many(db_conn: Connection, user: User):
     namespace = user.namespace.path
-    await crud.file.create(db_conn, namespace, "a", mediatype=mediatypes.folder)
-    await crud.file.create(db_conn, namespace, "a/b", mediatype=mediatypes.folder)
-    await crud.file.create(db_conn, namespace, "a/c", mediatype=mediatypes.folder)
+    await crud.file.create(db_conn, namespace, "a", mediatype=mediatypes.FOLDER)
+    await crud.file.create(db_conn, namespace, "a/b", mediatype=mediatypes.FOLDER)
+    await crud.file.create(db_conn, namespace, "a/c", mediatype=mediatypes.FOLDER)
     await crud.file.create(db_conn, namespace, "a/f")
 
     paths = ["a", "a/c", "a/f", "a/d"]
@@ -410,7 +410,7 @@ async def test_move(db_conn: Connection, user: User):
     namespace = str(user.namespace.path)
     await crud.file.create_folder(conn, namespace, "a/b/c")
     await crud.file.create(conn, namespace, "a/b/c/f", size=24)
-    await crud.file.create(conn, namespace, "a/g", size=8, mediatype=mediatypes.folder)
+    await crud.file.create(conn, namespace, "a/g", size=8, mediatype=mediatypes.FOLDER)
 
     # move folder 'c' from 'a/b' to 'a/g'
     await crud.file.move(conn, namespace, "a/b/c", "a/g/c")
@@ -444,7 +444,7 @@ async def test_move(db_conn: Connection, user: User):
 
 async def test_move_with_renaming(db_conn: Connection, user: User):
     namespace = user.namespace.path
-    await crud.file.create(db_conn, namespace, "a", mediatype=mediatypes.folder)
+    await crud.file.create(db_conn, namespace, "a", mediatype=mediatypes.FOLDER)
     await crud.file.create(db_conn, namespace, "a/f")
 
     # rename file 'f' to 'f.txt'

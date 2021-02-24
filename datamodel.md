@@ -59,7 +59,7 @@ class File:
     path: str
     size: int
     mtime: float
-    is_dir: bool
+    mediatype: string
 
     parent -> File
     namespace -> Namespace

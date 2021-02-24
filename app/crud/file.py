@@ -24,7 +24,7 @@ async def create(
     *,
     size: int = 0,
     mtime: float = None,
-    mediatype: str = mediatypes.octet_stream,
+    mediatype: str = mediatypes.OCTET_STREAM,
 ) -> File:
     """
     Create new file.
@@ -78,10 +78,16 @@ async def create(
                 size := <int64>$size,
                 mtime := <float64>$mtime,
                 mediatype := (
-                    SELECT
-                        MediaType
-                    FILTER
-                        .name = <str>$mediatype
+                    INSERT MediaType {
+                        name := <str>$mediatype
+                    }
+                    UNLESS CONFLICT ON .name
+                    ELSE (
+                        SELECT
+                            MediaType
+                        FILTER
+                            .name = <str>$mediatype
+                    )
                 ),
                 parent := parent,
                 namespace := parent.namespace,
@@ -164,10 +170,16 @@ async def create_batch(
                 size := <int64>file['size'],
                 mtime := <float64>file['mtime'],
                 mediatype := (
-                    SELECT
-                        MediaType
-                    FILTER
-                        .name = <str>file['mediatype']
+                    INSERT MediaType {
+                        name := <str>file['mediatype']
+                    }
+                    UNLESS CONFLICT ON .name
+                    ELSE (
+                        SELECT
+                            MediaType
+                        FILTER
+                            .name = <str>file['mediatype']
+                    )
                 ),
                 parent := parent,
                 namespace := parent.namespace,
@@ -226,7 +238,7 @@ async def create_folder(
 
     for p in to_create:
         try:
-            await create(conn, namespace, p, mediatype=mediatypes.folder)
+            await create(conn, namespace, p, mediatype=mediatypes.FOLDER)
         except (errors.FileAlreadyExists, errors.MissingParent):
             pass
 
@@ -504,7 +516,7 @@ async def list_folder(
                         }}
                     {filter_clause}
                     ORDER BY
-                        (.mediatype.name = '{mediatypes.folder}') DESC
+                        (.mediatype.name = '{mediatypes.FOLDER}') DESC
                     THEN
                         .path ASC
             )
@@ -520,7 +532,7 @@ async def list_folder(
     except edgedb.NoDataError as exc:
         raise errors.FileNotFound() from exc
 
-    if not parent.mediatype.name == mediatypes.folder:
+    if not parent.mediatype.name == mediatypes.FOLDER:
         raise errors.NotADirectory()
 
     return [File.from_db(child) for child in parent.children]

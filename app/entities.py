@@ -38,7 +38,7 @@ class File(BaseModel):
 
     def is_folder(self) -> bool:
         """True if file is a folder, False otherwise"""
-        return self.mediatype == mediatypes.folder
+        return self.mediatype == mediatypes.FOLDER
 
 
 class User(BaseModel):
