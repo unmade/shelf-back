@@ -17,84 +17,6 @@ if TYPE_CHECKING:
     from app.typedefs import StrOrPath
 
 
-async def create_batch(
-    conn: AsyncIOConnection,
-    namespace: StrOrPath,
-    path: StrOrPath,
-    files: list[File],
-) -> None:
-    """
-    Create files in a given path and updates parents size accordingly.
-
-    Args:
-        conn (AsyncIOConnection): Database connection.
-        namespace (StrOrPath): Namespace where files will be created.
-        path (StrOrPath): Path to a folder where files will be created.
-        files (list[File]): List of files to create. All files must have 'path'
-            as a parent.
-
-    Raises:
-        errors.FileAlreadyExists: If some file already exists.
-        errors.FileNotFound: If path to a folder does not exists.
-        errors.NotADirectory: If path to a folder is not a directory.
-    """
-    if not files:
-        return
-
-    parent = await get(conn, namespace, path)
-    if not parent.is_folder():
-        raise errors.NotADirectory
-
-    query = """
-        WITH
-            parent := (
-                SELECT
-                    File
-                FILTER
-                    .path = <str>$parent
-                    AND
-                    .namespace.path = <str>$namespace
-                LIMIT 1
-            )
-        FOR file IN {array_unpack(<array<json>>$files)}
-        UNION (
-            INSERT File {
-                name := <str>file['name'],
-                path := <str>file['path'],
-                size := <int64>file['size'],
-                mtime := <float64>file['mtime'],
-                mediatype := (
-                    SELECT
-                        MediaType
-                    FILTER
-                        .name = <str>file['mediatype']
-                ),
-                parent := parent,
-                namespace := parent.namespace,
-            }
-        )
-    """
-
-    params = {
-        "namespace": str(namespace),
-        "parent": str(path),
-        "files": [file.json() for file in files],
-    }
-
-    try:
-        # this is a bit hacky, but when file size is zero, there is no need to update
-        # parents size and as a result no need to start a transaction.
-        if size := sum(f.size for f in files):
-            async with conn.transaction():
-                await conn.query(query, **params)
-                paths = [str(path)] + [str(p) for p in Path(path).parents]
-                await inc_size_batch(conn, namespace, paths, size)
-        else:
-            await conn.query(query, **params)
-    except edgedb.ConstraintViolationError as exc:
-        raise errors.FileAlreadyExists() from exc
-
-
 async def create(
     conn: AsyncIOConnection,
     namespace: StrOrPath,
@@ -193,6 +115,84 @@ async def create(
         raise errors.FileAlreadyExists() from exc
 
     return File.from_db(file)
+
+
+async def create_batch(
+    conn: AsyncIOConnection,
+    namespace: StrOrPath,
+    path: StrOrPath,
+    files: list[File],
+) -> None:
+    """
+    Create files in a given path and updates parents size accordingly.
+
+    Args:
+        conn (AsyncIOConnection): Database connection.
+        namespace (StrOrPath): Namespace where files will be created.
+        path (StrOrPath): Path to a folder where files will be created.
+        files (list[File]): List of files to create. All files must have 'path'
+            as a parent.
+
+    Raises:
+        errors.FileAlreadyExists: If some file already exists.
+        errors.FileNotFound: If path to a folder does not exists.
+        errors.NotADirectory: If path to a folder is not a directory.
+    """
+    if not files:
+        return
+
+    parent = await get(conn, namespace, path)
+    if not parent.is_folder():
+        raise errors.NotADirectory
+
+    query = """
+        WITH
+            parent := (
+                SELECT
+                    File
+                FILTER
+                    .path = <str>$parent
+                    AND
+                    .namespace.path = <str>$namespace
+                LIMIT 1
+            )
+        FOR file IN {array_unpack(<array<json>>$files)}
+        UNION (
+            INSERT File {
+                name := <str>file['name'],
+                path := <str>file['path'],
+                size := <int64>file['size'],
+                mtime := <float64>file['mtime'],
+                mediatype := (
+                    SELECT
+                        MediaType
+                    FILTER
+                        .name = <str>file['mediatype']
+                ),
+                parent := parent,
+                namespace := parent.namespace,
+            }
+        )
+    """
+
+    params = {
+        "namespace": str(namespace),
+        "parent": str(path),
+        "files": [file.json() for file in files],
+    }
+
+    try:
+        # this is a bit hacky, but when file size is zero, there is no need to update
+        # parents size and as a result no need to start a transaction.
+        if size := sum(f.size for f in files):
+            async with conn.transaction():
+                await conn.query(query, **params)
+                paths = [str(path)] + [str(p) for p in Path(path).parents]
+                await inc_size_batch(conn, namespace, paths, size)
+        else:
+            await conn.query(query, **params)
+    except edgedb.ConstraintViolationError as exc:
+        raise errors.FileAlreadyExists() from exc
 
 
 async def create_folder(
