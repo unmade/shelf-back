@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import shutil
+from os.path import join
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Generator, Iterator, Type, TypeVar
 
@@ -120,6 +121,16 @@ class LocalStorage:
                     shutil.rmtree(entry.path)
                 else:
                     os.unlink(entry.path)
+
+    def walk(
+        self, path: StrOrPath
+    ) -> Iterator[tuple[Path, Iterator[StorageFile], Iterator[StorageFile]]]:
+        for root, dirs, files in os.walk(self.root_dir / path):
+            yield (
+                Path(root).relative_to(self.root_dir),
+                (StorageFile.from_path(join(root, d), self.root_dir) for d in dirs),
+                (StorageFile.from_path(join(root, f), self.root_dir) for f in files),
+            )
 
 
 storage = LocalStorage(config.STATIC_DIR)
