@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 from datetime import datetime
 from os.path import join as joinpath
 from pathlib import Path
@@ -175,33 +176,29 @@ async def reconcile(
         errors.FileNotFound: If path to a folder does not exists.
         errors.NotADirectory: If path to a folder is not a directory.
     """
-    path = Path(path)
+    for root, dirs, files in storage.walk(namespace.path / path):
+        root = root.relative_to(namespace.path)
+        in_storage = {f.name: f for f in itertools.chain(dirs, files)}
+        in_db = await crud.file.list_folder(conn, namespace.path, root, with_trash=True)
 
-    files_storage = {f.name: f for f in storage.iterdir(namespace.path / path)}
-    files_db = await crud.file.list_folder(conn, namespace.path, path, with_trash=True)
+        names_storage = set(in_storage.keys())
+        names_db = set(f.name for f in in_db)
 
-    names_storage = set(files_storage.keys())
-    names_db = set(f.name for f in files_db)
+        missing = [
+            File.construct(  # type: ignore
+                name=file.name,
+                path=str(file.path.relative_to(namespace.path)),
+                size=file.size if not file.is_dir else 0,
+                mtime=file.mtime,
+                is_dir=file.is_dir,
+            )
+            for name in names_storage.difference(names_db)
+            if (file := in_storage[name])
+        ]
+        await crud.file.create_batch(conn, namespace.path, root, files=missing)
 
-    missing = [
-        File.construct(  # type: ignore
-            name=file.name,
-            path=str(file.path.relative_to(namespace.path)),
-            size=file.size if not file.is_dir else 0,
-            mtime=file.mtime,
-            is_dir=file.is_dir,
-        )
-        for name in names_storage.difference(names_db)
-        if (file := files_storage[name])
-    ]
-    await crud.file.create_batch(conn, namespace.path, path, files=missing)
-
-    stale = names_db.difference(names_storage)
-    await crud.file.delete_batch(conn, namespace.path, path, names=stale)
-
-    subdirs = (f for f in files_storage.values() if f.is_dir)
-    for subdir in subdirs:
-        await reconcile(conn, namespace, subdir.path.relative_to(namespace.path))
+        stale = names_db.difference(names_storage)
+        await crud.file.delete_batch(conn, namespace.path, root, names=stale)
 
 
 async def save_file(
