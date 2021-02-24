@@ -8,7 +8,7 @@ aiofiles==0.6.0
     # via -r requirements/base.in
 bcrypt==3.2.0
     # via -r requirements/base.in
-cashews==2.10.0
+cashews==2.10.1
     # via -r requirements/base.in
 cffi==1.14.5
     # via
@@ -42,7 +42,7 @@ python-jose[cryptography]==3.2.0
     # via -r requirements/base.in
 python-multipart==0.0.5
     # via -r requirements/base.in
-rsa==4.7.1
+rsa==4.7.2
     # via python-jose
 six==1.15.0
     # via
@@ -56,7 +56,7 @@ typer==0.3.2
     # via -r requirements/base.in
 typing-extensions==3.7.4.3
     # via edgedb
-uvicorn==0.13.3
+uvicorn==0.13.4
     # via -r requirements/base.in
 zipfly==6.0.3
     # via -r requirements/base.in

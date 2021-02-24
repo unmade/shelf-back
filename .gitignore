@@ -11,4 +11,5 @@ coverage.*
 test-reports
 
 *.db
-app/media
+
+app/mediatypes.py

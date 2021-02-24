@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, cast
 
 import edgedb
 
-from app import errors, security
+from app import errors, mediatypes, security
 from app.entities import User
 
 if TYPE_CHECKING:
@@ -33,6 +33,12 @@ async def create(conn: AsyncIOConnection, username: str, password: str) -> None:
             size := 0,
             mtime := <float64>$mtime,
             is_dir := True,
+            mediatype := (
+                SELECT
+                    MediaType
+                FILTER
+                    .name = <str>$mediatype
+            ),
             namespace := (
                 INSERT Namespace {
                     path := <str>$username,
@@ -53,6 +59,7 @@ async def create(conn: AsyncIOConnection, username: str, password: str) -> None:
             username=username,
             password=security.make_password(password),
             mtime=time.time(),
+            mediatype=mediatypes.folder,
         )
     except edgedb.ConstraintViolationError as exc:
         raise errors.UserAlreadyExists(f"Username '{username}' is taken") from exc
