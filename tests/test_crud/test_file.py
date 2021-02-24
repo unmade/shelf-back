@@ -18,33 +18,37 @@ pytestmark = [pytest.mark.asyncio]
 
 
 async def test_create_batch(db_conn: Connection, user: User):
+    a_size, f_size = 32, 16
     files = [
         File.construct(  # type: ignore
             name="a",
             path="a",
-            size=32,
+            size=a_size,
             mtime=time.time(),
             is_dir=True,
         ),
         File.construct(  # type: ignore
             name="f",
             path="f",
-            size=16,
+            size=f_size,
             mtime=time.time(),
             is_dir=False,
         )
     ]
     await crud.file.create_batch(db_conn, user.namespace.path, ".", files=files)
 
+    home = await crud.file.get(db_conn, user.namespace.path, ".")
+    assert home.size == a_size + f_size
+
     files = await crud.file.list_folder(db_conn, user.namespace.path, ".")
     assert len(files) == 2
 
     assert files[0].name == "a"
-    assert files[0].size == 32
+    assert files[0].size == a_size
     assert files[0].is_dir is True
 
     assert files[1].name == "f"
-    assert files[1].size == 16
+    assert files[1].size == f_size
     assert files[1].is_dir is False
 
 
@@ -55,15 +59,26 @@ async def test_create_batch_but_file_already_exists(db_conn: Connection, user: U
         await crud.file.create_batch(db_conn, user.namespace.path, ".", files=[file])
 
 
+async def test_create_batch_but_no_files_given():
+    # pass dummy connection, to check that method exists earlier with empty files
+    conn = object()
+    result = await crud.file.create_batch(conn, "namespace", ".", files=[])
+    assert result is None
+
+
 async def test_create_batch_but_parent_not_exists(db_conn: Connection, user: User):
+    file = File.construct()  # type: ignore
+
     with pytest.raises(errors.FileNotFound):
-        await crud.file.create_batch(db_conn, user.namespace.path, "a", files=[])
+        await crud.file.create_batch(db_conn, user.namespace.path, "a", files=[file])
 
 
 async def test_create_batch_but_parent_not_a_folder(db_conn: Connection, user: User):
+    file = File.construct()  # type: ignore
     await crud.file.create(db_conn, user.namespace.path, "f")
+
     with pytest.raises(errors.NotADirectory):
-        await crud.file.create_batch(db_conn, user.namespace.path, "f", files=[])
+        await crud.file.create_batch(db_conn, user.namespace.path, "f", files=[file])
 
 
 async def test_create(db_conn: Connection, user: User):
@@ -523,3 +538,10 @@ async def test_inc_size_batch(db_conn: Connection, user: User):
     assert a.size == 16
     assert b.size == 0
     assert c.size == 16
+
+
+async def test_inc_size_batch_but_size_is_zero():
+    # pass dummy connection, to check that method exists earlier with empty files
+    conn = object()
+    result = await crud.file.inc_size_batch(conn, "namespace", paths=["a/b"], size=0)
+    assert result is None

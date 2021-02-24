@@ -24,9 +24,7 @@ async def create_batch(
     files: list[File],
 ) -> None:
     """
-    Create files in a given path.
-
-    Note, unlike 'create' this will not update parents size.
+    Create files in a given path and updates parents size accordingly.
 
     Args:
         conn (AsyncIOConnection): Database connection.
@@ -40,6 +38,9 @@ async def create_batch(
         errors.FileNotFound: If path to a folder does not exists.
         errors.NotADirectory: If path to a folder is not a directory.
     """
+    if not files:
+        return
+
     parent = await get(conn, namespace, path)
     if not parent.is_dir:
         raise errors.NotADirectory
@@ -68,13 +69,24 @@ async def create_batch(
             }
         )
     """
+
+    params = {
+        "namespace": str(namespace),
+        "parent": str(path),
+        "files": [file.json() for file in files],
+    }
+    size = sum(f.size for f in files)
+
     try:
-        await conn.query(
-            query,
-            namespace=str(namespace),
-            parent=str(path),
-            files=[file.json() for file in files],
-        )
+        # this is a bit hacky, but when file size is zero, there is no need to update
+        # parents size and as a result no need to start a transaction.
+        if size:
+            async with conn.transaction():
+                await conn.query(query, **params)
+                paths = [str(path)] + [str(p) for p in Path(path).parents]
+                await inc_size_batch(conn, namespace, paths, size)
+        else:
+            await conn.query(query, **params)
     except edgedb.ConstraintViolationError as exc:
         raise errors.FileAlreadyExists() from exc
 
@@ -160,9 +172,9 @@ async def create(
 
     try:
         # this is a bit hacky, but when file size is zero, there is no need to update
-        # parents size and as a result no need for transaction. Also, since transaction
-        # can fail on concurrent update, we want to retry it several times, usually
-        # this is enough for transaction to pass.
+        # parents size and as a result no need to start a transaction. Also, since
+        # transaction can fail on concurrent update, we want to retry it several times,
+        # usually this is enough for transaction to pass.
         if size:
             async for tx in db.retry(conn, wait=0.1):
                 async with tx:
@@ -267,6 +279,51 @@ async def delete(
     )
 
     return file
+
+
+async def delete_batch(
+    conn: AsyncIOConnection,
+    namespace: StrOrPath,
+    path: StrOrPath,
+    names: Iterable[str],
+) -> None:
+    """
+    Delete all file with target name in specified path and updates parents size.
+
+    Args:
+        conn (AsyncIOConnection): Database connection.
+        namespace (StrOrPath): Namespace where to delete files.
+        path (StrOrPath): Path where to delete files.
+        names (Iterable[str]): File names to delete.
+    """
+    if not names:
+        return
+
+    query = """
+        WITH
+            Parent := File,
+        UPDATE
+            Parent
+        FILTER
+            .namespace.path = <str>$namespace
+            AND
+            .path IN array_unpack(<array<str>>$parents)
+        SET {
+            size := .size - sum((
+                DELETE
+                    File
+                FILTER
+                    .namespace.path = <str>$namespace
+                    AND
+                    .name IN array_unpack(<array<str>>$names)
+            ).size)
+        }
+    """
+
+    path = Path(path)
+    parents = [str(path)] + [str(p) for p in path.parents]
+    names = list(names)
+    await conn.query(query, namespace=str(namespace), parents=parents, names=names)
 
 
 async def empty_trash(conn: AsyncIOConnection, namespace: StrOrPath) -> File:
@@ -676,6 +733,9 @@ async def inc_size_batch(
         paths (Iterable[StrOrPath]): List of path which size will be incremented.
         size (int): value that will be added to the current file size.
     """
+    if not size:
+        return
+
     await conn.query("""
         UPDATE
             File

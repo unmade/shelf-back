@@ -188,25 +188,44 @@ async def test_move_to_trash_autorename(db_conn: Connection, user: User, file_fa
     assert await crud.file.exists(db_conn, namespace, f"{file.path}/f1")
 
 
-async def test_reconcile(db_conn: Connection, user: User):
-    file = BytesIO(b"Dummy file")
-    storage.mkdir(user.namespace.path / "a")
-    storage.mkdir(user.namespace.path / "b")
-    storage.save(user.namespace.path / "b/f.txt", file)
+async def test_reconcile(db_conn: Connection, user: User, file_factory):
+    namespace = user.namespace.path
+    dummy_text = b"Dummy file"
+
+    # these files exist in the storage, but not in the database
+    storage.mkdir(namespace / "a")
+    storage.mkdir(namespace / "b")
+    storage.save(namespace / "b/f.txt", file=BytesIO(dummy_text))
+
+    # these files exist in the database, but not in the storage
+    await crud.file.create_folder(db_conn, namespace, "c/d")
+    await crud.file.create(db_conn, namespace, "c/d/f.txt", size=32)
+
+    # these files exist both in the storage and in the database
+    file = await file_factory(user.id, path="e/g/f.txt")
 
     await actions.reconcile(db_conn, user.namespace, ".")
 
-    a = await crud.file.get(db_conn, user.namespace.path, "a")
+    # ensure home size is correct
+    home = await crud.file.get(db_conn, namespace, ".")
+    assert home.size == file.size + len(dummy_text)
+
+    # ensure missing files in the database has been created
+    a, b, f = await crud.file.get_many(db_conn, namespace, paths=["a", "b", "b/f.txt"])
     assert a.is_dir
     assert a.size == 0
-
-    b = await crud.file.get(db_conn, user.namespace.path, "b")
     assert b.is_dir
-    assert b.size == 10
-
-    f = await crud.file.get(db_conn, user.namespace.path, "b/f.txt")
+    assert b.size == len(dummy_text)
     assert not f.is_dir
-    assert f.size == 10
+    assert f.size == len(dummy_text)
+
+    # ensure stale files has been deleted
+    assert not await crud.file.exists(db_conn, namespace, "c")
+    assert not await crud.file.exists(db_conn, namespace, "c/d")
+    assert not await crud.file.exists(db_conn, namespace, "c/d/f.txt")
+
+    # ensure correct files remain the same
+    assert await crud.file.exists(db_conn, namespace, "e/g/f.txt")
 
 
 @pytest.mark.parametrize("path", ["f.txt", "a/b/f.txt"])

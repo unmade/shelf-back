@@ -156,8 +156,7 @@ def file_factory(db_conn: AsyncIOConnection):
         path = Path(path or fake.file_name(category="text", extension="txt"))
         file = BytesIO(b"I'm Dummy File!")
         user = await crud.user.get_by_id(db_conn, user_id=user_id)
-        await actions.save_file(db_conn, user.namespace, path, file)
-        return await crud.file.get(db_conn, user.namespace.path, path)
+        return await actions.save_file(db_conn, user.namespace, path, file)
     return _file_factory
 
 
