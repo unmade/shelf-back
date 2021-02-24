@@ -285,18 +285,9 @@ async def test_empty_trash_but_its_already_empty(db_conn: Connection, user: User
     assert files == []
 
 
-@pytest.mark.parametrize(["mediatype", "is_dir", "exists"], [
-    (mediatypes.folder, None, True),
-    (mediatypes.octet_stream, None, True),
-    (mediatypes.folder, True, True),
-    (mediatypes.folder, False, False),
-    (mediatypes.octet_stream, True, False),
-    (mediatypes.octet_stream, False, True),
-])
-async def test_exists(db_conn: Connection, user: User, mediatype, is_dir, exists):
-    namespace = user.namespace.path
-    await crud.file.create(db_conn, namespace, "file", mediatype=mediatype)
-    assert await crud.file.exists(db_conn, namespace, "file", is_dir=is_dir) is exists
+async def test_exists(db_conn: Connection, user: User):
+    await crud.file.create(db_conn, user.namespace.path, "file")
+    assert await crud.file.exists(db_conn, user.namespace.path, "file")
 
 
 async def test_exists_but_it_is_not(db_conn: Connection, user: User):

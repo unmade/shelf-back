@@ -1,4 +1,4 @@
-# auto-generated: 2021-02-25 00:33:44
+# auto-generated: 2021-02-25 00:46:30
 # DO NOT change it manually, USE `syncmediatypes` command instead!
 
 folder = "application/directory"
