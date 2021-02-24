@@ -365,8 +365,6 @@ async def exists(
     conn: AsyncIOConnection,
     namespace: StrOrPath,
     path: StrOrPath,
-    *,
-    is_dir: bool = None,
 ) -> bool:
     """
     Check whether a file or a folder exists in a target path.
@@ -375,18 +373,11 @@ async def exists(
         conn (AsyncIOConnection): Database connection.
         namespace (StrOrPath): Namespace where to look for a path.
         path (StrOrPath): Path to a file or a folder.
-        is_dir (bool, optional): If True, will check only if folder exists, otherwise
-            will check for a file. If None (default) will check for both.
 
     Returns:
         bool: True if file/folder exists, False otherwise.
     """
-    filter_clause = ""
-    if is_dir is not None:
-        op = "=" if is_dir else "!="
-        filter_clause = f"AND .mediatype.name {op} <str>$mediatype"
-
-    query = f"""
+    query = """
         SELECT EXISTS (
             SELECT
                 File
@@ -394,18 +385,13 @@ async def exists(
                 .path = <str>$path
                 AND
                 .namespace.path = <str>$namespace
-                {filter_clause}
         )
     """
 
-    params = {
-        "namespace": str(namespace),
-        "path": str(path),
-    }
-    if filter_clause:
-        params["mediatype"] = mediatypes.folder
-
-    return cast(bool, await conn.query_one(query, **params))
+    return cast(
+        bool,
+        await conn.query_one(query, namespace=str(namespace), path=str(path)),
+    )
 
 
 async def get(conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath) -> File:

@@ -226,7 +226,7 @@ async def save_file(
     """
     path = Path(path)
 
-    if not await crud.file.exists(conn, namespace.path, path.parent, is_dir=True):
+    if not await crud.file.exists(conn, namespace.path, path.parent):
         await create_folder(conn, namespace, path.parent)
 
     next_path = await crud.file.next_path(conn, namespace.path, path)
