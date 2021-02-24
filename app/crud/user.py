@@ -32,7 +32,6 @@ async def create(conn: AsyncIOConnection, username: str, password: str) -> None:
             path := '.',
             size := 0,
             mtime := <float64>$mtime,
-            is_dir := True,
             mediatype := (
                 SELECT
                     MediaType

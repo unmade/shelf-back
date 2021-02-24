@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, root_validator, validator
 
+from app import mediatypes
 from app.config import TRASH_FOLDER_NAME
 
 from .exceptions import InvalidPath
@@ -36,8 +37,9 @@ class File(BaseModel):
     path: str
     size: int
     mtime: float
-    is_dir: bool
-    hidden: bool = None  # type: ignore
+    mediatype: str
+    is_dir: bool = False
+    hidden: bool = False
 
     @classmethod
     def from_file(cls: Type[T], file: FileEntity) -> T:
@@ -47,9 +49,14 @@ class File(BaseModel):
             path=file.path,
             size=file.size,
             mtime=file.mtime,
-            is_dir=file.is_dir,
+            mediatype=file.mediatype,
+            is_dir=file.mediatype == mediatypes.folder,
             hidden=file.name.startswith(".") or file.name == TRASH_FOLDER_NAME
         )
+
+    @validator("is_dir", always=True)
+    def set_is_dir(cls, value, values, config, field):
+        return values["mediatype"] == mediatypes.folder
 
     @validator("hidden", always=True)
     def is_hidden(cls, value, values, config, field):

@@ -42,7 +42,7 @@ async def create_batch(
         return
 
     parent = await get(conn, namespace, path)
-    if not parent.is_dir:
+    if not parent.is_folder():
         raise errors.NotADirectory
 
     query = """
@@ -63,7 +63,6 @@ async def create_batch(
                 path := <str>file['path'],
                 size := <int64>file['size'],
                 mtime := <float64>file['mtime'],
-                is_dir := <bool>file['is_dir'],
                 mediatype := (
                     SELECT
                         MediaType
@@ -104,7 +103,6 @@ async def create(
     size: int = 0,
     mtime: float = None,
     mediatype: str = mediatypes.octet_stream,
-    **kwargs,
 ) -> File:
     """
     Create new file.
@@ -118,7 +116,6 @@ async def create(
         size (int, optional): File size. Defaults to 0.
         mtime (float, optional): Time of last modification. Defaults to current time.
         mediatype (str, optional): Media type. Defaults to 'application/octet-stream'.
-        is_dir (bool, optional): Whether it is a folder or a file. Defaults to False.
 
     Raises:
         FileAlreadyExists: If file in a target path already exists.
@@ -137,7 +134,7 @@ async def create(
     except errors.FileNotFound as exc:
         raise errors.MissingParent() from exc
     else:
-        if not parent.is_dir:
+        if not parent.is_folder():
             raise errors.NotADirectory
 
     query = """
@@ -150,8 +147,6 @@ async def create(
                     .path = <str>$parent
                     AND
                     .namespace.path = <str>$namespace
-                    AND
-                    .is_dir = true
                 LIMIT 1
             )
         SELECT (
@@ -160,7 +155,6 @@ async def create(
                 path := <str>$path,
                 size := <int64>$size,
                 mtime := <float64>$mtime,
-                is_dir := <bool>$is_dir,
                 mediatype := (
                     SELECT
                         MediaType
@@ -170,23 +164,14 @@ async def create(
                 parent := parent,
                 namespace := parent.namespace,
             }
-        ) { id, name, path, size, mtime, is_dir }
+        ) { id, name, path, size, mtime, mediatype: { name } }
     """
-
-    # temporary piece of code
-    is_dir = (mediatype == mediatypes.folder)
-    if not is_dir and "is_dir" in kwargs:
-        is_dir = kwargs["is_dir"]
-        print(f"{__name__}: 'is_dir' is deprecated, use 'mediatype' instead.")
-        mediatype == mediatypes.folder
-    # end
 
     params = {
         "name": (namespace / path).name,
         "path": str(path),
         "size": size,
         "mtime": time.time(),
-        "is_dir": is_dir,
         "mediatype": mediatype,
         "namespace": str(namespace),
         "parent": str(path.parent),
@@ -207,7 +192,7 @@ async def create(
     except edgedb.ConstraintViolationError as exc:
         raise errors.FileAlreadyExists() from exc
 
-    return File.from_orm(file)
+    return File.from_db(file)
 
 
 async def create_folder(
@@ -232,7 +217,7 @@ async def create_folder(
     parents = await get_many(conn, namespace, paths)
     assert len(parents) > 0, f"No home folder in a namespace: '{namespace}'"
 
-    if any(not p.is_dir for p in parents):
+    if any(not p.is_folder() for p in parents):
         raise errors.NotADirectory()
     if str(parents[-1].path) == str(path):
         raise errors.FileAlreadyExists()
@@ -241,7 +226,7 @@ async def create_folder(
 
     for p in to_create:
         try:
-            await create(conn, namespace, p, is_dir=True)
+            await create(conn, namespace, p, mediatype=mediatypes.folder)
         except (errors.FileAlreadyExists, errors.MissingParent):
             pass
 
@@ -396,6 +381,11 @@ async def exists(
     Returns:
         bool: True if file/folder exists, False otherwise.
     """
+    filter_clause = ""
+    if is_dir is not None:
+        op = "=" if is_dir else "!="
+        filter_clause = f"AND .mediatype.name {op} <str>$mediatype"
+
     query = f"""
         SELECT EXISTS (
             SELECT
@@ -404,7 +394,7 @@ async def exists(
                 .path = <str>$path
                 AND
                 .namespace.path = <str>$namespace
-                {"AND .is_dir = <bool>$is_dir" if is_dir is not None else ""}
+                {filter_clause}
         )
     """
 
@@ -412,8 +402,8 @@ async def exists(
         "namespace": str(namespace),
         "path": str(path),
     }
-    if is_dir is not None:
-        params["is_dir"] = is_dir  # type: ignore
+    if filter_clause:
+        params["mediatype"] = mediatypes.folder
 
     return cast(bool, await conn.query_one(query, **params))
 
@@ -436,7 +426,7 @@ async def get(conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath) ->
     query = """
         SELECT
             File {
-                id, name, path, size, mtime, is_dir
+                id, name, path, size, mtime, mediatype: { name }
             }
         FILTER
             .path = <str>$path
@@ -444,7 +434,7 @@ async def get(conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath) ->
             .namespace.path = <str>$namespace
     """
     try:
-        return File.from_orm(
+        return File.from_db(
             await conn.query_one(query, namespace=str(namespace), path=str(path))
         )
     except edgedb.NoDataError as exc:
@@ -470,7 +460,7 @@ async def get_many(
     query = """
         SELECT
             File {
-                id, name, path, size, mtime, is_dir
+                id, name, path, size, mtime, mediatype: { name },
             }
         FILTER
             .path IN {array_unpack(<array<str>>$paths)}
@@ -485,7 +475,7 @@ async def get_many(
         paths=[str(p) for p in paths]
     )
 
-    return [File.from_orm(f) for f in files]
+    return [File.from_db(f) for f in files]
 
 
 async def list_folder(
@@ -516,17 +506,21 @@ async def list_folder(
     filter_clause = ""
     if not with_trash and str(path) == ".":
         filter_clause = "FILTER .path != 'Trash'"
+
     query = f"""
         SELECT
             File {{
-                is_dir,
+                mediatype: {{ name }},
                 children := (
                     SELECT
                         .<parent[IS File] {{
-                            id, name, path, size, mtime, is_dir
+                            id, name, path, size, mtime, mediatype: {{ name }},
                         }}
                     {filter_clause}
-                    ORDER BY .is_dir DESC THEN .path ASC
+                    ORDER BY
+                        (.mediatype.name = '{mediatypes.folder}') DESC
+                    THEN
+                        .path ASC
             )
         }}
         FILTER
@@ -540,10 +534,10 @@ async def list_folder(
     except edgedb.NoDataError as exc:
         raise errors.FileNotFound() from exc
 
-    if not parent.is_dir:
+    if not parent.mediatype.name == mediatypes.folder:
         raise errors.NotADirectory()
 
-    return [File.from_orm(child) for child in parent.children]
+    return [File.from_db(child) for child in parent.children]
 
 
 async def move(
@@ -571,10 +565,10 @@ async def move(
     Returns:
         File: Moved file.
     """
-    assert path not in (".", TRASH_FOLDER_NAME), "Can't move Home or Trash folder."
-    assert not str(next_path).startswith(str(path)), "Can't move to itself."
-
     path = Path(path)
+    assert str(path) not in (".", TRASH_FOLDER_NAME), "Can't move Home or Trash folder."
+    assert not str(next_path).startswith(f"{path}/"), "Can't move to itself."
+
     next_path = Path(next_path)
 
     # this call also ensures path exists
@@ -585,7 +579,7 @@ async def move(
     except errors.FileNotFound as exc:
         raise errors.MissingParent() from exc
     else:
-        if not next_parent.is_dir:
+        if not next_parent.is_folder():
             raise errors.NotADirectory()
 
     if await exists(conn, namespace, next_path):
@@ -611,7 +605,7 @@ async def move(
 
     async with conn.transaction():
         file = await _move_file(conn, target.id, next_path)
-        if target.is_dir:
+        if target.is_folder():
             await _move_folder_content(conn, namespace, path, next_path)
 
         await conn.query(
@@ -664,9 +658,9 @@ async def _move_file(
                     LIMIT 1
                 )
             }
-        ) { id, name, path, size, mtime, is_dir }
+        ) { id, name, path, size, mtime, mediatype: { name } }
     """
-    return File.from_orm(
+    return File.from_db(
         await conn.query_one(
             query,
             file_id=str(file_id),
