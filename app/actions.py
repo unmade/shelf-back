@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import csv
 import itertools
 from datetime import datetime
 from os.path import join as joinpath
@@ -31,7 +30,7 @@ async def create_account(conn: AsyncIOConnection, username: str, password: str) 
     async with conn.transaction():
         await crud.user.create(conn, username, password)
         await crud.file.create(
-            conn, username, config.TRASH_FOLDER_NAME, mediatype=mediatypes.folder
+            conn, username, config.TRASH_FOLDER_NAME, mediatype=mediatypes.FOLDER
         )
         storage.mkdir(username)
         storage.mkdir(joinpath(username, config.TRASH_FOLDER_NAME))
@@ -192,7 +191,7 @@ async def reconcile(
                 path=str(file.path.relative_to(namespace.path)),
                 size=0 if file.is_dir else file.size,
                 mtime=file.mtime,
-                mediatype=mediatypes.folder if file.is_dir else mediatypes.octet_stream
+                mediatype=mediatypes.FOLDER if file.is_dir else mediatypes.OCTET_STREAM
             )
             for name in names_storage.difference(names_db)
             if (file := in_storage[name])
@@ -242,28 +241,3 @@ async def save_file(
         storage.save(namespace.path / next_path, file)
 
     return file_db
-
-
-async def sync_media_types(conn: AsyncIOConnection) -> None:
-    """
-    Generate media types constants and sync it to database.
-
-    Args:
-        conn (AsyncIOConnection): Database connection.
-    """
-    with open(config.BASE_DIR / "./mediatypes.csv", newline="") as csvfile:
-        reader = csv.DictReader(csvfile)
-        mediatypes = {row["alias"]: row["name"] for row in reader}
-
-    template = "\n".join((
-        f"# auto-generated: {datetime.now():%Y-%m-%d %H:%M:%S}",
-        "# DO NOT change it manually, USE `syncmediatypes` command instead!",
-        "",
-        "\n".join(f'{alias} = "{name}"' for alias, name in mediatypes.items()),
-        "",
-    ))
-
-    with open(config.BASE_DIR / "./app/mediatypes.py", "w") as file:
-        file.write(template)
-
-    await crud.mediatype.create_batch(conn, mediatypes.values())

@@ -60,18 +60,5 @@ def migrate(schema: Path) -> None:
     asyncio.run(run_migration(schema_declaration))
 
 
-@cli.command()
-def syncmediatypes() -> None:
-    """Generate media type constants and sync it to database."""
-    async def _syncmediatypes() -> None:
-        conn = await edgedb.async_connect(dsn=config.EDGEDB_DSN)
-        try:
-            await actions.sync_media_types(conn)
-        finally:
-            await conn.aclose()
-
-    asyncio.run(_syncmediatypes())
-
-
 if __name__ == "__main__":
     cli()

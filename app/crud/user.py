@@ -33,10 +33,16 @@ async def create(conn: AsyncIOConnection, username: str, password: str) -> None:
             size := 0,
             mtime := <float64>$mtime,
             mediatype := (
-                SELECT
-                    MediaType
-                FILTER
-                    .name = <str>$mediatype
+                INSERT MediaType {
+                    name := <str>$mediatype
+                }
+                UNLESS CONFLICT ON .name
+                ELSE (
+                    SELECT
+                        MediaType
+                    FILTER
+                        .name = <str>$mediatype
+                )
             ),
             namespace := (
                 INSERT Namespace {
@@ -58,7 +64,7 @@ async def create(conn: AsyncIOConnection, username: str, password: str) -> None:
             username=username,
             password=security.make_password(password),
             mtime=time.time(),
-            mediatype=mediatypes.folder,
+            mediatype=mediatypes.FOLDER,
         )
     except edgedb.ConstraintViolationError as exc:
         raise errors.UserAlreadyExists(f"Username '{username}' is taken") from exc
