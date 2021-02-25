@@ -3,6 +3,7 @@ bcrypt
 cashews
 edgedb
 fastapi
+filetype
 passlib
 python-jose[cryptography]
 python-multipart

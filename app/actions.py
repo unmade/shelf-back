@@ -191,7 +191,9 @@ async def reconcile(
                 path=str(file.path.relative_to(namespace.path)),
                 size=0 if file.is_dir else file.size,
                 mtime=file.mtime,
-                mediatype=mediatypes.FOLDER if file.is_dir else mediatypes.OCTET_STREAM
+                mediatype=(
+                    mediatypes.FOLDER if file.is_dir else mediatypes.guess(file.name)
+                ),
             )
             for name in names_storage.difference(names_db)
             if (file := in_storage[name])
@@ -230,14 +232,17 @@ async def save_file(
 
     next_path = await crud.file.next_path(conn, namespace.path, path)
 
+    size = file.seek(0, 2)
+    file.seek(0)
+
     async with conn.transaction():
         file_db = await crud.file.create(
             conn,
             namespace.path,
             next_path,
-            size=file.seek(0, 2),
+            size=size,
+            mediatype=mediatypes.guess(next_path, file)
         )
-        file.seek(0)
         storage.save(namespace.path / next_path, file)
 
     return file_db
