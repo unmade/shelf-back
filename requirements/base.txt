@@ -26,6 +26,8 @@ edgedb==0.12.0
     # via -r requirements/base.in
 fastapi==0.63.0
     # via -r requirements/base.in
+filetype==1.0.7
+    # via -r requirements/base.in
 h11==0.12.0
     # via uvicorn
 passlib==1.7.4
