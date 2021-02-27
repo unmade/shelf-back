@@ -8,7 +8,8 @@ import edgedb
 from app import config
 
 if TYPE_CHECKING:
-    from edgedb import AsyncIOPool, AsyncIOConnection, AsyncIOTransaction
+    from edgedb import AsyncIOPool, AsyncIOConnection
+    from edgedb.legacy_transaction import AsyncIOTransaction
 
 
 _pool: Optional[AsyncIOPool] = None
