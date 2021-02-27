@@ -176,6 +176,7 @@ async def test_create_folder(db_conn: Connection, user: User):
             .path IN array_unpack(<array<str>>$paths)
             AND
             .namespace.path = <str>$namespace
+        ORDER BY .path ASC
     """
 
     paths = [str(path)] + [str(p) for p in path.parents]

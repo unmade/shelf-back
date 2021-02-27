@@ -6,6 +6,10 @@ class FileNotFound(Exception):
     pass
 
 
+class IsADirectory(Exception):
+    pass
+
+
 class MissingParent(Exception):
     pass
 
@@ -15,6 +19,10 @@ class NamespaceNotFound(Exception):
 
 
 class NotADirectory(Exception):
+    pass
+
+
+class ThumbnailUnavailable(Exception):
     pass
 
 

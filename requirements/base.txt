@@ -22,7 +22,7 @@ cryptography==3.4.6
     # via python-jose
 ecdsa==0.14.1
     # via python-jose
-edgedb==0.12.0
+edgedb==0.13.0
     # via -r requirements/base.in
 fastapi==0.63.0
     # via -r requirements/base.in
@@ -32,13 +32,15 @@ h11==0.12.0
     # via uvicorn
 passlib==1.7.4
     # via -r requirements/base.in
+pillow-simd==7.0.0.post3
+    # via -r requirements/base.in
 pyasn1==0.4.8
     # via
     #   python-jose
     #   rsa
 pycparser==2.20
     # via cffi
-pydantic==1.7.3
+pydantic==1.8
     # via fastapi
 python-jose[cryptography]==3.2.0
     # via -r requirements/base.in
@@ -57,7 +59,9 @@ starlette==0.13.6
 typer==0.3.2
     # via -r requirements/base.in
 typing-extensions==3.7.4.3
-    # via edgedb
+    # via
+    #   edgedb
+    #   pydantic
 uvicorn==0.13.4
     # via -r requirements/base.in
 zipfly==6.0.3

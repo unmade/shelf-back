@@ -1,3 +1,5 @@
+import pytest
+
 from app import mediatypes
 
 
@@ -16,3 +18,13 @@ def test_guess_based_on_file_content_with_fallback_to_filename():
 
 def test_guess_but_filename_does_not_have_suffix():
     assert mediatypes.guess("f") == mediatypes.OCTET_STREAM
+
+
+@pytest.mark.parametrize(["mediatype", "image"], [
+    ("image/jpeg", True),
+    ("image/png", True),
+    ("image/x-icon", True),
+    ("image/svg", False),
+])
+def test_is_image(mediatype, image):
+    assert mediatypes.is_image(mediatype) is image

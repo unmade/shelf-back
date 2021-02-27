@@ -38,7 +38,7 @@ def guess(name: StrOrPath, file: Optional[Union[bytes, IO[bytes]]] = None) -> st
     """
     Guess file media type.
 
-    If optional ``file`` argument is provided, then try to guess media type checking
+    If optional ``file`` argument is provided, then try to guess media type by checking
     the magic number signature, otherwise fallback to the filename extension.
 
     Args:
@@ -58,3 +58,8 @@ def guess(name: StrOrPath, file: Optional[Union[bytes, IO[bytes]]] = None) -> st
             return mime[0]
 
     return OCTET_STREAM
+
+
+def is_image(mediatype: str) -> bool:
+    """True if mediatype corresponds to an image file, otherwise False."""
+    return mediatype in ("image/jpeg", "image/png", "image/x-icon")

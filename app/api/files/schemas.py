@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Type, TypeVar
+from enum import Enum
+from typing import TYPE_CHECKING, Type
 from uuid import UUID
 
 from pydantic import BaseModel, root_validator, validator
 
+from app import mediatypes
 from app.config import TRASH_FOLDER_NAME
 
 from .exceptions import InvalidPath
@@ -12,7 +14,26 @@ from .exceptions import InvalidPath
 if TYPE_CHECKING:
     from app.entities import File as FileEntity
 
-T = TypeVar("T", bound="File")
+
+class ThumbnailSize(str, Enum):
+    xs = "xs"
+    sm = "sm"
+    md = "md"
+    lg = "lg"
+    xl = "xl"
+
+    def asint(self) -> int:
+        """Return integer representation for a size."""
+        return _THUMBNAIL_SIZES[self.name]  # type: ignore
+
+
+_THUMBNAIL_SIZES = {
+    ThumbnailSize.xs: 64,
+    ThumbnailSize.sm: 128,
+    ThumbnailSize.md: 258,
+    ThumbnailSize.lg: 512,
+    ThumbnailSize.xl: 1024,
+}
 
 
 def _normalize(path: str) -> str:
@@ -38,9 +59,10 @@ class File(BaseModel):
     mtime: float
     mediatype: str
     hidden: bool = False
+    has_thumbnail: bool = False
 
     @classmethod
-    def from_file(cls: Type[T], file: FileEntity) -> T:
+    def from_file(cls: Type[File], file: FileEntity) -> File:
         return cls.construct(
             id=file.id,
             name=file.name,
@@ -48,12 +70,18 @@ class File(BaseModel):
             size=file.size,
             mtime=file.mtime,
             mediatype=file.mediatype,
-            hidden=file.name.startswith(".") or file.name == TRASH_FOLDER_NAME
+            hidden=file.is_hidden(),
         )
 
     @validator("hidden", always=True)
     def is_hidden(cls, value, values, config, field):
         return values["name"].startswith(".") or values["name"] == TRASH_FOLDER_NAME
+
+    @validator("has_thumbnail")
+    def set_has_thumbnail(cls, value, values, config, field):
+        if mediatypes.is_image(values["mediatype"]):
+            return True
+        return False
 
 
 class ListFolderResult(BaseModel):

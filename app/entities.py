@@ -37,8 +37,12 @@ class File(BaseModel):
         )
 
     def is_folder(self) -> bool:
-        """True if file is a folder, False otherwise"""
+        """True if file is a folder, otherwise False"""
         return self.mediatype == mediatypes.FOLDER
+
+    def is_hidden(self) -> bool:
+        """True if file name startswith '.', othewise False"""
+        return self.name.startswith(".")
 
 
 class User(BaseModel):

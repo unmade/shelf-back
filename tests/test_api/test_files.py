@@ -129,6 +129,42 @@ async def test_get_download_url_but_file_not_found(client: TestClient, user: Use
     payload = {"path": "wrong/path"}
     response = await client.login(user.id).post("/files/get_download_url", json=payload)
     assert response.json() == PathNotFound().as_dict()
+    assert response.status_code == 404
+
+
+async def test_get_thumbnail(client: TestClient, user: User, image_factory):
+    file = await image_factory(user.id, path="im.jpeg")
+    payload = {"path": file.path}
+    client.login(user.id)
+    response = await client.post("/files/get_thumbnail?size=xs", json=payload)
+    assert response.headers["Content-Disposition"] == f'inline; filename="{file.name}"'
+    assert int(response.headers["Content-Length"]) < file.size
+    assert response.headers["Content-Type"] == "image/jpeg"
+    assert response.content
+
+
+async def test_get_thumbnail_but_path_not_found(client: TestClient, user: User):
+    client.login(user.id)
+    payload = {"path": "im.jpeg"}
+    response = await client.post("/files/get_thumbnail?size=sm", json=payload)
+    assert response.json() == PathNotFound().as_dict()
+
+
+async def test_get_thumbnail_but_path_is_a_folder(client: TestClient, user: User):
+    client.login(user.id)
+    payload = {"path": "."}
+    response = await client.post("/files/get_thumbnail?size=sm", json=payload)
+    assert response.json() == InvalidPath().as_dict()
+
+
+async def test_get_thumbnail_but_file_is_not_thumbnailable(
+    client: TestClient, user: User, file_factory,
+):
+    file = await file_factory(user.id)
+    client.login(user.id)
+    payload = {"path": file.path}
+    response = await client.post("/files/get_thumbnail?size=sm", json=payload)
+    assert response.json() == InvalidPath().as_dict()
 
 
 async def test_list_folder(client: TestClient, user: User, file_factory):

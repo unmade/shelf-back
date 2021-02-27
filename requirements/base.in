@@ -5,6 +5,7 @@ edgedb
 fastapi
 filetype
 passlib
+pillow-simd
 python-jose[cryptography]
 python-multipart
 typer

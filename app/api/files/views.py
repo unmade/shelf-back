@@ -99,6 +99,30 @@ async def get_download_url(
     return {"download_url": f"{request.base_url}files/download?key={key}"}
 
 
+@router.post("/get_thumbnail")
+async def get_thumbnail(
+    payload: schemas.PathRequest,
+    size: schemas.ThumbnailSize = schemas.ThumbnailSize.xs,
+    conn: AsyncIOConnection = Depends(deps.db_conn),
+    user: User = Depends(deps.current_user),
+):
+    """Generate thumbnail for an image file."""
+    path = payload.path
+    try:
+        file, disksize, thumbnail = (
+            await actions.get_thumbnail(conn, user.namespace, path, size=size.asint())
+        )
+    except errors.FileNotFound as exc:
+        raise exceptions.PathNotFound() from exc
+    except (errors.IsADirectory, errors.ThumbnailUnavailable) as exc:
+        raise exceptions.InvalidPath() from exc
+    headers = {
+        "Content-Disposition": f'inline; filename="{file.name}"',
+        "Content-Length": str(disksize),
+    }
+    return StreamingResponse(thumbnail, headers=headers, media_type=file.mediatype)
+
+
 @router.post("/list_folder", response_model=schemas.ListFolderResult)
 async def list_folder(
     payload: schemas.PathRequest,
