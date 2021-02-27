@@ -146,8 +146,12 @@ async def test_create_batch_but_file_already_exists(db_conn: Connection, user: U
 
 async def test_create_batch_but_no_files_given():
     # pass dummy connection, to check that method exists earlier with empty files
-    conn = object()
-    result = await crud.file.create_batch(conn, "namespace", ".", files=[])
+    result = await crud.file.create_batch(
+        object(),  # type: ignore
+        "namespace",
+        ".",
+        files=[],
+    )
     assert result is None
 
 
@@ -545,6 +549,10 @@ async def test_inc_size_batch(db_conn: Connection, user: User):
 
 async def test_inc_size_batch_but_size_is_zero():
     # pass dummy connection, to check that method exists earlier with empty files
-    conn = object()
-    result = await crud.file.inc_size_batch(conn, "namespace", paths=["a/b"], size=0)
+    result = await crud.file.inc_size_batch(
+        object(),  # type: ignore
+        "namespace",
+        paths=["a/b"],
+        size=0,
+    )
     assert result is None
