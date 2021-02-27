@@ -173,7 +173,7 @@ async def create_batch(
                     INSERT MediaType {
                         name := <str>file['mediatype']
                     }
-                    UNLESS CONFLICT ON .name
+                    UNLESS CONFLICT ON MediaType.name
                     ELSE (
                         SELECT
                             MediaType

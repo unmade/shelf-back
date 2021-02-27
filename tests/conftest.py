@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import IO, TYPE_CHECKING, Union
 from unittest import mock
 from urllib.parse import urlsplit, urlunsplit
 
@@ -11,6 +11,7 @@ import edgedb
 import pytest
 from faker import Faker
 from httpx import AsyncClient
+from PIL import Image
 
 from app import actions, config, crud, db, security
 from app.main import create_app
@@ -18,8 +19,8 @@ from app.main import create_app
 if TYPE_CHECKING:
     from uuid import UUID
     from edgedb import AsyncIOConnection, AsyncIOPool
-    from app.entities import User
-    from app.typedefs import StrOrPath
+    from app.entities import File, User
+    from app.typedefs import StrOrPath, StrOrUUID
 
 fake = Faker()
 
@@ -152,12 +153,33 @@ async def db_conn_factory(apply_migration, db_pool: AsyncIOPool):
 @pytest.fixture
 def file_factory(db_conn: AsyncIOConnection):
     """Create dummy file, put it in a storage and save to database."""
-    async def _file_factory(user_id: str, path: StrOrPath = None):
+    async def _file_factory(
+        user_id: StrOrUUID,
+        path: StrOrPath = None,
+        content: Union[bytes, IO[bytes]] = b"I'm Dummy File!",
+    ) -> File:
         path = Path(path or fake.file_name(category="text", extension="txt"))
-        file = BytesIO(b"I'm Dummy File!")
+        if isinstance(content, bytes):
+            file = BytesIO(content)
+        else:
+            file = content  # type: ignore
         user = await crud.user.get_by_id(db_conn, user_id=user_id)
         return await actions.save_file(db_conn, user.namespace, path, file)
     return _file_factory
+
+
+@pytest.fixture
+def image_factory(file_factory):
+    """Create dummy JPEG image file."""
+    async def _image_factory(user_id: StrOrUUID, path: StrOrPath = None):
+        path = Path(path or fake.file_name(category="image", extension="jpg"))
+        buffer = BytesIO()
+        with Image.new("RGB", (256, 256)) as im:
+            im.save(buffer, "JPEG")
+        buffer.seek(0)
+        return await file_factory(user_id, path, content=buffer)
+
+    return _image_factory
 
 
 @pytest.fixture

@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import os
 import shutil
+from io import BytesIO
 from os.path import join
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Generator, Iterator, Type, TypeVar
 
 import zipfly
+from PIL import Image, UnidentifiedImageError
 
 from app import config, errors
 
@@ -132,6 +134,23 @@ class LocalStorage:
                 (StorageFile.from_path(join(root, d), self.root_dir) for d in dirs),
                 (StorageFile.from_path(join(root, f), self.root_dir) for f in files),
             )
+
+    def thumbnail(self, path: StrOrPath, size: int) -> tuple[int, IO[bytes]]:
+        buffer = BytesIO()
+        try:
+            with Image.open(self.root_dir / path) as im:
+                im.thumbnail((size, size))
+                im.save(buffer, im.format)
+        except IsADirectoryError as exc:
+            raise errors.IsADirectory(f"Path '{path}' is a directory") from exc
+        except UnidentifiedImageError as exc:
+            msg = f"Can't generate thumbnail for a file: '{path}'"
+            raise errors.ThumbnailUnavailable(msg) from exc
+
+        size = buffer.seek(0, 2)
+        buffer.seek(0)
+
+        return size, buffer
 
 
 storage = LocalStorage(config.STATIC_DIR)

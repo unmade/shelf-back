@@ -9,6 +9,15 @@ from pydantic import BaseModel, ValidationError
 
 from app import config
 
+__all__ = [
+    "InvalidToken",
+    "TokenPayload",
+    "create_access_token",
+    "decode_token",
+    "make_password",
+    "verify_password",
+]
+
 ALGORITHM = "HS256"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -24,7 +33,7 @@ class TokenPayload(BaseModel):
 
 def create_access_token(subject: str, expires_in: timedelta = None) -> str:
     """
-    Creates new access token with a given subject.
+    Create new access token with a given subject.
 
     Args:
         subject (Any): Identifies the subject of the JWT.
@@ -68,7 +77,7 @@ def decode_token(token: str) -> TokenPayload:
 
 def make_password(password: str) -> str:
     """
-    Creates a hashed password.
+    Create a hashed password.
 
     Args:
         password (str): Password to be hashed.
@@ -81,7 +90,7 @@ def make_password(password: str) -> str:
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
-    Compares a plain-text password to the hashed password.
+    Compare a plain-text password to the hashed password.
 
     Args:
         plain_password (str): The plain-text password to check.

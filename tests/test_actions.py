@@ -136,6 +136,35 @@ async def test_empty_trash_but_its_already_empty(db_conn: Connection, user: User
     assert trash.size == 0
 
 
+async def test_get_thumbnail(db_conn: Connection, user: User, image_factory):
+    file = await image_factory(user.id)
+
+    filecache, disksize, thumbnail = (
+        await actions.get_thumbnail(db_conn, user.namespace, file.path, size=64)
+    )
+    assert filecache == file
+    assert disksize < file.size
+    assert isinstance(thumbnail, BytesIO)
+
+
+async def test_get_thumbnail_but_file_not_found(db_conn: Connection, user: User):
+    with pytest.raises(errors.FileNotFound):
+        await actions.get_thumbnail(db_conn, user.namespace, "im.jpg", size=24)
+
+
+async def test_get_thumbnail_but_file_is_a_folder(db_conn: Connection, user: User):
+    with pytest.raises(errors.IsADirectory):
+        await actions.get_thumbnail(db_conn, user.namespace, ".", size=64)
+
+
+async def test_get_thumbnail_but_file_is_a_text_file(
+    db_conn: Connection, user: User, file_factory
+):
+    file = await file_factory(user.id)
+    with pytest.raises(errors.ThumbnailUnavailable):
+        await actions.get_thumbnail(db_conn, user.namespace, file.path, size=64)
+
+
 async def test_move(db_conn: Connection, user: User, file_factory):
     await file_factory(user.id, path="a/b/f1")
 

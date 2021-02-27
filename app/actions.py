@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import functools
 import itertools
 from datetime import datetime
 from os.path import join as joinpath
@@ -97,6 +99,34 @@ async def empty_trash(conn: AsyncIOConnection, namespace: Namespace) -> File:
         trash = await crud.file.empty_trash(conn, namespace.path)
         storage.delete_dir_content(namespace.path / config.TRASH_FOLDER_NAME)
     return trash
+
+
+async def get_thumbnail(
+    conn: AsyncIOConnection, namespace: Namespace, path: StrOrPath, *, size: int,
+) -> tuple[File, int, IO[bytes]]:
+    """
+    Generate in-memory thumbnail with preserved aspect ratio.
+
+    Args:
+        conn (AsyncIOConnection): Database connection.
+        namespace (Namespace): Namespace where a file is located.
+        path (StrOrPath): Path to a file.
+        size (int): Thumbnail dimension.
+
+    Raises:
+        FileNotFound: If file with this path does not exists.
+        IsADirectory: If file is a directory.
+        ThumbnailUnavailable: If file is not an image.
+
+    Returns:
+        tuple[File, int, IO[bytes]]: Tuple of file, thumbnail disk size and thumbnail.
+    """
+    file = await crud.file.get(conn, namespace.path, path)
+    loop = asyncio.get_running_loop()
+    func = functools.partial(storage.thumbnail, path=namespace.path / path, size=size)
+    thumbsize, thumbnail = await loop.run_in_executor(None, func)
+
+    return file, thumbsize, thumbnail
 
 
 async def move(
