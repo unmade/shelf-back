@@ -8,16 +8,15 @@ from app import errors
 from app.entities import Namespace
 
 if TYPE_CHECKING:
-    from edgedb import AsyncIOConnection
-    from app.typedefs import StrOrPath
+    from app.typedefs import DBAnyConn, StrOrPath
 
 
-async def get(conn: AsyncIOConnection, path: StrOrPath) -> Namespace:
+async def get(conn: DBAnyConn, path: StrOrPath) -> Namespace:
     """
     Returns namespace with a target path.
 
     Args:
-        conn (AsyncIOConnection): Database connection.
+        conn (DBAnyConn): Database connection.
         path (StrOrPath): Namespace path.
 
     Raises:

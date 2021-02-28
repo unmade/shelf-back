@@ -7,18 +7,17 @@ from typing import TYPE_CHECKING, Iterable, cast
 
 import edgedb
 
-from app import db, errors, mediatypes
+from app import errors, mediatypes
 from app.config import TRASH_FOLDER_NAME
 from app.entities import File
 
 if TYPE_CHECKING:
     from uuid import UUID
-    from edgedb import AsyncIOConnection
-    from app.typedefs import StrOrPath
+    from app.typedefs import DBAnyConn, StrOrPath
 
 
 async def create(
-    conn: AsyncIOConnection,
+    conn: DBAnyConn,
     namespace: StrOrPath,
     path: StrOrPath,
     *,
@@ -32,7 +31,7 @@ async def create(
     If the file size is greater than zero, then size of all parents updated accordingly.
 
     Args:
-        conn (AsyncIOConnection): Connection to a database.
+        conn (DBAnyConn): Connection to a database.
         namespace (StrOrPath): Namespace path where a file should be created.
         path (StrOrPath): Path to a file to create.
         size (int, optional): File size. Defaults to 0.
@@ -106,34 +105,24 @@ async def create(
     }
 
     try:
-        # this is a bit hacky, but when file size is zero, there is no need to update
-        # parents size and as a result no need to start a transaction. Also, since
-        # transaction can fail on concurrent update, we want to retry it several times,
-        # usually this is enough for transaction to pass.
-        if size:
-            async for tx in db.retry(conn, wait=0.1):
-                async with tx:
-                    file = await conn.query_one(query, **params)
-                    await inc_size_batch(conn, namespace, path.parents, size)
-        else:
-            file = await conn.query_one(query, **params)
+        file = await conn.query_one(query, **params)
     except edgedb.ConstraintViolationError as exc:
         raise errors.FileAlreadyExists() from exc
+
+    if size:
+        await inc_size_batch(conn, namespace, path.parents, size)
 
     return File.from_db(file)
 
 
 async def create_batch(
-    conn: AsyncIOConnection,
-    namespace: StrOrPath,
-    path: StrOrPath,
-    files: list[File],
+    conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath, files: list[File],
 ) -> None:
     """
     Create files in a given path and updates parents size accordingly.
 
     Args:
-        conn (AsyncIOConnection): Database connection.
+        conn (DBAnyConn): Database connection.
         namespace (StrOrPath): Namespace where files will be created.
         path (StrOrPath): Path to a folder where files will be created.
         files (list[File]): List of files to create. All files must have 'path'
@@ -194,29 +183,23 @@ async def create_batch(
     }
 
     try:
-        # this is a bit hacky, but when file size is zero, there is no need to update
-        # parents size and as a result no need to start a transaction.
-        if size := sum(f.size for f in files):
-            async with conn.transaction():
-                await conn.query(query, **params)
-                paths = [str(path)] + [str(p) for p in Path(path).parents]
-                await inc_size_batch(conn, namespace, paths, size)
-        else:
-            await conn.query(query, **params)
+        await conn.query(query, **params)
     except edgedb.ConstraintViolationError as exc:
         raise errors.FileAlreadyExists() from exc
 
+    if size := sum(f.size for f in files):
+        paths = [str(path)] + [str(p) for p in Path(path).parents]
+        await inc_size_batch(conn, namespace, paths, size)
 
-async def create_folder(
-    conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath,
-) -> None:
+
+async def create_folder(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> None:
     """
     Create a folder with any missing parents of the target path.
 
     If target path already exists, do nothing.
 
     Args:
-        conn (AsyncIOConnection): Database connection.
+        conn (DBAnyConn): Database connection.
         namespace (StrOrPath): Namespace where to create folder to.
         path (StrOrPath): Path in the namespace to create the folder.
 
@@ -243,15 +226,13 @@ async def create_folder(
             pass
 
 
-async def delete(
-    conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath,
-) -> File:
+async def delete(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> File:
     """
     Permanently delete file or a folder with all of its contents and decrease size
     of the parents accordingly.
 
     Args:
-        conn (AsyncIOConnection): Database connection.
+        conn (DBAnyConn): Database connection.
         namespace (StrOrPath): Namespace where to delete a file.
         path (StrOrPath): Path to a file.
 
@@ -301,16 +282,13 @@ async def delete(
 
 
 async def delete_batch(
-    conn: AsyncIOConnection,
-    namespace: StrOrPath,
-    path: StrOrPath,
-    names: Iterable[str],
+    conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath, names: Iterable[str],
 ) -> None:
     """
     Delete all file with target name in specified path and updates parents size.
 
     Args:
-        conn (AsyncIOConnection): Database connection.
+        conn (DBAnyConn): Database connection.
         namespace (StrOrPath): Namespace where to delete files.
         path (StrOrPath): Path where to delete files.
         names (Iterable[str]): File names to delete.
@@ -345,44 +323,39 @@ async def delete_batch(
     await conn.query(query, namespace=str(namespace), parents=parents, names=names)
 
 
-async def empty_trash(conn: AsyncIOConnection, namespace: StrOrPath) -> File:
+async def empty_trash(conn: DBAnyConn, namespace: StrOrPath) -> File:
     """
     Delete all files and folders in the Trash.
 
     Args:
-        conn (AsyncIOConnection): Database connection.
+        conn (DBAnyConn): Database connection.
         namespace (StrOrPath): Namespace where to empty the Trash folder.
 
     Returns:
         File: Trash folder.
     """
     trash = await get(conn, namespace, TRASH_FOLDER_NAME)
-    async with conn.transaction():
-        await conn.query("""
-            DELETE
-                File
-            FILTER
-                .path LIKE <str>$path ++ '/%'
-                AND
-                .namespace.path = <str>$namespace
-        """, namespace=str(namespace), path=TRASH_FOLDER_NAME)
-        paths = [".", TRASH_FOLDER_NAME]
-        await inc_size_batch(conn, str(namespace), paths=paths, size=-trash.size)
+    await conn.query("""
+        DELETE
+            File
+        FILTER
+            .path LIKE <str>$path ++ '/%'
+            AND
+            .namespace.path = <str>$namespace
+    """, namespace=str(namespace), path=TRASH_FOLDER_NAME)
+    paths = [".", TRASH_FOLDER_NAME]
+    await inc_size_batch(conn, str(namespace), paths=paths, size=-trash.size)
 
     trash.size = 0
     return trash
 
 
-async def exists(
-    conn: AsyncIOConnection,
-    namespace: StrOrPath,
-    path: StrOrPath,
-) -> bool:
+async def exists(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> bool:
     """
     Check whether a file or a folder exists in a target path.
 
     Args:
-        conn (AsyncIOConnection): Database connection.
+        conn (DBAnyConn): Database connection.
         namespace (StrOrPath): Namespace where to look for a path.
         path (StrOrPath): Path to a file or a folder.
 
@@ -406,12 +379,12 @@ async def exists(
     )
 
 
-async def get(conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath) -> File:
+async def get(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> File:
     """
     Return file with a target path.
 
     Args:
-        conn (AsyncIOConnection): Database connection.
+        conn (DBAnyConn): Database connection.
         namespace (StrOrPath): Namespace where to look for a file.
         path (StrOrPath): Path to a file.
 
@@ -440,15 +413,13 @@ async def get(conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath) ->
 
 
 async def get_many(
-    conn: AsyncIOConnection,
-    namespace: StrOrPath,
-    paths: Iterable[StrOrPath],
+    conn: DBAnyConn, namespace: StrOrPath, paths: Iterable[StrOrPath],
 ) -> list[File]:
     """
     Return all files with target paths.
 
     Args:
-        conn (AsyncIOConnection): Database connection.
+        conn (DBAnyConn): Database connection.
         namespace (StrOrPath): Namespace where files are located.
         paths (Iterable[StrOrPath]): Iterable of paths to look for.
 
@@ -477,7 +448,7 @@ async def get_many(
 
 
 async def list_folder(
-    conn: AsyncIOConnection,
+    conn: DBAnyConn,
     namespace: StrOrPath,
     path: StrOrPath,
     *,
@@ -489,7 +460,7 @@ async def list_folder(
     To list home folder, use '.'.
 
     Args:
-        conn (AsyncIOConnection): Database connection.
+        conn (DBAnyConn): Database connection.
         namespace (StrOrPath): Namespace where a folder located.
         path (StrOrPath): Path to a folder in this namespace.
         with_trash (bool, optional): Whether to include Trash folder. Defaults to False.
@@ -539,7 +510,7 @@ async def list_folder(
 
 
 async def move(
-    conn: AsyncIOConnection,
+    conn: DBAnyConn,
     namespace: StrOrPath,
     path: StrOrPath,
     next_path: StrOrPath,
@@ -549,7 +520,7 @@ async def move(
     If the source path is a folder all its contents will be moved.
 
     Args:
-        conn (AsyncIOConnection): Database connection.
+        conn (DBAnyConn): Database connection.
         namespace (StrOrPath): Namespace where a file is located.
         path (StrOrPath): Path to be moved.
         next_path (StrOrPath): Path that is the destination.
@@ -601,34 +572,31 @@ async def move(
         )
     """
 
-    async with conn.transaction():
-        file = await _move_file(conn, target.id, next_path)
-        if target.is_folder():
-            await _move_folder_content(conn, namespace, path, next_path)
+    file = await _move_file(conn, target.id, next_path)
+    if target.is_folder():
+        await _move_folder_content(conn, namespace, path, next_path)
 
-        await conn.query(
-            query,
-            namespace=str(namespace),
-            data=[
-                json.dumps({
-                    "size": sign * target.size,
-                    "parents": [str(p) for p in parents]
-                })
-                for sign, parents in zip((-1, 1), (to_decrease, to_increase))
-            ]
-        )
+    await conn.query(
+        query,
+        namespace=str(namespace),
+        data=[
+            json.dumps({
+                "size": sign * target.size,
+                "parents": [str(p) for p in parents]
+            })
+            for sign, parents in zip((-1, 1), (to_decrease, to_increase))
+        ]
+    )
 
     return file
 
 
-async def _move_file(
-    conn: AsyncIOConnection, file_id: UUID, next_path: StrOrPath
-) -> File:
+async def _move_file(conn: DBAnyConn, file_id: UUID, next_path: StrOrPath) -> File:
     """
     Update file name and path.
 
     Args:
-        conn (AsyncIOConnection): Database connection.
+        conn (DBAnyConn): Database connection.
         file_id (UUID): File ID to be updated.
         next_path (StrOrPath): New path for a file.
 
@@ -670,7 +638,7 @@ async def _move_file(
 
 
 async def _move_folder_content(
-    conn: AsyncIOConnection,
+    conn: DBAnyConn,
     namespace: StrOrPath,
     path: StrOrPath,
     next_path: StrOrPath,
@@ -679,7 +647,7 @@ async def _move_folder_content(
     Replace 'path' to 'next_path' for all files with path that starts with 'path'.
 
     Args:
-        conn (AsyncIOConnection): Database connection.
+        conn (DBAnyConn): Database connection.
         namespace (StrOrPath): Namespace where files should be updated.
         path (StrOrPath): Path to be replace.
         next_path (StrOrPath): Path to replace.
@@ -697,9 +665,7 @@ async def _move_folder_content(
     """, namespace=str(namespace), path=str(path), next_path=str(next_path))
 
 
-async def next_path(
-    conn: AsyncIOConnection, namespace: StrOrPath, path: StrOrPath
-) -> str:
+async def next_path(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> str:
     """
     Return a path with modified name if current one already taken, otherwise return
     path unchanged.
@@ -707,7 +673,7 @@ async def next_path(
     For example, if path 'a/f.tar.gz' exists, then next path will be 'a/f (1).tar.gz'.
 
     Args:
-        conn (AsyncIOConnection): Database connection.
+        conn (DBAnyConn): Database connection.
         namespace (StrOrPath): Namespace to check for target path.
         path (StrOrPath): Target path.
 
@@ -733,7 +699,7 @@ async def next_path(
 
 
 async def inc_size_batch(
-    conn: AsyncIOConnection,
+    conn: DBAnyConn,
     namespace: StrOrPath,
     paths: Iterable[StrOrPath],
     size: int,
@@ -742,7 +708,7 @@ async def inc_size_batch(
     Increments size for specified paths.
 
     Args:
-        conn (AsyncIOConnection): Database connection.
+        conn (DBAnyConn): Database connection.
         namespace (StrOrPath): Namespace.
         paths (Iterable[StrOrPath]): List of path which size will be incremented.
         size (int): value that will be added to the current file size.

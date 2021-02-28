@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from edgedb import AsyncIOConnection
+from edgedb import AsyncIOPool
 from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 
@@ -22,11 +22,11 @@ async def get_me(user: User = Depends(deps.current_user)):
 @router.post("/tokens", response_model=Tokens)
 async def get_tokens(
     form_data: OAuth2PasswordRequestForm = Depends(),
-    conn: AsyncIOConnection = Depends(deps.db_conn),
+    pool: AsyncIOPool = Depends(deps.db_pool),
 ):
     """Returns new access token for a given credentials."""
     try:
-        uid, password = await crud.user.get_password(conn, username=form_data.username)
+        uid, password = await crud.user.get_password(pool, username=form_data.username)
     except errors.UserNotFound as exc:
         raise exceptions.UserNotFound() from exc
 
