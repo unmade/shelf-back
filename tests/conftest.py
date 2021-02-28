@@ -18,9 +18,8 @@ from app.main import create_app
 
 if TYPE_CHECKING:
     from uuid import UUID
-    from edgedb import AsyncIOConnection, AsyncIOPool
     from app.entities import File, User
-    from app.typedefs import StrOrPath, StrOrUUID
+    from app.typedefs import DBPool, StrOrPath, StrOrUUID
 
 fake = Faker()
 
@@ -91,67 +90,41 @@ async def create_test_db() -> None:
         await conn.aclose()
 
 
-@pytest.fixture(autouse=True, scope="session")
-async def apply_migration(db_pool: AsyncIOPool) -> None:
-    """Apply schema to test database."""
-    with open(config.BASE_DIR / "./schema.esdl", "r") as f:
-        schema = f.read()
-
-    async with db_pool.acquire() as conn:
-        await db.migrate(conn, schema)
-
-
 @pytest.fixture(scope="session")
-async def db_pool(create_test_db):
+async def create_db_pool(create_test_db):
     """Create connection pool to a database."""
     del create_test_db  # required only to preserve fixtures correct execution order
 
     _, dsn, _ = _build_test_db_dsn()
-    async with edgedb.create_async_pool(dsn=dsn, min_size=5, max_size=5) as pool:
+    async with edgedb.create_async_pool(dsn=dsn, min_size=3, max_size=3) as pool:
         with mock.patch("app.db._pool", pool):
             yield pool
 
 
-@pytest.fixture
-async def db_conn(apply_migration, db_pool: AsyncIOPool):
-    """Acquire connection from connection pool."""
-    del apply_migration  # required only to preserve fixtures correct execution order
+@pytest.fixture(autouse=True, scope="session")
+async def apply_migration(create_db_pool: DBPool) -> None:
+    """Apply schema to test database."""
+    with open(config.BASE_DIR / "./schema.esdl", "r") as f:
+        schema = f.read()
 
-    async with db_pool.acquire() as conn:
-        try:
-            yield conn
-        finally:
-            await conn.execute("""
-                DELETE File;
-                DELETE Namespace;
-                DELETE User;
-            """)
+    await db.migrate(create_db_pool, schema)
 
 
 @pytest.fixture
-async def db_conn_factory(apply_migration, db_pool: AsyncIOPool):
-    """Acquire specified amount of connections and return it."""
-    del apply_migration  # required only to preserve fixtures correct execution order
-
-    connections = []
-
-    async def wrapper(amount: int):
-        nonlocal connections
-        connections = await asyncio.gather(*(
-            db_pool.acquire() for _ in range(amount)
-        ))
-        return connections
-
+async def db_pool(create_db_pool):
+    """Yields database pool and delete tables on teardown."""
     try:
-        yield wrapper
+        yield create_db_pool
     finally:
-        await asyncio.gather(*(
-            db_pool.release(conn) for conn in connections
-        ))
+        await create_db_pool.execute("""
+            DELETE File;
+            DELETE Namespace;
+            DELETE User;
+        """)
 
 
 @pytest.fixture
-def file_factory(db_conn: AsyncIOConnection):
+def file_factory(db_pool: DBPool):
     """Create dummy file, put it in a storage and save to database."""
     async def _file_factory(
         user_id: StrOrUUID,
@@ -163,8 +136,8 @@ def file_factory(db_conn: AsyncIOConnection):
             file = BytesIO(content)
         else:
             file = content  # type: ignore
-        user = await crud.user.get_by_id(db_conn, user_id=user_id)
-        return await actions.save_file(db_conn, user.namespace, path, file)
+        user = await crud.user.get_by_id(db_pool, user_id=user_id)
+        return await actions.save_file(db_pool, user.namespace, path, file)
     return _file_factory
 
 
@@ -183,7 +156,7 @@ def image_factory(file_factory):
 
 
 @pytest.fixture
-def user_factory(db_conn: AsyncIOConnection):
+def user_factory(db_pool: DBPool):
     """Create a new user, namespace, home and trash directories."""
     async def _user_factory(
         username: str = None, password: str = "root", hash_password: bool = False,
@@ -191,13 +164,13 @@ def user_factory(db_conn: AsyncIOConnection):
         username = username or fake.simple_profile()["username"]
         # Hashing password is an expensive operation, so do it only when need it.
         if hash_password:
-            await actions.create_account(db_conn, username, password)
+            await actions.create_account(db_pool, username, password)
         else:
             with mock.patch("app.security.make_password", return_value=password):
-                await actions.create_account(db_conn, username, password)
+                await actions.create_account(db_pool, username, password)
         query = "SELECT User { id } FILTER .username=<str>$username"
-        user = await db_conn.query_one(query, username=username)
-        return await crud.user.get_by_id(db_conn, user_id=user.id)
+        user = await db_pool.query_one(query, username=username)
+        return await crud.user.get_by_id(db_pool, user_id=user.id)
 
     return _user_factory
 

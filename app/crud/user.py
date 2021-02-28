@@ -10,16 +10,15 @@ from app.entities import User
 
 if TYPE_CHECKING:
     from uuid import UUID
-    from edgedb import AsyncIOConnection
-    from app.typedefs import StrOrUUID
+    from app.typedefs import DBAnyConn, StrOrUUID
 
 
-async def create(conn: AsyncIOConnection, username: str, password: str) -> None:
+async def create(conn: DBAnyConn, username: str, password: str) -> None:
     """
     Create user, namespace and home folder.
 
     Args:
-        conn (AsyncIOConnection): Connecion to a database.
+        conn (DBAnyConn): Connection to a database.
         username (str): Username for a new user.
         password (str): Plain-text password.
 
@@ -70,7 +69,7 @@ async def create(conn: AsyncIOConnection, username: str, password: str) -> None:
         raise errors.UserAlreadyExists(f"Username '{username}' is taken") from exc
 
 
-async def exists(conn: AsyncIOConnection, user_id: StrOrUUID) -> bool:
+async def exists(conn: DBAnyConn, user_id: StrOrUUID) -> bool:
     """True if User with a given user_id exists, otherwise False."""
     query = """
         SELECT EXISTS (
@@ -84,12 +83,12 @@ async def exists(conn: AsyncIOConnection, user_id: StrOrUUID) -> bool:
     return cast(bool, await conn.query_one(query, user_id=str(user_id)))
 
 
-async def get_by_id(conn: AsyncIOConnection, user_id: StrOrUUID) -> User:
+async def get_by_id(conn: DBAnyConn, user_id: StrOrUUID) -> User:
     """
     Return a User with a Namespace.
 
     Args:
-        conn (AsyncIOConnection): Database connection.
+        conn (DBAnyConn): Database connection.
         user_id (StrOrUUID): User ID to search for.
 
     Raises:
@@ -120,12 +119,12 @@ async def get_by_id(conn: AsyncIOConnection, user_id: StrOrUUID) -> User:
         raise errors.UserNotFound() from exc
 
 
-async def get_password(conn: AsyncIOConnection, username: str) -> tuple[UUID, str]:
+async def get_password(conn: DBAnyConn, username: str) -> tuple[UUID, str]:
     """
     Returns User password by username.
 
     Args:
-        conn (AsyncIOConnection): Database connection.
+        conn (DBAnyConn): Database connection.
         username (str): Target username to return password for.
 
     Raises:

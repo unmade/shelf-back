@@ -4,7 +4,7 @@ import secrets
 from pathlib import Path
 
 from cashews import cache
-from edgedb import AsyncIOConnection
+from edgedb import AsyncIOPool
 from fastapi import APIRouter, Depends
 from fastapi import File as FileParam
 from fastapi import Form, Query, Request, UploadFile
@@ -23,7 +23,7 @@ router = APIRouter()
 @router.post("/create_folder", response_model=schemas.File)
 async def create_folder(
     payload: schemas.PathRequest,
-    db_conn: AsyncIOConnection = Depends(deps.db_conn),
+    db_pool: AsyncIOPool = Depends(deps.db_pool),
     user: User = Depends(deps.current_user),
 ):
     """
@@ -34,7 +34,7 @@ async def create_folder(
     if not existed, and 'c' will be returned as a response.
     """
     try:
-        return await actions.create_folder(db_conn, user.namespace, payload.path)
+        return await actions.create_folder(db_pool, user.namespace, payload.path)
     except errors.FileAlreadyExists as exc:
         raise exceptions.AlreadyExists() from exc
     except errors.NotADirectory as exc:
@@ -44,7 +44,7 @@ async def create_folder(
 @router.post("/delete_immediately", response_model=schemas.File)
 async def delete_immediately(
     payload: schemas.PathRequest,
-    db_conn: AsyncIOConnection = Depends(deps.db_conn),
+    db_pool: AsyncIOPool = Depends(deps.db_pool),
     user: User = Depends(deps.current_user),
 ):
     """Permanently delete file or folder with its contents"""
@@ -52,7 +52,7 @@ async def delete_immediately(
         raise exceptions.InvalidPath()
 
     try:
-        return await actions.delete_immediately(db_conn, user.namespace, payload.path)
+        return await actions.delete_immediately(db_pool, user.namespace, payload.path)
     except errors.FileNotFound as exc:
         raise exceptions.PathNotFound() from exc
 
@@ -74,22 +74,22 @@ async def download(key: str = Query(None)):
 
 @router.post("/empty_trash", response_model=schemas.File)
 async def empty_trash(
-    db_conn: AsyncIOConnection = Depends(deps.db_conn),
+    db_pool: AsyncIOPool = Depends(deps.db_pool),
     user: User = Depends(deps.current_user),
 ):
     """Delete all files and folders in the Trash folder."""
-    return await actions.empty_trash(db_conn, user.namespace)
+    return await actions.empty_trash(db_pool, user.namespace)
 
 
 @router.post("/get_download_url", response_model=schemas.GetDownloadUrlResult)
 async def get_download_url(
     request: Request,
     payload: schemas.PathRequest,
-    db_conn: AsyncIOConnection = Depends(deps.db_conn),
+    db_pool: AsyncIOPool = Depends(deps.db_pool),
     user: User = Depends(deps.current_user),
 ):
     """Return a link to download requested file or folder."""
-    if not await crud.file.exists(db_conn, user.namespace.path, payload.path):
+    if not await crud.file.exists(db_pool, user.namespace.path, payload.path):
         raise exceptions.PathNotFound()
 
     key = secrets.token_urlsafe()
@@ -103,7 +103,7 @@ async def get_download_url(
 async def get_thumbnail(
     payload: schemas.PathRequest,
     size: schemas.ThumbnailSize = schemas.ThumbnailSize.xs,
-    conn: AsyncIOConnection = Depends(deps.db_conn),
+    conn: AsyncIOPool = Depends(deps.db_pool),
     user: User = Depends(deps.current_user),
 ):
     """Generate thumbnail for an image file."""
@@ -126,7 +126,7 @@ async def get_thumbnail(
 @router.post("/list_folder", response_model=schemas.ListFolderResult)
 async def list_folder(
     payload: schemas.PathRequest,
-    db_conn: AsyncIOConnection = Depends(deps.db_conn),
+    db_pool: AsyncIOPool = Depends(deps.db_pool),
     user: User = Depends(deps.current_user),
 ):
     """
@@ -135,7 +135,7 @@ async def list_folder(
     Note, that Trash folder is never present in a result.
     """
     try:
-        files = await crud.file.list_folder(db_conn, user.namespace.path, payload.path)
+        files = await crud.file.list_folder(db_pool, user.namespace.path, payload.path)
     except errors.FileNotFound as exc:
         raise exceptions.PathNotFound() from exc
     except errors.NotADirectory as exc:
@@ -151,7 +151,7 @@ async def list_folder(
 @router.post("/move", response_model=schemas.File)
 async def move(
     payload: schemas.MoveFolderRequest,
-    db_conn: AsyncIOConnection = Depends(deps.db_conn),
+    db_pool: AsyncIOPool = Depends(deps.db_pool),
     user: User = Depends(deps.current_user),
 ):
     """
@@ -166,7 +166,7 @@ async def move(
     """
     from_path, to_path = payload.from_path, payload.to_path
     try:
-        return await actions.move(db_conn, user.namespace, from_path, to_path)
+        return await actions.move(db_pool, user.namespace, from_path, to_path)
     except errors.FileAlreadyExists as exc:
         raise exceptions.AlreadyExists() from exc
     except errors.FileNotFound as exc:
@@ -178,7 +178,7 @@ async def move(
 @router.post("/move_to_trash", response_model=schemas.File)
 async def move_to_trash(
     payload: schemas.PathRequest,
-    db_conn: AsyncIOConnection = Depends(deps.db_conn),
+    db_pool: AsyncIOPool = Depends(deps.db_pool),
     user: User = Depends(deps.current_user),
 ):
     """Move file to the Trash folder."""
@@ -188,7 +188,7 @@ async def move_to_trash(
         raise exceptions.AlreadyDeleted()
 
     try:
-        return await actions.move_to_trash(db_conn, user.namespace, payload.path)
+        return await actions.move_to_trash(db_pool, user.namespace, payload.path)
     except errors.FileNotFound as exc:
         raise exceptions.PathNotFound() from exc
 
@@ -197,7 +197,7 @@ async def move_to_trash(
 async def upload_file(
     file: UploadFile = FileParam(...),
     path: str = Form(...),
-    db_conn: AsyncIOConnection = Depends(deps.db_conn),
+    db_pool: AsyncIOPool = Depends(deps.db_pool),
     user: User = Depends(deps.current_user),
 ):
     """Upload file to a specified path."""
@@ -206,8 +206,8 @@ async def upload_file(
 
     parents = Path(path).parents
 
-    upload = await actions.save_file(db_conn, user.namespace, path, file.file)
-    updates = await crud.file.get_many(db_conn, user.namespace.path, parents)
+    upload = await actions.save_file(db_pool, user.namespace, path, file.file)
+    updates = await crud.file.get_many(db_pool, user.namespace.path, parents)
 
     return schemas.UploadResult.construct(
         file=schemas.File.from_file(upload),
