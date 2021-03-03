@@ -112,6 +112,35 @@ async def test_create_batch(db_pool: DBPool, user: User):
     assert files[1].mediatype == mediatypes.OCTET_STREAM
 
 
+async def test_create_batch_but_mediatypes_all_the_same(db_pool: DBPool, user: User):
+    # Insert Files with media type that does not exists in the database.
+    # This test assures that first query inserts a file and inserts a mediatype
+    # and second query inserts a file, but selects a mediatype.
+    mediatypes = ["application/x-create-batch-1", "application/x-create-batch-2"]
+    all_paths = [("a", "b"), ("c", "d")]
+    to_create = [
+        File.construct(  # type: ignore
+            name=path,
+            path=path,
+            size=0,
+            mtime=time.time(),
+            mediatype=mediatype,
+        )
+        for mediatype, paths in zip(mediatypes, all_paths)
+        for path in paths
+    ]
+
+    await crud.file.create_batch(db_pool, user.namespace.path, ".", files=to_create)
+
+    files = await crud.file.list_folder(db_pool, user.namespace.path, ".")
+    assert len(files) == 4
+
+    for i, mediatype, paths in zip(range(0, len(files), 2), mediatypes, all_paths):
+        for j, path in enumerate(paths):
+            assert files[i + j].name == path
+            assert files[i + j].mediatype == mediatype
+
+
 async def test_create_batch_but_file_already_exists(db_pool: DBPool, user: User):
     file = await crud.file.create(db_pool, user.namespace.path, "f")
 

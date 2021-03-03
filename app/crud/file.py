@@ -142,6 +142,7 @@ async def create_batch(
 
     query = """
         WITH
+            files := array_unpack(<array<json>>$files),
             parent := (
                 SELECT
                     File
@@ -150,8 +151,20 @@ async def create_batch(
                     AND
                     .namespace.path = <str>$namespace
                 LIMIT 1
-            )
-        FOR file IN {array_unpack(<array<json>>$files)}
+            ),
+            mediatypes := (
+                FOR mediatype IN {DISTINCT files['mediatype']}
+                UNION (
+                    INSERT MediaType {
+                        name := <str>mediatype
+                    }
+                    UNLESS CONFLICT ON .name
+                    ELSE (
+                        SELECT MediaType
+                    )
+                )
+            ),
+        FOR file IN {files}
         UNION (
             INSERT File {
                 name := <str>file['name'],
@@ -159,16 +172,10 @@ async def create_batch(
                 size := <int64>file['size'],
                 mtime := <float64>file['mtime'],
                 mediatype := (
-                    INSERT MediaType {
-                        name := <str>file['mediatype']
-                    }
-                    UNLESS CONFLICT ON MediaType.name
-                    ELSE (
-                        SELECT
-                            MediaType
-                        FILTER
-                            .name = <str>file['mediatype']
-                    )
+                    SELECT
+                        mediatypes
+                    FILTER
+                        .name = <str>file['mediatype']
                 ),
                 parent := parent,
                 namespace := parent.namespace,
