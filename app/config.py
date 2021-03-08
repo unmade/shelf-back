@@ -18,6 +18,12 @@ ACCESS_TOKEN_EXPIRE = timedelta(
 
 APP_NAME = os.getenv("APP_NAME", "Shelf")
 APP_DEBUG = _get_bool("APP_DEBUG")
+APP_MAX_DOWNLOAD_WITHOUT_STREAMING = int(
+    os.getenv(
+        "APP_MAX_DOWNLOAD_WITHOUT_STREAMING_IN_BYTES",
+        10_485_760,  # Defaults to 10 MB
+    )
+)
 APP_SECRET_KEY = os.environ["APP_SECRET_KEY"]
 APP_VERSION = os.getenv("APP_VERSION")
 

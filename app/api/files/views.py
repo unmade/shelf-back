@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import secrets
+from io import BytesIO
 from pathlib import Path
 
 from cashews import cache
@@ -8,7 +9,7 @@ from edgedb import AsyncIOPool
 from fastapi import APIRouter, Depends
 from fastapi import File as FileParam
 from fastapi import Form, Query, Request, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 
 from app import actions, config, crud, errors
 from app.api import deps
@@ -59,7 +60,12 @@ async def delete_immediately(
 
 @router.get("/download")
 async def download(key: str = Query(None)):
-    """Download a file or a folder as a ZIP archive"""
+    """
+    Download a file or a folder as a ZIP archive.
+
+    This endpoint is useful to perform downloads with browser. A `key` is obtained by
+    calling `get_download_url` endpoint.
+    """
     path = await cache.get(key)
     if not path:
         raise exceptions.DownloadNotFound()
@@ -70,6 +76,47 @@ async def download(key: str = Query(None)):
     headers = {"Content-Disposition": f'attachment; filename="{filename}.zip"'}
     attachment = storage.download(path)
     return StreamingResponse(attachment, media_type="attachment/zip", headers=headers)
+
+
+@router.post("/download")
+async def download_xhr(
+    payload: schemas.PathRequest,
+    db_pool: AsyncIOPool = Depends(deps.db_pool),
+    user: User = Depends(deps.current_user),
+):
+    """
+    Download a file or a folder.
+
+    This endpoint is useful to download files with XHR. Folders will be downloaded as a
+    ZIP archive."""
+    try:
+        file = await crud.file.get(db_pool, user.namespace.path, payload.path)
+    except errors.FileNotFound as exc:
+        raise exceptions.PathNotFound() from exc
+
+    filename = Path(payload.path).name.encode("utf-8").decode("latin-1")
+    attachment = storage.download(user.namespace.path / payload.path)
+    if file.is_folder():
+        headers = {
+            "Content-Disposition": f'attachment; filename="{filename}.zip"',
+            "Content-Type": "attachment/zip",
+        }
+    else:
+        headers = {
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(file.size),
+            "Content-Type": file.mediatype,
+        }
+
+    if file.is_folder() or file.size > config.APP_MAX_DOWNLOAD_WITHOUT_STREAMING:
+        return StreamingResponse(attachment, headers=headers)
+
+    buffer = BytesIO()
+    for chunk in attachment:
+        buffer.write(chunk)
+    buffer.seek(0)
+
+    return Response(buffer.read(), headers=headers)
 
 
 @router.post("/empty_trash", response_model=schemas.File)
@@ -103,14 +150,15 @@ async def get_download_url(
 async def get_thumbnail(
     payload: schemas.PathRequest,
     size: schemas.ThumbnailSize = schemas.ThumbnailSize.xs,
-    conn: AsyncIOPool = Depends(deps.db_pool),
+    db_pool: AsyncIOPool = Depends(deps.db_pool),
     user: User = Depends(deps.current_user),
 ):
     """Generate thumbnail for an image file."""
+    namespace = user.namespace
     path = payload.path
     try:
         file, disksize, thumbnail = (
-            await actions.get_thumbnail(conn, user.namespace, path, size=size.asint())
+            await actions.get_thumbnail(db_pool, namespace, path, size=size.asint())
         )
     except errors.FileNotFound as exc:
         raise exceptions.PathNotFound() from exc
@@ -119,6 +167,7 @@ async def get_thumbnail(
     headers = {
         "Content-Disposition": f'inline; filename="{file.name}"',
         "Content-Length": str(disksize),
+        "Content-Type": file.mediatype,
     }
     return StreamingResponse(thumbnail, headers=headers, media_type=file.mediatype)
 

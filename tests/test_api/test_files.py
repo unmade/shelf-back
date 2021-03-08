@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 from cashews import cache
 
+from app import config
 from app.api.files.exceptions import (
     AlreadyDeleted,
     AlreadyExists,
@@ -94,7 +95,7 @@ async def test_download_file(client: TestClient, user: User, file_factory):
     assert response.content
 
 
-async def test_download_folder_with_files(client: TestClient, user: User, file_factory):
+async def test_download_folder(client: TestClient, user: User, file_factory):
     await file_factory(user.id, path="a/b/c/d.txt")
     key = secrets.token_urlsafe()
     await cache.set(key, f"{user.username}/a")
@@ -109,6 +110,50 @@ async def test_download_but_key_is_invalid(client: TestClient):
     response = await client.get(f"/files/download?key={key}")
     assert response.status_code == 404
     assert response.json() == DownloadNotFound().as_dict()
+
+
+# Use lambda to prevent long names in pytest output
+@pytest.mark.parametrize("content_factory", [
+    lambda: b"Hello, World!",
+    lambda: b"1" * config.APP_MAX_DOWNLOAD_WITHOUT_STREAMING + b"1",
+])
+async def test_download_file_with_post(
+    client: TestClient, user: User, file_factory, content_factory,
+):
+    content = content_factory()
+    file = await file_factory(user.id, content=content)
+    payload = {"path": file.path}
+    response = await client.login(user.id).post("/files/download", json=payload)
+    assert response.status_code == 200
+    assert response.headers["Content-Type"] == "text/plain"
+    assert response.headers["Content-Length"] == str(len(content))
+    assert response.content == content
+
+
+async def test_download_file_with_non_latin_name_with_post(
+    client: TestClient, user: User, file_factory
+):
+    file = await file_factory(user.id, path="файл.txt")
+    payload = {"path": file.path}
+    response = await client.login(user.id).post("/files/download", json=payload)
+    assert response.status_code == 200
+
+
+async def test_download_folder_with_post(client: TestClient, user: User, file_factory):
+    await file_factory(user.id, path="a/b/c/d.txt")
+    payload = {"path": "a"}
+    response = await client.login(user.id).post("/files/download", json=payload)
+    assert response.status_code == 200
+    assert response.headers["Content-Type"] == "attachment/zip"
+    assert "Content-Length" not in response.headers
+    assert response.content
+
+
+async def test_download_with_post_but_file_not_found(client: TestClient, user: User):
+    payload = {"path": "f.txt"}
+    response = await client.login(user.id).post("/files/download", json=payload)
+    assert response.json() == PathNotFound().as_dict()
+    assert response.status_code == 404
 
 
 async def test_empty_trash(client: TestClient, user: User):
