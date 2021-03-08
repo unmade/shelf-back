@@ -59,23 +59,40 @@ async def delete_immediately(
 
 
 @router.get("/download")
-async def download(key: str = Query(None)):
+async def download(
+    key: str = Query(None), db_pool: AsyncIOPool = Depends(deps.db_pool),
+):
     """
-    Download a file or a folder as a ZIP archive.
+    Download a file or a folder.
 
     This endpoint is useful to perform downloads with browser. A `key` is obtained by
-    calling `get_download_url` endpoint.
+    calling `get_download_url` endpoint. Folders will be downloaded as ZIP archive.
     """
-    path = await cache.get(key)
-    if not path:
+    value: str = await cache.get(key)
+    if not value:
         raise exceptions.DownloadNotFound()
-
     await cache.delete(key)
 
-    filename = Path(path).name.encode("utf-8").decode("latin-1")
-    headers = {"Content-Disposition": f'attachment; filename="{filename}.zip"'}
-    attachment = storage.download(path)
-    return StreamingResponse(attachment, media_type="attachment/zip", headers=headers)
+    namespace, path = value.split(':', maxsplit=1)
+    try:
+        file = await crud.file.get(db_pool, namespace, path)
+    except errors.FileNotFound as exc:
+        raise exceptions.PathNotFound from exc
+
+    filename = file.name.encode("utf-8").decode("latin-1")
+    if file.is_folder():
+        headers = {
+            "Content-Disposition": f'attachment; filename="{filename}.zip"',
+            "Content-Type": "attachment/zip",
+        }
+    else:
+        headers = {
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(file.size),
+            "Content-Type": file.mediatype,
+        }
+    fullpath = Path(namespace) / path
+    return StreamingResponse(storage.download(fullpath), headers=headers)
 
 
 @router.post("/download")
@@ -94,8 +111,7 @@ async def download_xhr(
     except errors.FileNotFound as exc:
         raise exceptions.PathNotFound() from exc
 
-    filename = Path(payload.path).name.encode("utf-8").decode("latin-1")
-    attachment = storage.download(user.namespace.path / payload.path)
+    filename = file.name.encode("utf-8").decode("latin-1")
     if file.is_folder():
         headers = {
             "Content-Disposition": f'attachment; filename="{filename}.zip"',
@@ -108,6 +124,7 @@ async def download_xhr(
             "Content-Type": file.mediatype,
         }
 
+    attachment = storage.download(user.namespace.path / payload.path)
     if file.is_folder() or file.size > config.APP_MAX_DOWNLOAD_WITHOUT_STREAMING:
         return StreamingResponse(attachment, headers=headers)
 
@@ -136,12 +153,13 @@ async def get_download_url(
     user: User = Depends(deps.current_user),
 ):
     """Return a link to download requested file or folder."""
-    if not await crud.file.exists(db_pool, user.namespace.path, payload.path):
-        raise exceptions.PathNotFound()
+    try:
+        file = await crud.file.get(db_pool, user.namespace.path, payload.path)
+    except errors.FileNotFound as exc:
+        raise exceptions.PathNotFound() from exc
 
     key = secrets.token_urlsafe()
-    path = user.namespace.path / payload.path
-    await cache.set(key=key, value=path, expire=60)
+    await cache.set(key=key, value=f"{user.namespace.path}:{file.path}", expire=60)
 
     return {"download_url": f"{request.base_url}files/download?key={key}"}
 
