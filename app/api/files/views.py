@@ -164,8 +164,9 @@ async def get_thumbnail(
         raise exceptions.PathNotFound() from exc
     except (errors.IsADirectory, errors.ThumbnailUnavailable) as exc:
         raise exceptions.InvalidPath() from exc
+    filename = file.name.encode("utf-8").decode("latin-1")
     headers = {
-        "Content-Disposition": f'inline; filename="{file.name}"',
+        "Content-Disposition": f'inline; filename="{filename}"',
         "Content-Length": str(disksize),
         "Content-Type": file.mediatype,
     }

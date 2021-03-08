@@ -177,8 +177,9 @@ async def test_get_download_url_but_file_not_found(client: TestClient, user: Use
     assert response.status_code == 404
 
 
-async def test_get_thumbnail(client: TestClient, user: User, image_factory):
-    file = await image_factory(user.id, path="im.jpeg")
+@pytest.mark.parametrize("name", ["im.jpeg", "изо.jpeg"])
+async def test_get_thumbnail(client: TestClient, user: User, image_factory, name):
+    file = await image_factory(user.id, path=name)
     payload = {"path": file.path}
     client.login(user.id)
     response = await client.post("/files/get_thumbnail?size=xs", json=payload)
