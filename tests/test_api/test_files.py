@@ -85,20 +85,23 @@ async def test_delete_immediately_but_it_is_a_special_folder(
     assert response.json() == InvalidPath().as_dict()
 
 
-async def test_download_file(client: TestClient, user: User, file_factory):
-    file = await file_factory(user.id)
+@pytest.mark.parametrize("path", ["f.txt", "ф.txt"])
+async def test_download_file(client: TestClient, user: User, file_factory, path):
+    content = b"Hello, World!"
+    file = await file_factory(user.id, path=path, content=content)
     key = secrets.token_urlsafe()
-    await cache.set(key, f"{user.username}/{file.path}")
+    await cache.set(key, f"{user.namespace.path}:{file.path}")
     response = await client.login(user.id).get(f"/files/download?key={key}")
     assert response.status_code == 200
-    assert response.headers["Content-Type"] == "attachment/zip"
-    assert response.content
+    assert response.headers["Content-Length"] == str(len(content))
+    assert response.headers["Content-Type"] == "text/plain"
+    assert response.content == content
 
 
 async def test_download_folder(client: TestClient, user: User, file_factory):
     await file_factory(user.id, path="a/b/c/d.txt")
     key = secrets.token_urlsafe()
-    await cache.set(key, f"{user.username}/a")
+    await cache.set(key, f"{user.namespace.path}:a")
     response = await client.login(user.id).get(f"/files/download?key={key}")
     assert response.status_code == 200
     assert response.headers["Content-Type"] == "attachment/zip"
@@ -110,6 +113,14 @@ async def test_download_but_key_is_invalid(client: TestClient):
     response = await client.get(f"/files/download?key={key}")
     assert response.status_code == 404
     assert response.json() == DownloadNotFound().as_dict()
+
+
+async def test_download_but_file_not_found(client: TestClient, user: User):
+    key = secrets.token_urlsafe()
+    await cache.set(key, f"{user.namespace.path}:f.txt")
+    response = await client.login(user.id).get(f"/files/download?key={key}")
+    assert response.json() == PathNotFound().as_dict()
+    assert response.status_code == 404
 
 
 # Use lambda to prevent long names in pytest output
@@ -166,8 +177,12 @@ async def test_get_download_url(client: TestClient, user: User, file_factory):
     file = await file_factory(user.id)
     payload = {"path": file.path}
     response = await client.login(user.id).post("/files/get_download_url", json=payload)
+    download_url = response.json()["download_url"]
+    assert download_url.startswith(str(client.base_url))
     assert response.status_code == 200
-    assert response.json()["download_url"].startswith(str(client.base_url))
+    key = download_url[download_url.index("=") + 1:]
+    value = await cache.get(key)
+    assert value == f"{user.namespace.path}:{file.path}"
 
 
 async def test_get_download_url_but_file_not_found(client: TestClient, user: User):
