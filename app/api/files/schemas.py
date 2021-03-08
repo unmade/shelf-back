@@ -23,7 +23,7 @@ class ThumbnailSize(str, Enum):
     xl = "xl"
 
     def asint(self) -> int:
-        """Return integer representation for a size."""
+        """Return integer representation of a size."""
         return _THUMBNAIL_SIZES[self.name]  # type: ignore
 
 

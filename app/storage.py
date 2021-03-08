@@ -18,6 +18,16 @@ if TYPE_CHECKING:
 T = TypeVar("T", bound="StorageFile")
 
 
+def _readchunks(path: StrOrPath) -> Generator[bytes, None, None]:
+    chunk_size = 4096
+    with open(path, 'rb') as f:
+        has_content = True
+        while has_content:
+            chunk = f.read(chunk_size)
+            has_content = len(chunk) == chunk_size
+            yield chunk
+
+
 class StorageFile:
     __slots__ = ("name", "path", "size", "mtime", "is_dir")
 
@@ -103,11 +113,9 @@ class LocalStorage:
                 for filepath in fullpath.glob("**/*")
                 if filepath.is_file()
             ]
-        else:
-            paths = [{"fs": str(fullpath), "n": fullpath.name}]
+            return zipfly.ZipFly(paths=paths).generator()  # type: ignore
 
-        attachment = zipfly.ZipFly(paths=paths)
-        return attachment.generator()  # type: ignore
+        return _readchunks(fullpath)
 
     def delete(self, path: StrOrPath) -> None:
         fullpath = self.root_dir / path
