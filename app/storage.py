@@ -80,6 +80,8 @@ class LocalStorage:
         dir_path = self.root_dir / path
         try:
             dir_path.mkdir(parents=True, exist_ok=True)
+        except FileExistsError as exc:
+            raise errors.FileAlreadyExists() from exc
         except NotADirectoryError as exc:
             raise errors.NotADirectory() from exc
         return StorageFile.from_path(dir_path, self.root_dir)

@@ -37,25 +37,22 @@ async def create_folder(
     try:
         return await actions.create_folder(db_pool, user.namespace, payload.path)
     except errors.FileAlreadyExists as exc:
-        raise exceptions.AlreadyExists() from exc
+        raise exceptions.FileAlreadyExists(path=payload.path) from exc
     except errors.NotADirectory as exc:
-        raise exceptions.InvalidPath() from exc
+        raise exceptions.NotADirectory(path=payload.path) from exc
 
 
 @router.post("/delete_immediately", response_model=schemas.File)
 async def delete_immediately(
-    payload: schemas.PathRequest,
+    payload: schemas.DeletePathRequest,
     db_pool: AsyncIOPool = Depends(deps.db_pool),
     user: User = Depends(deps.current_user),
 ):
-    """Permanently delete file or folder with its contents"""
-    if payload.path in (config.TRASH_FOLDER_NAME, "."):
-        raise exceptions.InvalidPath()
-
+    """Permanently delete file or folder with its contents."""
     try:
         return await actions.delete_immediately(db_pool, user.namespace, payload.path)
     except errors.FileNotFound as exc:
-        raise exceptions.PathNotFound() from exc
+        raise exceptions.PathNotFound(path=payload.path) from exc
 
 
 @router.get("/download")
@@ -77,7 +74,7 @@ async def download(
     try:
         file = await crud.file.get(db_pool, namespace, path)
     except errors.FileNotFound as exc:
-        raise exceptions.PathNotFound from exc
+        raise exceptions.PathNotFound(path=path) from exc
 
     filename = file.name.encode("utf-8").decode("latin-1")
     if file.is_folder():
@@ -109,7 +106,7 @@ async def download_xhr(
     try:
         file = await crud.file.get(db_pool, user.namespace.path, payload.path)
     except errors.FileNotFound as exc:
-        raise exceptions.PathNotFound() from exc
+        raise exceptions.PathNotFound(path=payload.path) from exc
 
     filename = file.name.encode("utf-8").decode("latin-1")
     if file.is_folder():
@@ -156,7 +153,7 @@ async def get_download_url(
     try:
         file = await crud.file.get(db_pool, user.namespace.path, payload.path)
     except errors.FileNotFound as exc:
-        raise exceptions.PathNotFound() from exc
+        raise exceptions.PathNotFound(path=payload.path) from exc
 
     key = secrets.token_urlsafe()
     await cache.set(key=key, value=f"{user.namespace.path}:{file.path}", expire=60)
@@ -174,14 +171,18 @@ async def get_thumbnail(
     """Generate thumbnail for an image file."""
     namespace = user.namespace
     path = payload.path
+
     try:
         file, disksize, thumbnail = (
             await actions.get_thumbnail(db_pool, namespace, path, size=size.asint())
         )
     except errors.FileNotFound as exc:
-        raise exceptions.PathNotFound() from exc
-    except (errors.IsADirectory, errors.ThumbnailUnavailable) as exc:
-        raise exceptions.InvalidPath() from exc
+        raise exceptions.PathNotFound(path=path) from exc
+    except errors.IsADirectory as exc:
+        raise exceptions.IsADirectory(path=path) from exc
+    except errors.ThumbnailUnavailable as exc:
+        raise exceptions.ThumbnailUnavailable(path=path) from exc
+
     filename = file.name.encode("utf-8").decode("latin-1")
     headers = {
         "Content-Disposition": f'inline; filename="{filename}"',
@@ -205,9 +206,9 @@ async def list_folder(
     try:
         files = await crud.file.list_folder(db_pool, user.namespace.path, payload.path)
     except errors.FileNotFound as exc:
-        raise exceptions.PathNotFound() from exc
+        raise exceptions.PathNotFound(path=payload.path) from exc
     except errors.NotADirectory as exc:
-        raise exceptions.InvalidPath() from exc  # todo: this should be more informative
+        raise exceptions.NotADirectory(path=payload.path) from exc
 
     return schemas.ListFolderResult.construct(
         path=payload.path,
@@ -236,29 +237,27 @@ async def move(
     try:
         return await actions.move(db_pool, user.namespace, from_path, to_path)
     except errors.FileAlreadyExists as exc:
-        raise exceptions.AlreadyExists() from exc
+        raise exceptions.FileAlreadyExists(path=to_path) from exc
     except errors.FileNotFound as exc:
-        raise exceptions.PathNotFound() from exc
-    except (errors.MissingParent, errors.NotADirectory) as exc:
-        raise exceptions.InvalidPath() from exc
+        raise exceptions.PathNotFound(path=from_path) from exc
+    except errors.NotADirectory as exc:
+        raise exceptions.NotADirectory(path=to_path) from exc
+    except errors.MissingParent as exc:
+        message = "Some parents don't exist in the destination path"
+        raise exceptions.MalformedPath(message) from exc
 
 
 @router.post("/move_to_trash", response_model=schemas.File)
 async def move_to_trash(
-    payload: schemas.PathRequest,
+    payload: schemas.MoveToTrashRequest,
     db_pool: AsyncIOPool = Depends(deps.db_pool),
     user: User = Depends(deps.current_user),
 ):
     """Move file to the Trash folder."""
-    if payload.path == config.TRASH_FOLDER_NAME:
-        raise exceptions.InvalidPath()
-    if payload.path.startswith(f"{config.TRASH_FOLDER_NAME}/"):
-        raise exceptions.AlreadyDeleted()
-
     try:
         return await actions.move_to_trash(db_pool, user.namespace, payload.path)
     except errors.FileNotFound as exc:
-        raise exceptions.PathNotFound() from exc
+        raise exceptions.PathNotFound(path=payload.path) from exc
 
 
 @router.post("/upload", response_model=schemas.UploadResult)
@@ -270,11 +269,15 @@ async def upload_file(
 ):
     """Upload file to a specified path."""
     if path == config.TRASH_FOLDER_NAME:
-        raise exceptions.InvalidPath()
+        raise exceptions.MalformedPath("Uploads to the Trash are not allowed")
 
     parents = Path(path).parents
 
-    upload = await actions.save_file(db_pool, user.namespace, path, file.file)
+    try:
+        upload = await actions.save_file(db_pool, user.namespace, path, file.file)
+    except errors.NotADirectory as exc:
+        raise exceptions.NotADirectory(path=path) from exc
+
     updates = await crud.file.get_many(db_pool, user.namespace.path, parents)
 
     return schemas.UploadResult.construct(

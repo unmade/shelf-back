@@ -9,11 +9,14 @@ from cashews import cache
 
 from app import config
 from app.api.files.exceptions import (
-    AlreadyDeleted,
-    AlreadyExists,
     DownloadNotFound,
-    InvalidPath,
+    FileAlreadyDeleted,
+    FileAlreadyExists,
+    IsADirectory,
+    MalformedPath,
+    NotADirectory,
     PathNotFound,
+    ThumbnailUnavailable,
 )
 
 if TYPE_CHECKING:
@@ -34,17 +37,17 @@ async def test_create_folder(
 ):
     payload = {"path": path}
     response = await client.login(user.id).post("/files/create_folder", json=payload)
-    assert response.status_code == 200
     assert response.json()["name"] == name
     assert response.json()["path"] == (expected_path or path)
     assert response.json()["hidden"] is hidden
+    assert response.status_code == 200
 
 
 async def test_create_folder_but_folder_exists(client: TestClient, user: User):
     payload = {"path": "Trash"}
     response = await client.login(user.id).post("/files/create_folder", json=payload)
+    assert response.json() == FileAlreadyExists(path='Trash').as_dict()
     assert response.status_code == 400
-    assert response.json() == AlreadyExists().as_dict()
 
 
 async def test_create_folder_but_parent_is_a_file(
@@ -53,8 +56,8 @@ async def test_create_folder_but_parent_is_a_file(
     await file_factory(user.id, path="file")
     payload = {"path": "file/folder"}
     response = await client.login(user.id).post("/files/create_folder", json=payload)
+    assert response.json() == NotADirectory(path="file/folder").as_dict()
     assert response.status_code == 400
-    assert response.json() == InvalidPath().as_dict()
 
 
 async def test_delete_immediately(client: TestClient, user: User):
@@ -63,16 +66,16 @@ async def test_delete_immediately(client: TestClient, user: User):
     client.login(user.id)
     await client.post("/files/create_folder", json=payload)
     response = await client.post("/files/delete_immediately", json=payload)
-    assert response.status_code == 200
     assert response.json()["name"] == name
     assert response.json()["path"] == path
+    assert response.status_code == 200
 
 
 async def test_delete_immediately_but_path_not_found(client: TestClient, user: User):
     data = {"path": "Test Folder"}
     response = await client.login(user.id).post("/files/delete_immediately", json=data)
+    assert response.json() == PathNotFound(path="Test Folder").as_dict()
     assert response.status_code == 404
-    assert response.json() == PathNotFound().as_dict()
 
 
 @pytest.mark.parametrize("path", [".", "Trash"])
@@ -81,8 +84,9 @@ async def test_delete_immediately_but_it_is_a_special_folder(
 ):
     data = {"path": path}
     response = await client.login(user.id).post("/files/delete_immediately", json=data)
+    message = f"Path '{path}' is a special path and can't be deleted"
+    assert response.json() == MalformedPath(message).as_dict()
     assert response.status_code == 400
-    assert response.json() == InvalidPath().as_dict()
 
 
 @pytest.mark.parametrize("path", ["f.txt", "ф.txt"])
@@ -119,7 +123,7 @@ async def test_download_but_file_not_found(client: TestClient, user: User):
     key = secrets.token_urlsafe()
     await cache.set(key, f"{user.namespace.path}:f.txt")
     response = await client.login(user.id).get(f"/files/download?key={key}")
-    assert response.json() == PathNotFound().as_dict()
+    assert response.json() == PathNotFound(path="f.txt").as_dict()
     assert response.status_code == 404
 
 
@@ -163,7 +167,7 @@ async def test_download_folder_with_post(client: TestClient, user: User, file_fa
 async def test_download_with_post_but_file_not_found(client: TestClient, user: User):
     payload = {"path": "f.txt"}
     response = await client.login(user.id).post("/files/download", json=payload)
-    assert response.json() == PathNotFound().as_dict()
+    assert response.json() == PathNotFound(path="f.txt").as_dict()
     assert response.status_code == 404
 
 
@@ -188,7 +192,7 @@ async def test_get_download_url(client: TestClient, user: User, file_factory):
 async def test_get_download_url_but_file_not_found(client: TestClient, user: User):
     payload = {"path": "wrong/path"}
     response = await client.login(user.id).post("/files/get_download_url", json=payload)
-    assert response.json() == PathNotFound().as_dict()
+    assert response.json() == PathNotFound(path="wrong/path").as_dict()
     assert response.status_code == 404
 
 
@@ -208,14 +212,14 @@ async def test_get_thumbnail_but_path_not_found(client: TestClient, user: User):
     client.login(user.id)
     payload = {"path": "im.jpeg"}
     response = await client.post("/files/get_thumbnail?size=sm", json=payload)
-    assert response.json() == PathNotFound().as_dict()
+    assert response.json() == PathNotFound(path="im.jpeg").as_dict()
 
 
 async def test_get_thumbnail_but_path_is_a_folder(client: TestClient, user: User):
     client.login(user.id)
     payload = {"path": "."}
     response = await client.post("/files/get_thumbnail?size=sm", json=payload)
-    assert response.json() == InvalidPath().as_dict()
+    assert response.json() == IsADirectory(path=".").as_dict()
 
 
 async def test_get_thumbnail_but_file_is_not_thumbnailable(
@@ -225,7 +229,7 @@ async def test_get_thumbnail_but_file_is_not_thumbnailable(
     client.login(user.id)
     payload = {"path": file.path}
     response = await client.post("/files/get_thumbnail?size=sm", json=payload)
-    assert response.json() == InvalidPath().as_dict()
+    assert response.json() == ThumbnailUnavailable(path=file.path).as_dict()
 
 
 async def test_list_folder(client: TestClient, user: User, file_factory):
@@ -244,7 +248,16 @@ async def test_list_folder_but_path_does_not_exists(client: TestClient, user: Us
     payload = {"path": "wrong/path"}
     response = await client.login(user.id).post("/files/list_folder", json=payload)
     assert response.status_code == 404
-    assert response.json() == PathNotFound().as_dict()
+    assert response.json() == PathNotFound(path="wrong/path").as_dict()
+
+
+async def test_list_folder_but_path_is_not_a_folder(
+    client: TestClient, user: User, file_factory,
+):
+    file = await file_factory(user.id, path="f.txt")
+    payload = {"path": file.path}
+    response = await client.login(user.id).post("/files/list_folder", json=payload)
+    assert response.json() == NotADirectory(path="f.txt").as_dict()
 
 
 async def test_move(client: TestClient, user: User, file_factory):
@@ -260,9 +273,9 @@ async def test_move(client: TestClient, user: User, file_factory):
 async def test_move_but_it_is_a_special_path(client: TestClient, user: User, path):
     payload = {"from_path": path, "to_path": "Trashbin"}
     response = await client.login(user.id).post("/files/move", json=payload)
+    message = "Can't move Home or Trash folder"
+    assert response.json() == MalformedPath(message).as_dict()
     assert response.status_code == 400
-    message = "should not be Home or Trash folder."
-    assert response.json() == InvalidPath(message).as_dict()
 
 
 @pytest.mark.parametrize("next_path", [".", "Trash"])
@@ -272,24 +285,17 @@ async def test_move_but_to_a_special_path(
     file = await file_factory(user.id)
     payload = {"from_path": file.path, "to_path": next_path}
     response = await client.login(user.id).post("/files/move", json=payload)
+    message = "Can't move Home or Trash folder"
+    assert response.json() == MalformedPath(message).as_dict()
     assert response.status_code == 400
-    message = "should not be Home or Trash folder."
-    assert response.json() == InvalidPath(message).as_dict()
 
 
 async def test_move_but_path_is_recursive(client: TestClient, user: User):
     payload = {"from_path": "a/b", "to_path": "a/b/c"}
     response = await client.login(user.id).post("/files/move", json=payload)
+    message = "Destination path should not start with source path"
+    assert response.json() == MalformedPath(message).as_dict()
     assert response.status_code == 400
-    message = "destination path should not starts with source path."
-    assert response.json() == InvalidPath(message).as_dict()
-
-
-async def test_move_but_file_not_found(client: TestClient, user: User):
-    payload = {"from_path": "file_a.txt", "to_path": "file_b.txt"}
-    response = await client.login(user.id).post("/files/move", json=payload)
-    assert response.status_code == 404
-    assert response.json() == PathNotFound().as_dict()
 
 
 async def test_move_but_file_exists(client: TestClient, user: User, file_factory):
@@ -298,7 +304,34 @@ async def test_move_but_file_exists(client: TestClient, user: User, file_factory
     payload = {"from_path": file_a.path, "to_path": file_b.path}
     response = await client.login(user.id).post("/files/move", json=payload)
     assert response.status_code == 400
-    assert response.json() == AlreadyExists().as_dict()
+    assert response.json() == FileAlreadyExists(path=file_b.path).as_dict()
+
+
+async def test_move_but_file_not_found(client: TestClient, user: User):
+    payload = {"from_path": "file_a.txt", "to_path": "file_b.txt"}
+    response = await client.login(user.id).post("/files/move", json=payload)
+    assert response.status_code == 404
+    assert response.json() == PathNotFound(path="file_a.txt").as_dict()
+
+
+async def test_move_but_to_path_is_a_file(client: TestClient, user: User, file_factory):
+    file_a = await file_factory(user.id, path="file_a.txt")
+    file_b = await file_factory(user.id, path="file_b.txt")
+    payload = {"from_path": file_a.path, "to_path": f"{file_b.path}/{file_a.path}"}
+    response = await client.login(user.id).post("/files/move", json=payload)
+    assert response.status_code == 400
+    assert response.json() == NotADirectory(path=payload["to_path"]).as_dict()
+
+
+async def test_move_but_path_missing_parent(
+    client: TestClient, user: User, file_factory
+):
+    file_a = await file_factory(user.id, path="file_a.txt")
+    payload = {"from_path": file_a.path, "to_path": f"folder/{file_a.path}"}
+    response = await client.login(user.id).post("/files/move", json=payload)
+    message = "Some parents don't exist in the destination path"
+    assert response.json() == MalformedPath(message).as_dict()
+    assert response.status_code == 400
 
 
 @pytest.mark.parametrize(["file_path", "path", "expected_path"], [
@@ -318,8 +351,9 @@ async def test_move_to_trash(
 async def test_move_to_trash_but_it_is_a_trash(client: TestClient, user: User):
     payload = {"path": "Trash"}
     response = await client.login(user.id).post("/files/move_to_trash", json=payload)
+    message = "Can't move Trash into itself"
+    assert response.json() == MalformedPath(message).as_dict()
     assert response.status_code == 400
-    assert response.json() == InvalidPath().as_dict()
 
 
 async def test_move_to_trash_but_file_is_in_trash(
@@ -329,14 +363,14 @@ async def test_move_to_trash_but_file_is_in_trash(
     payload = {"path": file.path}
     response = await client.login(user.id).post("/files/move_to_trash", json=payload)
     assert response.status_code == 400
-    assert response.json() == AlreadyDeleted().as_dict()
+    assert response.json() == FileAlreadyDeleted(path=file.path).as_dict()
 
 
 async def test_move_to_trash_but_file_not_found(client: TestClient, user: User):
     payload = {"path": "file.txt"}
     response = await client.login(user.id).post("/files/move_to_trash", json=payload)
     assert response.status_code == 404
-    assert response.json() == PathNotFound().as_dict()
+    assert response.json() == PathNotFound(path=payload["path"]).as_dict()
 
 
 async def test_upload(client: TestClient, user: User):
@@ -358,5 +392,18 @@ async def test_upload_but_to_a_special_path(client: TestClient, user: User):
     }
     client.login(user.id)
     response = await client.post("/files/upload", files=payload)  # type: ignore
+    message = "Uploads to the Trash are not allowed"
+    assert response.json() == MalformedPath(message).as_dict()
     assert response.status_code == 400
-    assert response.json() == InvalidPath().as_dict()
+
+
+async def test_upload_but_path_is_a_file(client: TestClient, user: User, file_factory):
+    file = await file_factory(user.id, path="f.txt")
+    payload = {
+        "file": BytesIO(b"Dummy file"),
+        "path": (None, f"{file.path}/dummy"),
+    }
+    client.login(user.id)
+    response = await client.post("/files/upload", files=payload)  # type: ignore
+    assert response.json() == NotADirectory(path=f"{file.path}/dummy").as_dict()
+    assert response.status_code == 400

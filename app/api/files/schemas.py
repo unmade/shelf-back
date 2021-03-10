@@ -9,7 +9,7 @@ from pydantic import BaseModel, root_validator, validator
 from app import mediatypes
 from app.config import TRASH_FOLDER_NAME
 
-from .exceptions import InvalidPath
+from .exceptions import FileAlreadyDeleted, MalformedPath
 
 if TYPE_CHECKING:
     from app.entities import File as FileEntity
@@ -37,11 +37,11 @@ _THUMBNAIL_SIZES = {
 
 
 def _normalize(path: str) -> str:
+    path = path.strip()
     symbols = ["..", "~", "/"]
     for symbol in symbols:
         if path.startswith(symbol):
-            raise InvalidPath(f"Path should not start with '{symbol}'")
-    path = path.strip()
+            raise MalformedPath(f"Path should not start with '{symbol}'")
     if path.startswith("./"):
         return path[2:]
     return path
@@ -99,15 +99,15 @@ class MoveFolderRequest(BaseModel):
     @validator("from_path", "to_path")
     def path_should_not_be_home_or_trash_folders(cls, value: str):
         if value == "." or value == TRASH_FOLDER_NAME:
-            raise InvalidPath("should not be Home or Trash folder.")
+            raise MalformedPath("Can't move Home or Trash folder")
         if value.startswith(f"{TRASH_FOLDER_NAME}/"):
-            raise InvalidPath("should not be path located in Trash folder.")
+            raise MalformedPath("Can't move files inside Trash")
         return value.strip()
 
     @root_validator
     def check_path_does_not_contain_itself(cls, values):
         if values["to_path"].startswith(values["from_path"]):
-            raise InvalidPath("destination path should not starts with source path.")
+            raise MalformedPath("Destination path should not start with source path")
         return values
 
 
@@ -115,6 +115,25 @@ class PathRequest(BaseModel):
     path: str
 
     _normalize_path = validator("path", allow_reuse=True)(_normalize)
+
+
+class DeletePathRequest(PathRequest):
+    @validator("path")
+    def check_path_is_not_special(cls, value: str):
+        if value in (TRASH_FOLDER_NAME, "."):
+            message = f"Path '{value}' is a special path and can't be deleted"
+            raise MalformedPath(message)
+        return value
+
+
+class MoveToTrashRequest(PathRequest):
+    @validator("path")
+    def check_path_is_not_trash(cls, value: str):
+        if value == TRASH_FOLDER_NAME:
+            raise MalformedPath("Can't move Trash into itself")
+        if value.startswith(f"{TRASH_FOLDER_NAME}/"):
+            raise FileAlreadyDeleted(path=value)
+        return value
 
 
 class UploadResult(BaseModel):
