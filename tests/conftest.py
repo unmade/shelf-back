@@ -36,15 +36,21 @@ class TestClient(AsyncClient):
 
 
 @pytest.fixture
-async def client():
-    """Test client fixture to make requests against app endpoints"""
-    async with TestClient(app=create_app(), base_url="http://test") as cli:
+def app():
+    """Application fixture."""
+    return create_app()
+
+
+@pytest.fixture
+async def client(app):
+    """Test client fixture to make requests against app endpoints."""
+    async with TestClient(app=app, base_url="http://test") as cli:
         yield cli
 
 
 @pytest.fixture(autouse=True)
 def replace_storage_root_dir_with_tmp_path(tmp_path):
-    """Monkey patches storage root_dir with a temporary directory"""
+    """Monkey patches storage root_dir with a temporary directory."""
     from app.storage import storage
 
     storage.root_dir = tmp_path
@@ -66,7 +72,7 @@ def _build_test_db_dsn() -> tuple[str, str, str]:
 
 @pytest.fixture(scope="session")
 def event_loop():
-    """Redefines pytest-asyncio event_loop fixture with 'session' scope"""
+    """Redefines pytest-asyncio event_loop fixture with 'session' scope."""
     loop = asyncio.get_event_loop()
     yield loop
     loop.close()

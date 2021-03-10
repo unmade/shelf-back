@@ -5,9 +5,10 @@ from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app import crud, errors, security
-from app.api import deps, exceptions
+from app.api import deps
 from app.entities import User
 
+from . import exceptions
 from .schemas import Tokens, UserMe
 
 router = APIRouter()
@@ -28,10 +29,10 @@ async def get_tokens(
     try:
         uid, password = await crud.user.get_password(pool, username=form_data.username)
     except errors.UserNotFound as exc:
-        raise exceptions.UserNotFound() from exc
+        raise exceptions.InvalidCredentials() from exc
 
     if not security.verify_password(form_data.password, password):
-        raise exceptions.UserNotFound()
+        raise exceptions.InvalidCredentials()
 
     return Tokens(
         access_token=security.create_access_token(str(uid))

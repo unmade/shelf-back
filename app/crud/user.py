@@ -116,7 +116,7 @@ async def get_by_id(conn: DBAnyConn, user_id: StrOrUUID) -> User:
     try:
         return User.from_orm(await conn.query_one(query, user_id=user_id))
     except edgedb.NoDataError as exc:
-        raise errors.UserNotFound() from exc
+        raise errors.UserNotFound(f"No user with id: '{user_id}'") from exc
 
 
 async def get_password(conn: DBAnyConn, username: str) -> tuple[UUID, str]:
@@ -145,6 +145,6 @@ async def get_password(conn: DBAnyConn, username: str) -> tuple[UUID, str]:
     try:
         user = await conn.query_one(query, username=username)
     except edgedb.NoDataError as exc:
-        raise errors.UserNotFound() from exc
+        raise errors.UserNotFound(f"No user with username: '{username}'") from exc
 
     return user.id, user.password
