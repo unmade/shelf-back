@@ -67,8 +67,11 @@ async def test_get_by_id(db_pool: DBPool):
 
 
 async def test_get_by_id_but_it_not_found(db_pool: DBPool):
-    with pytest.raises(errors.UserNotFound):
-        await crud.user.get_by_id(db_pool, user_id=uuid.uuid4())
+    user_id = uuid.uuid4()
+    with pytest.raises(errors.UserNotFound) as excinfo:
+        await crud.user.get_by_id(db_pool, user_id=user_id)
+
+    assert str(excinfo.value) == f"No user with id: '{user_id}'"
 
 
 async def test_get_password(db_pool: DBPool):
@@ -80,5 +83,7 @@ async def test_get_password(db_pool: DBPool):
 
 
 async def test_get_password_but_user_not_found(db_pool: DBPool):
-    with pytest.raises(errors.UserNotFound):
+    with pytest.raises(errors.UserNotFound) as excinfo:
         await crud.user.get_password(db_pool, username="user")
+
+    assert str(excinfo.value) == "No user with username: 'user'"
