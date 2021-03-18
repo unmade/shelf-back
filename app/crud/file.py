@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 import time
+from os.path import join as joinpath
+from os.path import normpath
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterable, cast
+from typing import TYPE_CHECKING, Any, Iterable, Iterator, cast
 
 import edgedb
 
@@ -14,6 +16,11 @@ from app.entities import File
 if TYPE_CHECKING:
     from uuid import UUID
     from app.typedefs import DBAnyConn, StrOrPath
+
+
+def _lowered(items: Iterable[Any]) -> Iterator[str]:
+    """Return an iterator of lower-cased strings."""
+    return (str(item).lower() for item in items)
 
 
 async def create(
@@ -56,7 +63,7 @@ async def create(
         raise errors.MissingParent() from exc
     else:
         if not parent.is_folder():
-            raise errors.NotADirectory
+            raise errors.NotADirectory()
 
     query = """
         WITH
@@ -65,7 +72,7 @@ async def create(
                 SELECT
                     Parent
                 FILTER
-                    .path = <str>$parent
+                    str_lower(.path) = str_lower(<str>$parent)
                     AND
                     .namespace.path = <str>$namespace
                 LIMIT 1
@@ -96,7 +103,7 @@ async def create(
 
     params = {
         "name": (namespace / path).name,
-        "path": str(path),
+        "path": normpath(joinpath(parent.path, path.name)),
         "size": size,
         "mtime": time.time(),
         "mediatype": mediatype,
@@ -121,12 +128,19 @@ async def create_batch(
     """
     Create files in a given path and updates parents size accordingly.
 
+    Note, this method will restore original casing for path. In other words, if one of
+    the files to be created has path 'a/b', and parent name is in upper case, the path
+    will be replaces with 'A/b'.
+
+    Similarly, if 'path' argument is 'a' and one of the files has path like 'd/b/c',
+    then file path will be replaced with 'a/c'.
+
     Args:
         conn (DBAnyConn): Database connection.
         namespace (StrOrPath): Namespace where files will be created.
         path (StrOrPath): Path to a folder where files will be created.
-        files (list[File]): List of files to create. All files must have 'path'
-            as a parent.
+        files (list[File]): List of files to create. All files MUST have 'path'
+            as a parent (if not, the path will be replaced with proper parent).
 
     Raises:
         errors.FileAlreadyExists: If some file already exists.
@@ -140,6 +154,10 @@ async def create_batch(
     if not parent.is_folder():
         raise errors.NotADirectory
 
+    # restore original casing
+    for file in files:
+        file.path = normpath(joinpath(parent.path, file.name))
+
     query = """
         WITH
             files := array_unpack(<array<json>>$files),
@@ -147,7 +165,7 @@ async def create_batch(
                 SELECT
                     File
                 FILTER
-                    .path = <str>$parent
+                    str_lower(.path) = str_lower(<str>$parent)
                     AND
                     .namespace.path = <str>$namespace
                 LIMIT 1
@@ -203,8 +221,6 @@ async def create_folder(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) 
     """
     Create a folder with any missing parents of the target path.
 
-    If target path already exists, do nothing.
-
     Args:
         conn (DBAnyConn): Database connection.
         namespace (StrOrPath): Namespace where to create folder to.
@@ -221,12 +237,13 @@ async def create_folder(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) 
 
     if any(not p.is_folder() for p in parents):
         raise errors.NotADirectory()
-    if str(parents[-1].path) == str(path):
+    if parents[-1].path.lower() == str(path).lower():
         raise errors.FileAlreadyExists()
 
-    to_create = list(reversed(paths[:paths.index(parents[-1].path)]))
+    paths_lower = [p.lower() for p in paths]
+    index = paths_lower.index(parents[-1].path.lower())
 
-    for p in to_create:
+    for p in reversed(paths[:index]):
         try:
             await create(conn, namespace, p, mediatype=mediatypes.FOLDER)
         except (errors.FileAlreadyExists, errors.MissingParent):
@@ -266,7 +283,7 @@ async def delete(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> File
         FILTER
             namespace = namespace
             AND
-            .path IN array_unpack(<array<str>>$parents)
+            str_lower(.path) IN array_unpack(<array<str>>$parents)
         SET {
             size := .size - (
                 DELETE
@@ -274,7 +291,7 @@ async def delete(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> File
                 FILTER
                     namespace = namespace
                     AND
-                    .path = <str>$path
+                    str_lower(.path) = str_lower(<str>$path)
             ).size
         }
     """
@@ -282,7 +299,7 @@ async def delete(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> File
         query,
         namespace=str(namespace),
         path=str(path),
-        parents=[str(p) for p in Path(path).parents],
+        parents=[str(p).lower() for p in Path(path).parents],
     )
 
     return file
@@ -292,7 +309,9 @@ async def delete_batch(
     conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath, names: Iterable[str],
 ) -> None:
     """
-    Delete all file with target name in specified path and updates parents size.
+    Delete all files with target names in specified path and updates parents size.
+
+    Note, that 'names' are case-sensitive.
 
     Args:
         conn (DBAnyConn): Database connection.
@@ -311,7 +330,7 @@ async def delete_batch(
         FILTER
             .namespace.path = <str>$namespace
             AND
-            .path IN array_unpack(<array<str>>$parents)
+            str_lower(.path) IN array_unpack(<array<str>>$parents)
         SET {
             size := .size - sum((
                 DELETE
@@ -325,7 +344,7 @@ async def delete_batch(
     """
 
     path = Path(path)
-    parents = [str(path)] + [str(p) for p in path.parents]
+    parents = [str(path).lower()] + [str(p).lower() for p in path.parents]
     names = list(names)
     await conn.query(query, namespace=str(namespace), parents=parents, names=names)
 
@@ -346,7 +365,7 @@ async def empty_trash(conn: DBAnyConn, namespace: StrOrPath) -> File:
         DELETE
             File
         FILTER
-            .path LIKE <str>$path ++ '/%'
+            str_lower(.path) LIKE str_lower(<str>$path) ++ '/%'
             AND
             .namespace.path = <str>$namespace
     """, namespace=str(namespace), path=TRASH_FOLDER_NAME)
@@ -374,7 +393,7 @@ async def exists(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> bool
             SELECT
                 File
             FILTER
-                .path = <str>$path
+                str_lower(.path) = str_lower(<str>$path)
                 AND
                 .namespace.path = <str>$namespace
         )
@@ -407,7 +426,7 @@ async def get(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> File:
                 id, name, path, size, mtime, mediatype: { name }
             }
         FILTER
-            .path = <str>$path
+            str_lower(.path) = str_lower(<str>$path)
             AND
             .namespace.path = <str>$namespace
     """
@@ -439,16 +458,16 @@ async def get_many(
                 id, name, path, size, mtime, mediatype: { name },
             }
         FILTER
-            .path IN {array_unpack(<array<str>>$paths)}
+            str_lower(.path) IN {array_unpack(<array<str>>$paths)}
             AND
             .namespace.path = <str>$namespace
         ORDER BY
-            .path ASC
+            str_lower(.path) ASC
     """
     files = await conn.query(
         query,
         namespace=str(namespace),
-        paths=[str(p) for p in paths]
+        paths=[str(p).lower() for p in paths]
     )
 
     return [File.from_db(f) for f in files]
@@ -496,11 +515,11 @@ async def list_folder(
                     ORDER BY
                         (.mediatype.name = '{mediatypes.FOLDER}') DESC
                     THEN
-                        .path ASC
+                        str_lower(.path) ASC
             )
         }}
         FILTER
-            .path = <str>$path
+            str_lower(.path) = str_lower(<str>$path)
             AND
             .namespace.path = <str>$namespace
         LIMIT 1
@@ -542,8 +561,12 @@ async def move(
         File: Moved file.
     """
     path = Path(path)
-    assert str(path) not in (".", TRASH_FOLDER_NAME), "Can't move Home or Trash folder."
-    assert not str(next_path).startswith(f"{path}/"), "Can't move to itself."
+    assert str(path).lower() not in (".", TRASH_FOLDER_NAME.lower()), (
+        "Can't move Home or Trash folder."
+    )
+    assert not str(next_path).lower().startswith(f"{str(path).lower()}/"), (
+        "Can't move to itself."
+    )
 
     next_path = Path(next_path)
 
@@ -558,11 +581,13 @@ async def move(
         if not next_parent.is_folder():
             raise errors.NotADirectory()
 
+    # restore original parent casing
+    next_path = Path(next_parent.path) / next_path.name
     if await exists(conn, namespace, next_path):
         raise errors.FileAlreadyExists()
 
-    to_decrease = set(path.parents).difference(next_path.parents)
-    to_increase = set(next_path.parents).difference(path.parents)
+    to_decrease = set(_lowered(path.parents)).difference(_lowered(next_path.parents))
+    to_increase = set(_lowered(next_path.parents)).difference(_lowered(path.parents))
 
     query = """
         FOR item IN {array_unpack(<array<json>>$data)}
@@ -570,7 +595,7 @@ async def move(
             UPDATE
                 File
             FILTER
-                .path IN {array_unpack(<array<str>>item['parents'])}
+                str_lower(.path) IN {array_unpack(<array<str>>item['parents'])}
                 AND
                 .namespace.path = <str>$namespace
             SET {
@@ -625,7 +650,7 @@ async def _move_file(conn: DBAnyConn, file_id: UUID, next_path: StrOrPath) -> Fi
                     SELECT
                         Parent
                     FILTER
-                        .path = <str>$next_parent
+                        str_lower(.path) = str_lower(<str>$next_parent)
                         AND
                         .namespace = File.namespace
                     LIMIT 1
@@ -663,11 +688,11 @@ async def _move_folder_content(
         UPDATE
             File
         FILTER
-            .path LIKE <str>$path ++ '/%'
+            str_lower(.path) LIKE str_lower(<str>$path) ++ '/%'
             AND
             .namespace.path = <str>$namespace
         SET {
-            path := re_replace(<str>$path, <str>$next_path, .path)
+            path := re_replace(str_lower(<str>$path), <str>$next_path, str_lower(.path))
         }
     """, namespace=str(namespace), path=str(path), next_path=str(next_path))
 
@@ -697,7 +722,7 @@ async def next_path(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> s
         SELECT count(
             File
             FILTER
-                re_test(<str>$pattern, .path)
+                re_test(str_lower(<str>$pattern), str_lower(.path))
                 AND
                 .namespace.path = <str>$namespace
         )
@@ -727,10 +752,10 @@ async def inc_size_batch(
         UPDATE
             File
         FILTER
-            .path IN array_unpack(<array<str>>$paths)
+            str_lower(.path) IN array_unpack(<array<str>>$paths)
             AND
             .namespace.path = <str>$namespace
         SET {
             size := .size + <int64>$size
         }
-    """, namespace=str(namespace), paths=[str(p) for p in paths], size=size)
+    """, namespace=str(namespace), paths=[str(p).lower() for p in paths], size=size)

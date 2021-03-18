@@ -11,6 +11,7 @@ type File {
     };
 
     constraint exclusive on ((.path, .namespace));
+    index on (str_lower(.path));
 }
 
 type MediaType {
