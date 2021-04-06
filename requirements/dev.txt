@@ -8,25 +8,25 @@ appnope==0.1.2
     # via ipython
 backcall==0.2.0
     # via ipython
-decorator==4.4.2
+decorator==5.0.5
     # via ipython
 ipython-genutils==0.2.0
     # via traitlets
-ipython==7.20.0
+ipython==7.22.0
     # via -r requirements/dev.in
 jedi==0.18.0
     # via ipython
-parso==0.8.1
+parso==0.8.2
     # via jedi
 pexpect==4.8.0
     # via ipython
 pickleshare==0.7.5
     # via ipython
-prompt-toolkit==3.0.16
+prompt-toolkit==3.0.18
     # via ipython
 ptyprocess==0.7.0
     # via pexpect
-pygments==2.8.0
+pygments==2.8.1
     # via ipython
 traitlets==5.0.5
     # via ipython
