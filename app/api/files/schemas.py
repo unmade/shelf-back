@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
+from os.path import normpath
 from typing import TYPE_CHECKING, Type
 from uuid import UUID
 
@@ -42,9 +43,7 @@ def _normalize(path: str) -> str:
     for symbol in symbols:
         if path.startswith(symbol):
             raise MalformedPath(f"Path should not start with '{symbol}'")
-    if path.startswith("./"):
-        return path[2:]
-    return path
+    return normpath(path)
 
 
 class GetDownloadUrlResult(BaseModel):
@@ -98,15 +97,15 @@ class MoveFolderRequest(BaseModel):
 
     @validator("from_path", "to_path")
     def path_should_not_be_home_or_trash_folders(cls, value: str):
-        if value == "." or value == TRASH_FOLDER_NAME:
+        if value == "." or value.lower() == TRASH_FOLDER_NAME.lower():
             raise MalformedPath("Can't move Home or Trash folder")
-        if value.startswith(f"{TRASH_FOLDER_NAME}/"):
+        if value.lower().startswith(f"{TRASH_FOLDER_NAME.lower()}/"):
             raise MalformedPath("Can't move files inside Trash")
         return value.strip()
 
     @root_validator
     def check_path_does_not_contain_itself(cls, values):
-        if values["to_path"].startswith(values["from_path"]):
+        if values["to_path"].lower().startswith(f"{values['from_path'].lower()}/"):
             raise MalformedPath("Destination path should not start with source path")
         return values
 
@@ -120,7 +119,7 @@ class PathRequest(BaseModel):
 class DeletePathRequest(PathRequest):
     @validator("path")
     def check_path_is_not_special(cls, value: str):
-        if value in (TRASH_FOLDER_NAME, "."):
+        if value.lower() in (TRASH_FOLDER_NAME.lower(), "."):
             message = f"Path '{value}' is a special path and can't be deleted"
             raise MalformedPath(message)
         return value
@@ -129,9 +128,9 @@ class DeletePathRequest(PathRequest):
 class MoveToTrashRequest(PathRequest):
     @validator("path")
     def check_path_is_not_trash(cls, value: str):
-        if value == TRASH_FOLDER_NAME:
+        if value.lower() == TRASH_FOLDER_NAME.lower():
             raise MalformedPath("Can't move Trash into itself")
-        if value.startswith(f"{TRASH_FOLDER_NAME}/"):
+        if value.lower().startswith(f"{TRASH_FOLDER_NAME.lower()}/"):
             raise FileAlreadyDeleted(path=value)
         return value
 
