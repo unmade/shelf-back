@@ -1,3 +1,4 @@
+# this is a comment
 from __future__ import annotations
 
 import asyncio
@@ -149,7 +150,7 @@ async def move(
 
     Raises:
         errors.FileNotFound: If source path does not exists.
-        errors.FileAlreadyExists: If some file already in the destionation path.
+        errors.FileAlreadyExists: If some file already in the destination path.
         errors.MissingParent: If 'next_path' parent does not exists.
         errors.NotADirectory: If one of the 'next_path' parents is not a folder.
 
