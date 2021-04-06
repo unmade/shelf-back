@@ -260,13 +260,17 @@ async def test_list_folder_but_path_is_not_a_folder(
     assert response.json() == NotADirectory(path="f.txt").as_dict()
 
 
-async def test_move(client: TestClient, user: User, file_factory):
-    await file_factory(user.id, path="file.txt")
-    payload = {"from_path": "file.txt", "to_path": ".file.txt"}
+@pytest.mark.parametrize(["path", "next_path"], [
+    ("file.txt", ".file.txt"),
+    ("f", "f.txt"),
+])
+async def test_move(client: TestClient, user: User, file_factory, path, next_path):
+    await file_factory(user.id, path=path)
+    payload = {"from_path": path, "to_path": next_path}
     response = await client.login(user.id).post("/files/move", json=payload)
     assert response.status_code == 200
-    assert response.json()["name"] == ".file.txt"
-    assert response.json()["path"] == ".file.txt"
+    assert response.json()["name"] == next_path
+    assert response.json()["path"] == next_path
 
 
 @pytest.mark.parametrize("path", [".", "Trash"])
