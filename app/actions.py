@@ -1,4 +1,3 @@
-# this is a comment
 from __future__ import annotations
 
 import asyncio
@@ -7,7 +6,7 @@ import itertools
 from datetime import datetime
 from os.path import join as joinpath
 from pathlib import Path
-from typing import IO, TYPE_CHECKING
+from typing import IO, TYPE_CHECKING, Optional
 
 from app import config, crud, mediatypes
 from app.entities import File, Namespace
@@ -17,7 +16,15 @@ if TYPE_CHECKING:
     from app.typedefs import DBConnOrPool, StrOrPath
 
 
-async def create_account(conn: DBConnOrPool, username: str, password: str) -> None:
+async def create_account(
+    conn: DBConnOrPool,
+    username: str,
+    password: str,
+    *,
+    email: Optional[str] = None,
+    first_name: str = "",
+    last_name: str = "",
+) -> None:
     """
     Create new user, namespace, home and trash folders.
 
@@ -27,11 +34,14 @@ async def create_account(conn: DBConnOrPool, username: str, password: str) -> No
         password (str): Plain-text password.
 
     Raises:
-        UserAlreadyExists: If user with this username already exists.
+        UserAlreadyExists: If user with this username or email already exists.
     """
     async for tx in conn.retrying_transaction():
         async with tx:
             await crud.user.create(tx, username, password)
+            await crud.account.create(
+                tx, username, email=email, first_name=first_name, last_name=last_name
+            )
             await crud.file.create(
                 tx, username, config.TRASH_FOLDER_NAME, mediatype=mediatypes.FOLDER
             )

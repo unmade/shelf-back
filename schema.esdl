@@ -1,3 +1,15 @@
+type Account {
+    property email -> str {
+        constraint exclusive;
+    };
+    required property first_name -> str;
+    required property last_name -> str;
+
+    required single link user -> User {
+        on target delete DELETE SOURCE;
+    };
+}
+
 type File {
     required property name -> str;
     required property path -> str;
