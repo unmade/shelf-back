@@ -8,7 +8,7 @@ from app import errors
 from app.entities import Account
 
 if TYPE_CHECKING:
-    from app.typedefs import DBAnyConn
+    from app.typedefs import DBAnyConn, StrOrUUID
 
 
 async def create(
@@ -23,7 +23,7 @@ async def create(
     Create new account for a user.
 
     Args:
-        conn (DBAnyConn): Connection to the database.
+        conn (DBAnyConn): Database connection.
         username (str): Username to create account for.
         email (Optional[str], optional): Email. Defaults to None.
         first_name (str, optional): First name. Defaults to "".
@@ -63,3 +63,26 @@ async def create(
         raise errors.UserAlreadyExists(f"Email '{email}' is taken") from exc
 
     return Account.from_db(account)
+
+
+async def get(conn: DBAnyConn, user_id: StrOrUUID) -> Account:
+    """
+    Return account for a given user_id.
+
+    Args:
+        conn (DBAnyConn): Database connection.
+        user_id (StrOrUUID): User id to return account for.
+
+    Returns:
+        Account: User Account.
+    """
+    return Account.from_db(
+        await conn.query_one("""
+            SELECT Account {
+                id, email, first_name, last_name, user: { username }
+            }
+            FILTER
+                .user.id = <uuid>$user_id
+            LIMIT 1
+        """, user_id=user_id)
+    )

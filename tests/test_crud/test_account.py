@@ -41,3 +41,13 @@ async def test_create_account_but_email_is_taken(db_pool: DBPool):
         await crud.account.create(db_pool, "user_b", email="user@example.com")
 
     assert str(excinfo.value) == "Email 'user@example.com' is taken"
+
+
+async def test_get_account(db_pool: DBPool):
+    username = "johndoe"
+    await crud.user.create(db_pool, username, "psswd")
+    await crud.account.create(db_pool, username)
+    query = "SELECT User { id } FILTER .username=<str>$username"
+    user = await db_pool.query_one(query, username=username)
+    account = await crud.account.get(db_pool, user.id)
+    assert account.username == username
