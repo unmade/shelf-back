@@ -17,37 +17,83 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.asyncio]
 
 
-async def test_create_account(db_pool: DBPool):
-    await actions.create_account(db_pool, "user", "psswd")
+@pytest.mark.parametrize(["given", "expected"], [
+    (
+        {
+            "username": "johndoe",
+            "password": "psswd"
+        },
+        {
+            "username": "johndoe",
+            "password": "psswd",
+            "email": None,
+            "first_name": "",
+            "last_name": ""
+        },
+    ),
+    (
+        {
+            "username": "johndoe",
+            "password": "psswd",
+            "email": "johndoe@example.com",
+            "first_name": "John",
+            "last_name": "Doe"
+        },
+        {
+            "username": "johndoe",
+            "password": "psswd",
+            "email": "johndoe@example.com",
+            "first_name": "John",
+            "last_name": "Doe"
+        },
+    ),
+])
+async def test_create_account(db_pool: DBPool, given, expected):
+    await actions.create_account(db_pool, **given)
 
-    assert storage.get("user")
-    assert storage.get("user/Trash")
+    assert storage.get(expected["username"])
+    assert storage.get(f"{expected['username']}/Trash")
 
-    user = await db_pool.query_one("""
-        SELECT User {
-            username,
-            password,
-            namespace := (
-                SELECT User.<owner[IS Namespace] {
-                    path,
-                    files := (
-                        SELECT Namespace.<namespace[IS File] { name, path }
-                        ORDER BY .path ASC
-                    )
-                }
-                LIMIT 1
-            )
-        } FILTER .username = 'user'
-    """)
+    account = await db_pool.query_one("""
+        SELECT Account {
+            email,
+            first_name,
+            last_name,
+            user: {
+                username,
+                password,
+                namespace := (
+                    SELECT User.<owner[IS Namespace] {
+                        path,
+                        files := (
+                            SELECT Namespace.<namespace[IS File] { name, path }
+                            ORDER BY .path ASC
+                        )
+                    }
+                    LIMIT 1
+                ),
+            }
+        }
+        FILTER
+            .user.username = <str>$username
+        LIMIT 1
+    """, username=expected["username"])
 
-    assert user.username == "user"
-    assert user.password != "psswd"
-    assert user.namespace.path == user.username
-    assert len(user.namespace.files) == 2
-    assert user.namespace.files[0].name == user.username
-    assert user.namespace.files[0].path == "."
-    assert user.namespace.files[1].name == "Trash"
-    assert user.namespace.files[1].path == "Trash"
+    assert account.email == expected["email"]
+    assert account.first_name == expected["first_name"]
+    assert account.last_name == expected["last_name"]
+
+    user = account.user
+    assert user.username == expected["username"]
+    assert user.password != expected["password"]
+
+    namespace = user.namespace
+    assert namespace.path == user.username
+    assert len(namespace.files) == 2
+    assert namespace.files[0].name == user.username
+    assert namespace.files[0].path == "."
+    assert namespace.files[1].name == "Trash"
+    assert namespace.files[1].path == "Trash"
 
 
 async def test_create_account_but_username_is_taken(db_pool: DBPool):
@@ -55,6 +101,24 @@ async def test_create_account_but_username_is_taken(db_pool: DBPool):
 
     with pytest.raises(errors.UserAlreadyExists):
         await actions.create_account(db_pool, "user", "psswd")
+
+
+async def test_create_account_but_email_is_taken(db_pool: DBPool):
+    email = "user@example.com"
+    await actions.create_account(db_pool, "user_a", "psswd", email=email)
+
+    with pytest.raises(errors.UserAlreadyExists) as excinfo:
+        await actions.create_account(db_pool, "user_b", "psswd", email=email)
+
+    assert str(excinfo.value) == "Email 'user@example.com' is taken"
+    assert await db_pool.query_one("""
+        SELECT NOT EXISTS (
+            SELECT
+                User
+            FILTER
+                .username = <str>$username
+        )
+    """, username="user_b")
 
 
 async def test_create_folder(db_pool: DBPool, user: User):
