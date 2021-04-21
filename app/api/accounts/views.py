@@ -8,14 +8,14 @@ from app.api import deps
 from app.entities import User
 
 from .exceptions import UserAlreadyExists
-from .schemas import Account, AccountCreate
+from .schemas import Account, CreateAccountRequest
 
 router = APIRouter()
 
 
 @router.post("/create", response_model=Account)
 async def create(
-    payload: AccountCreate,
+    payload: CreateAccountRequest,
     db_pool: AsyncIOPool = Depends(deps.db_pool),
     user: User = Depends(deps.current_user),
 ):
