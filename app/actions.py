@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import IO, TYPE_CHECKING, Optional
 
 from app import config, crud, mediatypes
-from app.entities import File, Namespace
+from app.entities import Account, File, Namespace
 from app.storage import storage
 
 if TYPE_CHECKING:
@@ -24,7 +24,7 @@ async def create_account(
     email: Optional[str] = None,
     first_name: str = "",
     last_name: str = "",
-) -> None:
+) -> Account:
     """
     Create new user, namespace, home and trash folders.
 
@@ -39,7 +39,7 @@ async def create_account(
     async for tx in conn.retrying_transaction():
         async with tx:
             await crud.user.create(tx, username, password)
-            await crud.account.create(
+            account = await crud.account.create(
                 tx, username, email=email, first_name=first_name, last_name=last_name
             )
             await crud.file.create(
@@ -47,6 +47,7 @@ async def create_account(
             )
             storage.mkdir(username)
             storage.mkdir(joinpath(username, config.TRASH_FOLDER_NAME))
+    return account
 
 
 async def create_folder(
