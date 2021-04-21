@@ -6,6 +6,7 @@ fastapi
 filetype
 passlib
 pillow-simd
+pydantic[email]
 python-jose[cryptography]
 python-multipart
 typer

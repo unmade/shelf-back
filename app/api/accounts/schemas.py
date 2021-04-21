@@ -1,6 +1,6 @@
-from typing import Optional
+from typing import Annotated, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 
 
 class Account(BaseModel):
@@ -10,9 +10,9 @@ class Account(BaseModel):
     last_name: str
 
 
-class AccountCreate(BaseModel):
-    username: str
-    password: str
-    email: Optional[str] = None
-    first_name: str = ""
-    last_name: str = ""
+class CreateAccountRequest(BaseModel):
+    username: Annotated[str, Field(min_length=3, max_length=31)]
+    password: Annotated[str, Field(min_length=8, max_length=63)]
+    email: Optional[EmailStr] = None
+    first_name: Annotated[str, Field(max_length=63)] = ""
+    last_name: Annotated[str, Field(max_length=63)] = ""
