@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from io import BytesIO
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Union
+from typing import IO, TYPE_CHECKING, Optional, Union
 from unittest import mock
 from urllib.parse import urlsplit, urlunsplit
 
@@ -165,15 +165,18 @@ def image_factory(file_factory):
 def user_factory(db_pool: DBPool):
     """Create a new user, namespace, home and trash directories."""
     async def _user_factory(
-        username: str = None, password: str = "root", hash_password: bool = False,
+        username: str = None,
+        password: str = "root",
+        email: Optional[str] = None,
+        hash_password: bool = False,
     ) -> User:
         username = username or fake.simple_profile()["username"]
         # Hashing password is an expensive operation, so do it only when need it.
         if hash_password:
-            await actions.create_account(db_pool, username, password)
+            await actions.create_account(db_pool, username, password, email=email)
         else:
             with mock.patch("app.security.make_password", return_value=password):
-                await actions.create_account(db_pool, username, password)
+                await actions.create_account(db_pool, username, password, email=email)
         query = "SELECT User { id } FILTER .username=<str>$username"
         user = await db_pool.query_one(query, username=username)
         return await crud.user.get_by_id(db_pool, user_id=user.id)
@@ -184,4 +187,4 @@ def user_factory(db_pool: DBPool):
 @pytest.fixture
 async def user(user_factory):
     """User instance with namespace, home and trash directories."""
-    return await user_factory()
+    return await user_factory(email=fake.email())
