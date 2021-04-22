@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from io import BytesIO
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Optional, Union
@@ -168,15 +169,20 @@ def user_factory(db_pool: DBPool):
         username: str = None,
         password: str = "root",
         email: Optional[str] = None,
+        superuser: bool = False,
         hash_password: bool = False,
     ) -> User:
         username = username or fake.simple_profile()["username"]
         # Hashing password is an expensive operation, so do it only when need it.
-        if hash_password:
-            await actions.create_account(db_pool, username, password, email=email)
+        if not hash_password:
+            mk_psswd = mock.patch("app.security.make_password", return_value=password)
         else:
-            with mock.patch("app.security.make_password", return_value=password):
-                await actions.create_account(db_pool, username, password, email=email)
+            mk_psswd = contextlib.nullcontext()  # type: ignore
+
+        with mk_psswd:
+            await actions.create_account(
+                db_pool, username, password, email=email, superuser=superuser,
+            )
         query = "SELECT User { id } FILTER .username=<str>$username"
         user = await db_pool.query_one(query, username=username)
         return await crud.user.get_by_id(db_pool, user_id=user.id)
@@ -188,3 +194,9 @@ def user_factory(db_pool: DBPool):
 async def user(user_factory):
     """User instance with namespace, home and trash directories."""
     return await user_factory(email=fake.email())
+
+
+@pytest.fixture
+async def superuser(user_factory):
+    """Superuser with namespace, home and trash directories."""
+    return await user_factory(email=fake.email(), superuser=True)

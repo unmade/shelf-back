@@ -46,4 +46,5 @@ type User {
         constraint exclusive;
     };
     required property password -> str;
+    required property superuser -> bool;
 }
