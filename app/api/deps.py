@@ -51,3 +51,9 @@ async def current_user(
         return await crud.user.get_by_id(pool, user_id=payload.sub)
     except errors.UserNotFound as exc:
         raise exceptions.UserNotFound() from exc
+
+
+async def superuser(user: User = Depends(current_user)) -> User:
+    if not user.superuser:
+        raise exceptions.PermissionDenied()
+    return user

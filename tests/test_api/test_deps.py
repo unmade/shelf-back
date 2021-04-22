@@ -25,6 +25,10 @@ async def current_user(user: User = Depends(deps.current_user)):
     return {"user": user}
 
 
+async def get_superuser(superuser: User = Depends(deps.superuser)):
+    return {"user": superuser}
+
+
 async def token_payload(payload: TokenPayload = Depends(deps.token_payload)):
     return {"payload": payload}
 
@@ -57,6 +61,22 @@ async def test_current_user_but_no_user_exists(app: FastAPI, client: TestClient)
     response = await client.login(fake_user_id).get("/current_user")
     assert response.json() == exceptions.UserNotFound().as_dict()
     assert response.status_code == 404
+
+
+async def test_superuser(app: FastAPI, client: TestClient, superuser: User):
+    app.add_api_route("/superuser", get_superuser)
+    response = await client.login(superuser.id).get("/superuser")
+    assert User.parse_obj(response.json()["user"]) == superuser
+    assert response.status_code == 200
+
+
+async def test_superuser_but_permission_denied(
+    app: FastAPI, client: TestClient, user: User
+):
+    app.add_api_route("/superuser", get_superuser)
+    response = await client.login(user.id).get("/superuser")
+    assert response.json() == exceptions.PermissionDenied().as_dict()
+    assert response.status_code == 403
 
 
 async def test_token_payload(app: FastAPI, client: TestClient):

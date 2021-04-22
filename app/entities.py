@@ -15,6 +15,7 @@ class Account(BaseModel):
     email: Optional[str]
     first_name: str
     last_name: str
+    superuser: bool
 
     @classmethod
     def from_db(cls: Type[Account], obj) -> Account:
@@ -24,6 +25,7 @@ class Account(BaseModel):
             email=obj.email,
             first_name=obj.first_name,
             last_name=obj.last_name,
+            superuser=obj.user.superuser,
         )
 
 
@@ -66,6 +68,7 @@ class File(BaseModel):
 class User(BaseModel):
     id: UUID
     username: str
+    superuser: bool
     namespace: Namespace
 
     class Config:

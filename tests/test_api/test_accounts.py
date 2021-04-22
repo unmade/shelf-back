@@ -13,13 +13,13 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.asyncio]
 
 
-async def test_create(client: TestClient, user: User):
+async def test_create(client: TestClient, superuser: User):
     payload = {
         "username": "johndoe",
         "password": "password",
         "last_name": "Doe",
     }
-    response = await client.login(user.id).post("/accounts/create", json=payload)
+    response = await client.login(superuser.id).post("/accounts/create", json=payload)
     data = response.json()
     assert data["username"] == payload["username"]
     assert data["email"] is None
@@ -47,30 +47,32 @@ async def test_create(client: TestClient, user: User):
         "email": "johndoe.com",  # invalid email
     },
 ])
-async def test_create_but_payload_is_invalid(client: TestClient, user: User, payload):
-    response = await client.login(user.id).post("/accounts/create", json=payload)
+async def test_create_but_payload_is_invalid(
+    client: TestClient, superuser: User, payload,
+):
+    response = await client.login(superuser.id).post("/accounts/create", json=payload)
     assert response.status_code == 422
 
 
-async def test_create_but_username_is_taken(client: TestClient, user: User):
+async def test_create_but_username_is_taken(client: TestClient, superuser: User):
     payload = {
-        "username": user.username,
+        "username": superuser.username,
         "password": "password",
     }
-    response = await client.login(user.id).post("/accounts/create", json=payload)
-    message = f"Username '{user.username}' is taken"
+    response = await client.login(superuser.id).post("/accounts/create", json=payload)
+    message = f"Username '{superuser.username}' is taken"
     assert response.json() == UserAlreadyExists(message).as_dict()
     assert response.status_code == 400
 
 
 async def test_create_but_email_is_taken(client: TestClient, user_factory):
-    user: User = await user_factory(email="johndoe@example.com")
+    superuser: User = await user_factory(email="johndoe@example.com", superuser=True)
     payload = {
         "username": "johndoe",
         "password": "password",
         "email": "johndoe@example.com",
     }
-    response = await client.login(user.id).post("/accounts/create", json=payload)
+    response = await client.login(superuser.id).post("/accounts/create", json=payload)
     message = "Email 'johndoe@example.com' is taken"
     assert response.json() == UserAlreadyExists(message).as_dict()
     assert response.status_code == 400

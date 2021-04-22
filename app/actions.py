@@ -24,6 +24,7 @@ async def create_account(
     email: Optional[str] = None,
     first_name: str = "",
     last_name: str = "",
+    superuser: bool = False,
 ) -> Account:
     """
     Create new user, namespace, home and trash folders.
@@ -32,13 +33,18 @@ async def create_account(
         conn (DBConnOrPool): Database connection or connection pool.
         username (str): Username for a new user.
         password (str): Plain-text password.
+        email (Optional[str], optional): Email. Defaults to None.
+        first_name (str, optional): First name. Defaults to "".
+        last_name (str, optional): Last name. Defaults to "".
+        superuser (bool, optional): Whether user is super user or not. Defaults to
+            False
 
     Raises:
         UserAlreadyExists: If user with this username or email already exists.
     """
     async for tx in conn.retrying_transaction():
         async with tx:
-            await crud.user.create(tx, username, password)
+            await crud.user.create(tx, username, password, superuser=superuser)
             account = await crud.account.create(
                 tx, username, email=email, first_name=first_name, last_name=last_name
             )

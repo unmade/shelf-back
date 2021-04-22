@@ -17,7 +17,7 @@ router = APIRouter()
 async def create(
     payload: CreateAccountRequest,
     db_pool: AsyncIOPool = Depends(deps.db_pool),
-    user: User = Depends(deps.current_user),
+    _: User = Depends(deps.superuser),
 ):
     """Create new account."""
     try:

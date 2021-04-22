@@ -13,7 +13,9 @@ if TYPE_CHECKING:
     from app.typedefs import DBAnyConn, StrOrUUID
 
 
-async def create(conn: DBAnyConn, username: str, password: str) -> None:
+async def create(
+    conn: DBAnyConn, username: str, password: str, *, superuser: bool = False,
+) -> None:
     """
     Create user, namespace and home folder.
 
@@ -21,6 +23,8 @@ async def create(conn: DBAnyConn, username: str, password: str) -> None:
         conn (DBAnyConn): Connection to a database.
         username (str): Username for a new user.
         password (str): Plain-text password.
+        superuser (bool, optional): Whether user is superuser or not. Defaults to
+            False.
 
     Raises:
         UserAlreadyExists: If user with a target username already exists.
@@ -50,6 +54,7 @@ async def create(conn: DBAnyConn, username: str, password: str) -> None:
                         INSERT User {
                             username := <str>$username,
                             password := <str>$password,
+                            superuser := <bool>$superuser,
                         }
                     )
                 }
@@ -62,6 +67,7 @@ async def create(conn: DBAnyConn, username: str, password: str) -> None:
             query,
             username=username,
             password=security.make_password(password),
+            superuser=superuser,
             mtime=time.time(),
             mediatype=mediatypes.FOLDER,
         )
@@ -102,6 +108,7 @@ async def get_by_id(conn: DBAnyConn, user_id: StrOrUUID) -> User:
             User {
                 id,
                 username,
+                superuser,
                 namespace := (
                     SELECT
                         .<owner[IS Namespace] {

@@ -49,6 +49,13 @@ class InvalidToken(APIError):
     default_message = "Could not validate credentials"
 
 
+class PermissionDenied(APIError):
+    status_code = 403
+    code = "PERMISSION_DENIED"
+    code_verbose = "Permission Denied"
+    default_message = "You don't have permission to perform the action requested"
+
+
 class UserNotFound(APIError):
     status_code = 404
     code = "USER_NOT_FOUND"

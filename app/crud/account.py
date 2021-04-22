@@ -49,7 +49,7 @@ async def create(
                     LIMIT 1
                 )
             }
-        ) { id, email, first_name, last_name, user: { username } }
+        ) { id, email, first_name, last_name, user: { username, superuser } }
     """
     try:
         account = await conn.query_one(
@@ -79,7 +79,7 @@ async def get(conn: DBAnyConn, user_id: StrOrUUID) -> Account:
     return Account.from_db(
         await conn.query_one("""
             SELECT Account {
-                id, email, first_name, last_name, user: { username }
+                id, email, first_name, last_name, user: { username, superuser }
             }
             FILTER
                 .user.id = <uuid>$user_id
