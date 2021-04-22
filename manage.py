@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from pathlib import Path
 
 import edgedb
@@ -11,20 +12,26 @@ from app import actions, config, crud, db
 cli = typer.Typer()
 
 
+@contextlib.asynccontextmanager
+async def connect(dsn: str):
+    conn = await edgedb.async_connect(dsn=dsn)
+    try:
+        yield conn
+    finally:
+        await conn.aclose()
+
+
 @cli.command()
-def createuser(
+def createsuperuser(
     username: str = typer.Option(..., prompt=True),
     password: str = typer.Option(
         ..., prompt=True, confirmation_prompt=True, hide_input=True,
     ),
 ) -> None:
-    """Create a new user with namespace, home and trash directories."""
+    """Create a new super user with namespace, home and trash directories."""
     async def _createuser(username: str, password: str):
-        conn = await edgedb.async_connect(dsn=config.EDGEDB_DSN)
-        try:
-            await actions.create_account(conn, username, password)
-        finally:
-            await conn.aclose()
+        async with connect(config.EDGEDB_DSN) as conn:
+            await actions.create_account(conn, username, password, superuser=True)
 
     asyncio.run(_createuser(username, password))
     typer.echo("User created successfully.")
@@ -32,14 +39,11 @@ def createuser(
 
 @cli.command()
 def reconcile(namespace: str) -> None:
-    """Reconcile storage and database for all namespaces."""
+    """Reconcile storage and database for a given namespace."""
     async def _reconcile():
-        conn = await edgedb.async_connect(dsn=config.EDGEDB_DSN)
-        try:
+        async with connect(config.EDGEDB_DSN) as conn:
             ns = await crud.namespace.get(conn, namespace)
             await actions.reconcile(conn, ns, ".")
-        finally:
-            await conn.aclose()
 
     asyncio.run(_reconcile())
 
@@ -48,11 +52,8 @@ def reconcile(namespace: str) -> None:
 def migrate(schema: Path) -> None:
     """Apply target schema to a database."""
     async def run_migration(schema: str) -> None:
-        conn = await edgedb.async_connect(dsn=config.EDGEDB_DSN)
-        try:
+        async with connect(config.EDGEDB_DSN) as conn:
             await db.migrate(conn, schema)
-        finally:
-            await conn.aclose()
 
     with open(schema.expanduser().resolve(), 'r') as f:
         schema_declaration = f.read()

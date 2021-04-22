@@ -57,6 +57,13 @@ def replace_storage_root_dir_with_tmp_path(tmp_path):
     storage.root_dir = tmp_path
 
 
+@pytest.fixture(autouse=True, scope="session")
+def replace_database_dsn():
+    _, dsn, _ = _build_test_db_dsn()
+    with mock.patch("app.config.EDGEDB_DSN", dsn):
+        yield
+
+
 def _build_test_db_dsn() -> tuple[str, str, str]:
     """
     Parse DSN from config and return tuple:
@@ -120,10 +127,15 @@ async def apply_migration(create_db_pool: DBPool) -> None:
 @pytest.fixture
 async def db_pool(create_db_pool):
     """Yields database pool and delete tables on teardown."""
+    yield create_db_pool
+
+
+@pytest.fixture(autouse=True)
+async def cleanup_tables(db_pool):
     try:
-        yield create_db_pool
+        yield
     finally:
-        await create_db_pool.execute("""
+        await db_pool.execute("""
             DELETE File;
             DELETE Namespace;
             DELETE User;

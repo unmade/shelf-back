@@ -40,12 +40,6 @@ Apply migration:
 python manage.py migrate schema.esdl
 ```
 
-Sync media types:
-
-```bash
-python manage.py syncmediatypes
-```
-
 Start the application:
 
 ```bash
