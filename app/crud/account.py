@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, cast
 
 import edgedb
 
@@ -9,6 +9,19 @@ from app.entities import Account
 
 if TYPE_CHECKING:
     from app.typedefs import DBAnyConn, StrOrUUID
+
+
+async def count(conn: DBAnyConn) -> int:
+    """
+    Return the total number of accounts.
+
+    Args:
+        conn (DBAnyConn): Database connection.
+
+    Returns:
+        int: Total number of Accounts
+    """
+    return cast(int, await conn.query_one("SELECT count(Account)"))
 
 
 async def create(
@@ -86,3 +99,27 @@ async def get(conn: DBAnyConn, user_id: StrOrUUID) -> Account:
             LIMIT 1
         """, user_id=user_id)
     )
+
+
+async def list_all(conn: DBAnyConn, *, offset: int, limit: int = 25) -> list[Account]:
+    """
+    List all accounts in the system.
+
+    Args:
+        conn (DBAnyConn): Database connection.
+        offset (int): Skip this number of elements.
+        limit (int, optional): Include only the first element-count elements.
+
+    Returns:
+        list[Account]: list of Account
+    """
+    accounts = await conn.query("""
+        SELECT Account {
+            id, email, first_name, last_name, user: { username, superuser }
+         }
+         ORDER BY
+            .user.username ASC
+         OFFSET <int64>$offset
+         LIMIT <int64>$limit
+    """, offset=offset, limit=limit)
+    return [Account.from_db(account) for account in accounts]
