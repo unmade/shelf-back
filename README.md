@@ -1,9 +1,9 @@
-# Shelf
+# Shelf (WIP)
 
 [![build](https://github.com/unmade/shelf-back/workflows/Test/badge.svg)](https://github.com/unmade/shelf-back/blob/master/.github/workflows/tests.yml)
 [![codecov](https://codecov.io/gh/unmade/shelf-back/branch/master/graph/badge.svg)](https://codecov.io/gh/unmade/shelf-back)
 
-This is backend application for the Shelf project (in-progress).
+This is backend for the Shelf App - a self-hosted file storage.
 
 ## Development
 
@@ -13,7 +13,7 @@ Create a new virtual environment:
 
 ```bash
 python3 -m venv .venv
-source ./.venv/bin/activate && source .env
+source ./.venv/bin/activate && source dev.env
 ```
 
 Install requirements:
@@ -60,7 +60,7 @@ pip-compile requirements/{updated_file}.in
 To sync with your env:
 
 ```bash
-pip-sync requirements/base.txt [requirements/test.txt]
+pip-sync requirements/base.txt [requirements/test.txt] ...
 ```
 
 ### Testing
