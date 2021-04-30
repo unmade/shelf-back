@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from typing import TYPE_CHECKING
 
 import pytest
@@ -51,6 +52,14 @@ async def test_get_account(db_pool: DBPool):
     user = await db_pool.query_one(query, username=username)
     account = await crud.account.get(db_pool, user.id)
     assert account.username == username
+
+
+async def test_get_account_but_user_not_found(db_pool: DBPool):
+    user_id = uuid.uuid4()
+    with pytest.raises(errors.UserNotFound) as excinfo:
+        await crud.account.get(db_pool, user_id)
+
+    assert str(excinfo.value) == f"No account for user with id: {user_id}"
 
 
 async def test_list_all(db_pool: DBPool):

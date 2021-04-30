@@ -88,6 +88,7 @@ async def test_get_current(client: TestClient, user_factory):
     assert data["email"] is None
     assert data["first_name"] == ""
     assert data["last_name"] == ""
+    assert data["superuser"] is False
     assert response.status_code == 200
 
 

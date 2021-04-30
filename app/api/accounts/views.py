@@ -42,6 +42,8 @@ async def get_current(
     user_id: str = Depends(deps.current_user_id),
 ):
     """Get account information for a current user."""
+    # normally, we would re-raised UserNotFound error, but if some user,
+    # doesn't have an account, then it is data integrity error, so fail miserably.
     return await crud.account.get(db_pool, user_id)
 
 
