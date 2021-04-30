@@ -1,14 +1,20 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, cast
+from typing import TYPE_CHECKING, Optional, TypedDict, cast, get_type_hints
 
 import edgedb
 
-from app import errors
+from app import db, errors
 from app.entities import Account
 
 if TYPE_CHECKING:
     from app.typedefs import DBAnyConn, StrOrUUID
+
+
+class AccountUpdate(TypedDict, total=False):
+    email: Optional[str]
+    first_name: str
+    last_name: str
 
 
 async def count(conn: DBAnyConn) -> int:
@@ -130,3 +136,20 @@ async def list_all(conn: DBAnyConn, *, offset: int, limit: int = 25) -> list[Acc
          LIMIT <int64>$limit
     """, offset=offset, limit=limit)
     return [Account.from_db(account) for account in accounts]
+
+
+async def update(conn: DBAnyConn, user_id, fields: AccountUpdate) -> Account:
+    hints = get_type_hints(AccountUpdate)
+    statements = [f"{key} := {db.autocast(hints[key])}${key}" for key in fields]
+    query = f"""
+        SELECT (
+            UPDATE Account
+            FILTER
+                .user.id = <uuid>$user_id
+            SET {{
+                {','.join(statements)}
+            }}
+        ) {{ id, email, first_name, last_name, user: {{  username, superuser }} }}
+    """
+    account = await conn.query_one(query, user_id=user_id, **fields)
+    return Account.from_db(account)
