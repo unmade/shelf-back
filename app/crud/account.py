@@ -86,19 +86,26 @@ async def get(conn: DBAnyConn, user_id: StrOrUUID) -> Account:
         conn (DBAnyConn): Database connection.
         user_id (StrOrUUID): User id to return account for.
 
+    Raises:
+        errors.UserNotFound: If account for given user_id does not exists.
+
     Returns:
         Account: User Account.
     """
-    return Account.from_db(
-        await conn.query_one("""
-            SELECT Account {
-                id, email, first_name, last_name, user: { username, superuser }
-            }
-            FILTER
-                .user.id = <uuid>$user_id
-            LIMIT 1
-        """, user_id=user_id)
-    )
+    query = """
+        SELECT Account {
+            id, email, first_name, last_name, user: { username, superuser }
+        }
+        FILTER
+            .user.id = <uuid>$user_id
+        LIMIT 1
+    """
+    try:
+        account = await conn.query_one(query, user_id=user_id)
+    except edgedb.NoDataError as exc:
+        raise errors.UserNotFound(f"No account for user with id: {user_id}") from exc
+
+    return Account.from_db(account)
 
 
 async def list_all(conn: DBAnyConn, *, offset: int, limit: int = 25) -> list[Account]:

@@ -8,6 +8,7 @@ class Account(BaseModel):
     email: Optional[str]
     first_name: str
     last_name: str
+    superuser: bool
 
 
 class CreateAccountRequest(BaseModel):
