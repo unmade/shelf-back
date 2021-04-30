@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import asyncio
+
 from edgedb import AsyncIOPool
 from fastapi import APIRouter, Depends
 
 from app import actions, crud, errors
 from app.api import deps
+from app.api.paginator import Page, PageParam, PageSizeParam, get_offset
 from app.entities import User
 
 from .exceptions import UserAlreadyExists
@@ -40,3 +43,22 @@ async def get_current(
 ):
     """Get account information for a current user."""
     return await crud.account.get(db_pool, user_id)
+
+
+@router.get("/list_all", response_model=Page[Account])
+async def list_all(
+    page: int = PageParam,
+    per_page: int = PageSizeParam,
+    db_pool: AsyncIOPool = Depends(deps.db_pool),
+    _: User = Depends(deps.superuser),
+):
+    """List all accounts."""
+    offset = get_offset(page, per_page)
+    count, accounts = await asyncio.gather(
+        crud.account.count(db_pool),
+        crud.account.list_all(db_pool, offset=offset, limit=per_page)
+    )
+    return Page(
+        count=count,
+        results=accounts,
+    )
