@@ -11,7 +11,7 @@ from app.api.paginator import Page, PageParam, PageSizeParam, get_offset
 from app.entities import User
 
 from .exceptions import UserAlreadyExists
-from .schemas import Account, CreateAccountRequest
+from .schemas import Account, CreateAccountRequest, UpdateAccountRequest
 
 router = APIRouter()
 
@@ -64,3 +64,13 @@ async def list_all(
         count=count,
         results=accounts,
     )
+
+
+@router.patch("/update", response_model=Account)
+async def update(
+    payload: UpdateAccountRequest,
+    db_pool: AsyncIOPool = Depends(deps.db_pool),
+    user_id: str = Depends(deps.current_user_id),
+):
+    """Update account details."""
+    return await crud.account.update(db_pool, user_id, payload.as_update())

@@ -132,6 +132,7 @@ async def db_pool(create_db_pool):
 
 @pytest.fixture(autouse=True)
 async def cleanup_tables(db_pool):
+    """Clean up tables after each test."""
     try:
         yield
     finally:

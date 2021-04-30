@@ -80,12 +80,11 @@ async def test_create_but_email_is_taken(client: TestClient, user_factory):
     assert response.status_code == 400
 
 
-async def test_get_current(client: TestClient, user_factory):
-    user: User = await user_factory()
+async def test_get_current(client: TestClient, user: User):
     response = await client.login(user.id).get("/accounts/get_current")
     data = response.json()
     assert data["username"] == user.username
-    assert data["email"] is None
+    assert data["email"] is not None
     assert data["first_name"] == ""
     assert data["last_name"] == ""
     assert data["superuser"] is False
@@ -129,3 +128,21 @@ async def test_list_all_with_page_params(client: TestClient, user_factory):
     results = data["results"]
     assert results[0]["username"] == "6"
     assert results[1]["username"] == "7"
+
+
+async def test_update_account(client: TestClient, user: User):
+    payload = {"first_name": "John", "last_name": "Doe"}
+    response = await client.login(user.id).patch("/accounts/update", json=payload)
+    data = response.json()
+    assert data["email"] is not None
+    assert data["first_name"] == "John"
+    assert data["last_name"] == "Doe"
+    assert response.status_code == 200
+
+
+async def test_update_account_unset_email(client: TestClient, user: User):
+    payload = {"email": None}
+    response = await client.login(user.id).patch("/accounts/update", json=payload)
+    data = response.json()
+    assert data["email"] is None
+    assert response.status_code == 200

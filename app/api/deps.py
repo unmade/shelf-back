@@ -16,6 +16,7 @@ __all__ = [
     "db_pool",
     "current_user",
     "current_user_id",
+    "superuser",
 ]
 
 reusable_oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/tokens", auto_error=False)
