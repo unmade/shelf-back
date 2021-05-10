@@ -6,7 +6,7 @@
 #
 appdirs==1.4.4
     # via virtualenv
-attrs==20.3.0
+attrs==21.2.0
     # via pytest
 certifi==2020.12.5
     # via httpx
@@ -18,11 +18,19 @@ click==7.1.2
     #   typer
 distlib==0.3.1
     # via virtualenv
+dnspython==2.1.0
+    # via
+    #   -c requirements/base.txt
+    #   email-validator
 edgedb==0.13.0
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
-fastapi==0.63.0
+email-validator==1.1.2
+    # via
+    #   -c requirements/base.txt
+    #   pydantic
+fastapi==0.65.0
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
@@ -32,44 +40,47 @@ h11==0.12.0
     # via
     #   -c requirements/base.txt
     #   httpcore
-httpcore==0.12.3
+httpcore==0.13.3
     # via httpx
-httpx==0.17.1
+httpx==0.18.1
     # via -r requirements/lint.in
-identify==2.2.2
+identify==2.2.4
     # via pre-commit
 idna==3.1
-    # via rfc3986
+    # via
+    #   -c requirements/base.txt
+    #   email-validator
+    #   rfc3986
 iniconfig==1.1.1
     # via pytest
 mypy-extensions==0.4.3
     # via mypy
 mypy==0.812
     # via -r requirements/lint.in
-nodeenv==1.5.0
+nodeenv==1.6.0
     # via pre-commit
 packaging==20.9
     # via pytest
 pluggy==0.13.1
     # via pytest
-pre-commit==2.12.0
+pre-commit==2.12.1
     # via -r requirements/lint.in
 py==1.10.0
     # via pytest
-pydantic==1.8.1
+pydantic[email]==1.8.1
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
     #   fastapi
 pyparsing==2.4.7
     # via packaging
-pytest==6.2.3
+pytest==6.2.4
     # via -r requirements/lint.in
 pyyaml==5.4.1
     # via pre-commit
-rfc3986[idna2008]==1.4.0
+rfc3986[idna2008]==1.5.0
     # via httpx
-six==1.15.0
+six==1.16.0
     # via
     #   -c requirements/base.txt
     #   virtualenv
@@ -77,7 +88,7 @@ sniffio==1.2.0
     # via
     #   httpcore
     #   httpx
-starlette==0.13.6
+starlette==0.14.2
     # via
     #   -c requirements/base.txt
     #   fastapi
@@ -85,7 +96,7 @@ toml==0.10.2
     # via
     #   pre-commit
     #   pytest
-typed-ast==1.4.2
+typed-ast==1.4.3
     # via mypy
 typer==0.3.2
     # via
@@ -97,5 +108,5 @@ typing-extensions==3.7.4.3
     #   edgedb
     #   mypy
     #   pydantic
-virtualenv==20.4.3
+virtualenv==20.4.6
     # via pre-commit

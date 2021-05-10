@@ -28,7 +28,7 @@ edgedb==0.13.0
     # via -r requirements/base.in
 email-validator==1.1.2
     # via pydantic
-fastapi==0.63.0
+fastapi==0.65.0
     # via -r requirements/base.in
 filetype==1.0.7
     # via -r requirements/base.in
@@ -56,13 +56,13 @@ python-multipart==0.0.5
     # via -r requirements/base.in
 rsa==4.7.2
     # via python-jose
-six==1.15.0
+six==1.16.0
     # via
     #   bcrypt
     #   ecdsa
     #   python-jose
     #   python-multipart
-starlette==0.13.6
+starlette==0.14.2
     # via fastapi
 typer==0.3.2
     # via -r requirements/base.in
