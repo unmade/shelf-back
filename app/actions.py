@@ -13,7 +13,7 @@ from app.entities import Account, File, Namespace
 from app.storage import storage
 
 if TYPE_CHECKING:
-    from app.typedefs import DBConnOrPool, StrOrPath
+    from app.typedefs import DBConnOrPool, DBPool, StrOrPath
 
 
 async def create_account(
@@ -252,7 +252,7 @@ async def reconcile(conn: DBConnOrPool, namespace: Namespace, path: StrOrPath) -
 
 
 async def save_file(
-    conn: DBConnOrPool, namespace: Namespace, path: StrOrPath, file: IO[bytes],
+    conn: DBPool, namespace: Namespace, path: StrOrPath, file: IO[bytes],
 ) -> File:
     """
     Save file to storage and database.
@@ -283,8 +283,9 @@ async def save_file(
     file.seek(0)
 
     # default max iterations is not enough, so bump it up
+    # there is bug with customizing retrying logic,
+    # see: https://github.com/edgedb/edgedb-python/issues/185
     transactions = conn.retrying_transaction()
-    transactions._max_iterations = 5
     async for tx in transactions:
         async with tx:
             file_db = await crud.file.create(

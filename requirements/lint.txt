@@ -22,7 +22,7 @@ dnspython==2.1.0
     # via
     #   -c requirements/base.txt
     #   email-validator
-edgedb==0.13.0
+edgedb==0.14.0
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
@@ -30,7 +30,7 @@ email-validator==1.1.2
     # via
     #   -c requirements/base.txt
     #   pydantic
-fastapi==0.65.0
+fastapi==0.65.1
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
@@ -67,7 +67,7 @@ pre-commit==2.12.1
     # via -r requirements/lint.in
 py==1.10.0
     # via pytest
-pydantic[email]==1.8.1
+pydantic[email]==1.8.2
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in

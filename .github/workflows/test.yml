@@ -21,7 +21,7 @@ jobs:
           EDGEDB_USER: edgedb
           EDGEDB_PASSWORD: root
         ports:
-        - 5656:5656
+        - 10701:5656
         volumes:
         - data:/var/lib/edgedb/data
         options: >-
@@ -55,11 +55,10 @@ jobs:
 
     - name: Run Tests
       env:
-        EDGEDB_DSN: "edgedb://edgedb:root@localhost:5656/edgedb"
+        EDGEDB_DSN: "edgedb://edgedb:root@localhost:10701/edgedb"
         PYTHONPATH: .
         APP_SECRET_KEY: github_actions
       run: |
-        python manage.py migrate schema.esdl
         pytest --cov
 
     - name: Send coverage report

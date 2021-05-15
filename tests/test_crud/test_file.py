@@ -340,11 +340,12 @@ async def test_delete_file(db_pool: DBPool, user: User):
     path = Path("folder/file")
     namespace = user.namespace.path
     await crud.file.create(db_pool, namespace, path.parent, mediatype=mediatypes.FOLDER)
+    await crud.file.create(db_pool, namespace, path.parent / "b", size=4)
     await crud.file.create(db_pool, namespace, path, size=8)
 
     # ensure parent size has increased
     parent = await crud.file.get(db_pool, namespace, path.parent)
-    assert parent.size == 8
+    assert parent.size == 12
 
     file = await crud.file.delete(db_pool, namespace, path)
     assert file.path == str(path)
@@ -352,7 +353,7 @@ async def test_delete_file(db_pool: DBPool, user: User):
 
     # ensure parent size has decreased
     parent = await crud.file.get(db_pool, namespace, path.parent)
-    assert parent.size == 0
+    assert parent.size == 4
 
 
 async def test_delete_non_empty_folder(db_pool: DBPool, user: User):
