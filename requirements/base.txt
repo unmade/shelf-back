@@ -24,11 +24,11 @@ dnspython==2.1.0
     # via email-validator
 ecdsa==0.14.1
     # via python-jose
-edgedb==0.13.0
+edgedb==0.14.0
     # via -r requirements/base.in
 email-validator==1.1.2
     # via pydantic
-fastapi==0.65.0
+fastapi==0.65.1
     # via -r requirements/base.in
 filetype==1.0.7
     # via -r requirements/base.in
@@ -46,7 +46,7 @@ pyasn1==0.4.8
     #   rsa
 pycparser==2.20
     # via cffi
-pydantic[email]==1.8.1
+pydantic[email]==1.8.2
     # via
     #   -r requirements/base.in
     #   fastapi

@@ -118,7 +118,7 @@ async def create_db_pool(create_test_db):
 @pytest.fixture(autouse=True, scope="session")
 async def apply_migration(create_db_pool: DBPool) -> None:
     """Apply schema to test database."""
-    with open(config.BASE_DIR / "./schema.esdl", "r") as f:
+    with open(config.BASE_DIR / "./dbschema/default.esdl", "r") as f:
         schema = f.read()
 
     await db.migrate(create_db_pool, schema)

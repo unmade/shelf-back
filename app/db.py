@@ -91,9 +91,7 @@ async def migrate(conn: DBConnOrPool, schema: str) -> None:
         async with tx:
             await tx.execute(f"""
                 START MIGRATION TO {{
-                    module default {{
-                        {schema}
-                    }}
+                    {schema}
                 }};
                 POPULATE MIGRATION;
                 COMMIT MIGRATION;

@@ -354,6 +354,7 @@ async def test_save_file_updates_parents_size(db_pool: DBPool, user: User):
         assert parent.size == 10
 
 
+@pytest.mark.skip("see: https://github.com/edgedb/edgedb-python/issues/185")
 async def test_save_files_concurrently(db_pool: DBPool, user: User):
     CONCURRENCY = 8
     parent = Path("a/b/c")

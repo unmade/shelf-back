@@ -267,40 +267,25 @@ async def delete(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> File
         File: Deleted file.
     """
 
-    file = await get(conn, namespace, path)
-
     query = """
-        WITH
-            Parent := File,
-            namespace := (
-                SELECT
-                    Namespace
-                FILTER
-                    .path = <str>$namespace
-                LIMIT 1
-            )
-        UPDATE Parent
-        FILTER
-            namespace = namespace
-            AND
-            str_lower(.path) IN array_unpack(<array<str>>$parents)
-        SET {
-            size := .size - (
-                DELETE
-                    File
-                FILTER
-                    namespace = namespace
-                    AND
-                    str_lower(.path) = str_lower(<str>$path)
-            ).size
-        }
+        SELECT (
+            DELETE
+                File
+            FILTER
+                .namespace.path = <str>$namespace
+                AND
+                str_lower(.path) = str_lower(<str>$path)
+        ) { id, name, path, size, mtime, mediatype: { name } }
     """
-    await conn.query(
-        query,
-        namespace=str(namespace),
-        path=str(path),
-        parents=[str(p).lower() for p in Path(path).parents],
-    )
+
+    try:
+        file = File.from_db(
+            await conn.query_one(query, namespace=str(namespace), path=str(path))
+        )
+    except edgedb.NoDataError as exc:
+        raise errors.FileNotFound() from exc
+
+    await inc_size_batch(conn, namespace, Path(path).parents, size=-file.size)
 
     return file
 
@@ -323,30 +308,18 @@ async def delete_batch(
         return
 
     query = """
-        WITH
-            Parent := File,
-        UPDATE
-            Parent
-        FILTER
-            .namespace.path = <str>$namespace
-            AND
-            str_lower(.path) IN array_unpack(<array<str>>$parents)
-        SET {
-            size := .size - sum((
-                DELETE
-                    File
-                FILTER
-                    .namespace.path = <str>$namespace
-                    AND
-                    .name IN array_unpack(<array<str>>$names)
-            ).size)
-        }
+        SELECT sum((
+            DELETE
+                File
+            FILTER
+                .namespace.path = <str>$namespace
+                AND
+                .name IN {array_unpack(<array<str>>$names)}
+        ).size)
     """
-
-    path = Path(path)
-    parents = [str(path).lower()] + [str(p).lower() for p in path.parents]
-    names = list(names)
-    await conn.query(query, namespace=str(namespace), parents=parents, names=names)
+    size = await conn.query_one(query, namespace=str(namespace), names=list(names))
+    parents = [path] + [p for p in Path(path).parents]
+    await inc_size_batch(conn, namespace, parents, size=-size)
 
 
 async def empty_trash(conn: DBAnyConn, namespace: StrOrPath) -> File:
