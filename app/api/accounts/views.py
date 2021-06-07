@@ -61,6 +61,7 @@ async def list_all(
         crud.account.list_all(db_pool, offset=offset, limit=per_page)
     )
     return Page(
+        page=page,
         count=count,
         results=accounts,
     )
