@@ -12,6 +12,7 @@ PageSizeParam = Query(25, ge=5, le=100, description="Page size")
 
 
 class Page(GenericModel, Generic[T]):
+    page: int
     count: int
     results: list[T]
 

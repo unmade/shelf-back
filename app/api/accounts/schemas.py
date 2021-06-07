@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Annotated, Optional, cast
+from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -8,6 +9,7 @@ from app.crud.account import AccountUpdate
 
 
 class Account(BaseModel):
+    id: UUID
     username: str
     email: Optional[str]
     first_name: str

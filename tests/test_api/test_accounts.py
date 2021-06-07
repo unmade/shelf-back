@@ -104,6 +104,7 @@ async def test_list_all(client: TestClient, user_factory):
     client.login(superuser.id)
     response = await client.get("/accounts/list_all")
     data = response.json()
+    data["page"] == 1
     data["count"] == 3
     results = data["results"]
     assert results[0]["username"] == "1"
@@ -124,6 +125,7 @@ async def test_list_all_with_page_params(client: TestClient, user_factory):
     client.login(superuser.id)
     response = await client.get("/accounts/list_all?page=2&per_page=5")
     data = response.json()
+    data["page"] == 2
     data["count"] == 2
     results = data["results"]
     assert results[0]["username"] == "6"
