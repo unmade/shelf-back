@@ -4,33 +4,35 @@
 #
 #    pip-compile requirements/lint.in
 #
+anyio==3.2.1
+    # via httpcore
 appdirs==1.4.4
     # via virtualenv
 attrs==21.2.0
     # via pytest
-certifi==2020.12.5
+certifi==2021.5.30
     # via httpx
-cfgv==3.2.0
+cfgv==3.3.0
     # via pre-commit
 click==7.1.2
     # via
     #   -c requirements/base.txt
     #   typer
-distlib==0.3.1
+distlib==0.3.2
     # via virtualenv
 dnspython==2.1.0
     # via
     #   -c requirements/base.txt
     #   email-validator
-edgedb==0.14.0
+edgedb==0.13.0
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
-email-validator==1.1.2
+email-validator==1.1.3
     # via
     #   -c requirements/base.txt
     #   pydantic
-fastapi==0.65.1
+fastapi==0.65.2
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
@@ -40,22 +42,23 @@ h11==0.12.0
     # via
     #   -c requirements/base.txt
     #   httpcore
-httpcore==0.13.3
+httpcore==0.13.6
     # via httpx
-httpx==0.18.1
+httpx==0.18.2
     # via -r requirements/lint.in
-identify==2.2.4
+identify==2.2.10
     # via pre-commit
-idna==3.1
+idna==3.2
     # via
     #   -c requirements/base.txt
+    #   anyio
     #   email-validator
     #   rfc3986
 iniconfig==1.1.1
     # via pytest
 mypy-extensions==0.4.3
     # via mypy
-mypy==0.812
+mypy==0.910
     # via -r requirements/lint.in
 nodeenv==1.6.0
     # via pre-commit
@@ -63,7 +66,7 @@ packaging==20.9
     # via pytest
 pluggy==0.13.1
     # via pytest
-pre-commit==2.12.1
+pre-commit==2.13.0
     # via -r requirements/lint.in
 py==1.10.0
     # via pytest
@@ -86,6 +89,7 @@ six==1.16.0
     #   virtualenv
 sniffio==1.2.0
     # via
+    #   anyio
     #   httpcore
     #   httpx
 starlette==0.14.2
@@ -94,10 +98,9 @@ starlette==0.14.2
     #   fastapi
 toml==0.10.2
     # via
+    #   mypy
     #   pre-commit
     #   pytest
-typed-ast==1.4.3
-    # via mypy
 typer==0.3.2
     # via
     #   -c requirements/base.txt
@@ -108,5 +111,5 @@ typing-extensions==3.7.4.3
     #   edgedb
     #   mypy
     #   pydantic
-virtualenv==20.4.6
+virtualenv==20.4.7
     # via pre-commit

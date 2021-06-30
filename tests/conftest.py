@@ -49,6 +49,14 @@ async def client(app):
         yield cli
 
 
+@pytest.fixture(scope='session')
+def celery_config():
+    return {
+        'broker_url': 'redis://',
+        'result_backend': 'rpc',
+    }
+
+
 @pytest.fixture(autouse=True)
 def replace_storage_root_dir_with_tmp_path(tmp_path):
     """Monkey patches storage root_dir with a temporary directory."""

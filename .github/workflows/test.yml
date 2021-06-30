@@ -29,6 +29,15 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
+      redis:
+        image: redis
+        ports:
+        - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
     - uses: actions/checkout@master
@@ -55,9 +64,11 @@ jobs:
 
     - name: Run Tests
       env:
-        EDGEDB_DSN: "edgedb://edgedb:root@localhost:10701/edgedb"
         PYTHONPATH: .
         APP_SECRET_KEY: github_actions
+        CELERY_BACKEND_DSN: "redis://localhost:6379"
+        CELERY_BROKER_DSN: "redis://localhost:6379"
+        EDGEDB_DSN: "edgedb://edgedb:root@localhost:10701/edgedb"
       run: |
         pytest --cov
 
