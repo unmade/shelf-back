@@ -28,7 +28,7 @@ Install pre-commit hooks:
 pre-commit install
 ```
 
-Run EdgeDB:
+Run services:
 
 ```bash
 docker-compose up -d
@@ -38,6 +38,12 @@ Apply migration:
 
 ```bash
 python manage.py migrate schema.esdl
+```
+
+Start Celery:
+
+```bash
+celery -A app.tasks worker --loglevel=INFO
 ```
 
 Start the application:
