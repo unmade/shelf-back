@@ -89,7 +89,7 @@ class ListFolderResult(BaseModel):
     count: int
 
 
-class MoveFolderRequest(BaseModel):
+class MoveRequest(BaseModel):
     from_path: str
     to_path: str
 
@@ -108,6 +108,10 @@ class MoveFolderRequest(BaseModel):
         if values["to_path"].lower().startswith(f"{values['from_path'].lower()}/"):
             raise MalformedPath("Destination path should not start with source path")
         return values
+
+
+class MoveBatchRequest(BaseModel):
+    items: list[MoveRequest]
 
 
 class PathRequest(BaseModel):

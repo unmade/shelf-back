@@ -11,7 +11,7 @@ from fastapi import File as FileParam
 from fastapi import Form, Query, Request, UploadFile
 from fastapi.responses import Response, StreamingResponse
 
-from app import actions, config, crud, errors
+from app import actions, config, crud, errors, tasks
 from app.api import deps
 from app.entities import User
 from app.storage import storage
@@ -219,7 +219,7 @@ async def list_folder(
 
 @router.post("/move", response_model=schemas.File)
 async def move(
-    payload: schemas.MoveFolderRequest,
+    payload: schemas.MoveRequest,
     db_pool: AsyncIOPool = Depends(deps.db_pool),
     user: User = Depends(deps.current_user),
 ):
@@ -245,6 +245,16 @@ async def move(
     except errors.MissingParent as exc:
         message = "Some parents don't exist in the destination path"
         raise exceptions.MalformedPath(message) from exc
+
+
+@router.post("/move_batch")
+def move_batch(
+    payload: schemas.MoveBatchRequest,
+    _: User = Depends(deps.current_user)
+):
+    """Move multiple files or folders to different locations at once."""
+    task = tasks.move_batch.delay(payload.dict()["items"])
+    return {"async_task_id": task.id}
 
 
 @router.post("/move_to_trash", response_model=schemas.File)

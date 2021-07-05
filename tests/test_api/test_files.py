@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import secrets
 from io import BytesIO
 from typing import TYPE_CHECKING
@@ -336,6 +337,21 @@ async def test_move_but_path_missing_parent(
     message = "Some parents don't exist in the destination path"
     assert response.json() == MalformedPath(message).as_dict()
     assert response.status_code == 400
+
+
+async def test_move_batch(
+    client: TestClient, user: User, file_factory
+):
+    files = await asyncio.gather(*(file_factory(user.id) for _ in range(3)))
+    payload = {
+        "items": [
+            {"from_path": file.path, "to_path": f"folder/{file.path}"}
+            for file in files
+        ]
+    }
+    response = await client.login(user.id).post("/files/move_batch", json=payload)
+    assert response.status_code == 200
+    assert "async_task_id" in response.json()
 
 
 @pytest.mark.parametrize(["file_path", "path", "expected_path"], [
