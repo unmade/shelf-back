@@ -52,8 +52,12 @@ async def client(app):
 @pytest.fixture(scope='session')
 def celery_config():
     return {
-        'broker_url': 'redis://',
-        'result_backend': 'rpc',
+        "broker_url": "redis://",
+        "result_backend": "rpc",
+        "result_serializer": "pickle",
+        "event_serializer": "json",
+        "accept_content": ["application/json", "application/x-python-serialize"],
+        "result_accept_content": ["application/json", "application/x-python-serialize"],
     }
 
 
@@ -67,6 +71,7 @@ def replace_storage_root_dir_with_tmp_path(tmp_path):
 
 @pytest.fixture(autouse=True, scope="session")
 def replace_database_dsn():
+    """Replace database DSN with a test value."""
     _, dsn, _ = _build_test_db_dsn()
     with mock.patch("app.config.EDGEDB_DSN", dsn):
         yield

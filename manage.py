@@ -1,24 +1,13 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 from pathlib import Path
 
-import edgedb
 import typer
 
 from app import actions, config, crud, db
 
 cli = typer.Typer()
-
-
-@contextlib.asynccontextmanager
-async def connect(dsn: str):
-    conn = await edgedb.async_connect(dsn=dsn)
-    try:
-        yield conn
-    finally:
-        await conn.aclose()
 
 
 @cli.command()
@@ -30,7 +19,7 @@ def createsuperuser(
 ) -> None:
     """Create a new super user with namespace, home and trash directories."""
     async def _createuser(username: str, password: str):
-        async with connect(config.EDGEDB_DSN) as conn:
+        async with db.connect(config.EDGEDB_DSN) as conn:
             await actions.create_account(conn, username, password, superuser=True)
 
     asyncio.run(_createuser(username, password))
@@ -41,7 +30,7 @@ def createsuperuser(
 def reconcile(namespace: str) -> None:
     """Reconcile storage and database for a given namespace."""
     async def _reconcile():
-        async with connect(config.EDGEDB_DSN) as conn:
+        async with db.connect(config.EDGEDB_DSN) as conn:
             ns = await crud.namespace.get(conn, namespace)
             await actions.reconcile(conn, ns, ".")
 
@@ -52,7 +41,7 @@ def reconcile(namespace: str) -> None:
 def migrate(schema: Path) -> None:
     """Apply target schema to a database."""
     async def run_migration(schema: str) -> None:
-        async with connect(config.EDGEDB_DSN) as conn:
+        async with db.connect(config.EDGEDB_DSN) as conn:
             await db.migrate(conn, schema)
 
     with open(schema.expanduser().resolve(), 'r') as f:

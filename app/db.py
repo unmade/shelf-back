@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 from typing import TYPE_CHECKING, Optional, Union
 
 import edgedb
@@ -52,6 +53,24 @@ def autocast(pytype) -> str:
             raise TypeError(f"Unsupported type: `{typename}`.") from exc
 
     raise TypeError(f"Can't cast python type `{pytype}` to EdgeDB type.")
+
+
+@contextlib.asynccontextmanager
+async def connect(dsn: str):
+    """
+    Acquire new connection to the database.
+
+    Args:
+        dsn (str): Data source name.
+
+    Yields:
+        [type]: Connection to a database.
+    """
+    conn = await edgedb.async_connect(dsn=dsn)
+    try:
+        yield conn
+    finally:
+        await conn.aclose()
 
 
 async def create_pool() -> None:

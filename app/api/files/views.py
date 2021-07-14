@@ -250,10 +250,10 @@ async def move(
 @router.post("/move_batch")
 def move_batch(
     payload: schemas.MoveBatchRequest,
-    _: User = Depends(deps.current_user)
+    user: User = Depends(deps.current_user)
 ):
     """Move multiple files or folders to different locations at once."""
-    task = tasks.move_batch.delay(payload.dict()["items"])
+    task = tasks.move_batch.delay(user.namespace, payload.items)
     return {"async_task_id": task.id}
 
 

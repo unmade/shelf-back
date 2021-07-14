@@ -182,7 +182,7 @@ async def move(
 
 
 async def move_batch(
-    conn: DBConnOrPool,
+    conn: DBPool,
     namespace: Namespace,
     relocations: Iterable[RelocationPath],
 ) -> list[RelocationResult]:
@@ -190,7 +190,7 @@ async def move_batch(
     Move several files/folders to a different locations.
 
     Args:
-        conn (DBConnOrPool): Database connection or connection pool.
+        conn (DBConnOrPool): Database connection pool.
         namespace (Namespace): Namespace, where files should be moved.
         relocations (Iterable[RelocationPath]): Iterable, where each item contains
             current file path and path to move file to.
@@ -204,6 +204,11 @@ async def move_batch(
         for item in relocations
     )
     items = await asyncio.gather(*coros, return_exceptions=True)
+
+    for item in items:
+        if not isinstance(item, errors.Error) and isinstance(item, Exception):
+            raise item
+
     return [
         RelocationResult(
             file=item if isinstance(item, File) else None,
