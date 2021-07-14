@@ -34,7 +34,7 @@ async def test_move_batch(user: User, file_factory):
     ]
 
     task = tasks.move_batch.delay(user.namespace, relocations)
-    result = task.get(timeout=1)
+    result = task.get(timeout=2)
     assert len(result) == 2
 
     assert result[0].file is not None

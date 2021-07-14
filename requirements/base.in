@@ -5,6 +5,7 @@ celery[redis]
 edgedb>=0.13.0,<0.14.0
 fastapi
 filetype
+nest_asyncio
 passlib
 pillow-simd
 pydantic[email]
