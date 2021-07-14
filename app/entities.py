@@ -6,7 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from app import mediatypes
+from app import errors, mediatypes
 
 
 class Account(BaseModel):
@@ -27,14 +27,6 @@ class Account(BaseModel):
             last_name=obj.last_name,
             superuser=obj.user.superuser,
         )
-
-
-class Namespace(BaseModel):
-    id: UUID
-    path: Path
-
-    class Config:
-        orm_mode = True
 
 
 class File(BaseModel):
@@ -63,6 +55,24 @@ class File(BaseModel):
     def is_hidden(self) -> bool:
         """True if file name startswith '.', othewise False"""
         return self.name.startswith(".")
+
+
+class Namespace(BaseModel):
+    id: UUID
+    path: Path
+
+    class Config:
+        orm_mode = True
+
+
+class RelocationPath(BaseModel):
+    from_path: str
+    to_path: str
+
+
+class RelocationResult(BaseModel):
+    file: Optional[File]
+    err_code: Optional[errors.ErrorCode]
 
 
 class User(BaseModel):
