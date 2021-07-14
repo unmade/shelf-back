@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from app import actions, crud, errors
+from app.entities import RelocationPath
 from app.storage import storage
 
 if TYPE_CHECKING:
@@ -244,6 +245,53 @@ async def test_move(db_pool: DBPool, user: User, file_factory):
 
 # todo: check that move is atomic - if something went
 # wrong with storage, then database should rollback.
+
+
+async def test_move_batch(db_pool: DBPool, user: User, file_factory):
+    namespace = user.namespace
+    paths = ["a.txt", "b.txt", "folder/a.txt", "folder/b.txt", "folder (1)/c.txt"]
+    coros = (file_factory(user.id, path=path) for path in paths)
+    await asyncio.gather(*coros)
+    items = [
+        RelocationPath(
+            from_path="a.txt",
+            to_path="folder (1)/a.txt",
+        ),
+        RelocationPath(
+            from_path="folder",
+            to_path="folder (1)/folder",
+        ),
+        RelocationPath(
+            from_path="does not exists",
+            to_path="folder (1)/does not exists",
+        )
+    ]
+
+    result = await actions.move_batch(db_pool, namespace, items)
+    assert len(result) == 3
+    assert result[0].file is not None
+    assert result[0].file.path == items[0].to_path
+    assert result[0].err_code is None
+    assert result[1].file is not None
+    assert result[1].file.path == items[1].to_path
+    assert result[1].err_code is None
+    assert result[2].file is None
+    assert result[2].err_code == errors.ErrorCode.file_not_found
+
+    assert await crud.file.exists(db_pool, namespace.path, "b.txt")
+    assert not await crud.file.exists(db_pool, namespace.path, "a.txt")
+    assert not await crud.file.exists(db_pool, namespace.path, "folder")
+
+    assert await crud.file.exists(db_pool, namespace.path, "folder (1)/a.txt")
+    assert await crud.file.exists(db_pool, namespace.path, "folder (1)/c.txt")
+    assert await crud.file.exists(db_pool, namespace.path, "folder (1)/folder/a.txt")
+    assert await crud.file.exists(db_pool, namespace.path, "folder (1)/folder/b.txt")
+
+    assert storage.is_exists(namespace.path / "b.txt")
+    assert storage.is_exists(namespace.path / "folder (1)/a.txt")
+    assert storage.is_exists(namespace.path / "folder (1)/c.txt")
+    assert storage.is_exists(namespace.path / "folder (1)/folder/a.txt")
+    assert storage.is_exists(namespace.path / "folder (1)/folder/b.txt")
 
 
 async def test_move_to_trash(db_pool: DBPool, user: User, file_factory):

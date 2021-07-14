@@ -1,25 +1,44 @@
-class FileAlreadyExists(Exception):
-    pass
+from __future__ import annotations
+
+import enum
 
 
-class FileNotFound(Exception):
-    pass
+class ErrorCode(str, enum.Enum):
+    file_already_exists = 'file_already_exists'
+    file_not_found = 'file_not_found'
+    is_a_directory = 'is_a_directory'
+    missing_parent = 'missing_parent'
+    not_a_directory = 'not_a_directory'
 
 
-class IsADirectory(Exception):
-    pass
+class Error(Exception):
+    """Base class for all app-related errors"""
+
+    code: ErrorCode
 
 
-class MissingParent(Exception):
-    pass
+class FileAlreadyExists(Error):
+    code = ErrorCode.file_already_exists
+
+
+class FileNotFound(Error):
+    code = ErrorCode.file_not_found
+
+
+class IsADirectory(Error):
+    code = ErrorCode.is_a_directory
+
+
+class MissingParent(Error):
+    code = ErrorCode.missing_parent
 
 
 class NamespaceNotFound(Exception):
     pass
 
 
-class NotADirectory(Exception):
-    pass
+class NotADirectory(Error):
+    code = ErrorCode.not_a_directory
 
 
 class ThumbnailUnavailable(Exception):
