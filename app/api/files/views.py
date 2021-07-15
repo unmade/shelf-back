@@ -4,7 +4,9 @@ import secrets
 from io import BytesIO
 from pathlib import Path
 
+import celery.states
 from cashews import cache
+from celery.result import AsyncResult
 from edgedb import AsyncIOPool
 from fastapi import APIRouter, Depends
 from fastapi import File as FileParam
@@ -247,14 +249,32 @@ async def move(
         raise exceptions.MalformedPath(message) from exc
 
 
-@router.post("/move_batch")
+@router.post("/move_batch", response_model=schemas.AsyncTaskID)
 def move_batch(
     payload: schemas.MoveBatchRequest,
     user: User = Depends(deps.current_user)
 ):
     """Move multiple files or folders to different locations at once."""
     task = tasks.move_batch.delay(user.namespace, payload.items)
-    return {"async_task_id": task.id}
+    return schemas.AsyncTaskID(async_task_id=task.id)
+
+
+@router.post("/move_batch/check")
+def move_batch_check(
+    payload: schemas.AsyncTaskID,
+    _: User = Depends(deps.current_user),
+):
+    """Return move_batch status and a list of results."""
+    task = AsyncResult(str(payload.async_task_id))
+    if task.status == celery.states.SUCCESS:
+        return schemas.MoveBatchCheckResponse(
+            status=schemas.AsyncTaskStatus.success,
+            results=[
+                schemas.MoveBatchResult(file=result.file, err_code=result.err_code)
+                for result in task.result
+            ]
+        )
+    return schemas.MoveBatchCheckResponse(status=schemas.AsyncTaskStatus.pending)
 
 
 @router.post("/move_to_trash", response_model=schemas.File)

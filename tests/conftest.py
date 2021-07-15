@@ -16,6 +16,7 @@ from PIL import Image
 
 from app import actions, config, crud, db, security
 from app.main import create_app
+from app.tasks import CeleryConfig
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -52,12 +53,12 @@ async def client(app):
 @pytest.fixture(scope='session')
 def celery_config():
     return {
-        "broker_url": "redis://",
-        "result_backend": "rpc",
-        "result_serializer": "pickle",
-        "event_serializer": "json",
-        "accept_content": ["application/json", "application/x-python-serialize"],
-        "result_accept_content": ["application/json", "application/x-python-serialize"],
+        "broker_url": CeleryConfig.broker_url,
+        "result_backend": CeleryConfig.result_backend,
+        "result_serializer": CeleryConfig.result_serializer,
+        "event_serializer": CeleryConfig.event_serializer,
+        "accept_content": CeleryConfig.accept_content,
+        "result_accept_content": CeleryConfig.result_accept_content,
     }
 
 

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import pytest
 from cashews import cache
 
-from app import config
+from app import config, tasks
 from app.api.files.exceptions import (
     DownloadNotFound,
     FileAlreadyDeleted,
@@ -19,6 +19,7 @@ from app.api.files.exceptions import (
     PathNotFound,
     ThumbnailUnavailable,
 )
+from app.entities import RelocationPath
 
 if TYPE_CHECKING:
     from app.entities import User
@@ -339,9 +340,7 @@ async def test_move_but_path_missing_parent(
     assert response.status_code == 400
 
 
-async def test_move_batch(
-    client: TestClient, user: User, file_factory
-):
+async def test_move_batch(client: TestClient, user: User, file_factory):
     files = await asyncio.gather(*(file_factory(user.id) for _ in range(3)))
     payload = {
         "items": [
@@ -352,6 +351,55 @@ async def test_move_batch(
     response = await client.login(user.id).post("/files/move_batch", json=payload)
     assert response.status_code == 200
     assert "async_task_id" in response.json()
+
+
+@pytest.mark.usefixtures("celery_session_worker")
+async def test_move_batch_check_task_is_pending(
+    client: TestClient, user: User, file_factory
+):
+    file = await file_factory(user.id, path="folder/a.txt")
+    relocations = [
+        RelocationPath(from_path=file.path, to_path="folder/b.txt"),
+        RelocationPath(from_path="c.txt", to_path="d.txt"),
+    ]
+    task = tasks.move_batch.delay(user.namespace, relocations)
+    payload = {"async_task_id": task.id}
+
+    response = await client.login(user.id).post("/files/move_batch/check", json=payload)
+    assert response.status_code == 200
+    assert response.json()["status"] == 'pending'
+    assert response.json()["results"] is None
+
+    # wait for task to complete to gracefully shutdown
+    task.get(timeout=1)
+
+
+@pytest.mark.usefixtures("celery_session_worker")
+async def test_move_batch_check_task_is_completed(
+    client: TestClient, user: User, file_factory
+):
+    file = await file_factory(user.id, path="folder/a.txt")
+    relocations = [
+        RelocationPath(from_path=file.path, to_path="folder/b.txt"),
+        RelocationPath(from_path="c.txt", to_path="d.txt"),
+    ]
+    task = tasks.move_batch.delay(user.namespace, relocations)
+    task.get(timeout=1)
+
+    payload = {"async_task_id": task.id}
+    response = await client.login(user.id).post("/files/move_batch/check", json=payload)
+    assert response.status_code == 200
+    assert response.json()["status"] == "completed"
+
+    results = response.json()["results"]
+    assert len(results) == 2
+
+    assert results[0]["file"] is not None
+    assert results[0]["err_code"] is None
+    assert results[0]["file"]["path"] == relocations[0].to_path
+
+    assert results[1]["file"] is None
+    assert results[1]["err_code"] == "file_not_found"
 
 
 @pytest.mark.parametrize(["file_path", "path", "expected_path"], [

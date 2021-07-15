@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from enum import Enum
 from os.path import normpath
-from typing import TYPE_CHECKING, Type
+from typing import TYPE_CHECKING, Optional, Type
 from uuid import UUID
 
 from pydantic import BaseModel, root_validator, validator
 
-from app import mediatypes
+from app import errors, mediatypes
 from app.config import TRASH_FOLDER_NAME
 
 from .exceptions import FileAlreadyDeleted, MalformedPath
@@ -44,6 +44,15 @@ def _normalize(path: str) -> str:
         if path.startswith(symbol):
             raise MalformedPath(f"Path should not start with '{symbol}'")
     return normpath(path)
+
+
+class AsyncTaskID(BaseModel):
+    async_task_id: UUID
+
+
+class AsyncTaskStatus(str, Enum):
+    pending = "pending"
+    success = "completed"
 
 
 class GetDownloadUrlResult(BaseModel):
@@ -112,6 +121,16 @@ class MoveRequest(BaseModel):
 
 class MoveBatchRequest(BaseModel):
     items: list[MoveRequest]
+
+
+class MoveBatchResult(BaseModel):
+    file: Optional[File]
+    err_code: Optional[errors.ErrorCode]
+
+
+class MoveBatchCheckResponse(BaseModel):
+    status: AsyncTaskStatus
+    results: Optional[list[MoveBatchResult]] = None
 
 
 class PathRequest(BaseModel):
