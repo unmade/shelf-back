@@ -20,8 +20,8 @@ celery_app = Celery(__name__)
 
 
 class CeleryConfig:
-    broker_url = config.CELERY_BACKEND_DSN
-    result_backend = "rpc"
+    broker_url = config.CELERY_BROKER_DSN
+    result_backend = config.CELERY_BACKEND_DSN
     task_serializer = "pickle"
     result_serializer = "pickle"
     event_serializer = "json"
@@ -59,6 +59,7 @@ def shutdown_worker(**kwargs):
     assert _db_pool is not None
 
     _loop.run_until_complete(_db_pool.aclose())
+    _loop.stop()
     _loop.close()
 
     _loop = None
