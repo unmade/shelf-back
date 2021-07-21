@@ -1,20 +1,12 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, Optional
 
 import edgedb
-import nest_asyncio
 from celery import Celery
-from celery.signals import worker_process_init, worker_process_shutdown
 
 from app import actions, config
 from app.entities import Namespace, RelocationPath, RelocationResult
-
-if TYPE_CHECKING:
-    from app.typedefs import DBPool
-
-nest_asyncio.apply()
 
 celery_app = Celery(__name__)
 
@@ -31,40 +23,6 @@ class CeleryConfig:
 
 celery_app.config_from_object(CeleryConfig)
 
-_loop: Optional[asyncio.AbstractEventLoop] = None
-_db_pool: Optional[DBPool] = None
-
-
-@worker_process_init.connect
-def init_worker(**kwargs):
-    global _loop
-    global _db_pool
-
-    _loop = asyncio.get_event_loop()
-    _db_pool = _loop.run_until_complete(
-        edgedb.create_async_pool(
-            dsn=config.EDGEDB_DSN,
-            min_size=4,
-            max_size=4,
-        )
-    )
-
-
-@worker_process_shutdown.connect
-def shutdown_worker(**kwargs):
-    global _loop
-    global _db_pool
-
-    assert _loop is not None
-    assert _db_pool is not None
-
-    _loop.run_until_complete(_db_pool.aclose())
-    _loop.stop()
-    _loop.close()
-
-    _loop = None
-    _db_pool = None
-
 
 @celery_app.task
 def ping() -> str:
@@ -75,7 +33,13 @@ def ping() -> str:
 def move_batch(
     namespace: Namespace, relocations: list[RelocationPath]
 ) -> list[RelocationResult]:
-    assert _loop is not None
-    assert _db_pool is not None
-    coro = actions.move_batch(_db_pool, namespace, relocations)
-    return _loop.run_until_complete(coro)
+    async def _move_batch(
+        namespace: Namespace, relocations: list[RelocationPath]
+    ) -> list[RelocationResult]:
+        async with edgedb.create_async_pool(
+            dsn=config.EDGEDB_DSN,
+            min_size=2,
+            max_size=2,
+        ) as pool:
+            return await actions.move_batch(pool, namespace, relocations)
+    return asyncio.run(_move_batch(namespace, relocations))
