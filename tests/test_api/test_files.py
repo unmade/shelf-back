@@ -370,9 +370,6 @@ async def test_move_batch_check_task_is_pending(
     assert response.json()["status"] == 'pending'
     assert response.json()["results"] is None
 
-    # wait for task to complete to gracefully shutdown
-    task.get(timeout=1)
-
 
 @pytest.mark.usefixtures("celery_session_worker")
 async def test_move_batch_check_task_is_completed(

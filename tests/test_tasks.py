@@ -12,12 +12,7 @@ if TYPE_CHECKING:
     from app.entities import User
 
 
-pytestmark = [pytest.mark.asyncio]
-
-
-@pytest.fixture(autouse=True)
-def celery_worker(celery_session_worker):
-    """Automatically use celery_session_worker fixture."""
+pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("celery_session_worker")]
 
 
 def test_celery_works():
@@ -25,6 +20,7 @@ def test_celery_works():
     assert task.get(timeout=1) == "pong"
 
 
+@pytest.mark.asyncio
 async def test_move_batch(user: User, file_factory):
     await file_factory(user.id, path="folder/a")
     files = await asyncio.gather(*(file_factory(user.id) for _ in range(2)))
