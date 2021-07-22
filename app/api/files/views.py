@@ -6,7 +6,6 @@ from pathlib import Path
 
 import celery.states
 from cashews import cache
-from celery.result import AsyncResult
 from edgedb import AsyncIOPool
 from fastapi import APIRouter, Depends
 from fastapi import File as FileParam
@@ -259,16 +258,16 @@ def move_batch(
     return schemas.AsyncTaskID(async_task_id=task.id)
 
 
-@router.post("/move_batch/check")
+@router.post("/move_batch/check", response_model=schemas.MoveBatchCheckResponse)
 def move_batch_check(
     payload: schemas.AsyncTaskID,
     _: User = Depends(deps.current_user),
 ):
     """Return move_batch status and a list of results."""
-    task = AsyncResult(str(payload.async_task_id))
+    task = tasks.celery_app.AsyncResult(str(payload.async_task_id))
     if task.status == celery.states.SUCCESS:
         return schemas.MoveBatchCheckResponse(
-            status=schemas.AsyncTaskStatus.success,
+            status=schemas.AsyncTaskStatus.completed,
             results=[
                 schemas.MoveBatchResult(file=result.file, err_code=result.err_code)
                 for result in task.result
