@@ -52,7 +52,7 @@ class AsyncTaskID(BaseModel):
 
 class AsyncTaskStatus(str, Enum):
     pending = "pending"
-    success = "completed"
+    completed = "completed"
 
 
 class GetDownloadUrlResult(BaseModel):
