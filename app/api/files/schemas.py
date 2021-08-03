@@ -158,6 +158,10 @@ class MoveToTrashRequest(PathRequest):
         return value
 
 
+class MoveToTrashBatchRequest(BaseModel):
+    items: list[MoveToTrashRequest]
+
+
 class UploadResult(BaseModel):
     file: File
     updates: list[File]

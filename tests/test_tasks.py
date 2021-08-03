@@ -20,7 +20,6 @@ def test_celery_works():
     assert task.get(timeout=1) == "pong"
 
 
-@pytest.mark.asyncio
 async def test_move_batch(user: User, file_factory):
     await file_factory(user.id, path="folder/a")
     files = await asyncio.gather(*(file_factory(user.id) for _ in range(2)))
@@ -38,3 +37,19 @@ async def test_move_batch(user: User, file_factory):
 
     assert result[1].file is None
     assert result[1].err_code == errors.ErrorCode.missing_parent
+
+
+async def test_move_to_trash_batch(user: User, file_factory):
+    await file_factory(user.id, path="folder/a")
+    files = await asyncio.gather(*(file_factory(user.id) for _ in range(2)))
+    paths = [files[0].path, "file_not_exist.txt"]
+
+    task = tasks.move_to_trash_batch.delay(user.namespace, paths)
+    result = task.get(timeout=2)
+    assert len(result) == 2
+
+    assert result[0].file is not None
+    assert result[0].file.path == f"Trash/{paths[0]}"
+
+    assert result[1].file is None
+    assert result[1].err_code == errors.ErrorCode.file_not_found
