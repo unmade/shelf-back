@@ -197,7 +197,7 @@ async def move_batch(
 
     Returns:
         list[RelocationResult]: List, where each item contains either a moved file,
-            or error code.
+            or an error code.
     """
     coros = (
         move(conn, namespace, item.from_path, item.to_path)

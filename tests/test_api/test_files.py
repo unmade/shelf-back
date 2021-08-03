@@ -22,7 +22,7 @@ from app.api.files.exceptions import (
 from app.entities import RelocationPath
 
 if TYPE_CHECKING:
-    from app.entities import User
+    from app.entities import User, RelocationResult
     from tests.conftest import TestClient
 
 pytestmark = [pytest.mark.asyncio]
@@ -340,7 +340,9 @@ async def test_move_but_path_missing_parent(
     assert response.status_code == 400
 
 
+@pytest.mark.usefixtures("celery_session_worker")
 async def test_move_batch(client: TestClient, user: User, file_factory):
+    await file_factory(user.id, path='folder/a.txt')
     files = await asyncio.gather(*(file_factory(user.id) for _ in range(3)))
     payload = {
         "items": [
@@ -349,8 +351,13 @@ async def test_move_batch(client: TestClient, user: User, file_factory):
         ]
     }
     response = await client.login(user.id).post("/files/move_batch", json=payload)
-    assert response.status_code == 200
     assert "async_task_id" in response.json()
+    assert response.status_code == 200
+
+    task = tasks.celery_app.AsyncResult(response.json()["async_task_id"])
+    relocations: list[RelocationResult] = task.get(timeout=2)
+    assert relocations[0].file is not None
+    assert relocations[0].file.path.startswith("folder/")
 
 
 @pytest.mark.usefixtures("celery_session_worker")
@@ -436,6 +443,25 @@ async def test_move_to_trash_but_file_not_found(client: TestClient, user: User):
     response = await client.login(user.id).post("/files/move_to_trash", json=payload)
     assert response.status_code == 404
     assert response.json() == PathNotFound(path=payload["path"]).as_dict()
+
+
+@pytest.mark.usefixtures("celery_session_worker")
+async def test_move_to_trash_batch(client: TestClient, user: User, file_factory):
+    files = await asyncio.gather(*(file_factory(user.id) for _ in range(3)))
+    payload = {
+        "items": [
+            {"path": file.path} for file in files
+        ],
+    }
+    client.login(user.id)
+    response = await client.post("/files/move_to_trash_batch", json=payload)
+    assert "async_task_id" in response.json()
+    assert response.status_code == 200
+
+    task = tasks.celery_app.AsyncResult(response.json()["async_task_id"])
+    relocations: list[RelocationResult] = task.get(timeout=2)
+    assert relocations[0].file is not None
+    assert relocations[0].file.path.startswith("Trash/")
 
 
 async def test_upload(client: TestClient, user: User):

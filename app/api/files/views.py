@@ -289,6 +289,21 @@ async def move_to_trash(
         raise exceptions.PathNotFound(path=payload.path) from exc
 
 
+@router.post("/move_to_trash_batch", response_model=schemas.AsyncTaskID)
+def move_to_trash_batch(
+    payload: schemas.MoveToTrashBatchRequest,
+    user: User = Depends(deps.current_user),
+):
+    """
+    Move several files or folders to Trash at once.
+
+    To check task result use the same endpoint to check regular move result.
+    """
+    paths = [item.path for item in payload.items]
+    task = tasks.move_to_trash_batch.delay(user.namespace, paths)
+    return schemas.AsyncTaskID(async_task_id=task.id)
+
+
 @router.post("/upload", response_model=schemas.UploadResult)
 async def upload_file(
     file: UploadFile = FileParam(...),
