@@ -114,10 +114,10 @@ async def empty_trash(conn: DBConnOrPool, namespace: Namespace) -> File:
     Returns:
         File: Trash folder.
     """
+    storage.delete_dir_content(namespace.path / config.TRASH_FOLDER_NAME)
     async for tx in conn.retrying_transaction():
         async with tx:
             trash = await crud.file.empty_trash(tx, namespace.path)
-            storage.delete_dir_content(namespace.path / config.TRASH_FOLDER_NAME)
     return trash
 
 
