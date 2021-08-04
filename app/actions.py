@@ -96,10 +96,10 @@ async def delete_immediately(
     Returns:
         File: Deleted file.
     """
+    storage.delete(namespace.path / path)
     async for tx in conn.retrying_transaction():
         async with tx:
             file = await crud.file.delete(tx, namespace.path, path)
-            storage.delete(namespace.path / path)
     return file
 
 

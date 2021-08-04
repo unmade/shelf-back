@@ -176,6 +176,17 @@ async def test_delete_immediately_file(db_pool: DBPool, user: User, file_factory
     assert not await crud.file.exists(db_pool, user.namespace.path, path)
 
 
+async def test_delete_immediately_is_case_insensitive(
+    db_pool: DBPool, user: User, file_factory
+):
+    file = await file_factory(user.id, path="F")
+
+    await actions.delete_immediately(db_pool, user.namespace, "f")
+
+    assert file.path == "F"
+    assert not await crud.file.exists(db_pool, user.namespace.path, file.path)
+
+
 async def test_delete_immediately_but_file_not_exists(db_pool: DBPool, user: User):
     with pytest.raises(errors.FileNotFound):
         await actions.delete_immediately(db_pool, user.namespace, "file")

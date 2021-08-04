@@ -121,10 +121,13 @@ class LocalStorage:
 
     def delete(self, path: StrOrPath) -> None:
         fullpath = self.root_dir / path
-        if fullpath.is_dir():
-            shutil.rmtree(fullpath)
-        else:
-            fullpath.unlink()
+        try:
+            if fullpath.is_dir():
+                shutil.rmtree(fullpath)
+            else:
+                fullpath.unlink()
+        except FileNotFoundError as exc:
+            raise errors.FileNotFound() from exc
 
     def delete_dir_content(self, path: StrOrPath) -> None:
         fullpath = self.root_dir / path
