@@ -176,18 +176,6 @@ async def test_delete_immediately_file(db_pool: DBPool, user: User, file_factory
     assert not await crud.file.exists(db_pool, user.namespace.path, path)
 
 
-async def test_delete_immediately_is_case_insensitive(
-    db_pool: DBPool, user: User, file_factory
-):
-    file = await file_factory(user.id, path="F")
-
-    await actions.delete_immediately(db_pool, user.namespace, "f")
-
-    assert file.path == "F"
-    assert not await crud.file.exists(db_pool, user.namespace.path, file.path)
-    assert not storage.is_exists(user.namespace.path / file.path)
-
-
 async def test_delete_immediately_but_file_not_exists(db_pool: DBPool, user: User):
     with pytest.raises(errors.FileNotFound):
         await actions.delete_immediately(db_pool, user.namespace, "file")
@@ -488,7 +476,6 @@ async def test_save_file_updates_parents_size(db_pool: DBPool, user: User):
         assert parent.size == 10
 
 
-@pytest.mark.skip("see: https://github.com/edgedb/edgedb-python/issues/185")
 async def test_save_files_concurrently(db_pool: DBPool, user: User):
     CONCURRENCY = 8
     parent = Path("a/b/c")
@@ -518,3 +505,12 @@ async def test_save_file_but_name_already_taken(
 
     saved_file = await actions.save_file(db_pool, user.namespace, path, file)
     assert saved_file.name == "f (1).txt"
+
+
+async def test_save_file_but_path_is_a_file(db_pool: DBPool, user: User, file_factory):
+    path = "f.txt"
+    await file_factory(user.id, path=path)
+    file = BytesIO(b"Dummy file")
+
+    with pytest.raises(errors.NotADirectory):
+        await actions.save_file(db_pool, user.namespace, f"{path}/dummy", file)

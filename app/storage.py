@@ -71,8 +71,12 @@ class LocalStorage:
     def save(self, path: StrOrPath, file: IO[bytes]) -> StorageFile:
         file.seek(0)
         fullpath = self.root_dir / path
-        with fullpath.open("wb") as buffer:
-            shutil.copyfileobj(file, buffer)
+
+        try:
+            with fullpath.open("wb") as buffer:
+                shutil.copyfileobj(file, buffer)
+        except NotADirectoryError as exc:
+            raise errors.NotADirectory() from exc
 
         return StorageFile.from_path(fullpath, self.root_dir)
 
