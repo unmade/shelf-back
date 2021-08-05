@@ -339,6 +339,8 @@ async def save_file(
     size = file.seek(0, 2)
     file.seek(0)
 
+    storage.save(namespace.path / next_path, file)
+
     # default max iterations is not enough, so bump it up
     # there is bug with customizing retrying logic,
     # see: https://github.com/edgedb/edgedb-python/issues/185
@@ -353,6 +355,5 @@ async def save_file(
                 size=size,
                 mediatype=mediatypes.guess(next_path, file)
             )
-            storage.save(namespace.path / next_path, file)
 
     return file_db
