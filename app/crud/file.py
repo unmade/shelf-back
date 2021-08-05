@@ -526,33 +526,21 @@ async def move(
 
     Raises:
         errors.FileAlreadyExists: If some file already at the destination path.
-        errors.FileNotFound: If source path does not exists.
-        errors.MissingParent: If 'next_path' parent does not exists.
+        errors.FileNotFound: If source or destination path does not exists.
         errors.NotADirectory: If one of the 'next_path' parents is not a folder.
 
     Returns:
         File: Moved file.
     """
     path = Path(path)
-    assert str(path).lower() not in (".", TRASH_FOLDER_NAME.lower()), (
-        "Can't move Home or Trash folder."
-    )
-    assert not str(next_path).lower().startswith(f"{str(path).lower()}/"), (
-        "Can't move to itself."
-    )
-
     next_path = Path(next_path)
 
     # this call also ensures path exists
     target = await get(conn, namespace, path)
 
-    try:
-        next_parent = await get(conn, namespace, next_path.parent)
-    except errors.FileNotFound as exc:
-        raise errors.MissingParent() from exc
-    else:
-        if not next_parent.is_folder():
-            raise errors.NotADirectory()
+    next_parent = await get(conn, namespace, next_path.parent)
+    if not next_parent.is_folder():
+        raise errors.NotADirectory()
 
     # restore original parent casing
     next_path = Path(next_parent.path) / next_path.name

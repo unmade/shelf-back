@@ -4,7 +4,9 @@ import asyncio
 import functools
 import itertools
 from datetime import datetime
+from os.path import dirname
 from os.path import join as joinpath
+from os.path import normpath
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Iterable, Optional
 
@@ -174,10 +176,28 @@ async def move(
     Returns:
         File: Moved file/folder.
     """
+    assert str(path).lower() not in (".", config.TRASH_FOLDER_NAME.lower()), (
+        "Can't move Home or Trash folder."
+    )
+    assert not str(next_path).lower().startswith(f"{str(path).lower()}/"), (
+        "Can't move to itself."
+    )
+
+    if not await crud.file.exists(conn, namespace.path, path):
+        raise errors.FileNotFound() from None
+
+    next_parent = normpath(dirname(next_path))
+    if not await crud.file.exists(conn, namespace.path, next_parent):
+        raise errors.MissingParent() from None
+
+    if await crud.file.exists(conn, namespace.path, next_path):
+        raise errors.FileAlreadyExists() from None
+
+    storage.move(namespace.path / path, namespace.path / next_path)
+
     async for tx in conn.retrying_transaction():
         async with tx:
             file = await crud.file.move(tx, namespace.path, path, next_path)
-            storage.move(namespace.path / path, namespace.path / next_path)
     return file
 
 

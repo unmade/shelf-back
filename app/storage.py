@@ -102,7 +102,12 @@ class LocalStorage:
         return fullpath.exists() and fullpath.is_dir()
 
     def move(self, from_path: StrOrPath, to_path: StrOrPath) -> None:
-        shutil.move(self.root_dir / from_path, self.root_dir / to_path)
+        try:
+            shutil.move(self.root_dir / from_path, self.root_dir / to_path)
+        except FileNotFoundError as exc:
+            raise errors.FileNotFound() from exc
+        except NotADirectoryError as exc:
+            raise errors.NotADirectory() from exc
 
     def download(self, path: StrOrPath) -> Generator[bytes, None, None]:
         fullpath = self.root_dir / path
