@@ -659,7 +659,7 @@ async def test_move_but_next_path_is_already_taken(db_pool: DBPool, user: User):
         await crud.file.move(db_pool, namespace, "A/B", "A/C")
 
 
-async def test_move_but_from_path_that_not_exists(db_pool: DBPool, user: User):
+async def test_move_but_from_path_that_does_not_exists(db_pool: DBPool, user: User):
     namespace = user.namespace.path
 
     with pytest.raises(errors.FileNotFound):
@@ -670,7 +670,7 @@ async def test_move_but_to_path_with_missing_parent(db_pool: DBPool, user: User)
     namespace = user.namespace.path
     await crud.file.create(db_pool, namespace, "f")
 
-    with pytest.raises(errors.MissingParent):
+    with pytest.raises(errors.FileNotFound):
         await crud.file.move(db_pool, namespace, "f", "a/f")
 
 
@@ -681,27 +681,6 @@ async def test_move_but_to_path_that_not_a_folder(db_pool: DBPool, user: User):
 
     with pytest.raises(errors.NotADirectory):
         await crud.file.move(db_pool, namespace, "a", "f/a")
-
-
-@pytest.mark.parametrize("path", [".", "Trash", "trash"])
-async def test_move_special_folder(db_pool: DBPool, user: User, path):
-    namespace = user.namespace.path
-    with pytest.raises(AssertionError) as excinfo:
-        await crud.file.move(db_pool, namespace, path, "a/b")
-
-    assert str(excinfo.value) == "Can't move Home or Trash folder."
-
-
-@pytest.mark.parametrize(["a", "b"], [
-    ("a/b", "a/b/b"),
-    ("a/b", "A/B/B"),
-])
-async def test_move_but_paths_are_recursive(db_pool: DBPool, user: User, a, b):
-    namespace = user.namespace.path
-    with pytest.raises(AssertionError) as excinfo:
-        await crud.file.move(db_pool, namespace, a, b)
-
-    assert str(excinfo.value) == "Can't move to itself."
 
 
 @pytest.mark.parametrize(["name", "next_name"], [

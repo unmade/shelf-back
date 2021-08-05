@@ -185,6 +185,7 @@ async def test_delete_immediately_is_case_insensitive(
 
     assert file.path == "F"
     assert not await crud.file.exists(db_pool, user.namespace.path, file.path)
+    assert not storage.is_exists(user.namespace.path / file.path)
 
 
 async def test_delete_immediately_but_file_not_exists(db_pool: DBPool, user: User):
@@ -243,19 +244,93 @@ async def test_get_thumbnail_but_file_is_a_text_file(
 
 
 async def test_move(db_pool: DBPool, user: User, file_factory):
-    await file_factory(user.id, path="a/b/f1")
+    await file_factory(user.id, path="a/b/f.txt")
 
+    # rename folder 'b' to 'c'
     await actions.move(db_pool, user.namespace, "a/b", "a/c")
 
     assert not storage.is_exists(user.namespace.path / "a/b")
-    assert not (await crud.file.exists(db_pool, user.namespace.path, "a/b"))
+    assert not await crud.file.exists(db_pool, user.namespace.path, "a/b")
 
     assert storage.is_exists(user.namespace.path / "a/c")
     assert await crud.file.exists(db_pool, user.namespace.path, "a/c")
 
 
-# todo: check that move is atomic - if something went
-# wrong with storage, then database should rollback.
+async def test_move_with_renaming(db_pool: DBPool, user: User, file_factory):
+    namespace = user.namespace
+    await file_factory(user.id, path="file.txt")
+
+    # rename file 'file.txt' to '.file.txt'
+    await actions.move(db_pool, namespace, "file.txt", ".file.txt")
+
+    assert not storage.is_exists(namespace.path / "file.txt")
+    assert not await crud.file.exists(db_pool, namespace.path, "file.txt")
+
+    assert storage.is_exists(namespace.path / ".file.txt")
+    assert await crud.file.exists(db_pool, namespace.path, ".file.txt")
+
+
+async def test_move_but_next_path_is_already_taken(
+    db_pool: DBPool, user: User, file_factory
+):
+    namespace = user.namespace
+    await file_factory(user.id, "a/b/x.txt")
+    await file_factory(user.id, "a/c/y.txt")
+
+    with pytest.raises(errors.FileAlreadyExists):
+        await actions.move(db_pool, namespace, "a/b", "a/c")
+
+    assert storage.is_exists(namespace.path / "a/b")
+    assert await crud.file.exists(db_pool, namespace.path, "a/b")
+
+
+async def test_move_but_from_path_that_not_exists(db_pool: DBPool, user: User):
+    namespace = user.namespace
+
+    with pytest.raises(errors.FileNotFound):
+        await actions.move(db_pool, namespace, "f", "a")
+
+
+async def test_move_but_to_path_with_a_missing_parent(
+    db_pool: DBPool, user: User, file_factory,
+):
+    namespace = user.namespace
+    await file_factory(user.id, "f.txt")
+
+    with pytest.raises(errors.MissingParent):
+        await actions.move(db_pool, namespace, "f.txt", "a/f.txt")
+
+
+async def test_move_but_to_path_that_is_not_a_folder(
+    db_pool: DBPool, user: User, file_factory
+):
+    namespace = user.namespace
+    await file_factory(user.id, "x.txt")
+    await file_factory(user.id, "y")
+
+    with pytest.raises(errors.NotADirectory):
+        await actions.move(db_pool, namespace, "x.txt", "y/x.txt")
+
+
+@pytest.mark.parametrize("path", [".", "Trash", "trash"])
+async def test_move_but_it_is_a_special_folder(db_pool: DBPool, user: User, path):
+    namespace = user.namespace
+    with pytest.raises(AssertionError) as excinfo:
+        await actions.move(db_pool, namespace, path, "a/b")
+
+    assert str(excinfo.value) == "Can't move Home or Trash folder."
+
+
+@pytest.mark.parametrize(["a", "b"], [
+    ("a/b", "a/b/b"),
+    ("a/B", "A/b/B"),
+])
+async def test_move_but_paths_are_recursive(db_pool: DBPool, user: User, a, b):
+    namespace = user.namespace
+    with pytest.raises(AssertionError) as excinfo:
+        await actions.move(db_pool, namespace, a, b)
+
+    assert str(excinfo.value) == "Can't move to itself."
 
 
 async def test_move_batch(db_pool: DBPool, user: User, file_factory):
