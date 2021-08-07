@@ -1,12 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-import functools
 import itertools
+import os.path
 from datetime import datetime
-from os.path import dirname
-from os.path import join as joinpath
-from os.path import normpath
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Iterable, Optional
 
@@ -53,8 +50,8 @@ async def create_account(
             await crud.file.create(
                 tx, username, config.TRASH_FOLDER_NAME, mediatype=mediatypes.FOLDER
             )
-            storage.mkdir(username)
-            storage.mkdir(joinpath(username, config.TRASH_FOLDER_NAME))
+            await storage.mkdir(username)
+            await storage.mkdir(os.path.join(username, config.TRASH_FOLDER_NAME))
     return account
 
 
@@ -76,7 +73,7 @@ async def create_folder(
     Returns:
         File: Created folder.
     """
-    storage.mkdir(namespace.path / path)
+    await storage.mkdir(os.path.join(namespace.path, path))
     await crud.file.create_folder(conn, namespace.path, path)
     return await crud.file.get(conn, namespace.path, path)
 
@@ -98,7 +95,7 @@ async def delete_immediately(
     Returns:
         File: Deleted file.
     """
-    storage.delete(namespace.path / path)
+    await storage.delete(os.path.join(namespace.path, path))
     async for tx in conn.retrying_transaction():
         async with tx:
             file = await crud.file.delete(tx, namespace.path, path)
@@ -116,7 +113,11 @@ async def empty_trash(conn: DBConnOrPool, namespace: Namespace) -> File:
     Returns:
         File: Trash folder.
     """
-    storage.delete_dir_content(namespace.path / config.TRASH_FOLDER_NAME)
+    path_to_trash = os.path.join(namespace.path, config.TRASH_FOLDER_NAME)
+    files = await storage.iterdir(path_to_trash)
+    for file in files:
+        await storage.delete(file.path)
+
     async for tx in conn.retrying_transaction():
         async with tx:
             trash = await crud.file.empty_trash(tx, namespace.path)
@@ -144,10 +145,7 @@ async def get_thumbnail(
         tuple[File, int, IO[bytes]]: Tuple of file, thumbnail disk size and thumbnail.
     """
     file = await crud.file.get(conn, namespace.path, path)
-    loop = asyncio.get_running_loop()
-    func = functools.partial(storage.thumbnail, path=namespace.path / path, size=size)
-    thumbsize, thumbnail = await loop.run_in_executor(None, func)
-
+    thumbsize, thumbnail = await storage.thumbnail(namespace.path / path, size=size)
     return file, thumbsize, thumbnail
 
 
@@ -186,14 +184,14 @@ async def move(
     if not await crud.file.exists(conn, namespace.path, path):
         raise errors.FileNotFound() from None
 
-    next_parent = normpath(dirname(next_path))
+    next_parent = os.path.normpath(os.path.dirname(next_path))
     if not await crud.file.exists(conn, namespace.path, next_parent):
         raise errors.MissingParent() from None
 
     if await crud.file.exists(conn, namespace.path, next_path):
         raise errors.FileAlreadyExists() from None
 
-    storage.move(namespace.path / path, namespace.path / next_path)
+    await storage.move(namespace.path / path, namespace.path / next_path)
 
     async for tx in conn.retrying_transaction():
         async with tx:
@@ -292,7 +290,7 @@ async def reconcile(conn: DBConnOrPool, namespace: Namespace, path: StrOrPath) -
         missing = [
             File.construct(  # type: ignore
                 name=file.name,
-                path=str(file.path.relative_to(namespace.path)),
+                path=os.path.relpath(file.path, namespace.path),
                 size=0 if file.is_dir else file.size,
                 mtime=file.mtime,
                 mediatype=(
@@ -339,7 +337,7 @@ async def save_file(
     size = file.seek(0, 2)
     file.seek(0)
 
-    storage.save(namespace.path / next_path, file)
+    await storage.save(namespace.path / next_path, file)
 
     # default max iterations is not enough, so bump it up
     # there is bug with customizing retrying logic,
