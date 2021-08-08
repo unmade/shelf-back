@@ -48,14 +48,13 @@ class LocalStorage:
         self.root_dir = root_dir
 
     def _from_path(self, path: StrOrPath) -> StorageFile:
-        path = Path(path)
-        stat = path.lstat()
+        stat = os.lstat(path)
         return StorageFile(
-            name=path.name,
+            name=os.path.basename(path),
             path=os.path.relpath(path, self.root_dir),
             size=stat.st_size,
             mtime=stat.st_mtime,
-            is_dir=path.is_dir(),
+            is_dir=os.path.isdir(path),
         )
 
     def _from_entry(self, entry: os.DirEntry[str]) -> StorageFile:
@@ -70,6 +69,15 @@ class LocalStorage:
 
     @sync_to_async
     def delete(self, path: StrOrPath) -> None:
+        """
+        Delete file or a folder by path.
+
+        Args:
+            path (StrOrPath): Path relative to storage root.
+
+        Raises:
+            errors.FileNotFound: If file not found.
+        """
         fullpath = os.path.join(self.root_dir, path)
         try:
             if os.path.isdir(fullpath):
@@ -96,65 +104,177 @@ class LocalStorage:
 
     @sync_to_async
     def exists(self, path: StrOrPath) -> bool:
+        """
+        Check whether if file exists or not in the specified path.
+
+        Args:
+            path (StrOrPath): Path relative to storage root.
+
+        Returns:
+            bool: True if file exists, False otherwise.
+        """
         fullpath = os.path.join(self.root_dir, path)
         return os.path.exists(fullpath)
 
     @sync_to_async
-    def get(self, path: StrOrPath) -> StorageFile:
-        fullpath = self.root_dir / path
+    def get_modified_time(self, path: StrOrPath) -> float:
+        """
+        Get a datetime of the last modified time of the file.
+
+        Args:
+            path (StrOrPath): Path relative to storage root.
+
+        Raises:
+            errors.FileNotFound: If file in path doesn't exists
+
+        Returns:
+            float: Last modified time of the file.
+        """
+        fullpath = os.path.join(self.root_dir, path)
         try:
-            return self._from_path(fullpath)
+            return os.lstat(fullpath).st_mtime
         except FileNotFoundError as exc:
             raise errors.FileNotFound() from exc
 
     @sync_to_async
     def iterdir(self, path: StrOrPath) -> Iterator[StorageFile]:
+        """
+        Return an iterator of StorageFile objects for a given path.
+
+        Args:
+            path (StrOrPath): Path relative to storage root.
+
+        Raises:
+            errors.FileNotFound: If given path does not exist
+            errors.NotADirectory: If given path is not a directory
+
+        Yields:
+            Iterator[StorageFile]: Iterator of StorageFile objects.
+        """
         dir_path = os.path.join(self.root_dir, path)
         try:
             return (self._from_entry(entry) for entry in os.scandir(dir_path))
-        except NotADirectoryError as exc:
-            raise errors.NotADirectory() from exc
-
-    @sync_to_async
-    def mkdir(self, path: StrOrPath) -> StorageFile:
-        dir_path = self.root_dir / path
-        try:
-            dir_path.mkdir(parents=True, exist_ok=True)
-        except FileExistsError as exc:
-            raise errors.FileAlreadyExists() from exc
-        except NotADirectoryError as exc:
-            raise errors.NotADirectory() from exc
-        return self._from_path(dir_path)
-
-    @sync_to_async
-    def move(self, from_path: StrOrPath, to_path: StrOrPath) -> None:
-        try:
-            shutil.move(self.root_dir / from_path, self.root_dir / to_path)
         except FileNotFoundError as exc:
             raise errors.FileNotFound() from exc
         except NotADirectoryError as exc:
             raise errors.NotADirectory() from exc
 
     @sync_to_async
-    def save(self, path: StrOrPath, file: IO[bytes]) -> StorageFile:
-        file.seek(0)
-        fullpath = self.root_dir / path
+    def makedirs(self, path: StrOrPath) -> None:
+        """
+        Create any directory missing directories in a given path.
+
+        Args:
+            path (StrOrPath): Path relative to a storage root.
+
+        Raises:
+            errors.FileAlreadyExists: If some file already exists in a given path.
+            errors.NotADirectory: If some parent is not a directory.
+        """
+        fullpath = os.path.join(self.root_dir, path)
+        try:
+            os.makedirs(fullpath, exist_ok=True)
+        except FileExistsError as exc:
+            raise errors.FileAlreadyExists() from exc
+        except NotADirectoryError as exc:
+            raise errors.NotADirectory() from exc
+
+    @sync_to_async
+    def move(self, from_path: StrOrPath, to_path: StrOrPath) -> None:
+        """
+        Move file or folder to a destination path. Destination path should include
+        source file name. For example to move file 'f.txt' to a folder 'b', destination
+        should as 'b/f.txt'.
+
+        Args:
+            from_path (StrOrPath): Current file path relative to storage root.
+            to_path (StrOrPath): New file path relative to storage root.
+
+        Raises:
+            errors.FileNotFound: If source or destination path does not exist.
+            errors.NotADirectory: If some parent of the destination is not a directory.
+        """
+        source = os.path.join(self.root_dir, from_path)
+        destination = os.path.join(self.root_dir, to_path)
+        try:
+            shutil.move(source, destination)
+        except FileNotFoundError as exc:
+            raise errors.FileNotFound() from exc
+        except NotADirectoryError as exc:
+            raise errors.NotADirectory() from exc
+
+    @sync_to_async
+    def save(self, path: StrOrPath, content: IO[bytes]) -> StorageFile:
+        """
+        Save content to a given path.
+
+        Args:
+            path (StrOrPath): Path relative to storage root.
+            content (IO[bytes]): Content to save.
+
+        Raises:
+            errors.NotADirectory: If some parent is not a directory.
+
+        Returns:
+            StorageFile: Saved StorageFile.
+        """
+        content.seek(0)
+        fullpath = os.path.join(self.root_dir, path)
 
         try:
-            with fullpath.open("wb") as buffer:
-                shutil.copyfileobj(file, buffer)
+            with open(fullpath, "wb") as buffer:
+                shutil.copyfileobj(content, buffer)
         except NotADirectoryError as exc:
             raise errors.NotADirectory() from exc
 
         return self._from_path(fullpath)
 
     @sync_to_async
+    def size(self, path: StrOrPath) -> int:
+        """
+        Get the total size, in bytes, of the file referenced by path.
+
+        Args:
+            path (StrOrPath): Path relative to storage root.
+
+        Raises:
+            errors.FileNotFound: If given path does not exist.
+
+        Returns:
+            int: Total size in bytes.
+        """
+        fullpath = os.path.join(self.root_dir, path)
+        try:
+            return os.lstat(fullpath).st_size
+        except FileNotFoundError as exc:
+            raise errors.FileNotFound() from exc
+
+    @sync_to_async
     def thumbnail(self, path: StrOrPath, size: int) -> tuple[int, IO[bytes]]:
+        """
+        Generate thumbnail with a specified size for the given path.
+
+        Args:
+            path (StrOrPath): Path relative to storage root.
+            size (int): Size of thumbnail in pixels.
+
+        Raises:
+            errors.FileNotFound: If given path does not exist.
+            errors.IsADirectory: If given path is a directory.
+            errors.ThumbnailUnavailable: If image type is not supported or file
+                is not an image.
+
+        Returns:
+            tuple[int, IO[bytes]]: Size, in bytes and a thumbnail.
+        """
+        fullpath = os.path.join(self.root_dir, path)
         buffer = BytesIO()
         try:
-            with Image.open(self.root_dir / path) as im:
+            with Image.open(fullpath) as im:
                 im.thumbnail((size, size))
                 im.save(buffer, im.format)
+        except FileNotFoundError as exc:
+            raise errors.FileNotFound() from exc
         except IsADirectoryError as exc:
             raise errors.IsADirectory(f"Path '{path}' is a directory") from exc
         except UnidentifiedImageError as exc:

@@ -407,9 +407,9 @@ async def test_reconcile(db_pool: DBPool, user: User, file_factory):
     dummy_text = b"Dummy file"
 
     # these files exist in the storage, but not in the database
-    await storage.mkdir(namespace / "a")
-    await storage.mkdir(namespace / "b")
-    await storage.save(namespace / "b/f.txt", file=BytesIO(dummy_text))
+    await storage.makedirs(namespace / "a")
+    await storage.makedirs(namespace / "b")
+    await storage.save(namespace / "b/f.txt", content=BytesIO(dummy_text))
 
     # these files exist in the database, but not in the storage
     await crud.file.create_folder(db_pool, namespace, "c/d")
@@ -449,7 +449,6 @@ async def test_save_file(db_pool: DBPool, user: User, path):
     saved_file = await actions.save_file(db_pool, user.namespace, path, file)
 
     file_in_db = await crud.file.get(db_pool, user.namespace.path, path)
-    file_in_storage = await storage.get(user.namespace.path / path)
 
     assert saved_file == file_in_db
 
@@ -458,9 +457,12 @@ async def test_save_file(db_pool: DBPool, user: User, path):
     assert file_in_db.size == 10
     assert file_in_db.mediatype == 'text/plain'
 
-    assert file_in_db.size == file_in_storage.size
+    size = await storage.size(user.namespace.path / path)
+    assert file_in_db.size == size
+
     # there can be slight gap between saving to the DB and the storage
-    assert file_in_db.mtime == pytest.approx(file_in_storage.mtime)
+    mtime = await storage.get_modified_time(user.namespace.path / path)
+    assert file_in_db.mtime == pytest.approx(mtime)
 
 
 async def test_save_file_updates_parents_size(db_pool: DBPool, user: User):

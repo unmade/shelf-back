@@ -50,8 +50,8 @@ async def create_account(
             await crud.file.create(
                 tx, username, config.TRASH_FOLDER_NAME, mediatype=mediatypes.FOLDER
             )
-            await storage.mkdir(username)
-            await storage.mkdir(os.path.join(username, config.TRASH_FOLDER_NAME))
+            await storage.makedirs(username)
+            await storage.makedirs(os.path.join(username, config.TRASH_FOLDER_NAME))
     return account
 
 
@@ -73,7 +73,7 @@ async def create_folder(
     Returns:
         File: Created folder.
     """
-    await storage.mkdir(os.path.join(namespace.path, path))
+    await storage.makedirs(os.path.join(namespace.path, path))
     await crud.file.create_folder(conn, namespace.path, path)
     return await crud.file.get(conn, namespace.path, path)
 
@@ -307,7 +307,7 @@ async def reconcile(conn: DBConnOrPool, namespace: Namespace, path: StrOrPath) -
 
 
 async def save_file(
-    conn: DBPool, namespace: Namespace, path: StrOrPath, file: IO[bytes],
+    conn: DBPool, namespace: Namespace, path: StrOrPath, content: IO[bytes],
 ) -> File:
     """
     Save file to storage and database.
@@ -319,7 +319,7 @@ async def save_file(
         conn (DBConnOrPool): Database connection or connection pool.
         namespace (Namespace): Namespace where a file should be saved.
         path (StrOrPath): Path where a file will be saved.
-        file (IO): Actual file.
+        content (IO): Actual file.
 
     Raises:
         NotADirectory: If one of the path parents is not a folder.
@@ -334,10 +334,10 @@ async def save_file(
 
     next_path = await crud.file.next_path(conn, namespace.path, path)
 
-    size = file.seek(0, 2)
-    file.seek(0)
+    size = content.seek(0, 2)
+    content.seek(0)
 
-    await storage.save(namespace.path / next_path, file)
+    await storage.save(namespace.path / next_path, content)
 
     # default max iterations is not enough, so bump it up
     # there is bug with customizing retrying logic,
@@ -351,7 +351,7 @@ async def save_file(
                 namespace.path,
                 next_path,
                 size=size,
-                mediatype=mediatypes.guess(next_path, file)
+                mediatype=mediatypes.guess(next_path, content)
             )
 
     return file_db
