@@ -176,15 +176,21 @@ def file_factory(db_pool: DBPool):
 
 
 @pytest.fixture
-def image_factory(file_factory):
+def image_content():
+    """Create a sample in-memory image."""
+    buffer = BytesIO()
+    with Image.new("RGB", (256, 256)) as im:
+        im.save(buffer, "JPEG")
+    buffer.seek(0)
+    return buffer
+
+
+@pytest.fixture
+def image_factory(file_factory, image_content):
     """Create dummy JPEG image file."""
     async def _image_factory(user_id: StrOrUUID, path: StrOrPath = None):
         path = Path(path or fake.file_name(category="image", extension="jpg"))
-        buffer = BytesIO()
-        with Image.new("RGB", (256, 256)) as im:
-            im.save(buffer, "JPEG")
-        buffer.seek(0)
-        return await file_factory(user_id, path, content=buffer)
+        return await file_factory(user_id, path, content=image_content)
 
     return _image_factory
 
