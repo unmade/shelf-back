@@ -29,6 +29,11 @@ def _readchunks(path: StrOrPath) -> Generator[bytes, None, None]:
             yield chunk
 
 
+def joinpath(path: StrOrPath, *paths: StrOrPath) -> str:
+    """Join two or more paths and return a normalize path."""
+    return os.path.normpath(os.path.join(path, *paths))
+
+
 class StorageFile:
     __slots__ = ("name", "path", "size", "mtime", "is_dir")
 
@@ -78,7 +83,7 @@ class LocalStorage:
         Raises:
             errors.FileNotFound: If file not found.
         """
-        fullpath = os.path.join(self.root_dir, path)
+        fullpath = joinpath(self.root_dir, path)
         try:
             if os.path.isdir(fullpath):
                 shutil.rmtree(fullpath)
@@ -113,7 +118,7 @@ class LocalStorage:
         Returns:
             bool: True if file exists, False otherwise.
         """
-        fullpath = os.path.join(self.root_dir, path)
+        fullpath = joinpath(self.root_dir, path)
         return os.path.exists(fullpath)
 
     @sync_to_async
@@ -130,7 +135,7 @@ class LocalStorage:
         Returns:
             float: Last modified time of the file.
         """
-        fullpath = os.path.join(self.root_dir, path)
+        fullpath = joinpath(self.root_dir, path)
         try:
             return os.lstat(fullpath).st_mtime
         except FileNotFoundError as exc:
@@ -151,7 +156,7 @@ class LocalStorage:
         Yields:
             Iterator[StorageFile]: Iterator of StorageFile objects.
         """
-        dir_path = os.path.join(self.root_dir, path)
+        dir_path = joinpath(self.root_dir, path)
         try:
             return (self._from_entry(entry) for entry in os.scandir(dir_path))
         except FileNotFoundError as exc:
@@ -171,7 +176,7 @@ class LocalStorage:
             errors.FileAlreadyExists: If some file already exists in a given path.
             errors.NotADirectory: If some parent is not a directory.
         """
-        fullpath = os.path.join(self.root_dir, path)
+        fullpath = joinpath(self.root_dir, path)
         try:
             os.makedirs(fullpath, exist_ok=True)
         except FileExistsError as exc:
@@ -194,8 +199,8 @@ class LocalStorage:
             errors.FileNotFound: If source or destination path does not exist.
             errors.NotADirectory: If some parent of the destination is not a directory.
         """
-        source = os.path.join(self.root_dir, from_path)
-        destination = os.path.join(self.root_dir, to_path)
+        source = joinpath(self.root_dir, from_path)
+        destination = joinpath(self.root_dir, to_path)
         try:
             shutil.move(source, destination)
         except FileNotFoundError as exc:
@@ -219,7 +224,7 @@ class LocalStorage:
             StorageFile: Saved StorageFile.
         """
         content.seek(0)
-        fullpath = os.path.join(self.root_dir, path)
+        fullpath = joinpath(self.root_dir, path)
 
         try:
             with open(fullpath, "wb") as buffer:
@@ -243,7 +248,7 @@ class LocalStorage:
         Returns:
             int: Total size in bytes.
         """
-        fullpath = os.path.join(self.root_dir, path)
+        fullpath = joinpath(self.root_dir, path)
         try:
             return os.lstat(fullpath).st_size
         except FileNotFoundError as exc:
@@ -267,7 +272,7 @@ class LocalStorage:
         Returns:
             tuple[int, IO[bytes]]: Size, in bytes and a thumbnail.
         """
-        fullpath = os.path.join(self.root_dir, path)
+        fullpath = joinpath(self.root_dir, path)
         buffer = BytesIO()
         try:
             with Image.open(fullpath) as im:
@@ -285,16 +290,6 @@ class LocalStorage:
         buffer.seek(0)
 
         return size, buffer
-
-    def walk(
-        self, path: StrOrPath
-    ) -> Iterator[tuple[Path, Iterator[StorageFile], Iterator[StorageFile]]]:
-        for root, dirs, files in os.walk(self.root_dir / path):
-            yield (
-                Path(root).relative_to(self.root_dir),
-                (self._from_path(os.path.join(root, d)) for d in dirs),
-                (self._from_path(os.path.join(root, f)) for f in files),
-            )
 
 
 storage = LocalStorage(config.STORAGE_ROOT)

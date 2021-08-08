@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import asyncio
-import itertools
 import os.path
+from collections import deque
 from datetime import datetime
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Iterable, Optional
 
 from app import config, crud, errors, mediatypes
 from app.entities import Account, File, Namespace, RelocationPath, RelocationResult
-from app.storage import storage
+from app.storage import joinpath, storage
 
 if TYPE_CHECKING:
     from app.typedefs import DBConnOrPool, DBPool, StrOrPath
@@ -51,7 +51,7 @@ async def create_account(
                 tx, username, config.TRASH_FOLDER_NAME, mediatype=mediatypes.FOLDER
             )
             await storage.makedirs(username)
-            await storage.makedirs(os.path.join(username, config.TRASH_FOLDER_NAME))
+            await storage.makedirs(joinpath(username, config.TRASH_FOLDER_NAME))
     return account
 
 
@@ -73,7 +73,7 @@ async def create_folder(
     Returns:
         File: Created folder.
     """
-    await storage.makedirs(os.path.join(namespace.path, path))
+    await storage.makedirs(joinpath(namespace.path, path))
     await crud.file.create_folder(conn, namespace.path, path)
     return await crud.file.get(conn, namespace.path, path)
 
@@ -95,7 +95,7 @@ async def delete_immediately(
     Returns:
         File: Deleted file.
     """
-    await storage.delete(os.path.join(namespace.path, path))
+    await storage.delete(joinpath(namespace.path, path))
     async for tx in conn.retrying_transaction():
         async with tx:
             file = await crud.file.delete(tx, namespace.path, path)
@@ -113,7 +113,7 @@ async def empty_trash(conn: DBConnOrPool, namespace: Namespace) -> File:
     Returns:
         File: Trash folder.
     """
-    path_to_trash = os.path.join(namespace.path, config.TRASH_FOLDER_NAME)
+    path_to_trash = joinpath(namespace.path, config.TRASH_FOLDER_NAME)
     files = await storage.iterdir(path_to_trash)
     for file in files:
         await storage.delete(file.path)
@@ -279,10 +279,18 @@ async def reconcile(conn: DBConnOrPool, namespace: Namespace, path: StrOrPath) -
         errors.FileNotFound: If path to a folder does not exists.
         errors.NotADirectory: If path to a folder is not a directory.
     """
-    for root, dirs, files in storage.walk(namespace.path / path):
-        root = root.relative_to(namespace.path)
-        in_storage = {f.name: f for f in itertools.chain(dirs, files)}
-        in_db = await crud.file.list_folder(conn, namespace.path, root, with_trash=True)
+    ns_path = namespace.path
+    folders = deque([path])
+    while True:
+        try:
+            folder = folders.pop()
+        except IndexError:
+            break
+
+        files = await storage.iterdir(joinpath(ns_path, folder))
+
+        in_storage = {f.name: f for f in files}
+        in_db = await crud.file.list_folder(conn, ns_path, folder, with_trash=True)
 
         names_storage = set(in_storage.keys())
         names_db = set(f.name for f in in_db)
@@ -290,7 +298,7 @@ async def reconcile(conn: DBConnOrPool, namespace: Namespace, path: StrOrPath) -
         missing = [
             File.construct(  # type: ignore
                 name=file.name,
-                path=os.path.relpath(file.path, namespace.path),
+                path=os.path.relpath(file.path, ns_path),
                 size=0 if file.is_dir else file.size,
                 mtime=file.mtime,
                 mediatype=(
@@ -300,10 +308,15 @@ async def reconcile(conn: DBConnOrPool, namespace: Namespace, path: StrOrPath) -
             for name in names_storage.difference(names_db)
             if (file := in_storage[name])
         ]
-        await crud.file.create_batch(conn, namespace.path, root, files=missing)
+        await crud.file.create_batch(conn, ns_path, folder, files=missing)
 
         stale = names_db.difference(names_storage)
-        await crud.file.delete_batch(conn, namespace.path, root, names=stale)
+        await crud.file.delete_batch(conn, ns_path, folder, names=stale)
+
+        folders.extend(
+            os.path.relpath(f.path, ns_path)
+            for f in in_storage.values() if f.is_dir
+        )
 
 
 async def save_file(

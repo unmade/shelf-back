@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import operator
 import shutil
 from io import BytesIO
 from typing import IO, TYPE_CHECKING
@@ -102,7 +103,11 @@ class TestLocalStorage:
         await file_factory("a/x.txt")
         await file_factory("a/y.txt")
         await file_factory("b/z.txt")
-        x, y = await local_storage.iterdir("a")
+
+        x, y = sorted(
+            await local_storage.iterdir("a"),
+            key=operator.attrgetter("path")
+        )
 
         assert x.name == "x.txt"
         assert x.path == "a/x.txt"
