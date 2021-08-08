@@ -1,4 +1,5 @@
 aiofiles
+asgiref
 bcrypt
 cashews
 celery[redis]
