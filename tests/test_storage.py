@@ -4,6 +4,7 @@ import operator
 import shutil
 from io import BytesIO
 from typing import IO, TYPE_CHECKING
+from zipfile import ZipFile
 
 import pytest
 from asgiref.sync import sync_to_async
@@ -78,6 +79,27 @@ class TestLocalStorage:
     async def test_delete_but_file_does_not_exist(self, local_storage: LocalStorage):
         with pytest.raises(errors.FileNotFound):
             await local_storage.delete("f.txt")
+
+    async def test_download_file(self, file_factory, local_storage: LocalStorage):
+        await file_factory("f.txt")
+        buffer = BytesIO()
+        for chunk in local_storage.download("f.txt"):
+            buffer.write(chunk)
+        buffer.seek(0)
+        assert buffer.read() == b"I'm Dummy File!"
+
+    async def test_download_folder(self, file_factory, local_storage: LocalStorage):
+        await file_factory("a/x.txt", content=BytesIO(b"Hello"))
+        await file_factory("a/y.txt", content=BytesIO(b"World"))
+        buffer = BytesIO()
+        for chunk in local_storage.download("a"):
+            buffer.write(chunk)
+        buffer.seek(0)
+
+        with ZipFile(buffer, "r") as archive:
+            assert archive.namelist() == ["x.txt", "y.txt"]
+            assert archive.read("x.txt") == b"Hello"
+            assert archive.read("y.txt") == b"World"
 
     async def test_exists(self, file_factory, local_storage: LocalStorage):
         assert not await local_storage.exists("a")

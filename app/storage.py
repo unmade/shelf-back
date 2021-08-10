@@ -66,8 +66,17 @@ class Storage:
         """
 
     @abc.abstractmethod
-    def download(self, path: StrOrPath) -> Generator[bytes, None, None]:
-        ...
+    def download(self, path: StrOrPath) -> Iterator[bytes]:
+        """
+        Return an iterator over a file content. If a file is a folder, then it will be
+        be a zip archive.
+
+        Args:
+            path (StrOrPath): Path relative to storage location.
+
+        Yields:
+            Iterator[bytes]: Iterator to a file content.
+        """
 
     @abc.abstractmethod
     async def exists(self, path: StrOrPath) -> bool:
