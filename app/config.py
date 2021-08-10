@@ -48,6 +48,6 @@ CORS_ALLOW_ORIGINS = _get_list("CORS_ALLOW_ORIGINS")
 
 EDGEDB_DSN = os.environ["EDGEDB_DSN"]
 
-STORAGE_ROOT = Path(os.getenv("STORAGE_ROOT", "./data"))
+STORAGE_LOCATION = Path(os.getenv("STORAGE_LOCATION", "./data"))
 
 TRASH_FOLDER_NAME = "Trash"

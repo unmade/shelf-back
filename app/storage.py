@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import abc
 import os
 import os.path
 import shutil
@@ -48,15 +49,155 @@ class StorageFile:
         return str(self.path)
 
 
-class LocalStorage:
-    def __init__(self, root_dir: Path):
-        self.root_dir = root_dir
+class Storage:
+    def __init__(self, location: StrOrPath):
+        self.location = str(location)
 
+    @abc.abstractmethod
+    async def delete(self, path: StrOrPath) -> None:
+        """
+        Delete file or a folder by path.
+
+        Args:
+            path (StrOrPath): Path relative to storage location.
+
+        Raises:
+            errors.FileNotFound: If file not found.
+        """
+
+    @abc.abstractmethod
+    def download(self, path: StrOrPath) -> Generator[bytes, None, None]:
+        ...
+
+    @abc.abstractmethod
+    async def exists(self, path: StrOrPath) -> bool:
+        """
+        Check whether if file exists or not in the specified path.
+
+        Args:
+            path (StrOrPath): Path relative to storage location.
+
+        Returns:
+            bool: True if file exists, False otherwise.
+        """
+
+    @abc.abstractmethod
+    async def get_modified_time(self, path: StrOrPath) -> float:
+        """
+        Get a datetime of the last modified time of the file.
+
+        Args:
+            path (StrOrPath): Path relative to storage location.
+
+        Raises:
+            errors.FileNotFound: If file in path doesn't exists
+
+        Returns:
+            float: Last modified time of the file.
+        """
+
+    @abc.abstractmethod
+    async def iterdir(self, path: StrOrPath) -> Iterator[StorageFile]:
+        """
+        Return an iterator of StorageFile objects for a given path.
+
+        Args:
+            path (StrOrPath): Path relative to storage location.
+
+        Raises:
+            errors.FileNotFound: If given path does not exist
+            errors.NotADirectory: If given path is not a directory
+
+        Yields:
+            Iterator[StorageFile]: Iterator of StorageFile objects.
+        """
+
+    @abc.abstractmethod
+    async def makedirs(self, path: StrOrPath) -> None:
+        """
+        Create any directory missing directories in a given path.
+
+        Args:
+            path (StrOrPath): Path relative to a storage location.
+
+        Raises:
+            errors.FileAlreadyExists: If some file already exists in a given path.
+            errors.NotADirectory: If some parent is not a directory.
+        """
+
+    @abc.abstractmethod
+    async def move(self, from_path: StrOrPath, to_path: StrOrPath) -> None:
+        """
+        Move file or folder to a destination path. Destination path should include
+        source file name. For example to move file 'f.txt' to a folder 'b', destination
+        should as 'b/f.txt'.
+
+        Args:
+            from_path (StrOrPath): Current file path relative to storage location.
+            to_path (StrOrPath): New file path relative to storage location.
+
+        Raises:
+            errors.FileNotFound: If source or destination path does not exist.
+            errors.NotADirectory: If some parent of the destination is not a directory.
+        """
+
+    @abc.abstractmethod
+    async def save(self, path: StrOrPath, content: IO[bytes]) -> StorageFile:
+        """
+        Save content to a given path.
+
+        Args:
+            path (StrOrPath): Path relative to storage location.
+            content (IO[bytes]): Content to save.
+
+        Raises:
+            errors.NotADirectory: If some parent is not a directory.
+
+        Returns:
+            StorageFile: Saved StorageFile.
+        """
+
+    @abc.abstractmethod
+    async def size(self, path: StrOrPath) -> int:
+        """
+        Get the total size, in bytes, of the file referenced by path.
+
+        Args:
+            path (StrOrPath): Path relative to storage location.
+
+        Raises:
+            errors.FileNotFound: If given path does not exist.
+
+        Returns:
+            int: Total size in bytes.
+        """
+
+    @abc.abstractmethod
+    async def thumbnail(self, path: StrOrPath, size: int) -> tuple[int, IO[bytes]]:
+        """
+        Generate thumbnail with a specified size for the given path.
+
+        Args:
+            path (StrOrPath): Path relative to storage location.
+            size (int): Size of thumbnail in pixels.
+
+        Raises:
+            errors.FileNotFound: If given path does not exist.
+            errors.IsADirectory: If given path is a directory.
+            errors.ThumbnailUnavailable: If image type is not supported or file
+                is not an image.
+
+        Returns:
+            tuple[int, IO[bytes]]: Size, in bytes and a thumbnail.
+        """
+
+
+class LocalStorage(Storage):
     def _from_path(self, path: StrOrPath) -> StorageFile:
         stat = os.lstat(path)
         return StorageFile(
             name=os.path.basename(path),
-            path=os.path.relpath(path, self.root_dir),
+            path=os.path.relpath(path, self.location),
             size=stat.st_size,
             mtime=stat.st_mtime,
             is_dir=os.path.isdir(path),
@@ -66,7 +207,7 @@ class LocalStorage:
         stat = entry.stat()
         return StorageFile(
             name=entry.name,
-            path=os.path.relpath(entry.path, self.root_dir),
+            path=os.path.relpath(entry.path, self.location),
             size=stat.st_size,
             mtime=stat.st_mtime,
             is_dir=entry.is_dir(),
@@ -74,16 +215,7 @@ class LocalStorage:
 
     @sync_to_async
     def delete(self, path: StrOrPath) -> None:
-        """
-        Delete file or a folder by path.
-
-        Args:
-            path (StrOrPath): Path relative to storage root.
-
-        Raises:
-            errors.FileNotFound: If file not found.
-        """
-        fullpath = joinpath(self.root_dir, path)
+        fullpath = joinpath(self.location, path)
         try:
             if os.path.isdir(fullpath):
                 shutil.rmtree(fullpath)
@@ -93,7 +225,7 @@ class LocalStorage:
             raise errors.FileNotFound() from exc
 
     def download(self, path: StrOrPath) -> Generator[bytes, None, None]:
-        fullpath = self.root_dir / path
+        fullpath = Path(joinpath(self.location, path))
         if fullpath.is_dir():
             paths = [
                 {
@@ -109,33 +241,12 @@ class LocalStorage:
 
     @sync_to_async
     def exists(self, path: StrOrPath) -> bool:
-        """
-        Check whether if file exists or not in the specified path.
-
-        Args:
-            path (StrOrPath): Path relative to storage root.
-
-        Returns:
-            bool: True if file exists, False otherwise.
-        """
-        fullpath = joinpath(self.root_dir, path)
+        fullpath = joinpath(self.location, path)
         return os.path.exists(fullpath)
 
     @sync_to_async
     def get_modified_time(self, path: StrOrPath) -> float:
-        """
-        Get a datetime of the last modified time of the file.
-
-        Args:
-            path (StrOrPath): Path relative to storage root.
-
-        Raises:
-            errors.FileNotFound: If file in path doesn't exists
-
-        Returns:
-            float: Last modified time of the file.
-        """
-        fullpath = joinpath(self.root_dir, path)
+        fullpath = joinpath(self.location, path)
         try:
             return os.lstat(fullpath).st_mtime
         except FileNotFoundError as exc:
@@ -143,20 +254,7 @@ class LocalStorage:
 
     @sync_to_async
     def iterdir(self, path: StrOrPath) -> Iterator[StorageFile]:
-        """
-        Return an iterator of StorageFile objects for a given path.
-
-        Args:
-            path (StrOrPath): Path relative to storage root.
-
-        Raises:
-            errors.FileNotFound: If given path does not exist
-            errors.NotADirectory: If given path is not a directory
-
-        Yields:
-            Iterator[StorageFile]: Iterator of StorageFile objects.
-        """
-        dir_path = joinpath(self.root_dir, path)
+        dir_path = joinpath(self.location, path)
         try:
             return (self._from_entry(entry) for entry in os.scandir(dir_path))
         except FileNotFoundError as exc:
@@ -166,17 +264,7 @@ class LocalStorage:
 
     @sync_to_async
     def makedirs(self, path: StrOrPath) -> None:
-        """
-        Create any directory missing directories in a given path.
-
-        Args:
-            path (StrOrPath): Path relative to a storage root.
-
-        Raises:
-            errors.FileAlreadyExists: If some file already exists in a given path.
-            errors.NotADirectory: If some parent is not a directory.
-        """
-        fullpath = joinpath(self.root_dir, path)
+        fullpath = joinpath(self.location, path)
         try:
             os.makedirs(fullpath, exist_ok=True)
         except FileExistsError as exc:
@@ -186,21 +274,8 @@ class LocalStorage:
 
     @sync_to_async
     def move(self, from_path: StrOrPath, to_path: StrOrPath) -> None:
-        """
-        Move file or folder to a destination path. Destination path should include
-        source file name. For example to move file 'f.txt' to a folder 'b', destination
-        should as 'b/f.txt'.
-
-        Args:
-            from_path (StrOrPath): Current file path relative to storage root.
-            to_path (StrOrPath): New file path relative to storage root.
-
-        Raises:
-            errors.FileNotFound: If source or destination path does not exist.
-            errors.NotADirectory: If some parent of the destination is not a directory.
-        """
-        source = joinpath(self.root_dir, from_path)
-        destination = joinpath(self.root_dir, to_path)
+        source = joinpath(self.location, from_path)
+        destination = joinpath(self.location, to_path)
         try:
             shutil.move(source, destination)
         except FileNotFoundError as exc:
@@ -210,21 +285,8 @@ class LocalStorage:
 
     @sync_to_async
     def save(self, path: StrOrPath, content: IO[bytes]) -> StorageFile:
-        """
-        Save content to a given path.
-
-        Args:
-            path (StrOrPath): Path relative to storage root.
-            content (IO[bytes]): Content to save.
-
-        Raises:
-            errors.NotADirectory: If some parent is not a directory.
-
-        Returns:
-            StorageFile: Saved StorageFile.
-        """
         content.seek(0)
-        fullpath = joinpath(self.root_dir, path)
+        fullpath = joinpath(self.location, path)
 
         try:
             with open(fullpath, "wb") as buffer:
@@ -236,19 +298,7 @@ class LocalStorage:
 
     @sync_to_async
     def size(self, path: StrOrPath) -> int:
-        """
-        Get the total size, in bytes, of the file referenced by path.
-
-        Args:
-            path (StrOrPath): Path relative to storage root.
-
-        Raises:
-            errors.FileNotFound: If given path does not exist.
-
-        Returns:
-            int: Total size in bytes.
-        """
-        fullpath = joinpath(self.root_dir, path)
+        fullpath = joinpath(self.location, path)
         try:
             return os.lstat(fullpath).st_size
         except FileNotFoundError as exc:
@@ -256,23 +306,7 @@ class LocalStorage:
 
     @sync_to_async
     def thumbnail(self, path: StrOrPath, size: int) -> tuple[int, IO[bytes]]:
-        """
-        Generate thumbnail with a specified size for the given path.
-
-        Args:
-            path (StrOrPath): Path relative to storage root.
-            size (int): Size of thumbnail in pixels.
-
-        Raises:
-            errors.FileNotFound: If given path does not exist.
-            errors.IsADirectory: If given path is a directory.
-            errors.ThumbnailUnavailable: If image type is not supported or file
-                is not an image.
-
-        Returns:
-            tuple[int, IO[bytes]]: Size, in bytes and a thumbnail.
-        """
-        fullpath = joinpath(self.root_dir, path)
+        fullpath = joinpath(self.location, path)
         buffer = BytesIO()
         try:
             with Image.open(fullpath) as im:
@@ -292,4 +326,4 @@ class LocalStorage:
         return size, buffer
 
 
-storage = LocalStorage(config.STORAGE_ROOT)
+storage: Storage = LocalStorage(config.STORAGE_LOCATION)
