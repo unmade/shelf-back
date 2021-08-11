@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import abc
+import glob
 import os
 import os.path
 import shutil
 from io import BytesIO
-from pathlib import Path
-from typing import IO, TYPE_CHECKING, Generator, Iterator, TypeVar
+from typing import IO, TYPE_CHECKING, Iterator
 
 import zipfly
 from asgiref.sync import sync_to_async
@@ -17,18 +17,6 @@ from app import config, errors
 if TYPE_CHECKING:
     from app.typedefs import StrOrPath
 
-T = TypeVar("T", bound="StorageFile")
-
-
-def _readchunks(path: StrOrPath) -> Generator[bytes, None, None]:
-    chunk_size = 4096
-    with open(path, 'rb') as f:
-        has_content = True
-        while has_content:
-            chunk = f.read(chunk_size)
-            has_content = len(chunk) == chunk_size
-            yield chunk
-
 
 def joinpath(path: StrOrPath, *paths: StrOrPath) -> str:
     """Join two or more paths and return a normalize path."""
@@ -36,17 +24,32 @@ def joinpath(path: StrOrPath, *paths: StrOrPath) -> str:
 
 
 class StorageFile:
-    __slots__ = ("name", "path", "size", "mtime", "is_dir")
+    __slots__ = ("name", "path", "size", "mtime", "_is_dir")
 
     def __init__(self, name: str, path: str, size: int, mtime: float, is_dir: bool):
         self.name = name
         self.path = path
         self.size = size
         self.mtime = mtime
-        self.is_dir = is_dir
+        self._is_dir = is_dir
 
     def __str__(self) -> str:
         return str(self.path)
+
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}("
+            f"name='{self.name}', "
+            f"path='{self.path}', "
+            f"size={self.size}, "
+            f"mtime={self.mtime}, "
+            f"is_dir={self.is_dir()}"
+            ")"
+        )
+
+    def is_dir(self) -> bool:
+        """True if file is a directory, False otherwise."""
+        return self._is_dir
 
 
 class Storage:
@@ -222,6 +225,16 @@ class LocalStorage(Storage):
             is_dir=entry.is_dir(),
         )
 
+    @staticmethod
+    def _readchunks(path: StrOrPath) -> Iterator[bytes]:
+        chunk_size = 4096
+        with open(path, 'rb') as f:
+            has_content = True
+            while has_content:
+                chunk = f.read(chunk_size)
+                has_content = len(chunk) == chunk_size
+                yield chunk
+
     @sync_to_async
     def delete(self, path: StrOrPath) -> None:
         fullpath = joinpath(self.location, path)
@@ -233,20 +246,21 @@ class LocalStorage(Storage):
         except FileNotFoundError as exc:
             raise errors.FileNotFound() from exc
 
-    def download(self, path: StrOrPath) -> Generator[bytes, None, None]:
-        fullpath = Path(joinpath(self.location, path))
-        if fullpath.is_dir():
+    def download(self, path: StrOrPath) -> Iterator[bytes]:
+        fullpath = joinpath(self.location, path)
+        pathnames = glob.iglob(joinpath(fullpath, "**/*"), recursive=True)
+        if os.path.isdir(fullpath):
             paths = [
                 {
-                    "fs": str(filepath),
-                    "n": filepath.relative_to(fullpath),
+                    "fs": pathname,
+                    "n": os.path.relpath(pathname, fullpath),
                 }
-                for filepath in fullpath.glob("**/*")
-                if filepath.is_file()
+                for pathname in pathnames
+                if os.path.isfile(pathname)
             ]
             return zipfly.ZipFly(paths=paths).generator()  # type: ignore
 
-        return _readchunks(fullpath)
+        return self._readchunks(fullpath)
 
     @sync_to_async
     def exists(self, path: StrOrPath) -> bool:

@@ -4,7 +4,7 @@ import asyncio
 import os.path
 from collections import deque
 from datetime import datetime
-from pathlib import Path
+from pathlib import PurePath
 from typing import IO, TYPE_CHECKING, Iterable, Optional
 
 from app import config, crud, errors, mediatypes
@@ -255,7 +255,7 @@ async def move_to_trash(
     Returns:
         File: Moved file.
     """
-    next_path = Path(config.TRASH_FOLDER_NAME) / Path(path).name
+    next_path = PurePath(config.TRASH_FOLDER_NAME) / os.path.basename(path)
 
     if await crud.file.exists(conn, namespace.path, next_path):
         name = next_path.name.strip(next_path.suffix)
@@ -299,10 +299,10 @@ async def reconcile(conn: DBConnOrPool, namespace: Namespace, path: StrOrPath) -
             File.construct(  # type: ignore
                 name=file.name,
                 path=os.path.relpath(file.path, ns_path),
-                size=0 if file.is_dir else file.size,
+                size=0 if file.is_dir() else file.size,
                 mtime=file.mtime,
                 mediatype=(
-                    mediatypes.FOLDER if file.is_dir else mediatypes.guess(file.name)
+                    mediatypes.FOLDER if file.is_dir() else mediatypes.guess(file.name)
                 ),
             )
             for name in names_storage.difference(names_db)
@@ -315,7 +315,7 @@ async def reconcile(conn: DBConnOrPool, namespace: Namespace, path: StrOrPath) -
 
         folders.extend(
             os.path.relpath(f.path, ns_path)
-            for f in in_storage.values() if f.is_dir
+            for f in in_storage.values() if f.is_dir()
         )
 
 
@@ -340,10 +340,10 @@ async def save_file(
     Returns:
         File: Saved file.
     """
-    path = Path(path)
+    parent = os.path.normpath(os.path.dirname(path))
 
-    if not await crud.file.exists(conn, namespace.path, path.parent):
-        await create_folder(conn, namespace, path.parent)
+    if not await crud.file.exists(conn, namespace.path, parent):
+        await create_folder(conn, namespace, parent)
 
     next_path = await crud.file.next_path(conn, namespace.path, path)
 
