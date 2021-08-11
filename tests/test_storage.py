@@ -44,7 +44,7 @@ def storage_file() -> StorageFile:
     """A simple instance of a storage file."""
     return StorageFile(
         name="f.txt",
-        path="f.txt",
+        path="a/f.txt",
         size=8,
         mtime=1628154987,
         is_dir=False,
@@ -58,7 +58,18 @@ def local_storage(tmp_path: Path) -> LocalStorage:
 
 class TestStorageFile:
     def test_string_representation(self, storage_file: StorageFile):
-        assert str(storage_file) == "f.txt"
+        assert str(storage_file) == "a/f.txt"
+
+    def test_representation(self, storage_file: StorageFile):
+        assert repr(storage_file) == (
+            "StorageFile("
+            "name='f.txt', "
+            "path='a/f.txt', "
+            "size=8, "
+            "mtime=1628154987, "
+            "is_dir=False"
+            ")"
+        )
 
 
 @pytest.mark.asyncio
@@ -91,15 +102,18 @@ class TestLocalStorage:
     async def test_download_folder(self, file_factory, local_storage: LocalStorage):
         await file_factory("a/x.txt", content=BytesIO(b"Hello"))
         await file_factory("a/y.txt", content=BytesIO(b"World"))
+
+        await file_factory("a/b/z.txt", content=BytesIO(b"!"))
         buffer = BytesIO()
         for chunk in local_storage.download("a"):
             buffer.write(chunk)
         buffer.seek(0)
 
         with ZipFile(buffer, "r") as archive:
-            assert archive.namelist() == ["x.txt", "y.txt"]
+            assert sorted(archive.namelist()) == sorted(["x.txt", "y.txt", "b/z.txt"])
             assert archive.read("x.txt") == b"Hello"
             assert archive.read("y.txt") == b"World"
+            assert archive.read("b/z.txt") == b"!"
 
     async def test_exists(self, file_factory, local_storage: LocalStorage):
         assert not await local_storage.exists("a")
@@ -218,7 +232,7 @@ class TestLocalStorage:
         assert file.name == "f.txt"
         assert file.path == "a/f.txt"
         assert file.size == 15
-        assert file.is_dir is False
+        assert file.is_dir() is False
 
     async def test_save_but_path_is_not_a_folder(
         self, file_factory, local_storage: LocalStorage
