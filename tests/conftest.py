@@ -26,6 +26,14 @@ if TYPE_CHECKING:
 fake = Faker()
 
 
+def pytest_addoption(parser):
+    parser.addoption(
+        "--reuse-db",
+        action="store_true",
+        default="whether to keep db after the test run or drop it.",
+    )
+
+
 class TestClient(AsyncClient):
     def login(self, user_id: UUID) -> TestClient:
         """
@@ -101,19 +109,21 @@ def event_loop():
 
 
 @pytest.fixture(autouse=True, scope="session")
-async def create_test_db() -> None:
+async def create_test_db(pytestconfig) -> None:
     """
     Create test database.
 
     If DB already exists, then drop it first, and create again.
     """
+    reuse = pytestconfig.getoption("reuse_db")
     dsn, _, db_name = _build_test_db_dsn()
     conn = await edgedb.async_connect(dsn=dsn)
     try:
         await conn.execute(f"CREATE DATABASE {db_name};")
     except (edgedb.errors.DuplicateDatabaseDefinitionError, edgedb.errors.SchemaError):
-        await conn.execute(f"DROP DATABASE {db_name};")
-        await conn.execute(f"CREATE DATABASE {db_name};")
+        if not reuse:
+            await conn.execute(f"DROP DATABASE {db_name};")
+            await conn.execute(f"CREATE DATABASE {db_name};")
     finally:
         await conn.aclose()
 
@@ -130,12 +140,13 @@ async def _db_pool(create_test_db):
 
 
 @pytest.fixture(scope="session")
-async def apply_migration(_db_pool: DBPool) -> None:
+async def apply_migration(pytestconfig, _db_pool: DBPool) -> None:
     """Apply schema to test database."""
-    with open(config.BASE_DIR / "./dbschema/default.esdl", "r") as f:
-        schema = f.read()
+    if not pytestconfig.getoption("reuse_db"):
+        with open(config.BASE_DIR / "./dbschema/default.esdl", "r") as f:
+            schema = f.read()
 
-    await db.migrate(_db_pool, schema)
+        await db.migrate(_db_pool, schema)
 
 
 @pytest.fixture

@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 runner = CliRunner()
 
-pytestmark = [pytest.mark.asyncio, pytest.mark.skip("waiting for db fix")]
+pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
 
 
 @pytest.fixture
