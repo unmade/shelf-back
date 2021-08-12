@@ -14,6 +14,7 @@ from app.storage import storage
 if TYPE_CHECKING:
     from app.entities import Namespace
     from app.typedefs import DBPool
+    from tests.factories import FileFactory
 
 pytestmark = [pytest.mark.asyncio]
 
@@ -158,7 +159,7 @@ async def test_create_folder_but_folder_exists(db_pool: DBPool, namespace: Names
 async def test_create_folder_but_parent_is_file(
     db_pool: DBPool,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
     await file_factory(namespace.path, path="file")
 
@@ -169,7 +170,7 @@ async def test_create_folder_but_parent_is_file(
 async def test_delete_immediately_file(
     db_pool: DBPool,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
     file = await file_factory(namespace.path, path="file")
     path = Path(file.path)
@@ -191,7 +192,7 @@ async def test_delete_immediately_but_file_not_exists(
 async def test_empty_trash(
     db_pool: DBPool,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
     await file_factory(namespace.path, path="Trash/a/b/c/d/file")
     await file_factory(namespace.path, path="file")
@@ -219,9 +220,10 @@ async def test_empty_trash_but_its_already_empty(
 async def test_get_thumbnail(
     db_pool: DBPool,
     namespace: Namespace,
-    image_factory,
+    file_factory: FileFactory,
+    image_content: BytesIO,
 ):
-    file = await image_factory(namespace.path)
+    file = await file_factory(namespace.path, content=image_content)
 
     filecache, disksize, thumbnail = (
         await actions.get_thumbnail(db_pool, namespace, file.path, size=64)
@@ -250,7 +252,7 @@ async def test_get_thumbnail_but_file_is_a_directory(
 async def test_get_thumbnail_but_file_is_a_text_file(
     db_pool: DBPool,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
     file = await file_factory(namespace.path)
     with pytest.raises(errors.ThumbnailUnavailable):
@@ -277,7 +279,7 @@ async def test_move(
 async def test_move_with_renaming(
     db_pool: DBPool,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
     await file_factory(namespace.path, path="file.txt")
 
@@ -294,7 +296,7 @@ async def test_move_with_renaming(
 async def test_move_but_next_path_is_already_taken(
     db_pool: DBPool,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
     await file_factory(namespace.path, "a/b/x.txt")
     await file_factory(namespace.path, "a/c/y.txt")
@@ -317,7 +319,7 @@ async def test_move_but_from_path_that_does_not_exists(
 async def test_move_but_next_path_has_a_missing_parent(
     db_pool: DBPool,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
     await file_factory(namespace.path, "f.txt")
 
@@ -328,7 +330,7 @@ async def test_move_but_next_path_has_a_missing_parent(
 async def test_move_but_next_path_is_not_a_folder(
     db_pool: DBPool,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
     await file_factory(namespace.path, "x.txt")
     await file_factory(namespace.path, "y")
@@ -368,11 +370,12 @@ async def test_move_but_paths_are_recursive(
 async def test_move_batch(
     db_pool: DBPool,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
     paths = ["a.txt", "b.txt", "folder/a.txt", "folder/b.txt", "folder (1)/c.txt"]
-    coros = (file_factory(namespace.path, path=path) for path in paths)
-    await asyncio.gather(*coros)
+    for path in paths:
+        await file_factory(namespace.path, path)
+
     items = [
         RelocationPath(
             from_path="a.txt",
@@ -418,7 +421,7 @@ async def test_move_batch(
 async def test_move_to_trash(
     db_pool: DBPool,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
     await file_factory(namespace.path, path="a/b/f1")
 
@@ -436,7 +439,7 @@ async def test_move_to_trash(
 async def test_move_to_trash_autorename(
     db_pool: DBPool,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
     await file_factory(namespace.path, path="Trash/b")
     await file_factory(namespace.path, path="a/b/f1")
@@ -461,7 +464,7 @@ async def test_move_to_trash_autorename(
 async def test_reconcile(
     db_pool: DBPool,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
     dummy_text = b"Dummy file"
 
@@ -559,7 +562,7 @@ async def test_save_files_concurrently(db_pool: DBPool, namespace: Namespace):
 async def test_save_file_but_name_already_taken(
     db_pool: DBPool,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
     path = "a/b/f.txt"
     await file_factory(namespace.path, path=path)
@@ -572,7 +575,7 @@ async def test_save_file_but_name_already_taken(
 async def test_save_file_but_path_is_a_file(
     db_pool: DBPool,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
     path = "f.txt"
     await file_factory(namespace.path, path=path)

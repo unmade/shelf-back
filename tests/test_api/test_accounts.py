@@ -10,6 +10,7 @@ from app.api.accounts.exceptions import UserAlreadyExists
 if TYPE_CHECKING:
     from app.entities import Account, User
     from tests.conftest import TestClient
+    from tests.factories import AccountFactory
 
 pytestmark = [pytest.mark.asyncio]
 
@@ -49,7 +50,9 @@ async def test_create(client: TestClient, superuser: User):
     },
 ])
 async def test_create_but_payload_is_invalid(
-    client: TestClient, superuser: User, payload,
+    client: TestClient,
+    superuser: User,
+    payload,
 ):
     response = await client.login(superuser.id).post("/accounts/create", json=payload)
     assert response.status_code == 422
@@ -69,7 +72,7 @@ async def test_create_but_username_is_taken(client: TestClient, superuser: User)
 async def test_create_but_email_is_taken(
     client: TestClient,
     superuser: User,
-    account_factory
+    account_factory: AccountFactory,
 ) -> None:
     await account_factory(email="johndoe@example.com", user=superuser)
     payload = {
@@ -94,7 +97,11 @@ async def test_get_current(client: TestClient, account: Account):
     assert response.status_code == 200
 
 
-async def test_list_all(client: TestClient, superuser: User, account_factory):
+async def test_list_all(
+    client: TestClient,
+    superuser: User,
+    account_factory: AccountFactory,
+):
     await account_factory(user=superuser)
     await asyncio.gather(
         *(account_factory() for _ in range(3))
@@ -112,7 +119,7 @@ async def test_list_all(client: TestClient, superuser: User, account_factory):
 async def test_list_all_with_page_params(
     client: TestClient,
     superuser: User,
-    account_factory
+    account_factory: AccountFactory,
 ) -> None:
     await account_factory(user=superuser)
     await asyncio.gather(

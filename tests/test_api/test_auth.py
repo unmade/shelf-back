@@ -9,11 +9,12 @@ from app.api.auth.exceptions import InvalidCredentials
 if TYPE_CHECKING:
     from app.entities import User
     from tests.conftest import TestClient
+    from tests.factories import UserFactory
 
 pytestmark = [pytest.mark.asyncio]
 
 
-async def test_get_tokens(client: TestClient, user_factory):
+async def test_get_tokens(client: TestClient, user_factory: UserFactory):
     user = await user_factory(hash_password=True)
     data = {
         "username": user.username,
@@ -34,7 +35,10 @@ async def test_get_tokens_but_user_does_not_exists(client: TestClient):
     assert response.json() == InvalidCredentials().as_dict()
 
 
-async def test_get_tokens_but_password_is_invalid(client: TestClient, user_factory):
+async def test_get_tokens_but_password_is_invalid(
+    client: TestClient,
+    user_factory: UserFactory,
+):
     user = await user_factory(hash_password=True)
     data = {
         "username": user.username,

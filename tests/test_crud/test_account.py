@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from app.typedefs import DBPool
     from app.entities import Account
     from app.crud.account import AccountUpdate
+    from tests.factories import AccountFactory
 
 pytestmark = [pytest.mark.asyncio]
 
@@ -60,7 +61,7 @@ async def test_get_account_but_user_not_found(db_pool: DBPool):
     assert str(excinfo.value) == f"No account for user with id: {user_id}"
 
 
-async def test_list_all(db_pool: DBPool, account_factory):
+async def test_list_all(db_pool: DBPool, account_factory: AccountFactory):
     await asyncio.gather(*(
         account_factory() for _ in range(2)
     ))
@@ -70,7 +71,7 @@ async def test_list_all(db_pool: DBPool, account_factory):
     assert usernames == sorted(usernames)
 
 
-async def test_list_all_limit_offset(db_pool: DBPool, account_factory):
+async def test_list_all_limit_offset(db_pool: DBPool, account_factory: AccountFactory):
     await asyncio.gather(*(
         account_factory() for _ in range(2)
     ))
@@ -79,7 +80,7 @@ async def test_list_all_limit_offset(db_pool: DBPool, account_factory):
     assert accounts[0].user.username
 
 
-async def test_update_account(db_pool: DBPool, account_factory):
+async def test_update_account(db_pool: DBPool, account_factory: AccountFactory):
     account = await account_factory("johnsmith@example.com")
     to_update: AccountUpdate = {"email": "johndoe@example.com"}
     updated_account = await crud.account.update(db_pool, account.user.id, to_update)

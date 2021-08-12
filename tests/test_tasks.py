@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from typing import TYPE_CHECKING
 
 import pytest
@@ -10,6 +9,7 @@ from app.entities import RelocationPath
 
 if TYPE_CHECKING:
     from app.entities import Namespace
+    from tests.factories import FileFactory
 
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("celery_session_worker")]
@@ -20,9 +20,9 @@ def test_celery_works():
     assert task.get(timeout=1) == "pong"
 
 
-async def test_move_batch(namespace: Namespace, file_factory):
+async def test_move_batch(namespace: Namespace, file_factory: FileFactory):
     await file_factory(namespace.path, path="folder/a")
-    files = await asyncio.gather(*(file_factory(namespace.path) for _ in range(2)))
+    files = [await file_factory(namespace.path) for _ in range(2)]
     relocations = [
         RelocationPath(from_path=files[0].path, to_path=f"folder/{files[0].path}"),
         RelocationPath(from_path=files[1].path, to_path=f"not_exists/{files[1].path}"),
@@ -39,9 +39,9 @@ async def test_move_batch(namespace: Namespace, file_factory):
     assert result[1].err_code == errors.ErrorCode.missing_parent
 
 
-async def test_move_to_trash_batch(namespace: Namespace, file_factory):
+async def test_move_to_trash_batch(namespace: Namespace, file_factory: FileFactory):
     await file_factory(namespace.path, path="folder/a")
-    files = await asyncio.gather(*(file_factory(namespace.path) for _ in range(2)))
+    files = [await file_factory(namespace.path) for _ in range(2)]
     paths = [files[0].path, "file_not_exist.txt"]
 
     task = tasks.move_to_trash_batch.delay(namespace, paths)

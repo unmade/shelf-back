@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import secrets
 from io import BytesIO
 from typing import TYPE_CHECKING, Optional
@@ -24,6 +23,7 @@ from app.entities import RelocationPath
 if TYPE_CHECKING:
     from app.entities import Namespace, RelocationResult
     from tests.conftest import TestClient
+    from tests.factories import FileFactory
 
 pytestmark = [pytest.mark.asyncio]
 
@@ -65,7 +65,7 @@ async def test_create_folder_but_folder_exists(
 async def test_create_folder_but_parent_is_a_file(
     client: TestClient,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
     await file_factory(namespace.path, path="file")
     payload = {"path": "file/folder"}
@@ -115,7 +115,7 @@ async def test_delete_immediately_but_it_is_a_special_folder(
 async def test_download_file(
     client: TestClient,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
     path: str,
 ):
     content = b"Hello, World!"
@@ -130,7 +130,11 @@ async def test_download_file(
     assert response.content == content
 
 
-async def test_download_folder(client: TestClient, namespace: Namespace, file_factory):
+async def test_download_folder(
+    client: TestClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
     await file_factory(namespace.path, path="a/b/c/d.txt")
     key = secrets.token_urlsafe()
     await cache.set(key, f"{namespace.path}:a")
@@ -165,7 +169,7 @@ async def test_download_but_file_not_found(client: TestClient, namespace: Namesp
 async def test_download_file_with_post(
     client: TestClient,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
     content_factory,
 ):
     content = content_factory()
@@ -182,7 +186,7 @@ async def test_download_file_with_post(
 async def test_download_file_with_non_latin_name_with_post(
     client: TestClient,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
     file = await file_factory(namespace.path, path="файл.txt")
     payload = {"path": file.path}
@@ -194,7 +198,7 @@ async def test_download_file_with_non_latin_name_with_post(
 async def test_download_folder_with_post(
     client: TestClient,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
     await file_factory(namespace.path, path="a/b/c/d.txt")
     payload = {"path": "a"}
@@ -224,7 +228,11 @@ async def test_empty_trash(client: TestClient, namespace: Namespace):
     assert response.json()["path"] == "Trash"
 
 
-async def test_get_download_url(client: TestClient, namespace: Namespace, file_factory):
+async def test_get_download_url(
+    client: TestClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
     file = await file_factory(namespace.path)
     payload = {"path": file.path}
     client.login(namespace.owner.id)
@@ -252,10 +260,11 @@ async def test_get_download_url_but_file_not_found(
 async def test_get_thumbnail(
     client: TestClient,
     namespace: Namespace,
-    image_factory,
-    name,
+    image_content: BytesIO,
+    file_factory: FileFactory,
+    name: str,
 ):
-    file = await image_factory(namespace.path, path=name)
+    file = await file_factory(namespace.path, path=name, content=image_content)
     payload = {"path": file.path}
     client.login(namespace.owner.id)
     response = await client.post("/files/get_thumbnail?size=xs", json=payload)
@@ -288,7 +297,7 @@ async def test_get_thumbnail_but_path_is_a_folder(
 async def test_get_thumbnail_but_file_is_not_thumbnailable(
     client: TestClient,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
     file = await file_factory(namespace.path)
     client.login(namespace.owner.id)
@@ -297,7 +306,11 @@ async def test_get_thumbnail_but_file_is_not_thumbnailable(
     assert response.json() == ThumbnailUnavailable(path=file.path).as_dict()
 
 
-async def test_list_folder(client: TestClient, namespace: Namespace, file_factory):
+async def test_list_folder(
+    client: TestClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
     await file_factory(namespace.path, path="file.txt")
     await file_factory(namespace.path, path="folder/file.txt")
     payload = {"path": "."}
@@ -324,7 +337,7 @@ async def test_list_folder_but_path_does_not_exists(
 async def test_list_folder_but_path_is_not_a_folder(
     client: TestClient,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
     file = await file_factory(namespace.path, path="f.txt")
     payload = {"path": file.path}
@@ -340,7 +353,7 @@ async def test_list_folder_but_path_is_not_a_folder(
 async def test_move(
     client: TestClient,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
     path: str,
     next_path: str,
 ):
@@ -371,7 +384,7 @@ async def test_move_but_it_is_a_special_path(
 async def test_move_but_to_a_special_path(
     client: TestClient,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
     next_path: str,
 ):
     file = await file_factory(namespace.path)
@@ -395,7 +408,7 @@ async def test_move_but_path_is_recursive(client: TestClient, namespace: Namespa
 async def test_move_but_file_exists(
     client: TestClient,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
     file_a = await file_factory(namespace.path, path="folder/file.txt")
     file_b = await file_factory(namespace.path, path="file.txt")
@@ -417,7 +430,7 @@ async def test_move_but_file_not_found(client: TestClient, namespace: Namespace)
 async def test_move_but_to_path_is_a_file(
     client: TestClient,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
     file_a = await file_factory(namespace.path, path="file_a.txt")
     file_b = await file_factory(namespace.path, path="file_b.txt")
@@ -431,7 +444,7 @@ async def test_move_but_to_path_is_a_file(
 async def test_move_but_path_missing_parent(
     client: TestClient,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
     file_a = await file_factory(namespace.path, path="file_a.txt")
     payload = {"from_path": file_a.path, "to_path": f"folder/{file_a.path}"}
@@ -443,9 +456,13 @@ async def test_move_but_path_missing_parent(
 
 
 @pytest.mark.usefixtures("celery_session_worker")
-async def test_move_batch(client: TestClient, namespace: Namespace, file_factory):
+async def test_move_batch(
+    client: TestClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
     await file_factory(namespace.path, path='folder/a.txt')
-    files = await asyncio.gather(*(file_factory(namespace.path) for _ in range(3)))
+    files = [await file_factory(namespace.path) for _ in range(3)]
     payload = {
         "items": [
             {"from_path": file.path, "to_path": f"folder/{file.path}"}
@@ -467,7 +484,7 @@ async def test_move_batch(client: TestClient, namespace: Namespace, file_factory
 async def test_move_batch_check_task_is_pending(
     client: TestClient,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
     file = await file_factory(namespace.path, path="folder/a.txt")
     relocations = [
@@ -488,7 +505,7 @@ async def test_move_batch_check_task_is_pending(
 async def test_move_batch_check_task_is_completed(
     client: TestClient,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
     file = await file_factory(namespace.path, path="folder/a.txt")
     relocations = [
@@ -522,7 +539,7 @@ async def test_move_batch_check_task_is_completed(
 async def test_move_to_trash(
     client: TestClient,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
     file_path: str,
     path: str,
     expected_path: str,
@@ -550,7 +567,7 @@ async def test_move_to_trash_but_it_is_a_trash(
 async def test_move_to_trash_but_file_is_in_trash(
     client: TestClient,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
     file = await file_factory(namespace.path, path="Trash/file.txt")
     payload = {"path": file.path}
@@ -575,9 +592,9 @@ async def test_move_to_trash_but_file_not_found(
 async def test_move_to_trash_batch(
     client: TestClient,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
-    files = await asyncio.gather(*(file_factory(namespace.path) for _ in range(3)))
+    files = [await file_factory(namespace.path) for _ in range(3)]
     payload = {
         "items": [
             {"path": file.path} for file in files
@@ -621,7 +638,7 @@ async def test_upload_but_to_a_special_path(client: TestClient, namespace: Names
 async def test_upload_but_path_is_a_file(
     client: TestClient,
     namespace: Namespace,
-    file_factory,
+    file_factory: FileFactory,
 ):
     file = await file_factory(namespace.path, path="f.txt")
     payload = {

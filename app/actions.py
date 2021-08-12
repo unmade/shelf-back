@@ -142,7 +142,7 @@ async def get_thumbnail(
         ThumbnailUnavailable: If file is not an image.
 
     Returns:
-        tuple[File, int, IO[bytes]]: Tuple of file, thumbnail disk size and thumbnail.
+        tuple[File, int, BytesIO]: Tuple of file, thumbnail disk size and thumbnail.
     """
     file = await crud.file.get(conn, namespace.path, path)
     thumbsize, thumbnail = await storage.thumbnail(namespace.path / path, size=size)
@@ -347,10 +347,7 @@ async def save_file(
 
     next_path = await crud.file.next_path(conn, namespace.path, path)
 
-    size = content.seek(0, 2)
-    content.seek(0)
-
-    await storage.save(namespace.path / next_path, content)
+    storage_file = await storage.save(namespace.path / next_path, content)
 
     # default max iterations is not enough, so bump it up
     # there is bug with customizing retrying logic,
@@ -363,7 +360,7 @@ async def save_file(
                 tx,
                 namespace.path,
                 next_path,
-                size=size,
+                size=storage_file.size,
                 mediatype=mediatypes.guess(next_path, content)
             )
 
