@@ -13,22 +13,22 @@ from app.mediatypes import FOLDER, OCTET_STREAM
 
 if TYPE_CHECKING:
     from app.entities import Namespace
-    from app.typedefs import DBPool
+    from app.typedefs import DBPool, DBTransaction
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
 
-async def test_create(db_pool: DBPool, namespace: Namespace):
+async def test_create(tx: DBTransaction, namespace: Namespace):
     path = Path("a/b/f")
     for parent in list(reversed(path.parents))[1:]:
-        await crud.file.create(db_pool, namespace.path, parent, mediatype=FOLDER)
+        await crud.file.create(tx, namespace.path, parent, mediatype=FOLDER)
 
-    folder = await crud.file.get(db_pool, namespace.path, path.parent)
+    folder = await crud.file.get(tx, namespace.path, path.parent)
     assert folder.size == 0
 
-    await crud.file.create(db_pool, namespace.path, path, size=32)
+    await crud.file.create(tx, namespace.path, path, size=32)
 
-    file = await db_pool.query_one("""
+    file = await tx.query_one("""
         SELECT File {
             name, path, size, mediatype: { name }, parent: {
                 path, size, mediatype: { name }, parent: {
@@ -49,42 +49,45 @@ async def test_create(db_pool: DBPool, namespace: Namespace):
     assert file.parent.parent.size == 32
 
 
-async def test_create_updates_parents_size(db_pool: DBPool, namespace: Namespace):
+async def test_create_updates_parents_size(tx: DBTransaction, namespace: Namespace):
     path = Path("New Folder/file")
-    await crud.file.create(db_pool, namespace.path, path.parent, mediatype=FOLDER)
-    await crud.file.create(db_pool, namespace.path, path, size=32)
+    await crud.file.create(tx, namespace.path, path.parent, mediatype=FOLDER)
+    await crud.file.create(tx, namespace.path, path, size=32)
 
-    parents = await crud.file.get_many(db_pool, namespace.path, path.parents)
+    parents = await crud.file.get_many(tx, namespace.path, path.parents)
     for parent in parents:
         assert parent.size == 32
 
 
-async def test_create_is_case_insensitive(db_pool: DBPool, namespace: Namespace):
-    await crud.file.create(db_pool, namespace.path, "A", mediatype=FOLDER)
-    await crud.file.create(db_pool, namespace.path, "a/f", size=32)
+async def test_create_is_case_insensitive(tx: DBTransaction, namespace: Namespace):
+    await crud.file.create(tx, namespace.path, "A", mediatype=FOLDER)
+    await crud.file.create(tx, namespace.path, "a/f", size=32)
 
-    file = await crud.file.get(db_pool, namespace.path, "a/f")
+    file = await crud.file.get(tx, namespace.path, "a/f")
     assert file.path == "A/f"  # original case of parent is preserved
 
 
-async def test_create_but_parent_is_missing(db_pool: DBPool, namespace: Namespace):
+async def test_create_but_parent_is_missing(tx: DBTransaction, namespace: Namespace):
     with pytest.raises(errors.MissingParent):
-        await crud.file.create(db_pool, namespace.path, "New Folder/file")
+        await crud.file.create(tx, namespace.path, "New Folder/file")
 
 
-async def test_create_but_parent_is_not_a_folder(db_pool: DBPool, namespace: Namespace):
-    await crud.file.create(db_pool, namespace.path, "f")
+async def test_create_but_parent_is_not_a_folder(
+    tx: DBTransaction,
+    namespace: Namespace,
+):
+    await crud.file.create(tx, namespace.path, "f")
 
     with pytest.raises(errors.NotADirectory):
-        await crud.file.create(db_pool, namespace.path, "f/a")
+        await crud.file.create(tx, namespace.path, "f/a")
 
 
-async def test_create_but_file_already_exists(db_pool: DBPool, namespace: Namespace):
+async def test_create_but_file_already_exists(tx: DBTransaction, namespace: Namespace):
     with pytest.raises(errors.FileAlreadyExists):
-        await crud.file.create(db_pool, namespace.path, ".")
+        await crud.file.create(tx, namespace.path, ".")
 
 
-async def test_create_batch(db_pool: DBPool, namespace: Namespace):
+async def test_create_batch(tx: DBTransaction, namespace: Namespace):
     a_size, f_size = 32, 16
     files = [
         File.construct(  # type: ignore
@@ -102,12 +105,12 @@ async def test_create_batch(db_pool: DBPool, namespace: Namespace):
             mediatype=OCTET_STREAM,
         )
     ]
-    await crud.file.create_batch(db_pool, namespace.path, ".", files=files)
+    await crud.file.create_batch(tx, namespace.path, ".", files=files)
 
-    home = await crud.file.get(db_pool, namespace.path, ".")
+    home = await crud.file.get(tx, namespace.path, ".")
     assert home.size == a_size + f_size
 
-    files = await crud.file.list_folder(db_pool, namespace.path, ".")
+    files = await crud.file.list_folder(tx, namespace.path, ".")
     assert len(files) == 2
 
     assert files[0].name == "a"
@@ -121,7 +124,7 @@ async def test_create_batch(db_pool: DBPool, namespace: Namespace):
     assert files[1].mediatype == OCTET_STREAM
 
 
-async def test_create_batch_but_all_the_same(db_pool: DBPool, namespace: Namespace):
+async def test_create_batch_but_all_the_same(tx: DBTransaction, namespace: Namespace):
     # Insert Files with media type that does not exists in the database.
     # This test assures that first query inserts a file and inserts a mediatype
     # and second query inserts a file, but selects a mediatype.
@@ -139,9 +142,9 @@ async def test_create_batch_but_all_the_same(db_pool: DBPool, namespace: Namespa
         for path in paths
     ]
 
-    await crud.file.create_batch(db_pool, namespace.path, ".", files=to_create)
+    await crud.file.create_batch(tx, namespace.path, ".", files=to_create)
 
-    files = await crud.file.list_folder(db_pool, namespace.path, ".")
+    files = await crud.file.list_folder(tx, namespace.path, ".")
     assert len(files) == 4
 
     for i, mediatype, paths in zip(range(0, len(files), 2), mediatypes, all_paths):
@@ -150,7 +153,10 @@ async def test_create_batch_but_all_the_same(db_pool: DBPool, namespace: Namespa
             assert files[i + j].mediatype == mediatype
 
 
-async def test_create_batch_is_case_insensitive(db_pool: DBPool, namespace: Namespace):
+async def test_create_batch_is_case_insensitive(
+    tx: DBTransaction,
+    namespace: Namespace,
+):
     to_create = [
         File.construct(  # type: ignore
             name="B",
@@ -167,11 +173,11 @@ async def test_create_batch_is_case_insensitive(db_pool: DBPool, namespace: Name
             mediatype=OCTET_STREAM,
         )
     ]
-    await crud.file.create(db_pool, namespace.path, "A", mediatype=FOLDER)
+    await crud.file.create(tx, namespace.path, "A", mediatype=FOLDER)
 
-    await crud.file.create_batch(db_pool, namespace.path, "a", files=to_create)
+    await crud.file.create_batch(tx, namespace.path, "a", files=to_create)
 
-    files = await crud.file.list_folder(db_pool, namespace.path, "A")
+    files = await crud.file.list_folder(tx, namespace.path, "A")
 
     assert to_create[1].path == "A/f"
 
@@ -183,17 +189,17 @@ async def test_create_batch_is_case_insensitive(db_pool: DBPool, namespace: Name
 
 
 async def test_create_batch_but_file_already_exists(
-    db_pool: DBPool,
+    tx: DBTransaction,
     namespace: Namespace,
 ):
-    file = await crud.file.create(db_pool, namespace.path, "f")
+    file = await crud.file.create(tx, namespace.path, "f")
 
     with pytest.raises(errors.FileAlreadyExists):
-        await crud.file.create_batch(db_pool, namespace.path, ".", files=[file])
+        await crud.file.create_batch(tx, namespace.path, ".", files=[file])
 
 
 async def test_create_batch_but_no_files_given():
-    # pass dummy DBPool, to check that method exists earlier with empty files
+    # pass dummy DBTransaction, to check that method exists earlier with empty files
     result = await crud.file.create_batch(
         object(),  # type: ignore
         "namespace",
@@ -204,29 +210,29 @@ async def test_create_batch_but_no_files_given():
 
 
 async def test_create_batch_but_parent_not_exists(
-    db_pool: DBPool,
+    tx: DBTransaction,
     namespace: Namespace,
 ):
     file = File.construct()  # type: ignore
 
     with pytest.raises(errors.FileNotFound):
-        await crud.file.create_batch(db_pool, namespace.path, "a", files=[file])
+        await crud.file.create_batch(tx, namespace.path, "a", files=[file])
 
 
 async def test_create_batch_but_parent_not_a_folder(
-    db_pool: DBPool,
+    tx: DBTransaction,
     namespace: Namespace,
 ):
     file = File.construct()  # type: ignore
-    await crud.file.create(db_pool, namespace.path, "f")
+    await crud.file.create(tx, namespace.path, "f")
 
     with pytest.raises(errors.NotADirectory):
-        await crud.file.create_batch(db_pool, namespace.path, "f", files=[file])
+        await crud.file.create_batch(tx, namespace.path, "f", files=[file])
 
 
-async def test_create_folder(db_pool: DBPool, namespace: Namespace):
+async def test_create_folder(tx: DBTransaction, namespace: Namespace):
     path = Path("a/b/c")
-    await crud.file.create_folder(db_pool, namespace.path, path)
+    await crud.file.create_folder(tx, namespace.path, path)
 
     query = """
         SELECT File { id, path, parent: { id } }
@@ -238,7 +244,7 @@ async def test_create_folder(db_pool: DBPool, namespace: Namespace):
     """
 
     paths = [str(path)] + [str(p) for p in path.parents]
-    result = await db_pool.query(query, namespace=str(namespace.path), paths=paths)
+    result = await tx.query(query, namespace=str(namespace.path), paths=paths)
 
     home, a, b, c = result
     assert home.path == "."
@@ -254,6 +260,7 @@ async def test_create_folder(db_pool: DBPool, namespace: Namespace):
     assert c.parent.id == b.id
 
 
+@pytest.mark.database(transaction=True)
 async def test_create_folder_concurrently_with_overlapping_parents(
     db_pool: DBPool,
     namespace: Namespace,
@@ -303,9 +310,12 @@ async def test_create_folder_concurrently_with_overlapping_parents(
         parent = file
 
 
-async def test_create_folder_is_case_insensitive(db_pool: DBPool, namespace: Namespace):
-    await crud.file.create_folder(db_pool, namespace.path, "A/b")
-    await crud.file.create_folder(db_pool, namespace.path, "a/B/c")
+async def test_create_folder_is_case_insensitive(
+    tx: DBTransaction,
+    namespace: Namespace,
+):
+    await crud.file.create_folder(tx, namespace.path, "A/b")
+    await crud.file.create_folder(tx, namespace.path, "a/B/c")
 
     query = """
         SELECT File { id, path, parent: { id } }
@@ -317,7 +327,7 @@ async def test_create_folder_is_case_insensitive(db_pool: DBPool, namespace: Nam
     """
 
     paths = ["a", "a/b", "a/b/c"]
-    a, b, c = await db_pool.query(query, namespace=str(namespace.path), paths=paths)
+    a, b, c = await tx.query(query, namespace=str(namespace.path), paths=paths)
 
     assert a.path == "A"
     assert b.path == "A/b"
@@ -329,121 +339,127 @@ async def test_create_folder_is_case_insensitive(db_pool: DBPool, namespace: Nam
     ("Folder", "folder"),
 ])
 async def test_create_folder_but_folder_exists(
-    db_pool: DBPool,
+    tx: DBTransaction,
     namespace: Namespace,
     a: str,
     b: str,
 ):
-    await crud.file.create_folder(db_pool, namespace.path, a)
+    await crud.file.create_folder(tx, namespace.path, a)
 
     with pytest.raises(errors.FileAlreadyExists):
-        await crud.file.create_folder(db_pool, namespace.path, b)
+        await crud.file.create_folder(tx, namespace.path, b)
 
 
 async def test_create_folder_but_path_is_not_a_directory(
-    db_pool: DBPool,
+    tx: DBTransaction,
     namespace: Namespace,
 ):
-    await crud.file.create(db_pool, namespace.path, "data")
+    await crud.file.create(tx, namespace.path, "data")
 
     with pytest.raises(errors.NotADirectory):
-        await crud.file.create_folder(db_pool, namespace.path, "data/file")
+        await crud.file.create_folder(tx, namespace.path, "data/file")
 
 
-async def test_delete_file(db_pool: DBPool, namespace: Namespace):
+async def test_delete_file(tx: DBTransaction, namespace: Namespace):
     path = Path("folder/file")
-    await crud.file.create(db_pool, namespace.path, path.parent, mediatype=FOLDER)
-    await crud.file.create(db_pool, namespace.path, path.parent / "b", size=4)
-    await crud.file.create(db_pool, namespace.path, path, size=8)
+    await crud.file.create(tx, namespace.path, path.parent, mediatype=FOLDER)
+    await crud.file.create(tx, namespace.path, path.parent / "b", size=4)
+    await crud.file.create(tx, namespace.path, path, size=8)
 
     # ensure parent size has increased
-    parent = await crud.file.get(db_pool, namespace.path, path.parent)
+    parent = await crud.file.get(tx, namespace.path, path.parent)
     assert parent.size == 12
 
-    file = await crud.file.delete(db_pool, namespace.path, path)
+    file = await crud.file.delete(tx, namespace.path, path)
     assert file.path == str(path)
-    assert not await crud.file.exists(db_pool, namespace.path, path)
+    assert not await crud.file.exists(tx, namespace.path, path)
 
     # ensure parent size has decreased
-    parent = await crud.file.get(db_pool, namespace.path, path.parent)
+    parent = await crud.file.get(tx, namespace.path, path.parent)
     assert parent.size == 4
 
 
-async def test_delete_non_empty_folder(db_pool: DBPool, namespace: Namespace):
-    await crud.file.create(db_pool, namespace.path, "a", mediatype=FOLDER)
-    await crud.file.create(db_pool, namespace.path, "a/b", mediatype=FOLDER)
-    await crud.file.create(db_pool, namespace.path, "a/b/c", size=8)
+async def test_delete_non_empty_folder(tx: DBTransaction, namespace: Namespace):
+    await crud.file.create(tx, namespace.path, "a", mediatype=FOLDER)
+    await crud.file.create(tx, namespace.path, "a/b", mediatype=FOLDER)
+    await crud.file.create(tx, namespace.path, "a/b/c", size=8)
 
     # ensure parent size has increased
-    a, b = await crud.file.get_many(db_pool, namespace.path, ["a", "a/b"])
+    a, b = await crud.file.get_many(tx, namespace.path, ["a", "a/b"])
     assert a.size == 8
     assert b.size == 8
 
-    await crud.file.delete(db_pool, namespace.path, "a/b")
-    assert not await crud.file.exists(db_pool, namespace.path, "a/b")
-    assert not await crud.file.exists(db_pool, namespace.path, "a/b/c")
+    await crud.file.delete(tx, namespace.path, "a/b")
+    assert not await crud.file.exists(tx, namespace.path, "a/b")
+    assert not await crud.file.exists(tx, namespace.path, "a/b/c")
 
     # ensure size has decreased
-    parent = await crud.file.get(db_pool, namespace.path, "a")
+    parent = await crud.file.get(tx, namespace.path, "a")
     assert parent.size == 0
 
 
-async def test_delete_is_case_insensitive(db_pool: DBPool, namespace: Namespace):
-    await crud.file.create(db_pool, namespace.path, "F", size=8)
+async def test_delete_is_case_insensitive(tx: DBTransaction, namespace: Namespace):
+    await crud.file.create(tx, namespace.path, "F", size=8)
 
-    file = await crud.file.delete(db_pool, namespace.path, "f")
+    file = await crud.file.delete(tx, namespace.path, "f")
     assert file.path == "F"
 
 
-async def test_delete_file_but_it_does_not_exist(db_pool: DBPool, namespace: Namespace):
+async def test_delete_file_but_it_does_not_exist(
+    tx: DBTransaction,
+    namespace: Namespace,
+):
     with pytest.raises(errors.FileNotFound):
-        await crud.file.delete(db_pool, namespace.path, "f")
+        await crud.file.delete(tx, namespace.path, "f")
 
 
-async def test_delete_batch(db_pool: DBPool, namespace: Namespace):
-    await crud.file.create(db_pool, namespace.path, "a", mediatype=FOLDER)
-    await crud.file.create(db_pool, namespace.path, "a/B", mediatype=FOLDER)
-    await crud.file.create(db_pool, namespace.path, "a/B/c", size=8)
-    await crud.file.create(db_pool, namespace.path, "a/f", size=16)
+async def test_delete_batch(tx: DBTransaction, namespace: Namespace):
+    await crud.file.create(tx, namespace.path, "a", mediatype=FOLDER)
+    await crud.file.create(tx, namespace.path, "a/B", mediatype=FOLDER)
+    await crud.file.create(tx, namespace.path, "a/B/c", size=8)
+    await crud.file.create(tx, namespace.path, "a/f", size=16)
 
     # ensure parent size has increased
-    a, b = await crud.file.get_many(db_pool, namespace.path, ["a", "a/b"])
+    a, b = await crud.file.get_many(tx, namespace.path, ["a", "a/b"])
     assert a.size == 24
     assert b.size == 8
 
-    await crud.file.delete_batch(db_pool, namespace.path, "A", ["B", "f"])
-    assert not await crud.file.exists(db_pool, namespace.path, "a/b")
-    assert not await crud.file.exists(db_pool, namespace.path, "a/b/c")
-    assert not await crud.file.exists(db_pool, namespace.path, "a/f")
+    await crud.file.delete_batch(tx, namespace.path, "A", ["B", "f"])
+    assert not await crud.file.exists(tx, namespace.path, "a/b")
+    assert not await crud.file.exists(tx, namespace.path, "a/b/c")
+    assert not await crud.file.exists(tx, namespace.path, "a/f")
 
     # ensure size has decreased
-    parent = await crud.file.get(db_pool, namespace.path, "a")
+    parent = await crud.file.get(tx, namespace.path, "a")
     assert parent.size == 0
 
 
-async def test_empty_trash(db_pool: DBPool, namespace: Namespace):
-    await crud.file.create_folder(db_pool, namespace.path, "Trash/a/b")
-    await crud.file.create_folder(db_pool, namespace.path, "Trash/a/c")
-    await crud.file.create(db_pool, namespace.path, "Trash/f", size=32)
-    await crud.file.create(db_pool, namespace.path, "f", size=16)
+async def test_empty_trash(tx: DBTransaction, namespace: Namespace):
+    await crud.file.create_folder(tx, namespace.path, "Trash/a/b")
+    await crud.file.create_folder(tx, namespace.path, "Trash/a/c")
+    await crud.file.create(tx, namespace.path, "Trash/f", size=32)
+    await crud.file.create(tx, namespace.path, "f", size=16)
 
-    home = await crud.file.get(db_pool, namespace.path, ".")
+    home = await crud.file.get(tx, namespace.path, ".")
     assert home.size == 48
 
-    trash = await crud.file.empty_trash(db_pool, namespace.path)
+    trash = await crud.file.empty_trash(tx, namespace.path)
 
-    assert await crud.file.get(db_pool, namespace.path, "Trash") == trash
-    files = await crud.file.list_folder(db_pool, namespace.path, "Trash")
+    assert await crud.file.get(tx, namespace.path, "Trash") == trash
+    files = await crud.file.list_folder(tx, namespace.path, "Trash")
     assert trash.size == 0
     assert files == []
 
-    home = await crud.file.get(db_pool, namespace.path, ".")
+    home = await crud.file.get(tx, namespace.path, ".")
     assert home.size == 16
 
 
-async def test_empty_trash_but_its_already_empty(db_pool: DBPool, namespace: Namespace):
-    trash = await crud.file.empty_trash(db_pool, namespace.path)
-    files = await crud.file.list_folder(db_pool, namespace.path, "Trash")
+async def test_empty_trash_but_its_already_empty(
+    tx: DBTransaction,
+    namespace: Namespace,
+):
+    trash = await crud.file.empty_trash(tx, namespace.path)
+    files = await crud.file.list_folder(tx, namespace.path, "Trash")
     assert trash.size == 0
     assert files == []
 
@@ -453,13 +469,13 @@ async def test_empty_trash_but_its_already_empty(db_pool: DBPool, namespace: Nam
     ("File", "file"),
     ("file", "File"),
 ])
-async def test_exists(db_pool: DBPool, namespace: Namespace, a, b):
-    await crud.file.create(db_pool, namespace.path, a)
-    assert await crud.file.exists(db_pool, namespace.path, b)
+async def test_exists(tx: DBTransaction, namespace: Namespace, a, b):
+    await crud.file.create(tx, namespace.path, a)
+    assert await crud.file.exists(tx, namespace.path, b)
 
 
-async def test_exists_but_it_is_not(db_pool: DBPool, namespace: Namespace):
-    assert not await crud.file.exists(db_pool, namespace.path, "file")
+async def test_exists_but_it_is_not(tx: DBTransaction, namespace: Namespace):
+    assert not await crud.file.exists(tx, namespace.path, "file")
 
 
 @pytest.mark.parametrize(["a", "b"], [
@@ -467,40 +483,40 @@ async def test_exists_but_it_is_not(db_pool: DBPool, namespace: Namespace):
     ("File", "file"),
     ("file", "File"),
 ])
-async def test_get(db_pool: DBPool, namespace: Namespace, a, b):
-    await crud.file.create(db_pool, namespace.path, a)
-    file = await crud.file.get(db_pool, namespace.path, b)
+async def test_get(tx: DBTransaction, namespace: Namespace, a, b):
+    await crud.file.create(tx, namespace.path, a)
+    file = await crud.file.get(tx, namespace.path, b)
     assert file.name == a
     assert file.path == a
 
 
-async def test_get_but_file_does_not_exists(db_pool: DBPool, namespace: Namespace):
+async def test_get_but_file_does_not_exists(tx: DBTransaction, namespace: Namespace):
     with pytest.raises(errors.FileNotFound):
-        await crud.file.get(db_pool, namespace.path, "file")
+        await crud.file.get(tx, namespace.path, "file")
 
 
-async def test_get_many(db_pool: DBPool, namespace: Namespace):
-    await crud.file.create(db_pool, namespace.path, "a", mediatype=FOLDER)
-    await crud.file.create(db_pool, namespace.path, "a/b", mediatype=FOLDER)
-    await crud.file.create(db_pool, namespace.path, "a/c", mediatype=FOLDER)
-    await crud.file.create(db_pool, namespace.path, "a/f")
+async def test_get_many(tx: DBTransaction, namespace: Namespace):
+    await crud.file.create(tx, namespace.path, "a", mediatype=FOLDER)
+    await crud.file.create(tx, namespace.path, "a/b", mediatype=FOLDER)
+    await crud.file.create(tx, namespace.path, "a/c", mediatype=FOLDER)
+    await crud.file.create(tx, namespace.path, "a/f")
 
     paths = ["a", "a/c", "a/f", "a/d"]
-    files = await crud.file.get_many(db_pool, namespace.path, paths=paths)
+    files = await crud.file.get_many(tx, namespace.path, paths=paths)
 
     assert len(files) == 3
     for file, path in zip(files, paths[:-1]):
         assert file.path == path
 
 
-async def test_get_many_is_case_insensitive(db_pool: DBPool, namespace: Namespace):
-    await crud.file.create(db_pool, namespace.path, "a", mediatype=FOLDER)
-    await crud.file.create(db_pool, namespace.path, "a/B", mediatype=FOLDER)
-    await crud.file.create(db_pool, namespace.path, "a/c", mediatype=FOLDER)
-    await crud.file.create(db_pool, namespace.path, "A/F")
+async def test_get_many_is_case_insensitive(tx: DBTransaction, namespace: Namespace):
+    await crud.file.create(tx, namespace.path, "a", mediatype=FOLDER)
+    await crud.file.create(tx, namespace.path, "a/B", mediatype=FOLDER)
+    await crud.file.create(tx, namespace.path, "a/c", mediatype=FOLDER)
+    await crud.file.create(tx, namespace.path, "A/F")
 
     paths = ["A", "a/C", "a/f", "a/d"]
-    files = await crud.file.get_many(db_pool, namespace.path, paths=paths)
+    files = await crud.file.get_many(tx, namespace.path, paths=paths)
 
     assert files[0].path == "a"
     assert files[1].path == "a/c"
@@ -509,62 +525,62 @@ async def test_get_many_is_case_insensitive(db_pool: DBPool, namespace: Namespac
     assert len(files) == 3
 
 
-async def test_list_folder(db_pool: DBPool, namespace: Namespace):
-    await crud.file.create_folder(db_pool, namespace.path, "a/c")
-    await crud.file.create(db_pool, namespace.path, "a/b")
-    files = await crud.file.list_folder(db_pool, namespace.path, "a")
+async def test_list_folder(tx: DBTransaction, namespace: Namespace):
+    await crud.file.create_folder(tx, namespace.path, "a/c")
+    await crud.file.create(tx, namespace.path, "a/b")
+    files = await crud.file.list_folder(tx, namespace.path, "a")
     assert len(files) == 2
     assert files[0].path == "a/c"  # folders listed first
     assert files[1].path == "a/b"
 
 
-async def test_list_folder_excluding_trash(db_pool: DBPool, namespace: Namespace):
-    files = await crud.file.list_folder(db_pool, namespace.path, ".")
+async def test_list_folder_excluding_trash(tx: DBTransaction, namespace: Namespace):
+    files = await crud.file.list_folder(tx, namespace.path, ".")
     assert files == []
 
 
-async def test_list_home_with_trash(db_pool: DBPool, namespace: Namespace):
-    files = await crud.file.list_folder(db_pool, namespace.path, ".", with_trash=True)
+async def test_list_home_with_trash(tx: DBTransaction, namespace: Namespace):
+    files = await crud.file.list_folder(tx, namespace.path, ".", with_trash=True)
     assert files[0].path == "Trash"
 
 
-async def test_list_folder_is_case_insensitive(db_pool: DBPool, namespace: Namespace):
-    await crud.file.create_folder(db_pool, namespace.path, "A/b")
-    await crud.file.create_folder(db_pool, namespace.path, "A/C")
-    await crud.file.create(db_pool, namespace.path, "a/F")
-    files = await crud.file.list_folder(db_pool, namespace.path, "A")
+async def test_list_folder_is_case_insensitive(tx: DBTransaction, namespace: Namespace):
+    await crud.file.create_folder(tx, namespace.path, "A/b")
+    await crud.file.create_folder(tx, namespace.path, "A/C")
+    await crud.file.create(tx, namespace.path, "a/F")
+    files = await crud.file.list_folder(tx, namespace.path, "A")
     assert files[0].path == "A/b"  # folders listed first
     assert files[1].path == "A/C"
     assert files[2].path == "A/F"
     assert len(files) == 3
 
 
-async def test_list_folder_but_it_is_empty(db_pool: DBPool, namespace: Namespace):
-    await crud.file.create_folder(db_pool, namespace.path, "a")
-    files = await crud.file.list_folder(db_pool, namespace.path, "a")
+async def test_list_folder_but_it_is_empty(tx: DBTransaction, namespace: Namespace):
+    await crud.file.create_folder(tx, namespace.path, "a")
+    files = await crud.file.list_folder(tx, namespace.path, "a")
     assert files == []
 
 
-async def test_list_folder_but_it_not_found(db_pool: DBPool, namespace: Namespace):
+async def test_list_folder_but_it_not_found(tx: DBTransaction, namespace: Namespace):
     with pytest.raises(errors.FileNotFound):
-        await crud.file.list_folder(db_pool, namespace.path, "a")
+        await crud.file.list_folder(tx, namespace.path, "a")
 
 
-async def test_list_folder_but_it_a_file(db_pool: DBPool, namespace: Namespace):
-    await crud.file.create(db_pool, namespace.path, "f")
+async def test_list_folder_but_it_a_file(tx: DBTransaction, namespace: Namespace):
+    await crud.file.create(tx, namespace.path, "f")
     with pytest.raises(errors.NotADirectory):
-        await crud.file.list_folder(db_pool, namespace.path, "f")
+        await crud.file.list_folder(tx, namespace.path, "f")
 
 
-async def test_move(db_pool: DBPool, namespace: Namespace):
-    await crud.file.create_folder(db_pool, namespace.path, "a/b/c")
-    await crud.file.create(db_pool, namespace.path, "a/b/c/f", size=24)
-    await crud.file.create(db_pool, namespace.path, "a/g", size=8, mediatype=FOLDER)
+async def test_move(tx: DBTransaction, namespace: Namespace):
+    await crud.file.create_folder(tx, namespace.path, "a/b/c")
+    await crud.file.create(tx, namespace.path, "a/b/c/f", size=24)
+    await crud.file.create(tx, namespace.path, "a/g", size=8, mediatype=FOLDER)
 
     # move folder 'c' from 'a/b' to 'a/g'
-    await crud.file.move(db_pool, namespace.path, "a/b/c", "a/g/c")
+    await crud.file.move(tx, namespace.path, "a/b/c", "a/g/c")
 
-    assert not await crud.file.exists(db_pool, namespace.path, "a/b/c")
+    assert not await crud.file.exists(tx, namespace.path, "a/b/c")
 
     query = """
         SELECT File { size, parent: { id } }
@@ -576,7 +592,7 @@ async def test_move(db_pool: DBPool, namespace: Namespace):
     """
 
     paths = ["a", "a/b", "a/g", "a/g/c", "a/g/c/f"]
-    a, b, g, c, f = await db_pool.query(query, ns_path=str(namespace.path), paths=paths)
+    a, b, g, c, f = await tx.query(query, ns_path=str(namespace.path), paths=paths)
 
     assert b.size == 0
     assert b.parent.id == a.id
@@ -591,104 +607,104 @@ async def test_move(db_pool: DBPool, namespace: Namespace):
     assert f.parent.id == c.id
 
 
-async def test_move_with_renaming(db_pool: DBPool, namespace: Namespace):
-    await crud.file.create(db_pool, namespace.path, "a", mediatype=FOLDER)
-    await crud.file.create(db_pool, namespace.path, "a/f")
+async def test_move_with_renaming(tx: DBTransaction, namespace: Namespace):
+    await crud.file.create(tx, namespace.path, "a", mediatype=FOLDER)
+    await crud.file.create(tx, namespace.path, "a/f")
 
     # rename file 'f' to 'f.txt'
-    await crud.file.move(db_pool, namespace.path, "a/f", "a/f.txt")
+    await crud.file.move(tx, namespace.path, "a/f", "a/f.txt")
 
-    assert not await crud.file.exists(db_pool, namespace.path, "a/f")
+    assert not await crud.file.exists(tx, namespace.path, "a/f")
 
-    f = await crud.file.get(db_pool, namespace.path, "a/f.txt")
+    f = await crud.file.get(tx, namespace.path, "a/f.txt")
     assert f.name == "f.txt"
 
 
-async def test_move_file_is_case_insensitive(db_pool: DBPool, namespace: Namespace):
-    await crud.file.create(db_pool, namespace.path, "a", mediatype=FOLDER)
-    await crud.file.create(db_pool, namespace.path, "a/B", mediatype=FOLDER)
-    await crud.file.create(db_pool, namespace.path, "a/f", size=8)
+async def test_move_file_is_case_insensitive(tx: DBTransaction, namespace: Namespace):
+    await crud.file.create(tx, namespace.path, "a", mediatype=FOLDER)
+    await crud.file.create(tx, namespace.path, "a/B", mediatype=FOLDER)
+    await crud.file.create(tx, namespace.path, "a/f", size=8)
 
     # move file from 'a/f' to 'a/B/F.TXT'
-    await crud.file.move(db_pool, namespace.path, "A/F", "A/b/F.TXT")
+    await crud.file.move(tx, namespace.path, "A/F", "A/b/F.TXT")
 
-    assert not await crud.file.exists(db_pool, namespace.path, "a/f")
+    assert not await crud.file.exists(tx, namespace.path, "a/f")
 
-    f = await crud.file.get(db_pool, namespace.path, "a/b/f.txt")
+    f = await crud.file.get(tx, namespace.path, "a/b/f.txt")
     assert f.name == "F.TXT"
     assert f.path == "a/B/F.TXT"
 
-    a, b = await crud.file.get_many(db_pool, namespace.path, ["a", "a/b"])
+    a, b = await crud.file.get_many(tx, namespace.path, ["a", "a/b"])
     assert a.size == 8
     assert b.size == 8
 
 
-async def test_move_folder_is_case_insensitive(db_pool: DBPool, namespace: Namespace):
-    await crud.file.create(db_pool, namespace.path, "a", mediatype=FOLDER)
-    await crud.file.create(db_pool, namespace.path, "a/B", mediatype=FOLDER)
-    await crud.file.create(db_pool, namespace.path, "a/B/f", size=8)
-    await crud.file.create(db_pool, namespace.path, "a/c", mediatype=FOLDER)
+async def test_move_folder_is_case_insensitive(tx: DBTransaction, namespace: Namespace):
+    await crud.file.create(tx, namespace.path, "a", mediatype=FOLDER)
+    await crud.file.create(tx, namespace.path, "a/B", mediatype=FOLDER)
+    await crud.file.create(tx, namespace.path, "a/B/f", size=8)
+    await crud.file.create(tx, namespace.path, "a/c", mediatype=FOLDER)
 
     # move folder from 'a/B' to 'a/c/b'
-    await crud.file.move(db_pool, namespace.path, "A/b", "A/C/b")
+    await crud.file.move(tx, namespace.path, "A/b", "A/C/b")
 
-    assert not await crud.file.exists(db_pool, namespace.path, "a/b")
+    assert not await crud.file.exists(tx, namespace.path, "a/b")
 
-    a = await crud.file.get(db_pool, namespace.path, "a")
+    a = await crud.file.get(tx, namespace.path, "a")
     assert a.size == 8
 
-    b = await crud.file.get(db_pool, namespace.path, "a/c/b")
+    b = await crud.file.get(tx, namespace.path, "a/c/b")
     assert b.name == "b"
     assert b.path == "a/c/b"
 
-    c = await crud.file.get(db_pool, namespace.path, "a/c")
+    c = await crud.file.get(tx, namespace.path, "a/c")
     assert c.size == 8
 
-    f = await crud.file.get(db_pool, namespace.path, "a/c/b/f")
+    f = await crud.file.get(tx, namespace.path, "a/c/b/f")
     assert f.path == "a/c/b/f"
 
 
 async def test_move_but_next_path_is_already_taken(
-    db_pool: DBPool,
+    tx: DBTransaction,
     namespace: Namespace,
 ):
-    await crud.file.create_folder(db_pool, namespace.path, "a/b")
-    await crud.file.create_folder(db_pool, namespace.path, "a/c")
+    await crud.file.create_folder(tx, namespace.path, "a/b")
+    await crud.file.create_folder(tx, namespace.path, "a/c")
 
     with pytest.raises(errors.FileAlreadyExists):
-        await crud.file.move(db_pool, namespace.path, "a/b", "a/c")
+        await crud.file.move(tx, namespace.path, "a/b", "a/c")
 
     with pytest.raises(errors.FileAlreadyExists):
-        await crud.file.move(db_pool, namespace.path, "A/B", "A/C")
+        await crud.file.move(tx, namespace.path, "A/B", "A/C")
 
 
 async def test_move_but_from_path_that_does_not_exists(
-    db_pool: DBPool,
+    tx: DBTransaction,
     namespace: Namespace,
 ):
     with pytest.raises(errors.FileNotFound):
-        await crud.file.move(db_pool, namespace.path, "f", "a")
+        await crud.file.move(tx, namespace.path, "f", "a")
 
 
 async def test_move_but_next_path_has_missing_parent(
-    db_pool: DBPool,
+    tx: DBTransaction,
     namespace: Namespace,
 ):
-    await crud.file.create(db_pool, namespace.path, "f")
+    await crud.file.create(tx, namespace.path, "f")
 
     with pytest.raises(errors.FileNotFound):
-        await crud.file.move(db_pool, namespace.path, "f", "a/f")
+        await crud.file.move(tx, namespace.path, "f", "a/f")
 
 
 async def test_move_but_next_path_is_not_a_folder(
-    db_pool: DBPool,
+    tx: DBTransaction,
     namespace: Namespace,
 ):
-    await crud.file.create(db_pool, namespace.path, "a")
-    await crud.file.create(db_pool, namespace.path, "f")
+    await crud.file.create(tx, namespace.path, "a")
+    await crud.file.create(tx, namespace.path, "f")
 
     with pytest.raises(errors.NotADirectory):
-        await crud.file.move(db_pool, namespace.path, "a", "f/a")
+        await crud.file.move(tx, namespace.path, "a", "f/a")
 
 
 @pytest.mark.parametrize(["name", "next_name"], [
@@ -696,64 +712,64 @@ async def test_move_but_next_path_is_not_a_folder(
     ("f.tar.gz", "f (1).tar.gz"),
     ("f (1).tar.gz", "f (1) (1).tar.gz"),
 ])
-async def test_next_path(db_pool: DBPool, namespace: Namespace, name, next_name):
-    await crud.file.create_folder(db_pool, namespace.path, "a/b")
-    await crud.file.create(db_pool, namespace.path, f"a/b/{name}")
+async def test_next_path(tx: DBTransaction, namespace: Namespace, name, next_name):
+    await crud.file.create_folder(tx, namespace.path, "a/b")
+    await crud.file.create(tx, namespace.path, f"a/b/{name}")
 
-    next_path = await crud.file.next_path(db_pool, namespace.path, f"a/b/{name}")
+    next_path = await crud.file.next_path(tx, namespace.path, f"a/b/{name}")
     assert next_path == f"a/b/{next_name}"
-    assert not await crud.file.exists(db_pool, namespace.path, next_name)
+    assert not await crud.file.exists(tx, namespace.path, next_name)
 
 
-async def test_next_path_is_sequential(db_pool: DBPool, namespace: Namespace):
-    await crud.file.create(db_pool, namespace.path, "f.tar.gz")
-    await crud.file.create(db_pool, namespace.path, "f (1).tar.gz")
+async def test_next_path_is_sequential(tx: DBTransaction, namespace: Namespace):
+    await crud.file.create(tx, namespace.path, "f.tar.gz")
+    await crud.file.create(tx, namespace.path, "f (1).tar.gz")
 
-    next_path = await crud.file.next_path(db_pool, namespace.path, "f.tar.gz")
+    next_path = await crud.file.next_path(tx, namespace.path, "f.tar.gz")
     assert next_path == "f (2).tar.gz"
-    assert not await crud.file.exists(db_pool, namespace.path, "f (2).tar.gz")
+    assert not await crud.file.exists(tx, namespace.path, "f (2).tar.gz")
 
 
-async def test_next_path_is_case_insensitive(db_pool: DBPool, namespace: Namespace):
-    await crud.file.create(db_pool, namespace.path, "F.TAR.GZ")
-    await crud.file.create(db_pool, namespace.path, "F (1).tar.gz")
+async def test_next_path_is_case_insensitive(tx: DBTransaction, namespace: Namespace):
+    await crud.file.create(tx, namespace.path, "F.TAR.GZ")
+    await crud.file.create(tx, namespace.path, "F (1).tar.gz")
 
-    next_path = await crud.file.next_path(db_pool, namespace.path, "f.tar.gz")
+    next_path = await crud.file.next_path(tx, namespace.path, "f.tar.gz")
     assert next_path == "f (2).tar.gz"
-    assert not await crud.file.exists(db_pool, namespace.path, "f (2).tar.gz")
+    assert not await crud.file.exists(tx, namespace.path, "f (2).tar.gz")
 
 
-async def test_inc_size_batch(db_pool: DBPool, namespace: Namespace):
-    await crud.file.create_folder(db_pool, namespace.path, "a/b")
-    await crud.file.create_folder(db_pool, namespace.path, "a/c")
+async def test_inc_size_batch(tx: DBTransaction, namespace: Namespace):
+    await crud.file.create_folder(tx, namespace.path, "a/b")
+    await crud.file.create_folder(tx, namespace.path, "a/c")
 
-    await crud.file.inc_size_batch(db_pool, namespace.path, paths=["a", "a/c"], size=16)
+    await crud.file.inc_size_batch(tx, namespace.path, paths=["a", "a/c"], size=16)
 
     paths = ["a", "a/b", "a/c"]
-    a, b, c = await crud.file.get_many(db_pool, namespace.path, paths=paths)
+    a, b, c = await crud.file.get_many(tx, namespace.path, paths=paths)
     assert a.size == 16
     assert b.size == 0
     assert c.size == 16
 
 
 async def test_inc_size_batch_is_case_insensitive(
-    db_pool: DBPool,
+    tx: DBTransaction,
     namespace: Namespace,
 ):
-    await crud.file.create_folder(db_pool, namespace.path, "a/b")
-    await crud.file.create_folder(db_pool, namespace.path, "a/C")
+    await crud.file.create_folder(tx, namespace.path, "a/b")
+    await crud.file.create_folder(tx, namespace.path, "a/C")
 
-    await crud.file.inc_size_batch(db_pool, namespace.path, paths=["A", "A/c"], size=16)
+    await crud.file.inc_size_batch(tx, namespace.path, paths=["A", "A/c"], size=16)
 
     paths = ["a", "a/b", "a/c"]
-    a, b, c = await crud.file.get_many(db_pool, namespace.path, paths=paths)
+    a, b, c = await crud.file.get_many(tx, namespace.path, paths=paths)
     assert a.size == 16
     assert b.size == 0
     assert c.size == 16
 
 
 async def test_inc_size_batch_but_size_is_zero():
-    # pass dummy DBPool, to check that method exists earlier with empty files
+    # pass dummy DBTransaction, to check that method exists earlier with empty files
     result = await crud.file.inc_size_batch(
         object(),  # type: ignore
         "namespace",

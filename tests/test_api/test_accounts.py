@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from tests.conftest import TestClient
     from tests.factories import AccountFactory
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
 
 
 async def test_create(client: TestClient, superuser: User):

@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from tests.conftest import TestClient
     from tests.factories import UserFactory
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
 
 
 async def test_get_tokens(client: TestClient, user_factory: UserFactory):

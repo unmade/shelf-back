@@ -19,8 +19,9 @@ from app.tasks import CeleryConfig
 
 if TYPE_CHECKING:
     from uuid import UUID
+    from pytest import FixtureRequest
     from app.entities import Account, Namespace, User
-    from app.typedefs import DBPool
+    from app.typedefs import DBPool, DBPoolOrTransaction
 
 fake = Faker()
 
@@ -118,38 +119,88 @@ async def create_test_db() -> None:
 
 
 @pytest.fixture(scope="session")
-async def create_db_pool(create_test_db):
-    """Create connection pool to a database."""
+async def _db_pool(create_test_db):
+    """Yield a connection pool to the database."""
     del create_test_db  # required only to preserve fixtures correct execution order
 
-    _, dsn, _ = _build_test_db_dsn()
+    dsn = config.EDGEDB_DSN
     async with edgedb.create_async_pool(dsn=dsn, min_size=3, max_size=3) as pool:
         with mock.patch("app.db._pool", pool):
             yield pool
 
 
-@pytest.fixture(autouse=True, scope="session")
-async def apply_migration(create_db_pool: DBPool) -> None:
+@pytest.fixture(scope="session")
+async def apply_migration(_db_pool: DBPool) -> None:
     """Apply schema to test database."""
     with open(config.BASE_DIR / "./dbschema/default.esdl", "r") as f:
         schema = f.read()
 
-    await db.migrate(create_db_pool, schema)
+    await db.migrate(_db_pool, schema)
 
 
 @pytest.fixture
-async def db_pool(create_db_pool):
-    """Yields database pool and delete tables on teardown."""
-    yield create_db_pool
+async def db_pool(request: FixtureRequest, _db_pool: DBPool, apply_migration):
+    """Yield a connection pool."""
+    del apply_migration  # required only to preserve fixtures correct execution order
+
+    marker = request.node.get_closest_marker("database")
+    if not marker:
+        raise RuntimeError("Access to database without 'database' marker!")
+
+    if not marker.kwargs.get("transaction", False):
+        raise RuntimeError("Use 'transaction=True' to access database pool")
+
+    yield _db_pool
+
+
+@pytest.fixture
+async def tx(request: FixtureRequest, _db_pool: DBPool, apply_migration):
+    """Yield a transaction and rollback it after each test."""
+    del apply_migration  # required only to preserve fixtures correct execution order
+
+    marker = request.node.get_closest_marker("database")
+    if not marker:
+        raise RuntimeError("Access to database without 'database' marker!")
+
+    if marker.kwargs.get("transaction", False):
+        raise RuntimeError("Can't use 'tx' fixture with 'transaction=True' option")
+
+    transaction = _db_pool.raw_transaction()
+    await transaction.start()
+    try:
+        yield transaction
+    finally:
+        await transaction.rollback()
+
+
+@pytest.fixture
+def db_pool_or_tx(request: FixtureRequest):
+    marker = request.node.get_closest_marker("database")
+    if not marker:
+        raise RuntimeError("Access to database without 'database' marker!")
+
+    if marker.kwargs.get("transaction", False):
+        yield request.getfixturevalue("db_pool")
+    else:
+        yield request.getfixturevalue("tx")
 
 
 @pytest.fixture(autouse=True)
-async def cleanup_tables(db_pool):
-    """Clean up tables after each test."""
+async def flush_db_if_needed(request: FixtureRequest, _db_pool, apply_migration):
+    """Flush database after each tests."""
+    del apply_migration  # required only to preserve fixtures correct execution order
+
     try:
         yield
     finally:
-        await db_pool.execute("""
+        marker = request.node.get_closest_marker("database")
+        if not marker:
+            return
+
+        if not marker.kwargs.get("transaction", False):
+            return
+
+        await _db_pool.execute("""
             DELETE File;
             DELETE Namespace;
             DELETE User;
@@ -157,9 +208,9 @@ async def cleanup_tables(db_pool):
 
 
 @pytest.fixture
-def account_factory(db_pool: DBPool) -> factories.AccountFactory:
+def account_factory(db_pool_or_tx: DBPoolOrTransaction) -> factories.AccountFactory:
     """Create Account in the database."""
-    return factories.AccountFactory(db_pool)
+    return factories.AccountFactory(db_pool_or_tx)
 
 
 @pytest.fixture
@@ -169,9 +220,9 @@ async def account(account_factory: factories.AccountFactory) -> Account:
 
 
 @pytest.fixture
-def file_factory(db_pool: DBPool) -> factories.FileFactory:
+def file_factory(db_pool_or_tx: DBPoolOrTransaction) -> factories.FileFactory:
     """Create dummy file, put it in a storage and save to database."""
-    return factories.FileFactory(db_pool)
+    return factories.FileFactory(db_pool_or_tx)
 
 
 @pytest.fixture
@@ -185,12 +236,12 @@ def image_content() -> BytesIO:
 
 
 @pytest.fixture
-def namespace_factory(db_pool: DBPool) -> factories.NamespaceFactory:
+def namespace_factory(db_pool_or_tx: DBPoolOrTransaction) -> factories.NamespaceFactory:
     """
     Create a Namespace with home and trash directories both in the database
     and in the storage.
     """
-    return factories.NamespaceFactory(db_pool)
+    return factories.NamespaceFactory(db_pool_or_tx)
 
 
 @pytest.fixture
@@ -200,9 +251,9 @@ async def namespace(namespace_factory: factories.NamespaceFactory) -> Namespace:
 
 
 @pytest.fixture
-def user_factory(db_pool: DBPool) -> factories.UserFactory:
+def user_factory(db_pool_or_tx: DBPoolOrTransaction) -> factories.UserFactory:
     """Create a new user in the database."""
-    return factories.UserFactory(db_pool)
+    return factories.UserFactory(db_pool_or_tx)
 
 
 @pytest.fixture

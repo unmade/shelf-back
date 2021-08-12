@@ -8,17 +8,17 @@ from app import crud, errors
 
 if TYPE_CHECKING:
     from app.entities import Namespace
-    from app.typedefs import DBPool
+    from app.typedefs import DBTransaction
 
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
 
-async def test_get(db_pool: DBPool, namespace: Namespace):
-    namespace = await crud.namespace.get(db_pool, namespace.path)
+async def test_get(tx: DBTransaction, namespace: Namespace):
+    namespace = await crud.namespace.get(tx, namespace.path)
     assert namespace.path == namespace.path
 
 
-async def test_get_but_namespace_not_found(db_pool: DBPool):
+async def test_get_but_namespace_not_found(tx: DBTransaction):
     with pytest.raises(errors.NamespaceNotFound):
-        await crud.namespace.get(db_pool, "user")
+        await crud.namespace.get(tx, "user")

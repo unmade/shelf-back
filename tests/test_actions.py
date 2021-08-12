@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from app.typedefs import DBPool
     from tests.factories import FileFactory
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
 
 
 @pytest.mark.parametrize(["given", "expected"], [

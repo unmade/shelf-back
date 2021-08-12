@@ -12,7 +12,11 @@ if TYPE_CHECKING:
     from tests.factories import FileFactory
 
 
-pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("celery_session_worker")]
+pytestmark = [
+    pytest.mark.asyncio,
+    pytest.mark.database(transaction=True),
+    pytest.mark.usefixtures("celery_session_worker"),
+]
 
 
 def test_celery_works():

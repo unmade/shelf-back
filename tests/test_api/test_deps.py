@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
     from tests.conftest import TestClient
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
 
 
 async def current_user_id(user_id: str = Depends(deps.current_user_id)):
