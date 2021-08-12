@@ -11,21 +11,19 @@ from app import errors, mediatypes
 
 class Account(BaseModel):
     id: UUID
-    username: str
     email: Optional[str]
     first_name: str
     last_name: str
-    superuser: bool
+    user: User
 
     @classmethod
     def from_db(cls: Type[Account], obj) -> Account:
         return cls.construct(
             id=obj.id,
-            username=obj.user.username,
             email=obj.email,
             first_name=obj.first_name,
             last_name=obj.last_name,
-            superuser=obj.user.superuser,
+            user=User.from_orm(obj.user),
         )
 
 
@@ -49,20 +47,18 @@ class File(BaseModel):
         )
 
     def is_folder(self) -> bool:
-        """True if file is a folder, otherwise False"""
+        """True if file is a folder, False otherwise."""
         return self.mediatype == mediatypes.FOLDER
 
     def is_hidden(self) -> bool:
-        """True if file name startswith '.', othewise False"""
+        """True if file name startswith '.', False othewise."""
         return self.name.startswith(".")
 
 
 class Namespace(BaseModel):
     id: UUID
     path: Path
-
-    class Config:
-        orm_mode = True
+    owner: User
 
 
 class RelocationPath(BaseModel):
@@ -79,7 +75,6 @@ class User(BaseModel):
     id: UUID
     username: str
     superuser: bool
-    namespace: Namespace
 
     class Config:
         orm_mode = True

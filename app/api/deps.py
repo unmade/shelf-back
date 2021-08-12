@@ -7,7 +7,7 @@ from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 
 from app import crud, db, errors, security
-from app.entities import User
+from app.entities import Namespace, User
 from app.security import TokenPayload
 
 from . import exceptions
@@ -55,6 +55,14 @@ async def current_user(
         return await crud.user.get_by_id(pool, user_id=payload.sub)
     except errors.UserNotFound as exc:
         raise exceptions.UserNotFound() from exc
+
+
+async def namespace(
+    pool: AsyncIOPool = Depends(db_pool),
+    user_id: str = Depends(current_user_id),
+) -> Namespace:
+    # if namespace is not found, we should fail, so don't catch NamespaceNotFound here.
+    return await crud.namespace.get_by_owner(pool, user_id)
 
 
 async def superuser(user: User = Depends(current_user)) -> User:

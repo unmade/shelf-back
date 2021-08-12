@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import secrets
 from io import BytesIO
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import pytest
 from cashews import cache
@@ -22,7 +22,7 @@ from app.api.files.exceptions import (
 from app.entities import RelocationPath
 
 if TYPE_CHECKING:
-    from app.entities import User, RelocationResult
+    from app.entities import Namespace, RelocationResult
     from tests.conftest import TestClient
 
 pytestmark = [pytest.mark.asyncio]
@@ -35,37 +35,50 @@ pytestmark = [pytest.mark.asyncio]
     (" Whitespaces ", "Whitespaces", "Whitespaces", False),
 ])
 async def test_create_folder(
-    client: TestClient, user: User, path, name, expected_path, hidden,
+    client: TestClient,
+    namespace: Namespace,
+    path: str,
+    name: str,
+    expected_path: Optional[str],
+    hidden: bool,
 ):
     payload = {"path": path}
-    response = await client.login(user.id).post("/files/create_folder", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/create_folder", json=payload)
     assert response.json()["name"] == name
     assert response.json()["path"] == (expected_path or path)
     assert response.json()["hidden"] is hidden
     assert response.status_code == 200
 
 
-async def test_create_folder_but_folder_exists(client: TestClient, user: User):
+async def test_create_folder_but_folder_exists(
+    client: TestClient,
+    namespace: Namespace,
+):
     payload = {"path": "Trash"}
-    response = await client.login(user.id).post("/files/create_folder", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/create_folder", json=payload)
     assert response.json() == FileAlreadyExists(path='Trash').as_dict()
     assert response.status_code == 400
 
 
 async def test_create_folder_but_parent_is_a_file(
-    client: TestClient, user: User, file_factory
+    client: TestClient,
+    namespace: Namespace,
+    file_factory,
 ):
-    await file_factory(user.id, path="file")
+    await file_factory(namespace.path, path="file")
     payload = {"path": "file/folder"}
-    response = await client.login(user.id).post("/files/create_folder", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/create_folder", json=payload)
     assert response.json() == NotADirectory(path="file/folder").as_dict()
     assert response.status_code == 400
 
 
-async def test_delete_immediately(client: TestClient, user: User):
+async def test_delete_immediately(client: TestClient, namespace: Namespace):
     name = path = "Test Folder"
     payload = {"path": path}
-    client.login(user.id)
+    client.login(namespace.owner.id)
     await client.post("/files/create_folder", json=payload)
     response = await client.post("/files/delete_immediately", json=payload)
     assert response.json()["name"] == name
@@ -73,42 +86,56 @@ async def test_delete_immediately(client: TestClient, user: User):
     assert response.status_code == 200
 
 
-async def test_delete_immediately_but_path_not_found(client: TestClient, user: User):
+async def test_delete_immediately_but_path_not_found(
+    client: TestClient,
+    namespace: Namespace,
+):
     data = {"path": "Test Folder"}
-    response = await client.login(user.id).post("/files/delete_immediately", json=data)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/delete_immediately", json=data)
     assert response.json() == PathNotFound(path="Test Folder").as_dict()
     assert response.status_code == 404
 
 
 @pytest.mark.parametrize("path", [".", "Trash"])
 async def test_delete_immediately_but_it_is_a_special_folder(
-    client: TestClient, user: User, path: str,
+    client: TestClient,
+    namespace: Namespace,
+    path: str,
 ):
     data = {"path": path}
-    response = await client.login(user.id).post("/files/delete_immediately", json=data)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/delete_immediately", json=data)
     message = f"Path '{path}' is a special path and can't be deleted"
     assert response.json() == MalformedPath(message).as_dict()
     assert response.status_code == 400
 
 
 @pytest.mark.parametrize("path", ["f.txt", "ф.txt"])
-async def test_download_file(client: TestClient, user: User, file_factory, path):
+async def test_download_file(
+    client: TestClient,
+    namespace: Namespace,
+    file_factory,
+    path: str,
+):
     content = b"Hello, World!"
-    file = await file_factory(user.id, path=path, content=content)
+    file = await file_factory(namespace.path, path=path, content=content)
     key = secrets.token_urlsafe()
-    await cache.set(key, f"{user.namespace.path}:{file.path}")
-    response = await client.login(user.id).get(f"/files/download?key={key}")
+    await cache.set(key, f"{namespace.path}:{file.path}")
+    client.login(namespace.owner.id)
+    response = await client.get(f"/files/download?key={key}")
     assert response.status_code == 200
     assert response.headers["Content-Length"] == str(len(content))
     assert response.headers["Content-Type"] == "text/plain"
     assert response.content == content
 
 
-async def test_download_folder(client: TestClient, user: User, file_factory):
-    await file_factory(user.id, path="a/b/c/d.txt")
+async def test_download_folder(client: TestClient, namespace: Namespace, file_factory):
+    await file_factory(namespace.path, path="a/b/c/d.txt")
     key = secrets.token_urlsafe()
-    await cache.set(key, f"{user.namespace.path}:a")
-    response = await client.login(user.id).get(f"/files/download?key={key}")
+    await cache.set(key, f"{namespace.path}:a")
+    client.login(namespace.owner.id)
+    response = await client.get(f"/files/download?key={key}")
     assert response.status_code == 200
     assert response.headers["Content-Type"] == "attachment/zip"
     assert response.content
@@ -121,10 +148,11 @@ async def test_download_but_key_is_invalid(client: TestClient):
     assert response.json() == DownloadNotFound().as_dict()
 
 
-async def test_download_but_file_not_found(client: TestClient, user: User):
+async def test_download_but_file_not_found(client: TestClient, namespace: Namespace):
     key = secrets.token_urlsafe()
-    await cache.set(key, f"{user.namespace.path}:f.txt")
-    response = await client.login(user.id).get(f"/files/download?key={key}")
+    await cache.set(key, f"{namespace.path}:f.txt")
+    client.login(namespace.owner.id)
+    response = await client.get(f"/files/download?key={key}")
     assert response.json() == PathNotFound(path="f.txt").as_dict()
     assert response.status_code == 404
 
@@ -135,12 +163,16 @@ async def test_download_but_file_not_found(client: TestClient, user: User):
     lambda: b"1" * config.APP_MAX_DOWNLOAD_WITHOUT_STREAMING + b"1",
 ])
 async def test_download_file_with_post(
-    client: TestClient, user: User, file_factory, content_factory,
+    client: TestClient,
+    namespace: Namespace,
+    file_factory,
+    content_factory,
 ):
     content = content_factory()
-    file = await file_factory(user.id, content=content)
+    file = await file_factory(namespace.path, content=content)
     payload = {"path": file.path}
-    response = await client.login(user.id).post("/files/download", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/download", json=payload)
     assert response.status_code == 200
     assert response.headers["Content-Type"] == "text/plain"
     assert response.headers["Content-Length"] == str(len(content))
@@ -148,61 +180,84 @@ async def test_download_file_with_post(
 
 
 async def test_download_file_with_non_latin_name_with_post(
-    client: TestClient, user: User, file_factory
+    client: TestClient,
+    namespace: Namespace,
+    file_factory,
 ):
-    file = await file_factory(user.id, path="файл.txt")
+    file = await file_factory(namespace.path, path="файл.txt")
     payload = {"path": file.path}
-    response = await client.login(user.id).post("/files/download", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/download", json=payload)
     assert response.status_code == 200
 
 
-async def test_download_folder_with_post(client: TestClient, user: User, file_factory):
-    await file_factory(user.id, path="a/b/c/d.txt")
+async def test_download_folder_with_post(
+    client: TestClient,
+    namespace: Namespace,
+    file_factory,
+):
+    await file_factory(namespace.path, path="a/b/c/d.txt")
     payload = {"path": "a"}
-    response = await client.login(user.id).post("/files/download", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/download", json=payload)
     assert response.status_code == 200
     assert response.headers["Content-Type"] == "attachment/zip"
     assert "Content-Length" not in response.headers
     assert response.content
 
 
-async def test_download_with_post_but_file_not_found(client: TestClient, user: User):
+async def test_download_with_post_but_file_not_found(
+    client: TestClient,
+    namespace: Namespace,
+):
     payload = {"path": "f.txt"}
-    response = await client.login(user.id).post("/files/download", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/download", json=payload)
     assert response.json() == PathNotFound(path="f.txt").as_dict()
     assert response.status_code == 404
 
 
-async def test_empty_trash(client: TestClient, user: User):
-    response = await client.login(user.id).post("/files/empty_trash")
+async def test_empty_trash(client: TestClient, namespace: Namespace):
+    client.login(namespace.owner.id)
+    response = await client.post("/files/empty_trash")
     assert response.status_code == 200
     assert response.json()["path"] == "Trash"
 
 
-async def test_get_download_url(client: TestClient, user: User, file_factory):
-    file = await file_factory(user.id)
+async def test_get_download_url(client: TestClient, namespace: Namespace, file_factory):
+    file = await file_factory(namespace.path)
     payload = {"path": file.path}
-    response = await client.login(user.id).post("/files/get_download_url", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/get_download_url", json=payload)
     download_url = response.json()["download_url"]
     assert download_url.startswith(str(client.base_url))
     assert response.status_code == 200
     key = download_url[download_url.index("=") + 1:]
     value = await cache.get(key)
-    assert value == f"{user.namespace.path}:{file.path}"
+    assert value == f"{namespace.path}:{file.path}"
 
 
-async def test_get_download_url_but_file_not_found(client: TestClient, user: User):
+async def test_get_download_url_but_file_not_found(
+    client: TestClient,
+    namespace: Namespace,
+):
     payload = {"path": "wrong/path"}
-    response = await client.login(user.id).post("/files/get_download_url", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/get_download_url", json=payload)
     assert response.json() == PathNotFound(path="wrong/path").as_dict()
     assert response.status_code == 404
 
 
 @pytest.mark.parametrize("name", ["im.jpeg", "изо.jpeg"])
-async def test_get_thumbnail(client: TestClient, user: User, image_factory, name):
-    file = await image_factory(user.id, path=name)
+async def test_get_thumbnail(
+    client: TestClient,
+    namespace: Namespace,
+    image_factory,
+    name,
+):
+    file = await image_factory(namespace.path, path=name)
     payload = {"path": file.path}
-    client.login(user.id)
+    client.login(namespace.owner.id)
     response = await client.post("/files/get_thumbnail?size=xs", json=payload)
     assert response.headers["Content-Disposition"] == f'inline; filename="{file.name}"'
     assert int(response.headers["Content-Length"]) < file.size
@@ -210,35 +265,44 @@ async def test_get_thumbnail(client: TestClient, user: User, image_factory, name
     assert response.content
 
 
-async def test_get_thumbnail_but_path_not_found(client: TestClient, user: User):
-    client.login(user.id)
+async def test_get_thumbnail_but_path_not_found(
+    client: TestClient,
+    namespace: Namespace,
+):
+    client.login(namespace.owner.id)
     payload = {"path": "im.jpeg"}
     response = await client.post("/files/get_thumbnail?size=sm", json=payload)
     assert response.json() == PathNotFound(path="im.jpeg").as_dict()
 
 
-async def test_get_thumbnail_but_path_is_a_folder(client: TestClient, user: User):
-    client.login(user.id)
+async def test_get_thumbnail_but_path_is_a_folder(
+    client: TestClient,
+    namespace: Namespace,
+):
+    client.login(namespace.owner.id)
     payload = {"path": "."}
     response = await client.post("/files/get_thumbnail?size=sm", json=payload)
     assert response.json() == IsADirectory(path=".").as_dict()
 
 
 async def test_get_thumbnail_but_file_is_not_thumbnailable(
-    client: TestClient, user: User, file_factory,
+    client: TestClient,
+    namespace: Namespace,
+    file_factory,
 ):
-    file = await file_factory(user.id)
-    client.login(user.id)
+    file = await file_factory(namespace.path)
+    client.login(namespace.owner.id)
     payload = {"path": file.path}
     response = await client.post("/files/get_thumbnail?size=sm", json=payload)
     assert response.json() == ThumbnailUnavailable(path=file.path).as_dict()
 
 
-async def test_list_folder(client: TestClient, user: User, file_factory):
-    await file_factory(user.id, path="file.txt")
-    await file_factory(user.id, path="folder/file.txt")
+async def test_list_folder(client: TestClient, namespace: Namespace, file_factory):
+    await file_factory(namespace.path, path="file.txt")
+    await file_factory(namespace.path, path="folder/file.txt")
     payload = {"path": "."}
-    response = await client.login(user.id).post("/files/list_folder", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/list_folder", json=payload)
     assert response.status_code == 200
     assert response.json()["path"] == "."
     assert response.json()["count"] == 2
@@ -246,19 +310,26 @@ async def test_list_folder(client: TestClient, user: User, file_factory):
     assert response.json()["items"][1]["name"] == "file.txt"
 
 
-async def test_list_folder_but_path_does_not_exists(client: TestClient, user: User):
+async def test_list_folder_but_path_does_not_exists(
+    client: TestClient,
+    namespace: Namespace,
+):
     payload = {"path": "wrong/path"}
-    response = await client.login(user.id).post("/files/list_folder", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/list_folder", json=payload)
     assert response.status_code == 404
     assert response.json() == PathNotFound(path="wrong/path").as_dict()
 
 
 async def test_list_folder_but_path_is_not_a_folder(
-    client: TestClient, user: User, file_factory,
+    client: TestClient,
+    namespace: Namespace,
+    file_factory,
 ):
-    file = await file_factory(user.id, path="f.txt")
+    file = await file_factory(namespace.path, path="f.txt")
     payload = {"path": file.path}
-    response = await client.login(user.id).post("/files/list_folder", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/list_folder", json=payload)
     assert response.json() == NotADirectory(path="f.txt").as_dict()
 
 
@@ -266,19 +337,31 @@ async def test_list_folder_but_path_is_not_a_folder(
     ("file.txt", ".file.txt"),
     ("f", "f.txt"),
 ])
-async def test_move(client: TestClient, user: User, file_factory, path, next_path):
-    await file_factory(user.id, path=path)
+async def test_move(
+    client: TestClient,
+    namespace: Namespace,
+    file_factory,
+    path: str,
+    next_path: str,
+):
+    await file_factory(namespace.path, path=path)
     payload = {"from_path": path, "to_path": next_path}
-    response = await client.login(user.id).post("/files/move", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/move", json=payload)
     assert response.status_code == 200
     assert response.json()["name"] == next_path
     assert response.json()["path"] == next_path
 
 
 @pytest.mark.parametrize("path", [".", "Trash"])
-async def test_move_but_it_is_a_special_path(client: TestClient, user: User, path):
+async def test_move_but_it_is_a_special_path(
+    client: TestClient,
+    namespace: Namespace,
+    path: str,
+):
     payload = {"from_path": path, "to_path": "Trashbin"}
-    response = await client.login(user.id).post("/files/move", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/move", json=payload)
     message = "Can't move Home or Trash folder"
     assert response.json() == MalformedPath(message).as_dict()
     assert response.status_code == 400
@@ -286,71 +369,91 @@ async def test_move_but_it_is_a_special_path(client: TestClient, user: User, pat
 
 @pytest.mark.parametrize("next_path", [".", "Trash"])
 async def test_move_but_to_a_special_path(
-    client: TestClient, user: User, file_factory, next_path,
+    client: TestClient,
+    namespace: Namespace,
+    file_factory,
+    next_path: str,
 ):
-    file = await file_factory(user.id)
+    file = await file_factory(namespace.path)
     payload = {"from_path": file.path, "to_path": next_path}
-    response = await client.login(user.id).post("/files/move", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/move", json=payload)
     message = "Can't move Home or Trash folder"
     assert response.json() == MalformedPath(message).as_dict()
     assert response.status_code == 400
 
 
-async def test_move_but_path_is_recursive(client: TestClient, user: User):
+async def test_move_but_path_is_recursive(client: TestClient, namespace: Namespace):
     payload = {"from_path": "a/b", "to_path": "a/b/c"}
-    response = await client.login(user.id).post("/files/move", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/move", json=payload)
     message = "Destination path should not start with source path"
     assert response.json() == MalformedPath(message).as_dict()
     assert response.status_code == 400
 
 
-async def test_move_but_file_exists(client: TestClient, user: User, file_factory):
-    file_a = await file_factory(user.id, path="folder/file.txt")
-    file_b = await file_factory(user.id, path="file.txt")
+async def test_move_but_file_exists(
+    client: TestClient,
+    namespace: Namespace,
+    file_factory,
+):
+    file_a = await file_factory(namespace.path, path="folder/file.txt")
+    file_b = await file_factory(namespace.path, path="file.txt")
     payload = {"from_path": file_a.path, "to_path": file_b.path}
-    response = await client.login(user.id).post("/files/move", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/move", json=payload)
     assert response.status_code == 400
     assert response.json() == FileAlreadyExists(path=file_b.path).as_dict()
 
 
-async def test_move_but_file_not_found(client: TestClient, user: User):
+async def test_move_but_file_not_found(client: TestClient, namespace: Namespace):
     payload = {"from_path": "file_a.txt", "to_path": "file_b.txt"}
-    response = await client.login(user.id).post("/files/move", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/move", json=payload)
     assert response.status_code == 404
     assert response.json() == PathNotFound(path="file_a.txt").as_dict()
 
 
-async def test_move_but_to_path_is_a_file(client: TestClient, user: User, file_factory):
-    file_a = await file_factory(user.id, path="file_a.txt")
-    file_b = await file_factory(user.id, path="file_b.txt")
+async def test_move_but_to_path_is_a_file(
+    client: TestClient,
+    namespace: Namespace,
+    file_factory,
+):
+    file_a = await file_factory(namespace.path, path="file_a.txt")
+    file_b = await file_factory(namespace.path, path="file_b.txt")
     payload = {"from_path": file_a.path, "to_path": f"{file_b.path}/{file_a.path}"}
-    response = await client.login(user.id).post("/files/move", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/move", json=payload)
     assert response.status_code == 400
     assert response.json() == NotADirectory(path=payload["to_path"]).as_dict()
 
 
 async def test_move_but_path_missing_parent(
-    client: TestClient, user: User, file_factory
+    client: TestClient,
+    namespace: Namespace,
+    file_factory,
 ):
-    file_a = await file_factory(user.id, path="file_a.txt")
+    file_a = await file_factory(namespace.path, path="file_a.txt")
     payload = {"from_path": file_a.path, "to_path": f"folder/{file_a.path}"}
-    response = await client.login(user.id).post("/files/move", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/move", json=payload)
     message = "Some parents don't exist in the destination path"
     assert response.json() == MalformedPath(message).as_dict()
     assert response.status_code == 400
 
 
 @pytest.mark.usefixtures("celery_session_worker")
-async def test_move_batch(client: TestClient, user: User, file_factory):
-    await file_factory(user.id, path='folder/a.txt')
-    files = await asyncio.gather(*(file_factory(user.id) for _ in range(3)))
+async def test_move_batch(client: TestClient, namespace: Namespace, file_factory):
+    await file_factory(namespace.path, path='folder/a.txt')
+    files = await asyncio.gather(*(file_factory(namespace.path) for _ in range(3)))
     payload = {
         "items": [
             {"from_path": file.path, "to_path": f"folder/{file.path}"}
             for file in files
         ]
     }
-    response = await client.login(user.id).post("/files/move_batch", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/move_batch", json=payload)
     assert "async_task_id" in response.json()
     assert response.status_code == 200
 
@@ -362,17 +465,20 @@ async def test_move_batch(client: TestClient, user: User, file_factory):
 
 @pytest.mark.usefixtures("celery_session_worker")
 async def test_move_batch_check_task_is_pending(
-    client: TestClient, user: User, file_factory
+    client: TestClient,
+    namespace: Namespace,
+    file_factory,
 ):
-    file = await file_factory(user.id, path="folder/a.txt")
+    file = await file_factory(namespace.path, path="folder/a.txt")
     relocations = [
         RelocationPath(from_path=file.path, to_path="folder/b.txt"),
         RelocationPath(from_path="c.txt", to_path="d.txt"),
     ]
-    task = tasks.move_batch.delay(user.namespace, relocations)
+    task = tasks.move_batch.delay(namespace, relocations)
     payload = {"async_task_id": task.id}
 
-    response = await client.login(user.id).post("/files/move_batch/check", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/move_batch/check", json=payload)
     assert response.status_code == 200
     assert response.json()["status"] == 'pending'
     assert response.json()["results"] is None
@@ -380,18 +486,21 @@ async def test_move_batch_check_task_is_pending(
 
 @pytest.mark.usefixtures("celery_session_worker")
 async def test_move_batch_check_task_is_completed(
-    client: TestClient, user: User, file_factory
+    client: TestClient,
+    namespace: Namespace,
+    file_factory,
 ):
-    file = await file_factory(user.id, path="folder/a.txt")
+    file = await file_factory(namespace.path, path="folder/a.txt")
     relocations = [
         RelocationPath(from_path=file.path, to_path="folder/b.txt"),
         RelocationPath(from_path="c.txt", to_path="d.txt"),
     ]
-    task = tasks.move_batch.delay(user.namespace, relocations)
+    task = tasks.move_batch.delay(namespace, relocations)
     task.get(timeout=1)
 
     payload = {"async_task_id": task.id}
-    response = await client.login(user.id).post("/files/move_batch/check", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/move_batch/check", json=payload)
     assert response.status_code == 200
     assert response.json()["status"] == "completed"
 
@@ -411,49 +520,70 @@ async def test_move_batch_check_task_is_completed(
     ("a/b/c/d.txt", "a/b", "Trash/b"),  # move folder to the Trash
 ])
 async def test_move_to_trash(
-    client: TestClient, user: User, file_factory, file_path, path, expected_path,
+    client: TestClient,
+    namespace: Namespace,
+    file_factory,
+    file_path: str,
+    path: str,
+    expected_path: str,
 ):
-    await file_factory(user.id, path=file_path)
+    await file_factory(namespace.path, path=file_path)
     payload = {"path": path}
-    response = await client.login(user.id).post("/files/move_to_trash", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/move_to_trash", json=payload)
     assert response.status_code == 200
     assert response.json()["path"] == expected_path
 
 
-async def test_move_to_trash_but_it_is_a_trash(client: TestClient, user: User):
+async def test_move_to_trash_but_it_is_a_trash(
+    client: TestClient,
+    namespace: Namespace,
+):
     payload = {"path": "Trash"}
-    response = await client.login(user.id).post("/files/move_to_trash", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/move_to_trash", json=payload)
     message = "Can't move Trash into itself"
     assert response.json() == MalformedPath(message).as_dict()
     assert response.status_code == 400
 
 
 async def test_move_to_trash_but_file_is_in_trash(
-    client: TestClient, user: User, file_factory,
+    client: TestClient,
+    namespace: Namespace,
+    file_factory,
 ):
-    file = await file_factory(user.id, path="Trash/file.txt")
+    file = await file_factory(namespace.path, path="Trash/file.txt")
     payload = {"path": file.path}
-    response = await client.login(user.id).post("/files/move_to_trash", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/move_to_trash", json=payload)
     assert response.status_code == 400
     assert response.json() == FileAlreadyDeleted(path=file.path).as_dict()
 
 
-async def test_move_to_trash_but_file_not_found(client: TestClient, user: User):
+async def test_move_to_trash_but_file_not_found(
+    client: TestClient,
+    namespace: Namespace,
+):
     payload = {"path": "file.txt"}
-    response = await client.login(user.id).post("/files/move_to_trash", json=payload)
+    client.login(namespace.owner.id)
+    response = await client.post("/files/move_to_trash", json=payload)
     assert response.status_code == 404
     assert response.json() == PathNotFound(path=payload["path"]).as_dict()
 
 
 @pytest.mark.usefixtures("celery_session_worker")
-async def test_move_to_trash_batch(client: TestClient, user: User, file_factory):
-    files = await asyncio.gather(*(file_factory(user.id) for _ in range(3)))
+async def test_move_to_trash_batch(
+    client: TestClient,
+    namespace: Namespace,
+    file_factory,
+):
+    files = await asyncio.gather(*(file_factory(namespace.path) for _ in range(3)))
     payload = {
         "items": [
             {"path": file.path} for file in files
         ],
     }
-    client.login(user.id)
+    client.login(namespace.owner.id)
     response = await client.post("/files/move_to_trash_batch", json=payload)
     assert "async_task_id" in response.json()
     assert response.status_code == 200
@@ -464,37 +594,41 @@ async def test_move_to_trash_batch(client: TestClient, user: User, file_factory)
     assert relocations[0].file.path.startswith("Trash/")
 
 
-async def test_upload(client: TestClient, user: User):
+async def test_upload(client: TestClient, namespace: Namespace):
     payload = {
         "file": BytesIO(b"Dummy file"),
         "path": (None, "folder/file.txt"),
     }
-    client.login(user.id)
+    client.login(namespace.owner.id)
     response = await client.post("/files/upload", files=payload)  # type: ignore
     assert response.status_code == 200
     assert response.json()["file"]["path"] == "folder/file.txt"
     assert len(response.json()["updates"]) == 2
 
 
-async def test_upload_but_to_a_special_path(client: TestClient, user: User):
+async def test_upload_but_to_a_special_path(client: TestClient, namespace: Namespace):
     payload = {
         "file": BytesIO(b"Dummy file"),
         "path": (None, "Trash"),
     }
-    client.login(user.id)
+    client.login(namespace.owner.id)
     response = await client.post("/files/upload", files=payload)  # type: ignore
     message = "Uploads to the Trash are not allowed"
     assert response.json() == MalformedPath(message).as_dict()
     assert response.status_code == 400
 
 
-async def test_upload_but_path_is_a_file(client: TestClient, user: User, file_factory):
-    file = await file_factory(user.id, path="f.txt")
+async def test_upload_but_path_is_a_file(
+    client: TestClient,
+    namespace: Namespace,
+    file_factory,
+):
+    file = await file_factory(namespace.path, path="f.txt")
     payload = {
         "file": BytesIO(b"Dummy file"),
         "path": (None, f"{file.path}/dummy"),
     }
-    client.login(user.id)
+    client.login(namespace.owner.id)
     response = await client.post("/files/upload", files=payload)  # type: ignore
     assert response.json() == NotADirectory(path=f"{file.path}/dummy").as_dict()
     assert response.status_code == 400

@@ -24,13 +24,15 @@ async def create(
 ):
     """Create new account."""
     try:
-        return await actions.create_account(
-            db_pool,
-            payload.username,
-            payload.password,
-            email=payload.email,
-            first_name=payload.first_name,
-            last_name=payload.last_name,
+        return Account.from_entity(
+            await actions.create_account(
+                db_pool,
+                payload.username,
+                payload.password,
+                email=payload.email,
+                first_name=payload.first_name,
+                last_name=payload.last_name,
+            )
         )
     except errors.UserAlreadyExists as exc:
         raise UserAlreadyExists(str(exc)) from exc
@@ -44,7 +46,9 @@ async def get_current(
     """Get account information for a current user."""
     # normally, we would re-raised UserNotFound error, but if some user,
     # doesn't have an account, then it is data integrity error, so fail miserably.
-    return await crud.account.get(db_pool, user_id)
+    return Account.from_entity(
+        await crud.account.get(db_pool, user_id)
+    )
 
 
 @router.get("/list_all", response_model=Page[Account])
@@ -63,7 +67,7 @@ async def list_all(
     return Page(
         page=page,
         count=count,
-        results=accounts,
+        results=[Account.from_entity(account) for account in accounts],
     )
 
 
@@ -74,4 +78,6 @@ async def update(
     user_id: str = Depends(deps.current_user_id),
 ):
     """Update account details."""
-    return await crud.account.update(db_pool, user_id, payload.as_update())
+    return Account.from_entity(
+        await crud.account.update(db_pool, user_id, payload.as_update())
+    )

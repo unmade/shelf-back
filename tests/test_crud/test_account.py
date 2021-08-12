@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import uuid
 from typing import TYPE_CHECKING
-from unittest import mock
 
 import pytest
 
@@ -11,32 +10,10 @@ from app import crud, errors
 
 if TYPE_CHECKING:
     from app.typedefs import DBPool
+    from app.entities import Account
     from app.crud.account import AccountUpdate
 
 pytestmark = [pytest.mark.asyncio]
-
-
-@pytest.fixture(name="account_factory")
-def _account_factory(db_pool):
-    """Create User and Account in the database."""
-    async def make_account(
-        username, password="root", *, email=None, first_name="", last_name=""
-    ):
-        with mock.patch("app.security.make_password", return_value=password):
-            await crud.user.create(db_pool, username, password)
-        query = "SELECT User { id } FILTER .username=<str>$username"
-        user, account = await asyncio.gather(
-            db_pool.query_one(query, username=username),
-            crud.account.create(
-                db_pool,
-                username,
-                email=email,
-                first_name=first_name,
-                last_name=last_name,
-            )
-        )
-        return user.id, account
-    return make_account
 
 
 async def test_create_account(db_pool: DBPool):
@@ -70,11 +47,9 @@ async def test_create_account_but_email_is_taken(db_pool: DBPool):
     assert str(excinfo.value) == "Email 'user@example.com' is taken"
 
 
-async def test_get_account(db_pool: DBPool, account_factory):
-    username = "johndoe"
-    user_id, _ = await account_factory(username)
-    account = await crud.account.get(db_pool, user_id)
-    assert account.username == username
+async def test_get_account(db_pool: DBPool, account: Account):
+    retrieved_account = await crud.account.get(db_pool, account.user.id)
+    assert retrieved_account == account
 
 
 async def test_get_account_but_user_not_found(db_pool: DBPool):
@@ -86,30 +61,28 @@ async def test_get_account_but_user_not_found(db_pool: DBPool):
 
 
 async def test_list_all(db_pool: DBPool, account_factory):
-    usernames = ["user_a", "user_b"]
     await asyncio.gather(*(
-        account_factory(username) for username in usernames
+        account_factory() for _ in range(2)
     ))
     accounts = await crud.account.list_all(db_pool, offset=0)
-    assert accounts[0].username == "user_a"
-    assert accounts[1].username == "user_b"
     assert len(accounts) == 2
+    usernames = [account.user.username for account in accounts]
+    assert usernames == sorted(usernames)
 
 
 async def test_list_all_limit_offset(db_pool: DBPool, account_factory):
-    usernames = ["user_a", "user_b"]
     await asyncio.gather(*(
-        account_factory(username) for username in usernames
+        account_factory() for _ in range(2)
     ))
     accounts = await crud.account.list_all(db_pool, offset=1, limit=1)
-    assert accounts[0].username == "user_b"
     assert len(accounts) == 1
+    assert accounts[0].user.username
 
 
 async def test_update_account(db_pool: DBPool, account_factory):
-    user_id, _ = await account_factory("johndoe")
+    account = await account_factory("johnsmith@example.com")
     to_update: AccountUpdate = {"email": "johndoe@example.com"}
-    account = await crud.account.update(db_pool, user_id, to_update)
-    assert account.email == "johndoe@example.com"
-    account = await crud.account.get(db_pool, user_id)
-    assert account.email == "johndoe@example.com"
+    updated_account = await crud.account.update(db_pool, account.user.id, to_update)
+    assert updated_account.email == "johndoe@example.com"
+    retrieved_account = await crud.account.get(db_pool, account.user.id)
+    assert retrieved_account.email == "johndoe@example.com"

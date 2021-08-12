@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, EmailStr, Field
 
 from app.crud.account import AccountUpdate
+from app.entities import Account as AccountEntity
 
 
 class Account(BaseModel):
@@ -15,6 +16,17 @@ class Account(BaseModel):
     first_name: str
     last_name: str
     superuser: bool
+
+    @classmethod
+    def from_entity(cls, account: AccountEntity) -> Account:
+        return cls.construct(
+            id=account.id,
+            username=account.user.username,
+            email=account.email,
+            first_name=account.first_name,
+            last_name=account.last_name,
+            superuser=account.user.superuser,
+        )
 
 
 class CreateAccountRequest(BaseModel):

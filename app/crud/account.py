@@ -68,7 +68,7 @@ async def create(
                     LIMIT 1
                 )
             }
-        ) { id, email, first_name, last_name, user: { username, superuser } }
+        ) { id, email, first_name, last_name, user: { id, username, superuser } }
     """
     try:
         account = await conn.query_one(

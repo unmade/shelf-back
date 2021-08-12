@@ -106,16 +106,7 @@ async def get_by_id(conn: DBAnyConn, user_id: StrOrUUID) -> User:
     query = """
         SELECT
             User {
-                id,
-                username,
-                superuser,
-                namespace := (
-                    SELECT
-                        .<owner[IS Namespace] {
-                            id, path
-                        }
-                    LIMIT 1
-                ),
+                id, username, superuser,
             }
         FILTER
             .id = <uuid>$user_id

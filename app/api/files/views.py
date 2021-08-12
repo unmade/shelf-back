@@ -14,7 +14,7 @@ from fastapi.responses import Response, StreamingResponse
 
 from app import actions, config, crud, errors, tasks
 from app.api import deps
-from app.entities import User
+from app.entities import Namespace, User
 from app.storage import storage
 
 from . import exceptions, schemas
@@ -26,7 +26,7 @@ router = APIRouter()
 async def create_folder(
     payload: schemas.PathRequest,
     db_pool: AsyncIOPool = Depends(deps.db_pool),
-    user: User = Depends(deps.current_user),
+    namespace: Namespace = Depends(deps.namespace),
 ):
     """
     Create a new folder with a target path.
@@ -36,7 +36,7 @@ async def create_folder(
     if not existed, and 'c' will be returned as a response.
     """
     try:
-        return await actions.create_folder(db_pool, user.namespace, payload.path)
+        return await actions.create_folder(db_pool, namespace, payload.path)
     except errors.FileAlreadyExists as exc:
         raise exceptions.FileAlreadyExists(path=payload.path) from exc
     except errors.NotADirectory as exc:
@@ -47,11 +47,11 @@ async def create_folder(
 async def delete_immediately(
     payload: schemas.DeletePathRequest,
     db_pool: AsyncIOPool = Depends(deps.db_pool),
-    user: User = Depends(deps.current_user),
+    namespace: Namespace = Depends(deps.namespace),
 ):
     """Permanently delete file or folder with its contents."""
     try:
-        return await actions.delete_immediately(db_pool, user.namespace, payload.path)
+        return await actions.delete_immediately(db_pool, namespace, payload.path)
     except errors.FileNotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
 
@@ -64,7 +64,7 @@ async def download(
     Download a file or a folder.
 
     This endpoint is useful to perform downloads with browser. A `key` is obtained by
-    calling `get_download_url` endpoint. Folders will be downloaded as ZIP archive.
+    calling `get_download_url` endpoint. Folders will be downloaded as a ZIP archive.
     """
     value: str = await cache.get(key)
     if not value:
@@ -97,7 +97,7 @@ async def download(
 async def download_xhr(
     payload: schemas.PathRequest,
     db_pool: AsyncIOPool = Depends(deps.db_pool),
-    user: User = Depends(deps.current_user),
+    namespace: Namespace = Depends(deps.namespace),
 ):
     """
     Download a file or a folder.
@@ -105,7 +105,7 @@ async def download_xhr(
     This endpoint is useful to download files with XHR. Folders will be downloaded as a
     ZIP archive."""
     try:
-        file = await crud.file.get(db_pool, user.namespace.path, payload.path)
+        file = await crud.file.get(db_pool, namespace.path, payload.path)
     except errors.FileNotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
 
@@ -122,7 +122,7 @@ async def download_xhr(
             "Content-Type": file.mediatype,
         }
 
-    attachment = storage.download(user.namespace.path / payload.path)
+    attachment = storage.download(namespace.path / payload.path)
     if file.is_folder() or file.size > config.APP_MAX_DOWNLOAD_WITHOUT_STREAMING:
         return StreamingResponse(attachment, headers=headers)
 
@@ -137,10 +137,10 @@ async def download_xhr(
 @router.post("/empty_trash", response_model=schemas.File)
 async def empty_trash(
     db_pool: AsyncIOPool = Depends(deps.db_pool),
-    user: User = Depends(deps.current_user),
+    namespace: Namespace = Depends(deps.namespace),
 ):
     """Delete all files and folders in the Trash folder."""
-    return await actions.empty_trash(db_pool, user.namespace)
+    return await actions.empty_trash(db_pool, namespace)
 
 
 @router.post("/get_download_url", response_model=schemas.GetDownloadUrlResult)
@@ -148,16 +148,16 @@ async def get_download_url(
     request: Request,
     payload: schemas.PathRequest,
     db_pool: AsyncIOPool = Depends(deps.db_pool),
-    user: User = Depends(deps.current_user),
+    namespace: Namespace = Depends(deps.namespace),
 ):
     """Return a link to download requested file or folder."""
     try:
-        file = await crud.file.get(db_pool, user.namespace.path, payload.path)
+        file = await crud.file.get(db_pool, namespace.path, payload.path)
     except errors.FileNotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
 
     key = secrets.token_urlsafe()
-    await cache.set(key=key, value=f"{user.namespace.path}:{file.path}", expire=60)
+    await cache.set(key=key, value=f"{namespace.path}:{file.path}", expire=60)
 
     return {"download_url": f"{request.base_url}files/download?key={key}"}
 
@@ -167,10 +167,10 @@ async def get_thumbnail(
     payload: schemas.PathRequest,
     size: schemas.ThumbnailSize = schemas.ThumbnailSize.xs,
     db_pool: AsyncIOPool = Depends(deps.db_pool),
-    user: User = Depends(deps.current_user),
+    namespace: Namespace = Depends(deps.namespace),
 ):
     """Generate thumbnail for an image file."""
-    namespace = user.namespace
+    namespace = namespace
     path = payload.path
 
     try:
@@ -197,7 +197,7 @@ async def get_thumbnail(
 async def list_folder(
     payload: schemas.PathRequest,
     db_pool: AsyncIOPool = Depends(deps.db_pool),
-    user: User = Depends(deps.current_user),
+    namespace: Namespace = Depends(deps.namespace),
 ):
     """
     List content of a folder with a given path.
@@ -205,7 +205,7 @@ async def list_folder(
     Note, that Trash folder is never present in a result.
     """
     try:
-        files = await crud.file.list_folder(db_pool, user.namespace.path, payload.path)
+        files = await crud.file.list_folder(db_pool, namespace.path, payload.path)
     except errors.FileNotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
     except errors.NotADirectory as exc:
@@ -222,7 +222,7 @@ async def list_folder(
 async def move(
     payload: schemas.MoveRequest,
     db_pool: AsyncIOPool = Depends(deps.db_pool),
-    user: User = Depends(deps.current_user),
+    namespace: Namespace = Depends(deps.namespace),
 ):
     """
     Move a file or folder to a different location in the target Namespace.
@@ -236,7 +236,7 @@ async def move(
     """
     from_path, to_path = payload.from_path, payload.to_path
     try:
-        return await actions.move(db_pool, user.namespace, from_path, to_path)
+        return await actions.move(db_pool, namespace, from_path, to_path)
     except errors.FileAlreadyExists as exc:
         raise exceptions.FileAlreadyExists(path=to_path) from exc
     except errors.FileNotFound as exc:
@@ -251,10 +251,10 @@ async def move(
 @router.post("/move_batch", response_model=schemas.AsyncTaskID)
 def move_batch(
     payload: schemas.MoveBatchRequest,
-    user: User = Depends(deps.current_user)
+    namespace: Namespace = Depends(deps.namespace),
 ):
     """Move multiple files or folders to different locations at once."""
-    task = tasks.move_batch.delay(user.namespace, payload.items)
+    task = tasks.move_batch.delay(namespace, payload.items)
     return schemas.AsyncTaskID(async_task_id=task.id)
 
 
@@ -280,11 +280,11 @@ def move_batch_check(
 async def move_to_trash(
     payload: schemas.MoveToTrashRequest,
     db_pool: AsyncIOPool = Depends(deps.db_pool),
-    user: User = Depends(deps.current_user),
+    namespace: Namespace = Depends(deps.namespace),
 ):
     """Move file to the Trash folder."""
     try:
-        return await actions.move_to_trash(db_pool, user.namespace, payload.path)
+        return await actions.move_to_trash(db_pool, namespace, payload.path)
     except errors.FileNotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
 
@@ -292,7 +292,7 @@ async def move_to_trash(
 @router.post("/move_to_trash_batch", response_model=schemas.AsyncTaskID)
 def move_to_trash_batch(
     payload: schemas.MoveToTrashBatchRequest,
-    user: User = Depends(deps.current_user),
+    namespace: Namespace = Depends(deps.namespace),
 ):
     """
     Move several files or folders to Trash at once.
@@ -300,7 +300,7 @@ def move_to_trash_batch(
     To check task result use the same endpoint to check regular move result.
     """
     paths = [item.path for item in payload.items]
-    task = tasks.move_to_trash_batch.delay(user.namespace, paths)
+    task = tasks.move_to_trash_batch.delay(namespace, paths)
     return schemas.AsyncTaskID(async_task_id=task.id)
 
 
@@ -309,7 +309,7 @@ async def upload_file(
     file: UploadFile = FileParam(...),
     path: str = Form(...),
     db_pool: AsyncIOPool = Depends(deps.db_pool),
-    user: User = Depends(deps.current_user),
+    namespace: Namespace = Depends(deps.namespace),
 ):
     """Upload file to a specified path."""
     if path == config.TRASH_FOLDER_NAME:
@@ -318,11 +318,11 @@ async def upload_file(
     parents = Path(path).parents
 
     try:
-        upload = await actions.save_file(db_pool, user.namespace, path, file.file)
+        upload = await actions.save_file(db_pool, namespace, path, file.file)
     except errors.NotADirectory as exc:
         raise exceptions.NotADirectory(path=path) from exc
 
-    updates = await crud.file.get_many(db_pool, user.namespace.path, parents)
+    updates = await crud.file.get_many(db_pool, namespace.path, parents)
 
     return schemas.UploadResult.construct(
         file=schemas.File.from_file(upload),

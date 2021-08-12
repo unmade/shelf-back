@@ -63,7 +63,7 @@ async def test_get_by_id(db_pool: DBPool):
     user = await crud.user.get_by_id(db_pool, user_id=user_id)
 
     assert user.username == "user"
-    assert str(user.namespace.path) == "user"
+    assert user.superuser is False
 
 
 async def test_get_by_id_but_it_not_found(db_pool: DBPool):

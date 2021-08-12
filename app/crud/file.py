@@ -130,7 +130,7 @@ async def create_batch(
 
     Note, this method will restore original casing for path. In other words, if one of
     the files to be created has path 'a/b', and parent name is in upper case, the path
-    will be replaces with 'A/b'.
+    will be replaced with 'A/b'.
 
     Similarly, if 'path' argument is 'a' and one of the files has path like 'd/b/c',
     then file path will be replaced with 'a/c'.
