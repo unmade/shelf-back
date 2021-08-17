@@ -112,7 +112,7 @@ async def create(
     }
 
     try:
-        file = await conn.query_one(query, **params)
+        file = await conn.query_single(query, **params)
     except edgedb.ConstraintViolationError as exc:
         raise errors.FileAlreadyExists() from exc
 
@@ -280,7 +280,7 @@ async def delete(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> File
 
     try:
         file = File.from_db(
-            await conn.query_one(query, namespace=str(namespace), path=str(path))
+            await conn.query_single(query, namespace=str(namespace), path=str(path))
         )
     except edgedb.NoDataError as exc:
         raise errors.FileNotFound() from exc
@@ -317,7 +317,7 @@ async def delete_batch(
                 .name IN {array_unpack(<array<str>>$names)}
         ).size)
     """
-    size = await conn.query_one(query, namespace=str(namespace), names=list(names))
+    size = await conn.query_single(query, namespace=str(namespace), names=list(names))
     parents = [path] + [p for p in Path(path).parents]
     await inc_size_batch(conn, namespace, parents, size=-size)
 
@@ -374,7 +374,7 @@ async def exists(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> bool
 
     return cast(
         bool,
-        await conn.query_one(query, namespace=str(namespace), path=str(path)),
+        await conn.query_single(query, namespace=str(namespace), path=str(path)),
     )
 
 
@@ -405,7 +405,7 @@ async def get(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> File:
     """
     try:
         return File.from_db(
-            await conn.query_one(query, namespace=str(namespace), path=str(path))
+            await conn.query_single(query, namespace=str(namespace), path=str(path))
         )
     except edgedb.NoDataError as exc:
         raise errors.FileNotFound() from exc
@@ -471,6 +471,8 @@ async def list_folder(
     Returns:
         List[File]: List of all files/folders in a folder with a target path.
     """
+    path = str(path)
+
     filter_clause = ""
     if not with_trash and str(path) == ".":
         filter_clause = "FILTER .path != 'Trash'"
@@ -498,7 +500,7 @@ async def list_folder(
         LIMIT 1
     """
     try:
-        parent = await conn.query_one(query, namespace=str(namespace), path=str(path))
+        parent = await conn.query_single(query, namespace=str(namespace), path=path)
     except edgedb.NoDataError as exc:
         raise errors.FileNotFound() from exc
 
@@ -620,7 +622,7 @@ async def _move_file(conn: DBAnyConn, file_id: UUID, next_path: StrOrPath) -> Fi
         ) { id, name, path, size, mtime, mediatype: { name } }
     """
     return File.from_db(
-        await conn.query_one(
+        await conn.query_single(
             query,
             file_id=str(file_id),
             name=Path(next_path).name,
@@ -679,7 +681,7 @@ async def next_path(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> s
 
     suffix = "".join(Path(path).suffixes)
     path_stem = str(path).rstrip(suffix)
-    count = await conn.query_one("""
+    count = await conn.query_single("""
         SELECT count(
             File
             FILTER

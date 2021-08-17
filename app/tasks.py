@@ -51,7 +51,10 @@ async def move_batch(
     namespace: Namespace, relocations: list[RelocationPath]
 ) -> list[RelocationResult]:
     async with edgedb.create_async_pool(
-        dsn=config.EDGEDB_DSN, min_size=2, max_size=2,
+        dsn=config.DATABASE_DSN,
+        min_size=2,
+        max_size=2,
+        tls_ca_file=config.DATABASE_TLS_CA_FILE,
     ) as pool:
         return await actions.move_batch(pool, namespace, relocations)
 
@@ -72,7 +75,10 @@ async def move_to_trash_batch(
             or an error code.
     """
     async with edgedb.create_async_pool(
-        dsn=config.EDGEDB_DSN, min_size=2, max_size=2
+        dsn=config.DATABASE_DSN,
+        min_size=2,
+        max_size=2,
+        tls_ca_file=config.DATABASE_TLS_CA_FILE,
     ) as pool:
         coros = (
             actions.move_to_trash(pool, namespace, path)

@@ -56,17 +56,18 @@ def autocast(pytype) -> str:
 
 
 @contextlib.asynccontextmanager
-async def connect(dsn: str):
+async def connect():
     """
     Acquire new connection to the database.
-
-    Args:
-        dsn (str): Data source name.
 
     Yields:
         [type]: Connection to a database.
     """
-    conn = await edgedb.async_connect(dsn=dsn)
+    conn = await edgedb.async_connect(
+        dsn=config.DATABASE_DSN,
+        tls_ca_file=config.DATABASE_TLS_CA_FILE,
+    )
+
     try:
         yield conn
     finally:
@@ -78,9 +79,10 @@ async def create_pool() -> None:
     global _pool
 
     _pool = await edgedb.create_async_pool(
-        dsn=config.EDGEDB_DSN,
+        dsn=config.DATABASE_DSN,
         min_size=4,
         max_size=4,
+        tls_ca_file=config.DATABASE_TLS_CA_FILE,
     )
 
 

@@ -56,7 +56,7 @@ async def test_create_account(db_pool: DBPool, given, expected):
     assert await storage.exists(expected["username"])
     assert await storage.exists(f"{expected['username']}/Trash")
 
-    account = await db_pool.query_one("""
+    account = await db_pool.query_single("""
         SELECT Account {
             email,
             first_name,
@@ -113,7 +113,7 @@ async def test_create_account_but_email_is_taken(db_pool: DBPool):
         await actions.create_account(db_pool, "user_b", "psswd", email=email)
 
     assert str(excinfo.value) == "Email 'user@example.com' is taken"
-    assert await db_pool.query_one("""
+    assert await db_pool.query_single("""
         SELECT NOT EXISTS (
             SELECT
                 User

@@ -68,7 +68,7 @@ jobs:
         APP_SECRET_KEY: github_actions
         CELERY_BACKEND_DSN: "redis://localhost:6379"
         CELERY_BROKER_DSN: "redis://localhost:6379"
-        EDGEDB_DSN: "edgedb://edgedb:root@localhost:10701/edgedb"
+        DATABASE_DSN: "edgedb://edgedb:root@localhost:10701/edgedb"
       run: |
         pytest --cov
 

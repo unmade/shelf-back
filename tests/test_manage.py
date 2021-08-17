@@ -20,7 +20,7 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
 @pytest.fixture
 def conn():
     """Blocking connection to the database."""
-    conn = edgedb.connect(config.EDGEDB_DSN)
+    conn = edgedb.connect(config.DATABASE_DSN, tls_ca_file=config.DATABASE_TLS_CA_FILE)
     try:
         yield conn
     finally:
@@ -33,7 +33,7 @@ def test_createsuperuser(conn: DBConn):
     assert result.exit_code == 0
     assert "User created successfully." in result.stdout
 
-    user = conn.query_one(
+    user = conn.query_single(
         "SELECT User { username, superuser } FILTER .username = 'johndoe'"
     )
     assert user.username == "johndoe"

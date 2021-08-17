@@ -5,7 +5,7 @@ from pathlib import Path
 
 import typer
 
-from app import actions, config, crud, db
+from app import actions, crud, db
 
 cli = typer.Typer()
 
@@ -19,7 +19,7 @@ def createsuperuser(
 ) -> None:
     """Create a new super user with namespace, home and trash directories."""
     async def _createuser(username: str, password: str):
-        async with db.connect(config.EDGEDB_DSN) as conn:
+        async with db.connect() as conn:
             await actions.create_account(conn, username, password, superuser=True)
 
     asyncio.run(_createuser(username, password))
@@ -30,7 +30,7 @@ def createsuperuser(
 def reconcile(namespace: str) -> None:
     """Reconcile storage and database for a given namespace."""
     async def _reconcile():
-        async with db.connect(config.EDGEDB_DSN) as conn:
+        async with db.connect() as conn:
             ns = await crud.namespace.get(conn, namespace)
             await actions.reconcile(conn, ns, ".")
 
@@ -41,7 +41,7 @@ def reconcile(namespace: str) -> None:
 def migrate(schema: Path) -> None:
     """Apply target schema to a database."""
     async def run_migration(schema: str) -> None:
-        async with db.connect(config.EDGEDB_DSN) as conn:
+        async with db.connect() as conn:
             await db.migrate(conn, schema)
 
     with open(schema.expanduser().resolve(), 'r') as f:

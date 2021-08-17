@@ -7,7 +7,7 @@ mypy
 # these dependencies are needed for mypy:
 
 asgiref
-edgedb>=0.13.0,<0.14.0
+edgedb
 fastapi
 httpx
 pydantic

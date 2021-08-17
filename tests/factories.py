@@ -50,7 +50,7 @@ class AccountFactory:
         """
 
         return Account.from_db(
-            await self._db_conn.query_one(
+            await self._db_conn.query_single(
                 query,
                 email=email,
                 user_id=user.id,
@@ -107,7 +107,7 @@ class NamespaceFactory:
             owner = await UserFactory(self._db_conn)()
 
         namespace = crud.namespace.namespace_from_db(
-            await self._db_conn.query_one("""
+            await self._db_conn.query_single("""
                 SELECT (
                     INSERT Namespace {
                         path := <str>$path,
@@ -160,7 +160,7 @@ class NamespaceFactory:
             ) { id }
         """
 
-        home = await self._db_conn.query_one(
+        home = await self._db_conn.query_single(
             query,
             name=str(namespace.path),
             path=".",
@@ -170,7 +170,7 @@ class NamespaceFactory:
             namespace_id=namespace.id,
         )
 
-        await self._db_conn.query_one(
+        await self._db_conn.query_single(
             query,
             name=config.TRASH_FOLDER_NAME,
             path=config.TRASH_FOLDER_NAME,
@@ -205,7 +205,7 @@ class UserFactory:
 
         # create user with plain query, cause crud.user.create do too much stuff
         return User.from_orm(
-            await self._db_conn.query_one("""
+            await self._db_conn.query_single("""
                 SELECT (
                     INSERT User {
                         username := <str>$username,

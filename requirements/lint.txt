@@ -28,7 +28,7 @@ dnspython==2.1.0
     # via
     #   -c requirements/base.txt
     #   email-validator
-edgedb==0.13.0
+edgedb==0.17.2
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
@@ -111,11 +111,11 @@ typer==0.3.2
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
-typing-extensions==3.7.4.3
+typing-extensions==3.10.0.0
     # via
     #   -c requirements/base.txt
     #   edgedb
     #   mypy
     #   pydantic
-virtualenv==20.7.0
+virtualenv==20.7.2
     # via pre-commit

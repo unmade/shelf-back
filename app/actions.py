@@ -349,12 +349,7 @@ async def save_file(
 
     storage_file = await storage.save(namespace.path / next_path, content)
 
-    # default max iterations is not enough, so bump it up
-    # there is bug with customizing retrying logic,
-    # see: https://github.com/edgedb/edgedb-python/issues/185
-    transactions = conn.retrying_transaction()
-    transactions._max_iterations = 5
-    async for tx in transactions:
+    async for tx in conn.retrying_transaction():
         async with tx:
             file_db = await crud.file.create(
                 tx,

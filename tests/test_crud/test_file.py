@@ -28,7 +28,7 @@ async def test_create(tx: DBTransaction, namespace: Namespace):
 
     await crud.file.create(tx, namespace.path, path, size=32)
 
-    file = await tx.query_one("""
+    file = await tx.query_single("""
         SELECT File {
             name, path, size, mediatype: { name }, parent: {
                 path, size, mediatype: { name }, parent: {

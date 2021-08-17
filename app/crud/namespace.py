@@ -44,7 +44,7 @@ async def get(conn: DBAnyConn, path: StrOrPath) -> Namespace:
     """
 
     try:
-        return namespace_from_db(await conn.query_one(query, path=str(path)))
+        return namespace_from_db(await conn.query_single(query, path=str(path)))
     except edgedb.NoDataError as exc:
         raise errors.NamespaceNotFound() from exc
 
@@ -59,6 +59,6 @@ async def get_by_owner(conn: DBAnyConn, owner_id: str) -> Namespace:
             .owner.id = <uuid>$owner_id
     """
     try:
-        return namespace_from_db(await conn.query_one(query, owner_id=owner_id))
+        return namespace_from_db(await conn.query_single(query, owner_id=owner_id))
     except edgedb.NoDataError as exc:
         raise errors.NamespaceNotFound() from exc

@@ -30,7 +30,8 @@ def pytest_addoption(parser):
     parser.addoption(
         "--reuse-db",
         action="store_true",
-        default="whether to keep db after the test run or drop it.",
+        default=False,
+        help="whether to keep db after the test run or drop it.",
     )
 
 
@@ -82,7 +83,7 @@ def replace_storage_location_with_tmp_path(tmp_path):
 def replace_database_dsn():
     """Replace database DSN with a test value."""
     _, dsn, _ = _build_test_db_dsn()
-    with mock.patch("app.config.EDGEDB_DSN", dsn):
+    with mock.patch("app.config.DATABASE_DSN", dsn):
         yield
 
 
@@ -93,7 +94,7 @@ def _build_test_db_dsn() -> tuple[str, str, str]:
         - second element is a DSN, but database name has suffix '_text'
         - third element is test database name (with suffix '_text')
     """
-    scheme, netloc, path, query, fragments = urlsplit(config.EDGEDB_DSN)
+    scheme, netloc, path, query, fragments = urlsplit(config.DATABASE_DSN)
     server_dsn = urlunsplit((scheme, netloc, "", query, fragments))
     db_name = f"{path.strip('/')}_test"
     db_dsn = urlunsplit((scheme, netloc, f"/{db_name}", query, fragments))
@@ -117,7 +118,7 @@ async def create_test_db(pytestconfig) -> None:
     """
     reuse = pytestconfig.getoption("reuse_db")
     dsn, _, db_name = _build_test_db_dsn()
-    conn = await edgedb.async_connect(dsn=dsn)
+    conn = await edgedb.async_connect(dsn=dsn, tls_ca_file=config.DATABASE_TLS_CA_FILE)
     try:
         await conn.execute(f"CREATE DATABASE {db_name};")
     except (edgedb.errors.DuplicateDatabaseDefinitionError, edgedb.errors.SchemaError):
@@ -133,8 +134,13 @@ async def _db_pool(create_test_db):
     """Yield a connection pool to the database."""
     del create_test_db  # required only to preserve fixtures correct execution order
 
-    dsn = config.EDGEDB_DSN
-    async with edgedb.create_async_pool(dsn=dsn, min_size=3, max_size=3) as pool:
+    dsn = config.DATABASE_DSN
+    async with edgedb.create_async_pool(
+        dsn=dsn,
+        min_size=3,
+        max_size=3,
+        tls_ca_file=config.DATABASE_TLS_CA_FILE,
+    ) as pool:
         with mock.patch("app.db._pool", pool):
             yield pool
 
@@ -142,7 +148,7 @@ async def _db_pool(create_test_db):
 @pytest.fixture(scope="session")
 async def apply_migration(pytestconfig, _db_pool: DBPool) -> None:
     """Apply schema to test database."""
-    if not pytestconfig.getoption("reuse_db"):
+    if not pytestconfig.getoption("reuse_db", False):
         with open(config.BASE_DIR / "./dbschema/default.esdl", "r") as f:
             schema = f.read()
 

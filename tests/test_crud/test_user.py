@@ -16,7 +16,7 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 async def test_create_user(tx: DBTransaction):
     await crud.user.create(tx, "user", "psswd")
 
-    user = await tx.query_one("""
+    user = await tx.query_single("""
         SELECT User {
             username,
             password,
@@ -49,7 +49,7 @@ async def test_create_user_but_it_already_exists(tx: DBTransaction):
 
 async def test_exists(tx: DBTransaction):
     await crud.user.create(tx, "user", "psswd")
-    user = await tx.query_one("SELECT User FILTER .username = 'user'")
+    user = await tx.query_single("SELECT User FILTER .username = 'user'")
     assert await crud.user.exists(tx, user_id=user.id)
 
 
@@ -59,7 +59,7 @@ async def test_exists_but_it_is_not(tx: DBTransaction):
 
 async def test_get_by_id(tx: DBTransaction):
     await crud.user.create(tx, "user", "psswd")
-    user_id = (await tx.query_one("SELECT User FILTER .username = 'user'")).id
+    user_id = (await tx.query_single("SELECT User FILTER .username = 'user'")).id
     user = await crud.user.get_by_id(tx, user_id=user_id)
 
     assert user.username == "user"
