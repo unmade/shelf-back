@@ -1,13 +1,16 @@
 services:
-  # edgedb:
-  #   image: edgedb/edgedb:1-beta2
-  #   environment:
-  #     - EDGEDB_USER=edgedb
-  #     - EDGEDB_PASSWORD=root
-  #   volumes:
-  #     - dbvolume:/var/lib/edgedb/data
-  #   ports:
-  #     - "5656:5656"
+  edgedb:
+    image: edgedb/edgedb:1-beta3
+    environment:
+      - EDGEDB_USER=edgedb
+      - EDGEDB_PASSWORD=root
+      - EDGEDB_TLS_CERT_FILE=/certs/edbtlscert.dev.pem
+      - EDGEDB_TLS_KEY_FILE=/certs/edbprivkey.dev.pem
+    volumes:
+      - dbvolume:/var/lib/edgedb/data
+      - ./certs:/certs
+    ports:
+      - "5656:5656"
 
   redis:
     image: redis:alpine

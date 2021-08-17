@@ -16,16 +16,16 @@ jobs:
 
     services:
       edgedb:
-        image: edgedb/edgedb:1-beta1
+        image: fdooch/edgedb:1-beta-3.dev
         env:
           EDGEDB_USER: edgedb
           EDGEDB_PASSWORD: root
+          EDGEDB_TLS_CERT_FILE: /certs/edbtlscert.dev.pem
+          EDGEDB_TLS_KEY_FILE: /certs/edbprivkey.dev.pem
         ports:
-        - 10701:5656
-        volumes:
-        - data:/var/lib/edgedb/data
+        - 5656:5656
         options: >-
-          --health-cmd="edgedb -c 'SELECT 1;'"
+          --health-cmd="edgedb query -H localhost --tls-ca-file "${EDGEDB_TLS_CERT_FILE}" 'SELECT 1;'"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
@@ -68,7 +68,8 @@ jobs:
         APP_SECRET_KEY: github_actions
         CELERY_BACKEND_DSN: "redis://localhost:6379"
         CELERY_BROKER_DSN: "redis://localhost:6379"
-        DATABASE_DSN: "edgedb://edgedb:root@localhost:10701/edgedb"
+        DATABASE_DSN: "edgedb://edgedb:root@localhost:5656/edgedb"
+        DATABASE_TLS_CA_FILE: "./certs/edbtlscert.dev.pem"
       run: |
         pytest --cov
 
