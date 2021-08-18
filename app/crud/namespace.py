@@ -20,6 +20,37 @@ def namespace_from_db(obj: edgedb.Object) -> Namespace:
     )
 
 
+async def create(conn: DBAnyConn, path: StrOrPath, owner_id: StrOrUUID) -> Namespace:
+    """
+    Create a namespace.
+
+    Args:
+        conn (DBAnyConn): A database connection.
+        path (StrOrPath): Namespace path.
+        owner_id (StrOrUUID): Namespace owner ID.
+
+    Returns:
+        Namespace: A freshly created namespa instance.
+    """
+    query = """
+        SELECT (
+            INSERT Namespace {
+                path := <str>$path,
+                owner := (
+                    SELECT
+                        User
+                    FILTER
+                        .id = <uuid>$owner_id
+                )
+            }
+        ) { id, path, owner: { id, username, superuser } }
+    """
+
+    return namespace_from_db(
+        await conn.query_single(query, path=str(path), owner_id=owner_id)
+    )
+
+
 async def get(conn: DBAnyConn, path: StrOrPath) -> Namespace:
     """
     Returns namespace with a target path.

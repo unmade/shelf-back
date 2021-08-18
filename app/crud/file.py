@@ -33,7 +33,7 @@ async def create(
     mediatype: str = mediatypes.OCTET_STREAM,
 ) -> File:
     """
-    Create new file.
+    Create a new file.
 
     If the file size is greater than zero, then size of all parents updated accordingly.
 
@@ -103,9 +103,9 @@ async def create(
 
     params = {
         "name": (namespace / path).name,
-        "path": normpath(joinpath(parent.path, path.name)),
+        "path": normpath(joinpath(parent.path, path.name)) if parent else ".",
         "size": size,
-        "mtime": time.time(),
+        "mtime": mtime,
         "mediatype": mediatype,
         "namespace": str(namespace),
         "parent": str(path.parent),
@@ -248,6 +248,66 @@ async def create_folder(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) 
             await create(conn, namespace, p, mediatype=mediatypes.FOLDER)
         except (errors.FileAlreadyExists, errors.MissingParent):
             pass
+
+
+async def create_home_folder(conn: DBAnyConn, namespace: StrOrPath) -> File:
+    """
+    Create a home folder.
+
+    Args:
+        conn (DBAnyConn): Connection to a database.
+        namespace (StrOrPath): Namespace path where a file should be created.
+
+    Raises:
+        FileAlreadyExists: If file in a target path already exists.
+
+    Returns:
+        File: A freshly created home folder.
+    """
+    namespace = Path(namespace)
+
+    query = """
+        SELECT (
+            INSERT File {
+                name := <str>$name,
+                path := <str>$path,
+                size := 0,
+                mtime := <float64>$mtime,
+                mediatype := (
+                    INSERT MediaType {
+                        name := <str>$mediatype
+                    }
+                    UNLESS CONFLICT ON .name
+                    ELSE (
+                        SELECT
+                            MediaType
+                        FILTER
+                            .name = <str>$mediatype
+                    )
+                ),
+                namespace := (
+                    SELECT
+                        Namespace
+                    FILTER
+                        .path = <str>$namespace
+                ),
+            }
+        ) { id, name, path, size, mtime, mediatype: { name } }
+    """
+
+    try:
+        file = await conn.query_single(
+            query,
+            name=namespace.name,
+            path=".",
+            mtime=time.time(),
+            mediatype=mediatypes.FOLDER,
+            namespace=str(namespace),
+        )
+    except edgedb.ConstraintViolationError as exc:
+        raise errors.FileAlreadyExists() from exc
+
+    return File.from_db(file)
 
 
 async def delete(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> File:

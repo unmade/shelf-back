@@ -89,13 +89,13 @@ async def test_create_account(db_pool: DBPool, given, expected):
     assert user.username == expected["username"]
     assert user.password != expected["password"]
 
-    # TODO: create_account should not create all of this:
-    # assert namespace.path == user.username
-    # assert len(namespace.files) == 2
-    # assert namespace.files[0].name == user.username
-    # assert namespace.files[0].path == "."
-    # assert namespace.files[1].name == "Trash"
-    # assert namespace.files[1].path == "Trash"
+    namespace = user.namespace
+    assert namespace.path == user.username
+    assert len(namespace.files) == 2
+    assert namespace.files[0].name == user.username
+    assert namespace.files[0].path == "."
+    assert namespace.files[1].name == "Trash"
+    assert namespace.files[1].path == "Trash"
 
 
 async def test_create_account_but_username_is_taken(db_pool: DBPool):

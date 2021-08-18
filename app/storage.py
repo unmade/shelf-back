@@ -127,7 +127,7 @@ class Storage:
     @abc.abstractmethod
     async def makedirs(self, path: StrOrPath) -> None:
         """
-        Create any directory missing directories in a given path.
+        Create a directory with any missing directories in a given path.
 
         Args:
             path (StrOrPath): Path relative to a storage location.

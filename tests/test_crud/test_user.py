@@ -14,28 +14,18 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
 
 async def test_create_user(tx: DBTransaction):
-    await crud.user.create(tx, "user", "psswd")
+    user = await crud.user.create(tx, "user", "psswd")
+    assert user.username == "user"
 
-    user = await tx.query_single("""
+    user_in_db = await tx.query_single("""
         SELECT User {
             username,
             password,
-            namespace := (
-                SELECT User.<owner[IS Namespace] {
-                    path,
-                    files := Namespace.<namespace[IS File] { name, path }
-                }
-                LIMIT 1
-            )
-        } FILTER .username = 'user'
-        """)
+        } FILTER .id = <uuid>$user_id
+    """, user_id=user.id)
 
     assert user.username == "user"
-    assert user.password != "psswd"
-    assert user.namespace.path == user.username
-    assert len(user.namespace.files) == 1
-    assert user.namespace.files[0].name == user.username
-    assert user.namespace.files[0].path == "."
+    assert user_in_db.password != "psswd"
 
 
 async def test_create_user_but_it_already_exists(tx: DBTransaction):

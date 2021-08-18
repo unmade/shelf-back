@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import time
 from typing import TYPE_CHECKING, cast
 
 import edgedb
 
-from app import errors, mediatypes, security
+from app import errors, security
 from app.entities import User
 
 if TYPE_CHECKING:
@@ -15,9 +14,9 @@ if TYPE_CHECKING:
 
 async def create(
     conn: DBAnyConn, username: str, password: str, *, superuser: bool = False,
-) -> None:
+) -> User:
     """
-    Create user, namespace and home folder.
+    Create a user.
 
     Args:
         conn (DBAnyConn): Connection to a database.
@@ -28,48 +27,28 @@ async def create(
 
     Raises:
         UserAlreadyExists: If user with a target username already exists.
+
+    Returns:
+        User: a freshly created user instance.
     """
     query = """
-        INSERT File {
-            name := <str>$username,
-            path := '.',
-            size := 0,
-            mtime := <float64>$mtime,
-            mediatype := (
-                INSERT MediaType {
-                    name := <str>$mediatype
-                }
-                UNLESS CONFLICT ON .name
-                ELSE (
-                    SELECT
-                        MediaType
-                    FILTER
-                        .name = <str>$mediatype
-                )
-            ),
-            namespace := (
-                INSERT Namespace {
-                    path := <str>$username,
-                    owner := (
-                        INSERT User {
-                            username := <str>$username,
-                            password := <str>$password,
-                            superuser := <bool>$superuser,
-                        }
-                    )
-                }
-            )
-        }
+        SELECT (
+            INSERT User {
+                username := <str>$username,
+                password := <str>$password,
+                superuser := <bool>$superuser,
+            }
+        ) { id, username, superuser }
     """
 
     try:
-        await conn.query(
-            query,
-            username=username,
-            password=security.make_password(password),
-            superuser=superuser,
-            mtime=time.time(),
-            mediatype=mediatypes.FOLDER,
+        return User.from_orm(
+            await conn.query_single(
+                query,
+                username=username,
+                password=security.make_password(password),
+                superuser=superuser,
+            )
         )
     except edgedb.ConstraintViolationError as exc:
         raise errors.UserAlreadyExists(f"Username '{username}' is taken") from exc

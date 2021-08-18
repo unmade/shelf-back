@@ -26,7 +26,7 @@ async def create_account(
     superuser: bool = False,
 ) -> Account:
     """
-    Create new user, namespace, home and trash folders.
+    Create a new user, namespace, home and trash folders.
 
     Args:
         conn (DBConnOrPool): Database connection or connection pool.
@@ -36,22 +36,25 @@ async def create_account(
         first_name (str, optional): First name. Defaults to "".
         last_name (str, optional): Last name. Defaults to "".
         superuser (bool, optional): Whether user is super user or not. Defaults to
-            False
+            False.
 
     Raises:
         UserAlreadyExists: If user with this username or email already exists.
+
+    Returns:
+        Account: A freshly created account.
     """
-    async for tx in conn.retrying_transaction():
+    await storage.makedirs(joinpath(username, config.TRASH_FOLDER_NAME))
+
+    async for tx in conn.retrying_transaction():  # pragma: no branch
         async with tx:
-            await crud.user.create(tx, username, password, superuser=superuser)
+            user = await crud.user.create(tx, username, password, superuser=superuser)
+            namespace = await crud.namespace.create(tx, username, user.id)
+            await crud.file.create_home_folder(tx, namespace.path)
+            await crud.file.create_folder(tx, namespace.path, config.TRASH_FOLDER_NAME)
             account = await crud.account.create(
                 tx, username, email=email, first_name=first_name, last_name=last_name
             )
-            await crud.file.create(
-                tx, username, config.TRASH_FOLDER_NAME, mediatype=mediatypes.FOLDER
-            )
-            await storage.makedirs(username)
-            await storage.makedirs(joinpath(username, config.TRASH_FOLDER_NAME))
     return account
 
 
@@ -351,7 +354,7 @@ async def save_file(
 
     async for tx in conn.retrying_transaction():  # pragma: no branch
         async with tx:
-            file_db = await crud.file.create(
+            file = await crud.file.create(
                 tx,
                 namespace.path,
                 next_path,
@@ -359,4 +362,4 @@ async def save_file(
                 mediatype=mediatypes.guess(next_path, content)
             )
 
-    return file_db
+    return file

@@ -360,6 +360,23 @@ async def test_create_folder_but_path_is_not_a_directory(
         await crud.file.create_folder(tx, namespace.path, "data/file")
 
 
+async def test_create_home_folder(tx: DBTransaction, namespace: Namespace):
+    await tx.execute("DELETE File;")
+    home = await crud.file.create_home_folder(tx, namespace.path)
+    assert home.name == namespace.path.name
+    assert home.path == "."
+    assert home.size == 0
+    assert home.mediatype == FOLDER
+
+
+async def test_create_home_folder_but_it_already_exists(
+    tx: DBTransaction,
+    namespace: Namespace,
+):
+    with pytest.raises(errors.FileAlreadyExists):
+        await crud.file.create_home_folder(tx, namespace.path)
+
+
 async def test_delete_file(tx: DBTransaction, namespace: Namespace):
     path = Path("folder/file")
     await crud.file.create(tx, namespace.path, path.parent, mediatype=FOLDER)
