@@ -25,14 +25,7 @@ if TYPE_CHECKING:
 
 fake = Faker()
 
-
-def pytest_addoption(parser):
-    parser.addoption(
-        "--reuse-db",
-        action="store_true",
-        default=False,
-        help="whether to keep db after the test run or drop it.",
-    )
+pytest_plugins = ["pytester"]
 
 
 class TestClient(AsyncClient):
@@ -44,6 +37,27 @@ class TestClient(AsyncClient):
         token = security.create_access_token(str(user_id))
         self.headers.update({"Authorization": f"Bearer {token}"})
         return self
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--reuse-db",
+        action="store_true",
+        default=False,
+        help=(
+            "whether to keep db after the test run or drop it. "
+            "If the database does not exists it will be created"
+        ),
+    )
+
+
+@pytest.fixture(scope="session")
+def reuse_db(pytestconfig):
+    """
+    Returns whether or not to re-use an existing database and to keep it after
+    the test run.
+    """
+    return pytestconfig.getoption("reuse_db", False)
 
 
 @pytest.fixture
@@ -80,14 +94,7 @@ def replace_storage_location_with_tmp_path(tmp_path):
 
 
 @pytest.fixture(autouse=True, scope="session")
-def replace_database_dsn():
-    """Replace database DSN with a test value."""
-    _, dsn, _ = _build_test_db_dsn()
-    with mock.patch("app.config.DATABASE_DSN", dsn):
-        yield
-
-
-def _build_test_db_dsn() -> tuple[str, str, str]:
+def db_dsn() -> tuple[str, str, str]:
     """
     Parse DSN from config and return tuple:
         - first element is a DSN to server, without database name
@@ -101,42 +108,63 @@ def _build_test_db_dsn() -> tuple[str, str, str]:
     return server_dsn, db_dsn, db_name
 
 
+@pytest.fixture(autouse=True, scope="session")
+def replace_database_dsn(db_dsn):
+    """Replace database DSN with a test value."""
+    _, dsn, _ = db_dsn
+    with mock.patch("app.config.DATABASE_DSN", dsn):
+        yield
+
+
 @pytest.fixture(scope="session")
 def event_loop():
-    """Redefines pytest-asyncio event_loop fixture with 'session' scope."""
+    """Redefine pytest-asyncio event_loop fixture with 'session' scope."""
     loop = asyncio.get_event_loop()
     yield loop
     loop.close()
 
 
-@pytest.fixture(autouse=True, scope="session")
-async def create_test_db(pytestconfig) -> None:
+@pytest.fixture(scope="session")
+async def setup_test_db(reuse_db, db_dsn) -> None:
     """
-    Create test database.
+    Create test database and apply migration. If database already exists and
+    no `--reuse-db` provided, then test database will be re-created.
+    """
+    server_dsn, dsn, db_name = db_dsn
+    conn = await edgedb.async_connect(
+        dsn=server_dsn,
+        tls_ca_file=config.DATABASE_TLS_CA_FILE
+    )
 
-    If DB already exists, then drop it first, and create again.
-    """
-    reuse = pytestconfig.getoption("reuse_db")
-    dsn, _, db_name = _build_test_db_dsn()
-    conn = await edgedb.async_connect(dsn=dsn, tls_ca_file=config.DATABASE_TLS_CA_FILE)
+    should_migrate = True
     try:
         await conn.execute(f"CREATE DATABASE {db_name};")
-    except (edgedb.errors.DuplicateDatabaseDefinitionError, edgedb.errors.SchemaError):
-        if not reuse:
+    except edgedb.DuplicateDatabaseDefinitionError:
+        if not reuse_db:
             await conn.execute(f"DROP DATABASE {db_name};")
             await conn.execute(f"CREATE DATABASE {db_name};")
+        else:
+            should_migrate = False
     finally:
         await conn.aclose()
 
+    if should_migrate:
+        schema = (config.BASE_DIR / "./dbschema/default.esdl").read_text()
+        conn = await edgedb.async_connect(
+            dsn=dsn,
+            tls_ca_file=config.DATABASE_TLS_CA_FILE
+        )
+        try:
+            await db.migrate(conn, schema)
+        finally:
+            await conn.aclose()
+
 
 @pytest.fixture(scope="session")
-async def _db_pool(create_test_db):
-    """Yield a connection pool to the database."""
-    del create_test_db  # required only to preserve fixtures correct execution order
-
-    dsn = config.DATABASE_DSN
+async def session_db_pool(setup_test_db):
+    """A session scoped connection pool to the database."""
     async with edgedb.create_async_pool(
-        dsn=dsn,
+        dsn=config.DATABASE_DSN,
         min_size=3,
         max_size=3,
         tls_ca_file=config.DATABASE_TLS_CA_FILE,
@@ -145,44 +173,30 @@ async def _db_pool(create_test_db):
             yield pool
 
 
-@pytest.fixture(scope="session")
-async def apply_migration(pytestconfig, _db_pool: DBPool) -> None:
-    """Apply schema to test database."""
-    if not pytestconfig.getoption("reuse_db", False):
-        with open(config.BASE_DIR / "./dbschema/default.esdl", "r") as f:
-            schema = f.read()
-
-        await db.migrate(_db_pool, schema)
-
-
 @pytest.fixture
-async def db_pool(request: FixtureRequest, _db_pool: DBPool, apply_migration):
+async def db_pool(request: FixtureRequest, session_db_pool: DBPool):
     """Yield a connection pool."""
-    del apply_migration  # required only to preserve fixtures correct execution order
-
     marker = request.node.get_closest_marker("database")
     if not marker:
-        raise RuntimeError("Access to database without 'database' marker!")
+        raise RuntimeError("Access to database without `database` marker!")
 
     if not marker.kwargs.get("transaction", False):
-        raise RuntimeError("Use 'transaction=True' to access database pool")
+        raise RuntimeError("Use `transaction=True` to access database pool")
 
-    yield _db_pool
+    yield session_db_pool
 
 
 @pytest.fixture
-async def tx(request: FixtureRequest, _db_pool: DBPool, apply_migration):
+async def tx(request: FixtureRequest, session_db_pool: DBPool):
     """Yield a transaction and rollback it after each test."""
-    del apply_migration  # required only to preserve fixtures correct execution order
-
     marker = request.node.get_closest_marker("database")
     if not marker:
-        raise RuntimeError("Access to database without 'database' marker!")
+        raise RuntimeError("Access to database without `database` marker!")
 
     if marker.kwargs.get("transaction", False):
-        raise RuntimeError("Can't use 'tx' fixture with 'transaction=True' option")
+        raise RuntimeError("Can't use `tx` fixture with `transaction=True` option")
 
-    transaction = _db_pool.raw_transaction()
+    transaction = session_db_pool.raw_transaction()
     await transaction.start()
     try:
         yield transaction
@@ -192,9 +206,13 @@ async def tx(request: FixtureRequest, _db_pool: DBPool, apply_migration):
 
 @pytest.fixture
 def db_pool_or_tx(request: FixtureRequest):
+    """
+    Yield either a `tx` or a `db_pool` fixture depending on `pytest.mark.database`
+    params.
+    """
     marker = request.node.get_closest_marker("database")
     if not marker:
-        raise RuntimeError("Access to database without 'database' marker!")
+        raise RuntimeError("Access to database without `database` marker!")
 
     if marker.kwargs.get("transaction", False):
         yield request.getfixturevalue("db_pool")
@@ -203,10 +221,8 @@ def db_pool_or_tx(request: FixtureRequest):
 
 
 @pytest.fixture(autouse=True)
-async def flush_db_if_needed(request: FixtureRequest, _db_pool, apply_migration):
+async def flush_db_if_needed(request: FixtureRequest):
     """Flush database after each tests."""
-    del apply_migration  # required only to preserve fixtures correct execution order
-
     try:
         yield
     finally:
@@ -217,7 +233,9 @@ async def flush_db_if_needed(request: FixtureRequest, _db_pool, apply_migration)
         if not marker.kwargs.get("transaction", False):
             return
 
-        await _db_pool.execute("""
+        session_db_pool: DBPool = request.getfixturevalue("session_db_pool")
+        await session_db_pool.execute("""
+            DELETE Account;
             DELETE File;
             DELETE Namespace;
             DELETE User;

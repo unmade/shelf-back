@@ -96,7 +96,7 @@ async def delete_immediately(
         File: Deleted file.
     """
     await storage.delete(joinpath(namespace.path, path))
-    async for tx in conn.retrying_transaction():
+    async for tx in conn.retrying_transaction():  # pragma: no branch
         async with tx:
             file = await crud.file.delete(tx, namespace.path, path)
     return file
@@ -118,7 +118,7 @@ async def empty_trash(conn: DBConnOrPool, namespace: Namespace) -> File:
     for file in files:
         await storage.delete(file.path)
 
-    async for tx in conn.retrying_transaction():
+    async for tx in conn.retrying_transaction():  # pragma: no branch
         async with tx:
             trash = await crud.file.empty_trash(tx, namespace.path)
     return trash
@@ -193,7 +193,7 @@ async def move(
 
     await storage.move(namespace.path / path, namespace.path / next_path)
 
-    async for tx in conn.retrying_transaction():
+    async for tx in conn.retrying_transaction():  # pragma: no branch
         async with tx:
             file = await crud.file.move(tx, namespace.path, path, next_path)
     return file
@@ -349,7 +349,7 @@ async def save_file(
 
     storage_file = await storage.save(namespace.path / next_path, content)
 
-    async for tx in conn.retrying_transaction():
+    async for tx in conn.retrying_transaction():  # pragma: no branch
         async with tx:
             file_db = await crud.file.create(
                 tx,

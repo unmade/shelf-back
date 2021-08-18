@@ -9,7 +9,7 @@ from app import errors
 from app.entities import Namespace, User
 
 if TYPE_CHECKING:
-    from app.typedefs import DBAnyConn, StrOrPath
+    from app.typedefs import DBAnyConn, StrOrPath, StrOrUUID
 
 
 def namespace_from_db(obj: edgedb.Object) -> Namespace:
@@ -49,7 +49,7 @@ async def get(conn: DBAnyConn, path: StrOrPath) -> Namespace:
         raise errors.NamespaceNotFound() from exc
 
 
-async def get_by_owner(conn: DBAnyConn, owner_id: str) -> Namespace:
+async def get_by_owner(conn: DBAnyConn, owner_id: StrOrUUID) -> Namespace:
     query = """
         SELECT
             Namespace {

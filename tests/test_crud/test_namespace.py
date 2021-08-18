@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from typing import TYPE_CHECKING
 
 import pytest
@@ -15,10 +16,18 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
 
 async def test_get(tx: DBTransaction, namespace: Namespace):
-    namespace = await crud.namespace.get(tx, namespace.path)
-    assert namespace.path == namespace.path
+    assert await crud.namespace.get(tx, namespace.path) == namespace
 
 
 async def test_get_but_namespace_not_found(tx: DBTransaction):
     with pytest.raises(errors.NamespaceNotFound):
         await crud.namespace.get(tx, "user")
+
+
+async def test_get_by_owner(tx: DBTransaction, namespace: Namespace):
+    assert await crud.namespace.get_by_owner(tx, namespace.owner.id) == namespace
+
+
+async def test_get_by_owner_but_namespace_not_found(tx: DBTransaction):
+    with pytest.raises(errors.NamespaceNotFound):
+        await crud.namespace.get_by_owner(tx, uuid.uuid4())
