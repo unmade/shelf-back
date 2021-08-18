@@ -49,7 +49,7 @@ class AccountFactory:
             ) { id, email, first_name, last_name, user: { username, superuser } }
         """
 
-        return Account.from_db(
+        return crud.account.from_db(
             await self._db_conn.query_single(
                 query,
                 email=email,
@@ -106,7 +106,7 @@ class NamespaceFactory:
         if owner is None:
             owner = await UserFactory(self._db_conn)()
 
-        namespace = crud.namespace.namespace_from_db(
+        namespace = crud.namespace.from_db(
             await self._db_conn.query_single("""
                 SELECT (
                     INSERT Namespace {
@@ -204,7 +204,7 @@ class UserFactory:
             password = security.make_password(password)
 
         # create user with plain query, cause crud.user.create do too much stuff
-        return User.from_orm(
+        return crud.user.from_db(
             await self._db_conn.query_single("""
                 SELECT (
                     INSERT User {

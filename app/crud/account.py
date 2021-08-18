@@ -7,6 +7,8 @@ import edgedb
 from app import db, errors
 from app.entities import Account
 
+from . import user
+
 if TYPE_CHECKING:
     from app.typedefs import DBAnyConn, StrOrUUID
 
@@ -15,6 +17,16 @@ class AccountUpdate(TypedDict, total=False):
     email: Optional[str]
     first_name: str
     last_name: str
+
+
+def from_db(obj: edgedb.Object) -> Account:
+    return Account.construct(
+        id=obj.id,
+        email=obj.email,
+        first_name=obj.first_name,
+        last_name=obj.last_name,
+        user=user.from_db(obj.user),
+    )
 
 
 async def count(conn: DBAnyConn) -> int:
@@ -81,7 +93,7 @@ async def create(
     except edgedb.ConstraintViolationError as exc:
         raise errors.UserAlreadyExists(f"Email '{email}' is taken") from exc
 
-    return Account.from_db(account)
+    return from_db(account)
 
 
 async def get(conn: DBAnyConn, user_id: StrOrUUID) -> Account:
@@ -111,7 +123,7 @@ async def get(conn: DBAnyConn, user_id: StrOrUUID) -> Account:
     except edgedb.NoDataError as exc:
         raise errors.UserNotFound(f"No account for user with id: {user_id}") from exc
 
-    return Account.from_db(account)
+    return from_db(account)
 
 
 async def list_all(conn: DBAnyConn, *, offset: int, limit: int = 25) -> list[Account]:
@@ -135,7 +147,7 @@ async def list_all(conn: DBAnyConn, *, offset: int, limit: int = 25) -> list[Acc
          OFFSET <int64>$offset
          LIMIT <int64>$limit
     """, offset=offset, limit=limit)
-    return [Account.from_db(account) for account in accounts]
+    return [from_db(account) for account in accounts]
 
 
 async def update(conn: DBAnyConn, user_id, fields: AccountUpdate) -> Account:
@@ -152,4 +164,4 @@ async def update(conn: DBAnyConn, user_id, fields: AccountUpdate) -> Account:
         ) {{ id, email, first_name, last_name, user: {{  username, superuser }} }}
     """
     account = await conn.query_single(query, user_id=user_id, **fields)
-    return Account.from_db(account)
+    return from_db(account)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Type
+from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -16,16 +16,6 @@ class Account(BaseModel):
     last_name: str
     user: User
 
-    @classmethod
-    def from_db(cls: Type[Account], obj) -> Account:
-        return cls.construct(
-            id=obj.id,
-            email=obj.email,
-            first_name=obj.first_name,
-            last_name=obj.last_name,
-            user=User.from_orm(obj.user),
-        )
-
 
 class File(BaseModel):
     id: UUID
@@ -34,17 +24,6 @@ class File(BaseModel):
     size: int
     mtime: float
     mediatype: str
-
-    @classmethod
-    def from_db(cls: Type[File], obj) -> File:
-        return cls.construct(
-            id=obj.id,
-            name=obj.name,
-            path=obj.path,
-            size=obj.size,
-            mtime=obj.mtime,
-            mediatype=obj.mediatype.name,
-        )
 
     def is_folder(self) -> bool:
         """True if file is a folder, False otherwise."""
@@ -75,6 +54,3 @@ class User(BaseModel):
     id: UUID
     username: str
     superuser: bool
-
-    class Config:
-        orm_mode = True

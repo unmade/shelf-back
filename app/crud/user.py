@@ -12,6 +12,14 @@ if TYPE_CHECKING:
     from app.typedefs import DBAnyConn, StrOrUUID
 
 
+def from_db(obj: edgedb.Object) -> User:
+    return User.construct(
+        id=obj.id,
+        username=obj.username,
+        superuser=obj.superuser,
+    )
+
+
 async def create(
     conn: DBAnyConn, username: str, password: str, *, superuser: bool = False,
 ) -> User:
@@ -42,7 +50,7 @@ async def create(
     """
 
     try:
-        return User.from_orm(
+        return from_db(
             await conn.query_single(
                 query,
                 username=username,
@@ -91,7 +99,7 @@ async def get_by_id(conn: DBAnyConn, user_id: StrOrUUID) -> User:
             .id = <uuid>$user_id
     """
     try:
-        return User.from_orm(await conn.query_single(query, user_id=user_id))
+        return from_db(await conn.query_single(query, user_id=user_id))
     except edgedb.NoDataError as exc:
         raise errors.UserNotFound(f"No user with id: '{user_id}'") from exc
 

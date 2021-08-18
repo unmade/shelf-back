@@ -23,6 +23,17 @@ def _lowered(items: Iterable[Any]) -> Iterator[str]:
     return (str(item).lower() for item in items)
 
 
+def from_db(obj: edgedb.Object) -> File:
+    return File.construct(
+        id=obj.id,
+        name=obj.name,
+        path=obj.path,
+        size=obj.size,
+        mtime=obj.mtime,
+        mediatype=obj.mediatype.name,
+    )
+
+
 async def create(
     conn: DBAnyConn,
     namespace: StrOrPath,
@@ -119,7 +130,7 @@ async def create(
     if size:
         await inc_size_batch(conn, namespace, path.parents, size)
 
-    return File.from_db(file)
+    return from_db(file)
 
 
 async def create_batch(
@@ -307,7 +318,7 @@ async def create_home_folder(conn: DBAnyConn, namespace: StrOrPath) -> File:
     except edgedb.ConstraintViolationError as exc:
         raise errors.FileAlreadyExists() from exc
 
-    return File.from_db(file)
+    return from_db(file)
 
 
 async def delete(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> File:
@@ -339,7 +350,7 @@ async def delete(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> File
     """
 
     try:
-        file = File.from_db(
+        file = from_db(
             await conn.query_single(query, namespace=str(namespace), path=str(path))
         )
     except edgedb.NoDataError as exc:
@@ -464,7 +475,7 @@ async def get(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> File:
             .namespace.path = <str>$namespace
     """
     try:
-        return File.from_db(
+        return from_db(
             await conn.query_single(query, namespace=str(namespace), path=str(path))
         )
     except edgedb.NoDataError as exc:
@@ -503,7 +514,7 @@ async def get_many(
         paths=[str(p).lower() for p in paths]
     )
 
-    return [File.from_db(f) for f in files]
+    return [from_db(f) for f in files]
 
 
 async def list_folder(
@@ -567,7 +578,7 @@ async def list_folder(
     if not parent.mediatype.name == mediatypes.FOLDER:
         raise errors.NotADirectory()
 
-    return [File.from_db(child) for child in parent.children]
+    return [from_db(child) for child in parent.children]
 
 
 async def move(
@@ -681,7 +692,7 @@ async def _move_file(conn: DBAnyConn, file_id: UUID, next_path: StrOrPath) -> Fi
             }
         ) { id, name, path, size, mtime, mediatype: { name } }
     """
-    return File.from_db(
+    return from_db(
         await conn.query_single(
             query,
             file_id=str(file_id),

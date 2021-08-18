@@ -6,17 +6,19 @@ from typing import TYPE_CHECKING
 import edgedb
 
 from app import errors
-from app.entities import Namespace, User
+from app.entities import Namespace
+
+from . import user
 
 if TYPE_CHECKING:
     from app.typedefs import DBAnyConn, StrOrPath, StrOrUUID
 
 
-def namespace_from_db(obj: edgedb.Object) -> Namespace:
+def from_db(obj: edgedb.Object) -> Namespace:
     return Namespace.construct(
         id=obj.id,
         path=Path(obj.path),
-        owner=User.from_orm(obj.owner),
+        owner=user.from_db(obj.owner),
     )
 
 
@@ -46,7 +48,7 @@ async def create(conn: DBAnyConn, path: StrOrPath, owner_id: StrOrUUID) -> Names
         ) { id, path, owner: { id, username, superuser } }
     """
 
-    return namespace_from_db(
+    return from_db(
         await conn.query_single(query, path=str(path), owner_id=owner_id)
     )
 
@@ -75,7 +77,7 @@ async def get(conn: DBAnyConn, path: StrOrPath) -> Namespace:
     """
 
     try:
-        return namespace_from_db(await conn.query_single(query, path=str(path)))
+        return from_db(await conn.query_single(query, path=str(path)))
     except edgedb.NoDataError as exc:
         raise errors.NamespaceNotFound() from exc
 
@@ -90,6 +92,6 @@ async def get_by_owner(conn: DBAnyConn, owner_id: StrOrUUID) -> Namespace:
             .owner.id = <uuid>$owner_id
     """
     try:
-        return namespace_from_db(await conn.query_single(query, owner_id=owner_id))
+        return from_db(await conn.query_single(query, owner_id=owner_id))
     except edgedb.NoDataError as exc:
         raise errors.NamespaceNotFound() from exc
