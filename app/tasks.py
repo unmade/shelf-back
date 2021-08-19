@@ -5,7 +5,6 @@ import functools
 import logging
 from typing import TYPE_CHECKING
 
-import edgedb
 from celery import Celery
 
 from app import actions, config, db, errors
@@ -13,7 +12,7 @@ from app.entities import RelocationResult
 
 if TYPE_CHECKING:
     from app.entities import Namespace, RelocationPath
-    from app.typedefs import StrOrPath
+    from app.typedefs import StrOrPath, DBConnOrPool
 
 logger = logging.getLogger(__name__)
 
@@ -33,11 +32,6 @@ class CeleryConfig:
 celery_app.config_from_object(CeleryConfig)
 
 
-@celery_app.task
-def ping() -> str:
-    return "pong"
-
-
 def asynctask(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -46,8 +40,16 @@ def asynctask(func):
     return celery_app.task(wrapper)
 
 
-@asynctask
-async def move(namespace: Namespace, relocation: RelocationPath) -> RelocationResult:
+@celery_app.task
+def ping() -> str:
+    return "pong"
+
+
+async def _move(
+    conn: DBConnOrPool,
+    namespace: Namespace,
+    relocation: RelocationPath,
+) -> RelocationResult:
     path, next_path = relocation.from_path, relocation.to_path
     file, err_code = None, None
 
@@ -64,17 +66,43 @@ async def move(namespace: Namespace, relocation: RelocationPath) -> RelocationRe
 
 
 @asynctask
+async def move(namespace: Namespace, relocation: RelocationPath) -> RelocationResult:
+    """
+    Move single file/folder to a different location.
+
+    Args:
+        namespace (Namespace): Namespace where files are located.
+        relocation (RelocationPath): A current file path and path to move file to.
+
+    Returns:
+        RelocationResult: either a moved file or an error code.
+    """
+    async with db.connect() as conn:
+        return await _move(conn, namespace, relocation)
+
+
+@asynctask
 async def move_batch(
     namespace: Namespace,
     relocations: list[RelocationPath],
 ) -> list[RelocationResult]:
-    async with edgedb.create_async_pool(
-        dsn=config.DATABASE_DSN,
-        min_size=2,
-        max_size=2,
-        tls_ca_file=config.DATABASE_TLS_CA_FILE,
-    ) as pool:
-        return await actions.move_batch(pool, namespace, relocations)
+    """
+    Move several files/folders to a different locations.
+
+    Args:
+        namespace (Namespace): Namespace, where files should be moved.
+        relocations (Iterable[RelocationPath]): Iterable, where each item contains
+            current file path and path to move file to.
+
+    Returns:
+        list[RelocationResult]: List, where each item contains either a moved file
+            or an error code.
+    """
+    async with db.connect() as conn:
+        return [
+            await _move(conn, namespace, relocation)
+            for relocation in relocations
+        ]
 
 
 @asynctask
@@ -86,11 +114,11 @@ async def move_to_trash_batch(
     Move several files to trash asynchronously.
 
     Args:
-        namespace (Namespace): Namespace, where files should be moved
-        paths (list[StrOrPath]): List of file path to move.
+        namespace (Namespace): Namespace, where files should be moved to trash
+        paths (list[StrOrPath]): List of file path to move to trash.
 
     Returns:
-        list[RelocationResult]: List, where each item contains either a moved file,
+        list[RelocationResult]: List, where each item contains either a moved file
             or an error code.
     """
     results = []

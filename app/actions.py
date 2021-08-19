@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-import asyncio
 import os.path
 from collections import deque
 from datetime import datetime
 from pathlib import PurePath
-from typing import IO, TYPE_CHECKING, Iterable, Optional
+from typing import IO, TYPE_CHECKING, Optional
 
 from app import config, crud, errors, mediatypes
-from app.entities import Account, File, Namespace, RelocationPath, RelocationResult
+from app.entities import Account, File, Namespace
 from app.storage import joinpath, storage
 
 if TYPE_CHECKING:
@@ -200,43 +199,6 @@ async def move(
         async with tx:
             file = await crud.file.move(tx, namespace.path, path, next_path)
     return file
-
-
-async def move_batch(
-    conn: DBPool,
-    namespace: Namespace,
-    relocations: Iterable[RelocationPath],
-) -> list[RelocationResult]:
-    """
-    Move several files/folders to a different locations.
-
-    Args:
-        conn (DBConnOrPool): Database connection pool.
-        namespace (Namespace): Namespace, where files should be moved.
-        relocations (Iterable[RelocationPath]): Iterable, where each item contains
-            current file path and path to move file to.
-
-    Returns:
-        list[RelocationResult]: List, where each item contains either a moved file,
-            or an error code.
-    """
-    coros = (
-        move(conn, namespace, item.from_path, item.to_path)
-        for item in relocations
-    )
-    items = await asyncio.gather(*coros, return_exceptions=True)
-
-    for item in items:
-        if not isinstance(item, errors.Error) and isinstance(item, Exception):
-            raise item
-
-    return [
-        RelocationResult(
-            file=item if isinstance(item, File) else None,
-            err_code=item.code if isinstance(item, errors.Error) else None,
-        )
-        for item in items
-    ]
 
 
 async def move_to_trash(
