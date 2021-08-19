@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import edgedb
 from celery import Celery
 
-from app import actions, config, errors
+from app import actions, config, db, errors
 from app.entities import File, RelocationResult
 
 if TYPE_CHECKING:
@@ -47,8 +47,26 @@ def asynctask(func):
 
 
 @asynctask
+async def move(namespace: Namespace, relocation: RelocationPath) -> RelocationResult:
+    path, next_path = relocation.from_path, relocation.to_path
+    file, err_code = None, None
+
+    async with db.connect() as conn:
+        try:
+            file = await actions.move(conn, namespace, path, next_path)
+        except errors.Error as exc:
+            err_code = exc.code
+        except Exception:
+            err_code = errors.ErrorCode.internal
+            logger.exception("Failed to move file")
+
+    return RelocationResult(file=file, err_code=err_code)
+
+
+@asynctask
 async def move_batch(
-    namespace: Namespace, relocations: list[RelocationPath]
+    namespace: Namespace,
+    relocations: list[RelocationPath],
 ) -> list[RelocationResult]:
     async with edgedb.create_async_pool(
         dsn=config.DATABASE_DSN,

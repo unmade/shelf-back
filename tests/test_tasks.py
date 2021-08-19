@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
+from unittest import mock
 
 import pytest
 
@@ -8,6 +10,7 @@ from app import errors, tasks
 from app.entities import RelocationPath
 
 if TYPE_CHECKING:
+    from pytest import LogCaptureFixture
     from app.entities import Namespace
     from tests.factories import FileFactory
 
@@ -22,6 +25,47 @@ pytestmark = [
 def test_celery_works():
     task = tasks.ping.delay()
     assert task.get(timeout=1) == "pong"
+
+
+async def test_move(namespace: Namespace, file_factory: FileFactory):
+    file = await file_factory(namespace.path, path="folder/x.txt")
+    relocation = RelocationPath(from_path=file.path, to_path="y.txt")
+
+    task = tasks.move.delay(namespace, relocation)
+    result = task.get(timeout=2)
+
+    assert result.file is not None
+    assert result.file.id == file.id
+    assert result.file.path == "y.txt"
+
+    assert result.err_code is None
+
+
+async def test_move_but_move_fails_with_error(namespace: Namespace):
+    relocation = RelocationPath(from_path="x.txt", to_path="y.txt")
+
+    task = tasks.move.delay(namespace, relocation)
+    result = task.get(timeout=2)
+
+    assert result.file is None
+    assert result.err_code == errors.ErrorCode.file_not_found
+
+
+async def test_move_but_move_fails_with_exception(
+    caplog: LogCaptureFixture,
+    namespace: Namespace,
+):
+    relocation = RelocationPath(from_path="x.txt", to_path="y.txt")
+
+    task = tasks.move.delay(namespace, relocation)
+    with mock.patch("app.actions.move", side_effect=Exception):
+        result = task.get(timeout=2)
+
+    assert result.file is None
+    assert result.err_code == errors.ErrorCode.internal
+
+    log_record = ("app.tasks", logging.ERROR, "Failed to move file")
+    assert caplog.record_tuples == [log_record]
 
 
 async def test_move_batch(namespace: Namespace, file_factory: FileFactory):

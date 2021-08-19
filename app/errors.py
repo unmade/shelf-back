@@ -4,6 +4,7 @@ import enum
 
 
 class ErrorCode(str, enum.Enum):
+    internal = 'internal_error'
     file_already_exists = 'file_already_exists'
     file_not_found = 'file_not_found'
     is_a_directory = 'is_a_directory'
