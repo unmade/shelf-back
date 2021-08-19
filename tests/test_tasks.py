@@ -58,13 +58,15 @@ async def test_move_but_move_fails_with_exception(
     relocation = RelocationPath(from_path="x.txt", to_path="y.txt")
 
     task = tasks.move.delay(namespace, relocation)
-    with mock.patch("app.actions.move", side_effect=Exception):
+    with mock.patch("app.actions.move", side_effect=Exception) as move_mock:
         result = task.get(timeout=2)
+
+    assert move_mock.called
 
     assert result.file is None
     assert result.err_code == errors.ErrorCode.internal
 
-    log_record = ("app.tasks", logging.ERROR, "Failed to move file")
+    log_record = ("app.tasks", logging.ERROR, "Unexpectedly failed to move file")
     assert caplog.record_tuples == [log_record]
 
 
@@ -88,12 +90,12 @@ async def test_move_batch(namespace: Namespace, file_factory: FileFactory):
 
 
 async def test_move_to_trash_batch(namespace: Namespace, file_factory: FileFactory):
-    await file_factory(namespace.path, path="folder/a")
     files = [await file_factory(namespace.path) for _ in range(2)]
     paths = [files[0].path, "file_not_exist.txt"]
 
     task = tasks.move_to_trash_batch.delay(namespace, paths)
     result = task.get(timeout=2)
+
     assert len(result) == 2
 
     assert result[0].file is not None
@@ -101,3 +103,28 @@ async def test_move_to_trash_batch(namespace: Namespace, file_factory: FileFacto
 
     assert result[1].file is None
     assert result[1].err_code == errors.ErrorCode.file_not_found
+
+
+async def test_move_to_trash_batch_but_move_fails_with_exception(
+    caplog: LogCaptureFixture,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    files = [await file_factory(namespace.path) for _ in range(2)]
+    paths = [files[0].path, "file_not_exist.txt"]
+
+    task = tasks.move_to_trash_batch.delay(namespace, paths)
+    with mock.patch("app.actions.move_to_trash", side_effect=Exception) as move_mock:
+        result = task.get(timeout=2)
+
+    assert move_mock.called
+
+    assert len(result) == 2
+
+    assert result[0].file is None
+    assert result[0].err_code == errors.ErrorCode.internal
+    assert result[1].file is None
+    assert result[1].err_code == errors.ErrorCode.internal
+
+    log_record = "app.tasks", logging.ERROR, "Unexpectedly failed to move file to trash"
+    assert caplog.record_tuples == [log_record, log_record]
