@@ -46,19 +46,6 @@ def _normalize(path: str) -> str:
     return normpath(path)
 
 
-class AsyncTaskID(BaseModel):
-    async_task_id: UUID
-
-
-class AsyncTaskStatus(str, Enum):
-    pending = "pending"
-    completed = "completed"
-
-
-class GetDownloadUrlResult(BaseModel):
-    download_url: str
-
-
 class File(BaseModel):
     id: UUID
     name: str
@@ -70,7 +57,7 @@ class File(BaseModel):
     has_thumbnail: bool = False
 
     @classmethod
-    def from_file(cls: Type[File], file: FileEntity) -> File:
+    def from_entity(cls: Type[File], file: FileEntity) -> File:
         return cls.construct(
             id=file.id,
             name=file.name,
@@ -92,9 +79,47 @@ class File(BaseModel):
         return False
 
 
+class PathRequest(BaseModel):
+    path: str
+
+    _normalize_path = validator("path", allow_reuse=True)(_normalize)
+
+
+class AsyncTaskID(BaseModel):
+    async_task_id: UUID
+
+
+class AsyncTaskStatus(str, Enum):
+    pending = "pending"
+    completed = "completed"
+
+
+class AsyncTaskResult(BaseModel):
+    file: Optional[File]
+    err_code: Optional[errors.ErrorCode]
+
+
+class DeletePathRequest(PathRequest):
+    @validator("path")
+    def check_path_is_not_special(cls, value: str):
+        if value.lower() in (TRASH_FOLDER_NAME.lower(), "."):
+            message = f"Path '{value}' is a special path and can't be deleted"
+            raise MalformedPath(message)
+        return value
+
+
+class DeleteImmediatelyCheckResponse(BaseModel):
+    status: AsyncTaskStatus
+    result: Optional[AsyncTaskResult] = None
+
+
 class EmptyTrashCheckResponse(BaseModel):
     status: AsyncTaskStatus
-    results: None = None
+    result: None = None
+
+
+class GetDownloadUrlResult(BaseModel):
+    download_url: str
 
 
 class ListFolderResult(BaseModel):
@@ -128,29 +153,9 @@ class MoveBatchRequest(BaseModel):
     items: list[MoveRequest]
 
 
-class MoveBatchResult(BaseModel):
-    file: Optional[File]
-    err_code: Optional[errors.ErrorCode]
-
-
 class MoveBatchCheckResponse(BaseModel):
     status: AsyncTaskStatus
-    results: Optional[list[MoveBatchResult]] = None
-
-
-class PathRequest(BaseModel):
-    path: str
-
-    _normalize_path = validator("path", allow_reuse=True)(_normalize)
-
-
-class DeletePathRequest(PathRequest):
-    @validator("path")
-    def check_path_is_not_special(cls, value: str):
-        if value.lower() in (TRASH_FOLDER_NAME.lower(), "."):
-            message = f"Path '{value}' is a special path and can't be deleted"
-            raise MalformedPath(message)
-        return value
+    result: Optional[list[AsyncTaskResult]] = None
 
 
 class MoveToTrashRequest(PathRequest):

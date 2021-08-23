@@ -34,6 +34,11 @@ class File(BaseModel):
         return self.name.startswith(".")
 
 
+class FileTaskResult(BaseModel):
+    file: Optional[File]
+    err_code: Optional[errors.ErrorCode]
+
+
 class Namespace(BaseModel):
     id: UUID
     path: Path
@@ -43,11 +48,6 @@ class Namespace(BaseModel):
 class RelocationPath(BaseModel):
     from_path: str
     to_path: str
-
-
-class RelocationResult(BaseModel):
-    file: Optional[File]
-    err_code: Optional[errors.ErrorCode]
 
 
 class User(BaseModel):

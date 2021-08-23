@@ -21,7 +21,7 @@ from app.api.files.exceptions import (
 from app.entities import RelocationPath
 
 if TYPE_CHECKING:
-    from app.entities import Namespace, RelocationResult
+    from app.entities import Namespace, FileTaskResult
     from tests.conftest import TestClient
     from tests.factories import FileFactory
 
@@ -76,25 +76,12 @@ async def test_create_folder_but_parent_is_a_file(
 
 
 async def test_delete_immediately(client: TestClient, namespace: Namespace):
-    name = path = "Test Folder"
-    payload = {"path": path}
+    payload = {"path": "f.txt"}
     client.login(namespace.owner.id)
     await client.post("/files/create_folder", json=payload)
     response = await client.post("/files/delete_immediately", json=payload)
-    assert response.json()["name"] == name
-    assert response.json()["path"] == path
+    assert "async_task_id" in response.json()
     assert response.status_code == 200
-
-
-async def test_delete_immediately_but_path_not_found(
-    client: TestClient,
-    namespace: Namespace,
-):
-    data = {"path": "Test Folder"}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/delete_immediately", json=data)
-    assert response.json() == PathNotFound(path="Test Folder").as_dict()
-    assert response.status_code == 404
 
 
 @pytest.mark.parametrize("path", [".", "Trash"])
@@ -109,6 +96,49 @@ async def test_delete_immediately_but_it_is_a_special_folder(
     message = f"Path '{path}' is a special path and can't be deleted"
     assert response.json() == MalformedPath(message).as_dict()
     assert response.status_code == 400
+
+
+@pytest.mark.usefixtures("celery_session_worker")
+async def test_delete_immediately_check_task_is_pending(
+    client: TestClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    file = await file_factory(namespace.path, path="folder/a.txt")
+    task = tasks.delete_immediately.delay(namespace, file.path)
+
+    payload = {"async_task_id": task.id}
+    client.login(namespace.owner.id)
+    response = await client.post("/files/delete_immediately/check", json=payload)
+    assert response.status_code == 200
+    assert response.json()["status"] == 'pending'
+    assert response.json()["result"] is None
+
+    # sometimes there is a race condition between task and test teardown,
+    # so ensure task is completed
+    task.get(timeout=2)
+
+
+@pytest.mark.usefixtures("celery_session_worker")
+async def test_delete_immediately_check_task_is_completed(
+    client: TestClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    file = await file_factory(namespace.path, path="folder/a.txt")
+    task = tasks.delete_immediately.delay(namespace, file.path)
+    task.get(timeout=1)
+
+    payload = {"async_task_id": task.id}
+    client.login(namespace.owner.id)
+    response = await client.post("/files/delete_immediately/check", json=payload)
+    assert response.status_code == 200
+    assert response.json()["status"] == "completed"
+
+    result = response.json()["result"]
+
+    assert result["file"]["id"] == str(file.id)
+    assert result["err_code"] is None
 
 
 @pytest.mark.parametrize("path", ["f.txt", "ф.txt"])
@@ -243,7 +273,7 @@ async def test_empty_trash_check_task_is_pending(
     response = await client.post("/files/empty_trash/check", json=payload)
     assert response.status_code == 200
     assert response.json()["status"] == 'pending'
-    assert response.json()["results"] is None
+    assert response.json()["result"] is None
 
     # sometimes there is a race condition between task and test teardown,
     # so ensure task is completed
@@ -266,7 +296,7 @@ async def test_empty_trash_check_task_is_completed(
     response = await client.post("/files/empty_trash/check", json=payload)
     assert response.status_code == 200
     assert response.json()["status"] == "completed"
-    assert response.json()["results"] is None
+    assert response.json()["result"] is None
 
 
 async def test_get_download_url(
@@ -516,9 +546,9 @@ async def test_move_batch(
     assert response.status_code == 200
 
     task = tasks.celery_app.AsyncResult(response.json()["async_task_id"])
-    relocations: list[RelocationResult] = task.get(timeout=2)
-    assert relocations[0].file is not None
-    assert relocations[0].file.path.startswith("folder/")
+    results: list[FileTaskResult] = task.get(timeout=2)
+    assert results[0].file is not None
+    assert results[0].file.path.startswith("folder/")
 
 
 @pytest.mark.usefixtures("celery_session_worker")
@@ -539,7 +569,7 @@ async def test_move_batch_check_task_is_pending(
     response = await client.post("/files/move_batch/check", json=payload)
     assert response.status_code == 200
     assert response.json()["status"] == 'pending'
-    assert response.json()["results"] is None
+    assert response.json()["result"] is None
 
     # sometimes there is a race condition between task and test teardown,
     # so ensure task is completed
@@ -566,12 +596,11 @@ async def test_move_batch_check_task_is_completed(
     assert response.status_code == 200
     assert response.json()["status"] == "completed"
 
-    results = response.json()["results"]
+    results = response.json()["result"]
     assert len(results) == 2
 
-    assert results[0]["file"] is not None
-    assert results[0]["err_code"] is None
     assert results[0]["file"]["path"] == relocations[0].to_path
+    assert results[0]["err_code"] is None
 
     assert results[1]["file"] is None
     assert results[1]["err_code"] == "file_not_found"
@@ -651,9 +680,9 @@ async def test_move_to_trash_batch(
     assert response.status_code == 200
 
     task = tasks.celery_app.AsyncResult(response.json()["async_task_id"])
-    relocations: list[RelocationResult] = task.get(timeout=2)
-    assert relocations[0].file is not None
-    assert relocations[0].file.path.startswith("Trash/")
+    results: list[FileTaskResult] = task.get(timeout=2)
+    assert results[0].file is not None
+    assert results[0].file.path.startswith("Trash/")
 
 
 async def test_upload(client: TestClient, namespace: Namespace):

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from celery import Celery
 
 from app import actions, config, db, errors
-from app.entities import RelocationResult
+from app.entities import FileTaskResult
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -47,6 +47,32 @@ def ping() -> str:
 
 
 @asynctask
+async def delete_immediately(namespace: Namespace, path: StrOrPath) -> FileTaskResult:
+    """
+    Permanently delete a file or a folder with all of its contents.
+
+    Args:
+        namespace (Namespace): Namespace where file/folder should be deleted.
+        path (StrOrPath): Path to a file/folder to delete.
+
+    Returns:
+        FileTaskResult: Deleted file.
+    """
+
+    file, err_code = None, None
+    async with db.connect() as conn:
+        try:
+            file = await actions.delete_immediately(conn, namespace, path)
+        except errors.FileNotFound:
+            err_code = errors.ErrorCode.file_not_found
+        except Exception:
+            err_code = errors.ErrorCode.internal
+            logger.exception("Unexpectedly failed to delete a file")
+
+    return FileTaskResult(file=file, err_code=err_code)
+
+
+@asynctask
 async def empty_trash(namespace: Namespace) -> None:
     """
     Delete all files and folders in the Trash folder within a target Namespace.
@@ -62,7 +88,7 @@ async def empty_trash(namespace: Namespace) -> None:
 async def move_batch(
     namespace: Namespace,
     relocations: Iterable[RelocationPath],
-) -> list[RelocationResult]:
+) -> list[FileTaskResult]:
     """
     Move several files/folders to a different locations
 
@@ -72,7 +98,7 @@ async def move_batch(
             current file path and path to move file to.
 
     Returns:
-        list[RelocationResult]: List, where each item contains either a moved file
+        list[FileTaskResult]: List, where each item contains either a moved file
             or an error code.
     """
     results = []
@@ -89,7 +115,7 @@ async def move_batch(
                 err_code = errors.ErrorCode.internal
                 logger.exception("Unexpectedly failed to move file")
 
-            results.append(RelocationResult(file=file, err_code=err_code))
+            results.append(FileTaskResult(file=file, err_code=err_code))
     return results
 
 
@@ -97,7 +123,7 @@ async def move_batch(
 async def move_to_trash_batch(
     namespace: Namespace,
     paths: Iterable[StrOrPath],
-) -> list[RelocationResult]:
+) -> list[FileTaskResult]:
     """
     Move several files to trash asynchronously.
 
@@ -106,13 +132,14 @@ async def move_to_trash_batch(
         paths (list[StrOrPath]): List of file path to move to trash.
 
     Returns:
-        list[RelocationResult]: List, where each item contains either a moved file
+        list[FileTaskResult]: List, where each item contains either a moved file
             or an error code.
     """
     results = []
     async with db.connect() as conn:
         for path in paths:
             file, err_code = None, None
+
             try:
                 file = await actions.move_to_trash(conn, namespace, path)
             except errors.Error as exc:
@@ -121,5 +148,5 @@ async def move_to_trash_batch(
                 err_code = errors.ErrorCode.internal
                 logger.exception("Unexpectedly failed to move file to trash")
 
-            results.append(RelocationResult(file=file, err_code=err_code))
+            results.append(FileTaskResult(file=file, err_code=err_code))
     return results

@@ -11,7 +11,7 @@ from app.entities import RelocationPath
 
 if TYPE_CHECKING:
     from pytest import LogCaptureFixture
-    from app.entities import Namespace
+    from app.entities import FileTaskResult, Namespace
     from app.typedefs import DBPool
     from tests.factories import FileFactory
 
@@ -29,6 +29,42 @@ def test_celery_works():
     assert task.get(timeout=1) == "pong"
 
 
+async def test_delete_immediately(namespace: Namespace, file_factory: FileFactory):
+    file = await file_factory(namespace.path)
+
+    task = tasks.delete_immediately.delay(namespace, file.path)
+    result: FileTaskResult = task.get(timeout=2)
+
+    assert result.file == file
+    assert result.err_code is None
+
+
+async def test_delete_immediately_but_delete_fails_with_error(namespace: Namespace):
+    task = tasks.delete_immediately.delay(namespace, "f.txt")
+    result: FileTaskResult = task.get(timeout=2)
+
+    assert result.file is None
+    assert result.err_code == errors.ErrorCode.file_not_found
+
+
+async def test_delete_immediately_but_delete_fails_with_exception(
+    caplog: LogCaptureFixture,
+    namespace: Namespace,
+):
+    task = tasks.delete_immediately.delay(namespace, "f.txt")
+    func = "app.actions.delete_immediately"
+    with mock.patch(func, side_effect=Exception) as delete_mock:
+        result: FileTaskResult = task.get(timeout=2)
+
+    assert delete_mock.called
+
+    assert result.file is None
+    assert result.err_code == errors.ErrorCode.internal
+
+    log_record = "app.tasks", logging.ERROR, "Unexpectedly failed to delete a file"
+    assert caplog.record_tuples == [log_record]
+
+
 async def test_empty_trash(
     db_pool: DBPool,
     namespace: Namespace,
@@ -39,7 +75,9 @@ async def test_empty_trash(
         await file_factory(namespace.path, path)
 
     task = tasks.empty_trash.delay(namespace)
-    task.get(timeout=2)
+    result = task.get(timeout=2)
+
+    assert result is None
 
     trash = await crud.file.get(db_pool, namespace.path, "Trash")
     assert trash.size == 0
@@ -57,14 +95,14 @@ async def test_move_batch(namespace: Namespace, file_factory: FileFactory):
     ]
 
     task = tasks.move_batch.delay(namespace, relocations)
-    result = task.get(timeout=2)
-    assert len(result) == 2
+    results: list[FileTaskResult] = task.get(timeout=2)
+    assert len(results) == 2
 
-    assert result[0].file is not None
-    assert result[0].file.path == relocations[0].to_path
+    assert results[0].file is not None
+    assert results[0].file.path == relocations[0].to_path
 
-    assert result[1].file is None
-    assert result[1].err_code == errors.ErrorCode.missing_parent
+    assert results[1].file is None
+    assert results[1].err_code == errors.ErrorCode.missing_parent
 
 
 async def test_move_batch_but_move_fails_with_exception(
@@ -80,17 +118,17 @@ async def test_move_batch_but_move_fails_with_exception(
 
     task = tasks.move_batch.delay(namespace, relocations)
     with mock.patch("app.actions.move", side_effect=Exception) as move_mock:
-        result = task.get(timeout=2)
+        results: list[FileTaskResult] = task.get(timeout=2)
 
     assert move_mock.call_count == 2
 
-    assert len(result) == 2
+    assert len(results) == 2
 
-    assert result[0].file is None
-    assert result[0].err_code == errors.ErrorCode.internal
+    assert results[0].file is None
+    assert results[0].err_code == errors.ErrorCode.internal
 
-    assert result[1].file is None
-    assert result[1].err_code == errors.ErrorCode.internal
+    assert results[1].file is None
+    assert results[1].err_code == errors.ErrorCode.internal
 
     log_record = ("app.tasks", logging.ERROR, "Unexpectedly failed to move file")
     assert caplog.record_tuples == [log_record, log_record]
@@ -101,15 +139,15 @@ async def test_move_to_trash_batch(namespace: Namespace, file_factory: FileFacto
     paths = [files[0].path, "file_not_exist.txt"]
 
     task = tasks.move_to_trash_batch.delay(namespace, paths)
-    result = task.get(timeout=2)
+    results: list[FileTaskResult] = task.get(timeout=2)
 
-    assert len(result) == 2
+    assert len(results) == 2
 
-    assert result[0].file is not None
-    assert result[0].file.path == f"Trash/{paths[0]}"
+    assert results[0].file is not None
+    assert results[0].file.path == f"Trash/{paths[0]}"
 
-    assert result[1].file is None
-    assert result[1].err_code == errors.ErrorCode.file_not_found
+    assert results[1].file is None
+    assert results[1].err_code == errors.ErrorCode.file_not_found
 
 
 async def test_move_to_trash_batch_but_move_fails_with_exception(
@@ -122,16 +160,16 @@ async def test_move_to_trash_batch_but_move_fails_with_exception(
 
     task = tasks.move_to_trash_batch.delay(namespace, paths)
     with mock.patch("app.actions.move_to_trash", side_effect=Exception) as move_mock:
-        result = task.get(timeout=2)
+        results: list[FileTaskResult] = task.get(timeout=2)
 
     assert move_mock.call_count == 2
 
-    assert len(result) == 2
+    assert len(results) == 2
 
-    assert result[0].file is None
-    assert result[0].err_code == errors.ErrorCode.internal
-    assert result[1].file is None
-    assert result[1].err_code == errors.ErrorCode.internal
+    assert results[0].file is None
+    assert results[0].err_code == errors.ErrorCode.internal
+    assert results[1].file is None
+    assert results[1].err_code == errors.ErrorCode.internal
 
     log_record = "app.tasks", logging.ERROR, "Unexpectedly failed to move file to trash"
     assert caplog.record_tuples == [log_record, log_record]

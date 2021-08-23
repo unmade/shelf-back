@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os.path
 from collections import deque
 from datetime import datetime
@@ -84,7 +85,7 @@ async def delete_immediately(
     conn: DBConnOrPool, namespace: Namespace, path: StrOrPath,
 ) -> File:
     """
-    Permanently delete file or a folder with all of its contents.
+    Permanently delete a file or a folder with all of its contents.
 
     Args:
         conn (DBConnOrPool): Database connection or connection pool.
@@ -97,10 +98,17 @@ async def delete_immediately(
     Returns:
         File: Deleted file.
     """
-    await storage.delete(joinpath(namespace.path, path))
-    async for tx in conn.retrying_transaction():  # pragma: no branch
-        async with tx:
-            file = await crud.file.delete(tx, namespace.path, path)
+    async def _delete_from_db() -> File:
+        async for tx in conn.retrying_transaction():  # pragma: no branch
+            async with tx:
+                file = await crud.file.delete(tx, namespace.path, path)
+        return file
+
+    file, _ = await asyncio.gather(
+        _delete_from_db(),
+        storage.delete(joinpath(namespace.path, path)),
+    )
+
     return file
 
 
@@ -115,14 +123,20 @@ async def empty_trash(conn: DBConnOrPool, namespace: Namespace) -> File:
     Returns:
         File: Trash folder.
     """
+    async def _empty_trash_in_db() -> None:
+        async for tx in conn.retrying_transaction():  # pragma: no branch
+            async with tx:
+                await crud.file.empty_trash(tx, namespace.path)
+
+    async def _empty_trash_in_storage() -> None:
+        for file in files:
+            await storage.delete(joinpath(namespace.path, file.path))
+
     files = await crud.file.list_folder(conn, namespace.path, config.TRASH_FOLDER_NAME)
-    async for tx in conn.retrying_transaction():  # pragma: no branch
-        async with tx:
-            await crud.file.empty_trash(tx, namespace.path)
-
-    for file in files:
-        await storage.delete(joinpath(namespace.path, file.path))
-
+    await asyncio.gather(
+        _empty_trash_in_db(),
+        _empty_trash_in_storage()
+    )
     return await crud.file.get(conn, namespace.path, config.TRASH_FOLDER_NAME)
 
 

@@ -43,17 +43,32 @@ async def create_folder(
         raise exceptions.NotADirectory(path=payload.path) from exc
 
 
-@router.post("/delete_immediately", response_model=schemas.File)
-async def delete_immediately(
+@router.post("/delete_immediately", response_model=schemas.AsyncTaskID)
+def delete_immediately(
     payload: schemas.DeletePathRequest,
-    db_pool: AsyncIOPool = Depends(deps.db_pool),
     namespace: Namespace = Depends(deps.namespace),
 ):
     """Permanently delete file or folder with its contents."""
-    try:
-        return await actions.delete_immediately(db_pool, namespace, payload.path)
-    except errors.FileNotFound as exc:
-        raise exceptions.PathNotFound(path=payload.path) from exc
+    task = tasks.delete_immediately.delay(namespace, payload.path)
+    return schemas.AsyncTaskID(async_task_id=task.id)
+
+
+@router.post(
+    "/delete_immediately/check",
+    response_model=schemas.DeleteImmediatelyCheckResponse,
+)
+def delete_immediately_check(
+    payload: schemas.AsyncTaskID,
+    _: User = Depends(deps.current_user),
+):
+    response_model = schemas.DeleteImmediatelyCheckResponse
+    task = tasks.celery_app.AsyncResult(str(payload.async_task_id))
+    if task.status == celery.states.SUCCESS:
+        return response_model(
+            status=schemas.AsyncTaskStatus.completed,
+            result=task.result,
+        )
+    return response_model(status=schemas.AsyncTaskStatus.pending)
 
 
 @router.get("/download")
@@ -149,10 +164,11 @@ def empty_trash_check(
     _: User = Depends(deps.current_user),
 ):
     """Return empty_trash status."""
+    response_model = schemas.EmptyTrashCheckResponse
     task = tasks.celery_app.AsyncResult(str(payload.async_task_id))
     if task.status == celery.states.SUCCESS:
-        return schemas.EmptyTrashCheckResponse(status=schemas.AsyncTaskStatus.completed)
-    return schemas.EmptyTrashCheckResponse(status=schemas.AsyncTaskStatus.pending)
+        return response_model(status=schemas.AsyncTaskStatus.completed)
+    return response_model(status=schemas.AsyncTaskStatus.pending)
 
 
 @router.post("/get_download_url", response_model=schemas.GetDownloadUrlResult)
@@ -225,7 +241,7 @@ async def list_folder(
 
     return schemas.ListFolderResult.construct(
         path=payload.path,
-        items=[schemas.File.from_file(f) for f in files],
+        items=[schemas.File.from_entity(f) for f in files],
         count=len(files)
     )
 
@@ -276,16 +292,14 @@ def move_batch_check(
     _: User = Depends(deps.current_user),
 ):
     """Return move_batch status and a list of results."""
+    response_model = schemas.MoveBatchCheckResponse
     task = tasks.celery_app.AsyncResult(str(payload.async_task_id))
     if task.status == celery.states.SUCCESS:
-        return schemas.MoveBatchCheckResponse(
+        return response_model(
             status=schemas.AsyncTaskStatus.completed,
-            results=[
-                schemas.MoveBatchResult(file=result.file, err_code=result.err_code)
-                for result in task.result
-            ]
+            result=task.result,
         )
-    return schemas.MoveBatchCheckResponse(status=schemas.AsyncTaskStatus.pending)
+    return response_model(status=schemas.AsyncTaskStatus.pending)
 
 
 @router.post("/move_to_trash", response_model=schemas.File)
@@ -337,6 +351,6 @@ async def upload_file(
     updates = await crud.file.get_many(db_pool, namespace.path, parents)
 
     return schemas.UploadResult.construct(
-        file=schemas.File.from_file(upload),
-        updates=[schemas.File.from_file(f) for f in updates]
+        file=schemas.File.from_entity(upload),
+        updates=[schemas.File.from_entity(f) for f in updates]
     )
