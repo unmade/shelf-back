@@ -225,7 +225,48 @@ async def test_empty_trash(client: TestClient, namespace: Namespace):
     client.login(namespace.owner.id)
     response = await client.post("/files/empty_trash")
     assert response.status_code == 200
-    assert response.json()["path"] == "Trash"
+    assert "async_task_id" in response.json()
+
+
+@pytest.mark.usefixtures("celery_session_worker")
+async def test_empty_trash_check_task_is_pending(
+    client: TestClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    await file_factory(namespace.path, path="Trash/a.txt")
+    await file_factory(namespace.path, path="Trash/folder/b.txt")
+    task = tasks.empty_trash.delay(namespace)
+    payload = {"async_task_id": task.id}
+
+    client.login(namespace.owner.id)
+    response = await client.post("/files/empty_trash/check", json=payload)
+    assert response.status_code == 200
+    assert response.json()["status"] == 'pending'
+    assert response.json()["results"] is None
+
+    # sometimes there is a race condition between task and test teardown,
+    # so ensure task is completed
+    task.get(timeout=2)
+
+
+@pytest.mark.usefixtures("celery_session_worker")
+async def test_empty_trash_check_task_is_completed(
+    client: TestClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    await file_factory(namespace.path, path="Trash/a.txt")
+    await file_factory(namespace.path, path="Trash/folder/b.txt")
+    task = tasks.empty_trash.delay(namespace)
+    task.get(timeout=1)
+
+    payload = {"async_task_id": task.id}
+    client.login(namespace.owner.id)
+    response = await client.post("/files/empty_trash/check", json=payload)
+    assert response.status_code == 200
+    assert response.json()["status"] == "completed"
+    assert response.json()["results"] is None
 
 
 async def test_get_download_url(
@@ -499,6 +540,10 @@ async def test_move_batch_check_task_is_pending(
     assert response.status_code == 200
     assert response.json()["status"] == 'pending'
     assert response.json()["results"] is None
+
+    # sometimes there is a race condition between task and test teardown,
+    # so ensure task is completed
+    task.get(timeout=2)
 
 
 @pytest.mark.usefixtures("celery_session_worker")

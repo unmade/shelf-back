@@ -115,15 +115,15 @@ async def empty_trash(conn: DBConnOrPool, namespace: Namespace) -> File:
     Returns:
         File: Trash folder.
     """
-    path_to_trash = joinpath(namespace.path, config.TRASH_FOLDER_NAME)
-    files = await storage.iterdir(path_to_trash)
-    for file in files:
-        await storage.delete(file.path)
-
+    files = await crud.file.list_folder(conn, namespace.path, config.TRASH_FOLDER_NAME)
     async for tx in conn.retrying_transaction():  # pragma: no branch
         async with tx:
-            trash = await crud.file.empty_trash(tx, namespace.path)
-    return trash
+            await crud.file.empty_trash(tx, namespace.path)
+
+    for file in files:
+        await storage.delete(joinpath(namespace.path, file.path))
+
+    return await crud.file.get(conn, namespace.path, config.TRASH_FOLDER_NAME)
 
 
 async def get_thumbnail(

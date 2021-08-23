@@ -134,13 +134,25 @@ async def download_xhr(
     return Response(buffer.read(), headers=headers)
 
 
-@router.post("/empty_trash", response_model=schemas.File)
-async def empty_trash(
-    db_pool: AsyncIOPool = Depends(deps.db_pool),
+@router.post("/empty_trash", response_model=schemas.AsyncTaskID)
+def empty_trash(
     namespace: Namespace = Depends(deps.namespace),
 ):
     """Delete all files and folders in the Trash folder."""
-    return await actions.empty_trash(db_pool, namespace)
+    task = tasks.empty_trash.delay(namespace)
+    return schemas.AsyncTaskID(async_task_id=task.id)
+
+
+@router.post("/empty_trash/check", response_model=schemas.EmptyTrashCheckResponse)
+def empty_trash_check(
+    payload: schemas.AsyncTaskID,
+    _: User = Depends(deps.current_user),
+):
+    """Return empty_trash status."""
+    task = tasks.celery_app.AsyncResult(str(payload.async_task_id))
+    if task.status == celery.states.SUCCESS:
+        return schemas.EmptyTrashCheckResponse(status=schemas.AsyncTaskStatus.completed)
+    return schemas.EmptyTrashCheckResponse(status=schemas.AsyncTaskStatus.pending)
 
 
 @router.post("/get_download_url", response_model=schemas.GetDownloadUrlResult)

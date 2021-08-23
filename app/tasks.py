@@ -11,6 +11,7 @@ from app import actions, config, db, errors
 from app.entities import RelocationResult
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from app.entities import Namespace, RelocationPath
     from app.typedefs import StrOrPath
 
@@ -46,12 +47,24 @@ def ping() -> str:
 
 
 @asynctask
+async def empty_trash(namespace: Namespace) -> None:
+    """
+    Delete all files and folders in the Trash folder within a target Namespace.
+
+    Args:
+        namespace (Namespace): Namespace where Trash should be emptied.
+    """
+    async with db.connect() as conn:
+        await actions.empty_trash(conn, namespace)
+
+
+@asynctask
 async def move_batch(
     namespace: Namespace,
-    relocations: list[RelocationPath],
+    relocations: Iterable[RelocationPath],
 ) -> list[RelocationResult]:
     """
-    Move several files/folders to a different locations.
+    Move several files/folders to a different locations
 
     Args:
         namespace (Namespace): Namespace, where files should be moved.
@@ -83,7 +96,7 @@ async def move_batch(
 @asynctask
 async def move_to_trash_batch(
     namespace: Namespace,
-    paths: list[StrOrPath],
+    paths: Iterable[StrOrPath],
 ) -> list[RelocationResult]:
     """
     Move several files to trash asynchronously.

@@ -6,12 +6,13 @@ from unittest import mock
 
 import pytest
 
-from app import errors, tasks
+from app import crud, errors, tasks
 from app.entities import RelocationPath
 
 if TYPE_CHECKING:
     from pytest import LogCaptureFixture
     from app.entities import Namespace
+    from app.typedefs import DBPool
     from tests.factories import FileFactory
 
 
@@ -26,6 +27,25 @@ pytestmark = [
 def test_celery_works():
     task = tasks.ping.delay()
     assert task.get(timeout=1) == "pong"
+
+
+async def test_empty_trash(
+    db_pool: DBPool,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    paths = ["Trash/f.txt", "Trash/folder/x.txt", "Trash/folder/y.txt"]
+    for path in paths:
+        await file_factory(namespace.path, path)
+
+    task = tasks.empty_trash.delay(namespace)
+    task.get(timeout=2)
+
+    trash = await crud.file.get(db_pool, namespace.path, "Trash")
+    assert trash.size == 0
+
+    for path in paths:
+        assert not await crud.file.exists(db_pool, namespace.path, path)
 
 
 async def test_move_batch(namespace: Namespace, file_factory: FileFactory):

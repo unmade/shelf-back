@@ -488,7 +488,7 @@ async def test_save_file_updates_parents_size(db_pool: DBPool, namespace: Namesp
 
 
 async def test_save_files_concurrently(db_pool: DBPool, namespace: Namespace):
-    CONCURRENCY = 8
+    CONCURRENCY = 5
     parent = Path("a/b/c")
     paths = [parent / str(name) for name in range(CONCURRENCY)]
     files = [BytesIO(b"1") for _ in range(CONCURRENCY)]

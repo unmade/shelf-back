@@ -92,6 +92,11 @@ class File(BaseModel):
         return False
 
 
+class EmptyTrashCheckResponse(BaseModel):
+    status: AsyncTaskStatus
+    results: None = None
+
+
 class ListFolderResult(BaseModel):
     path: str
     items: list[File]
