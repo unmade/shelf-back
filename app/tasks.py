@@ -12,7 +12,7 @@ from app.entities import RelocationResult
 
 if TYPE_CHECKING:
     from app.entities import Namespace, RelocationPath
-    from app.typedefs import StrOrPath, DBConnOrPool
+    from app.typedefs import StrOrPath
 
 logger = logging.getLogger(__name__)
 
@@ -45,42 +45,6 @@ def ping() -> str:
     return "pong"
 
 
-async def _move(
-    conn: DBConnOrPool,
-    namespace: Namespace,
-    relocation: RelocationPath,
-) -> RelocationResult:
-    path, next_path = relocation.from_path, relocation.to_path
-    file, err_code = None, None
-
-    async with db.connect() as conn:
-        try:
-            file = await actions.move(conn, namespace, path, next_path)
-        except errors.Error as exc:
-            err_code = exc.code
-        except Exception:
-            err_code = errors.ErrorCode.internal
-            logger.exception("Unexpectedly failed to move file")
-
-    return RelocationResult(file=file, err_code=err_code)
-
-
-@asynctask
-async def move(namespace: Namespace, relocation: RelocationPath) -> RelocationResult:
-    """
-    Move single file/folder to a different location.
-
-    Args:
-        namespace (Namespace): Namespace where files are located.
-        relocation (RelocationPath): A current file path and path to move file to.
-
-    Returns:
-        RelocationResult: either a moved file or an error code.
-    """
-    async with db.connect() as conn:
-        return await _move(conn, namespace, relocation)
-
-
 @asynctask
 async def move_batch(
     namespace: Namespace,
@@ -98,11 +62,22 @@ async def move_batch(
         list[RelocationResult]: List, where each item contains either a moved file
             or an error code.
     """
+    results = []
     async with db.connect() as conn:
-        return [
-            await _move(conn, namespace, relocation)
-            for relocation in relocations
-        ]
+        for relocation in relocations:
+            path, next_path = relocation.from_path, relocation.to_path
+            file, err_code = None, None
+
+            try:
+                file = await actions.move(conn, namespace, path, next_path)
+            except errors.Error as exc:
+                err_code = exc.code
+            except Exception:
+                err_code = errors.ErrorCode.internal
+                logger.exception("Unexpectedly failed to move file")
+
+            results.append(RelocationResult(file=file, err_code=err_code))
+    return results
 
 
 @asynctask
