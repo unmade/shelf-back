@@ -46,6 +46,20 @@ async def test_delete_immediately_batch(
     assert result[1].err_code == errors.ErrorCode.file_not_found
 
 
+async def test_delete_immediately_batch_but_deletefails_with_an_error(
+    namespace: Namespace,
+):
+    task = tasks.delete_immediately_batch.delay(namespace, ["x.txt", "y.txt"])
+    result: list[FileTaskResult] = task.get(timeout=2)
+
+    assert len(result) == 2
+    assert result[0].file is None
+    assert result[0].err_code == errors.ErrorCode.file_not_found
+
+    assert result[1].file is None
+    assert result[1].err_code == errors.ErrorCode.file_not_found
+
+
 async def test_delete_immediately_batch_but_delete_fails_with_exception(
     caplog: LogCaptureFixture,
     namespace: Namespace,
