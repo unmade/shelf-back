@@ -29,37 +29,36 @@ def test_celery_works():
     assert task.get(timeout=1) == "pong"
 
 
-async def test_delete_immediately(namespace: Namespace, file_factory: FileFactory):
-    file = await file_factory(namespace.path)
+async def test_delete_immediately_batch(
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    file = await file_factory(namespace.path, path="x.txt")
 
-    task = tasks.delete_immediately.delay(namespace, file.path)
-    result: FileTaskResult = task.get(timeout=2)
+    task = tasks.delete_immediately_batch.delay(namespace, [file.path, "y.txt"])
+    result: list[FileTaskResult] = task.get(timeout=2)
 
-    assert result.file == file
-    assert result.err_code is None
+    assert len(result) == 2
+    assert result[0].file == file
+    assert result[0].err_code is None
 
-
-async def test_delete_immediately_but_delete_fails_with_error(namespace: Namespace):
-    task = tasks.delete_immediately.delay(namespace, "f.txt")
-    result: FileTaskResult = task.get(timeout=2)
-
-    assert result.file is None
-    assert result.err_code == errors.ErrorCode.file_not_found
+    assert result[1].file is None
+    assert result[1].err_code == errors.ErrorCode.file_not_found
 
 
-async def test_delete_immediately_but_delete_fails_with_exception(
+async def test_delete_immediately_batch_but_delete_fails_with_exception(
     caplog: LogCaptureFixture,
     namespace: Namespace,
 ):
-    task = tasks.delete_immediately.delay(namespace, "f.txt")
+    task = tasks.delete_immediately_batch.delay(namespace, ["f.txt"])
     func = "app.actions.delete_immediately"
     with mock.patch(func, side_effect=Exception) as delete_mock:
-        result: FileTaskResult = task.get(timeout=2)
+        result: list[FileTaskResult] = task.get(timeout=2)
 
     assert delete_mock.called
 
-    assert result.file is None
-    assert result.err_code == errors.ErrorCode.internal
+    assert result[0].file is None
+    assert result[0].err_code == errors.ErrorCode.internal
 
     log_record = "app.tasks", logging.ERROR, "Unexpectedly failed to delete a file"
     assert caplog.record_tuples == [log_record]

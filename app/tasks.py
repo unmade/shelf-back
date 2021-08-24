@@ -47,29 +47,36 @@ def ping() -> str:
 
 
 @asynctask
-async def delete_immediately(namespace: Namespace, path: StrOrPath) -> FileTaskResult:
+async def delete_immediately_batch(
+    namespace: Namespace,
+    paths: Iterable[StrOrPath],
+) -> list[FileTaskResult]:
     """
     Permanently delete a file or a folder with all of its contents.
 
     Args:
         namespace (Namespace): Namespace where file/folder should be deleted.
-        path (StrOrPath): Path to a file/folder to delete.
+        paths (Iterable[StrOrPath]): Iterable of pathnames to delete.
 
     Returns:
-        FileTaskResult: Deleted file.
+        list[FileTaskResult]: List, where each item contains either a moved file
+            or an error code.
     """
-
-    file, err_code = None, None
+    results = []
     async with db.connect() as conn:
-        try:
-            file = await actions.delete_immediately(conn, namespace, path)
-        except errors.FileNotFound:
-            err_code = errors.ErrorCode.file_not_found
-        except Exception:
-            err_code = errors.ErrorCode.internal
-            logger.exception("Unexpectedly failed to delete a file")
+        for path in paths:
+            file, err_code = None, None
 
-    return FileTaskResult(file=file, err_code=err_code)
+            try:
+                file = await actions.delete_immediately(conn, namespace, path)
+            except errors.FileNotFound:
+                err_code = errors.ErrorCode.file_not_found
+            except Exception:
+                err_code = errors.ErrorCode.internal
+                logger.exception("Unexpectedly failed to delete a file")
+
+            results.append(FileTaskResult(file=file, err_code=err_code))
+    return results
 
 
 @asynctask
@@ -129,7 +136,7 @@ async def move_to_trash_batch(
 
     Args:
         namespace (Namespace): Namespace, where files should be moved to trash
-        paths (list[StrOrPath]): List of file path to move to trash.
+        paths (Iterable[StrOrPath]): Iterable of pathnames to move to trash.
 
     Returns:
         list[FileTaskResult]: List, where each item contains either a moved file

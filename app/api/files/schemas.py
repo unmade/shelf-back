@@ -99,7 +99,7 @@ class AsyncTaskResult(BaseModel):
     err_code: Optional[errors.ErrorCode]
 
 
-class DeletePathRequest(PathRequest):
+class DeleteImmediatelyRequest(PathRequest):
     @validator("path")
     def check_path_is_not_special(cls, value: str):
         if value.lower() in (TRASH_FOLDER_NAME.lower(), "."):
@@ -108,9 +108,13 @@ class DeletePathRequest(PathRequest):
         return value
 
 
-class DeleteImmediatelyCheckResponse(BaseModel):
+class DeleteImmediatelyBatchRequest(BaseModel):
+    items: list[DeleteImmediatelyRequest]
+
+
+class DeleteImmediatelyBatchCheckResponse(BaseModel):
     status: AsyncTaskStatus
-    result: Optional[AsyncTaskResult] = None
+    result: Optional[list[AsyncTaskResult]] = None
 
 
 class EmptyTrashCheckResponse(BaseModel):

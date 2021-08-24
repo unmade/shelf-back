@@ -43,25 +43,26 @@ async def create_folder(
         raise exceptions.NotADirectory(path=payload.path) from exc
 
 
-@router.post("/delete_immediately", response_model=schemas.AsyncTaskID)
-def delete_immediately(
-    payload: schemas.DeletePathRequest,
+@router.post("/delete_immediately_batch", response_model=schemas.AsyncTaskID)
+def delete_immediately_batch(
+    payload: schemas.DeleteImmediatelyBatchRequest,
     namespace: Namespace = Depends(deps.namespace),
 ):
-    """Permanently delete file or folder with its contents."""
-    task = tasks.delete_immediately.delay(namespace, payload.path)
+    """Permanently delete multiple files or folders."""
+    paths = [item.path for item in payload.items]
+    task = tasks.delete_immediately_batch.delay(namespace, paths)
     return schemas.AsyncTaskID(async_task_id=task.id)
 
 
 @router.post(
-    "/delete_immediately/check",
-    response_model=schemas.DeleteImmediatelyCheckResponse,
+    "/delete_immediately_batch/check",
+    response_model=schemas.DeleteImmediatelyBatchCheckResponse,
 )
 def delete_immediately_check(
     payload: schemas.AsyncTaskID,
     _: User = Depends(deps.current_user),
 ):
-    response_model = schemas.DeleteImmediatelyCheckResponse
+    response_model = schemas.DeleteImmediatelyBatchCheckResponse
     task = tasks.celery_app.AsyncResult(str(payload.async_task_id))
     if task.status == celery.states.SUCCESS:
         return response_model(
