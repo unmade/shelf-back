@@ -72,7 +72,7 @@ class File(BaseModel):
     def is_hidden(cls, value, values, config, field):
         return values["name"].startswith(".") or values["name"] == TRASH_FOLDER_NAME
 
-    @validator("has_thumbnail")
+    @validator("has_thumbnail", always=True)
     def set_has_thumbnail(cls, value, values, config, field):
         if mediatypes.is_image(values["mediatype"]):
             return True
