@@ -142,6 +142,10 @@ class MoveRequest(BaseModel):
     def path_should_not_be_home_or_trash_folders(cls, value: str):
         if value == "." or value.lower() == TRASH_FOLDER_NAME.lower():
             raise MalformedPath("Can't move Home or Trash folder")
+        return value.strip()
+
+    @validator("to_path")
+    def to_path_should_not_be_inside_trash_folder(cls, value: str):
         if value.lower().startswith(f"{TRASH_FOLDER_NAME.lower()}/"):
             raise MalformedPath("Can't move files inside Trash")
         return value.strip()
