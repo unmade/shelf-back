@@ -106,10 +106,10 @@ async def test_create_batch(tx: DBTransaction, namespace: Namespace):
             mediatype=OCTET_STREAM,
         )
     ]
-    await crud.file.create_batch(tx, namespace.path, ".", files=files)
+    await crud.file.create_batch(tx, namespace.path, files=files)
 
     home = await crud.file.get(tx, namespace.path, ".")
-    assert home.size == a_size + f_size
+    assert home.size == 0
 
     files = await crud.file.list_folder(tx, namespace.path, ".")
     assert len(files) == 2
@@ -143,7 +143,7 @@ async def test_create_batch_but_all_the_same(tx: DBTransaction, namespace: Names
         for path in paths
     ]
 
-    await crud.file.create_batch(tx, namespace.path, ".", files=to_create)
+    await crud.file.create_batch(tx, namespace.path, files=to_create)
 
     files = await crud.file.list_folder(tx, namespace.path, ".")
     assert len(files) == 4
@@ -154,10 +154,12 @@ async def test_create_batch_but_all_the_same(tx: DBTransaction, namespace: Names
             assert files[i + j].mediatype == mediatype
 
 
-async def test_create_batch_is_case_insensitive(
+async def test_create_batch_is_case_sensitive(
     tx: DBTransaction,
     namespace: Namespace,
 ):
+    await crud.file.create(tx, namespace.path, "A", mediatype=FOLDER)
+
     to_create = [
         File.construct(  # type: ignore
             name="B",
@@ -174,19 +176,18 @@ async def test_create_batch_is_case_insensitive(
             mediatype=OCTET_STREAM,
         )
     ]
-    await crud.file.create(tx, namespace.path, "A", mediatype=FOLDER)
 
-    await crud.file.create_batch(tx, namespace.path, "a", files=to_create)
+    await crud.file.create_batch(tx, namespace.path, files=to_create)
+    assert to_create[1].path == "a/f"
 
     files = await crud.file.list_folder(tx, namespace.path, "A")
-
-    assert to_create[1].path == "A/f"
-
+    assert len(files) == 1
     assert files[0].name == "B"
     assert files[0].path == "A/B"
-    assert files[1].name == "f"
-    assert files[1].path == "A/f"
-    assert len(files) == 2
+
+    file = await crud.file.get(tx, namespace.path, "a/f")
+    assert file.name == "f"
+    assert file.path == "a/f"
 
 
 async def test_create_batch_but_file_already_exists(
@@ -196,7 +197,7 @@ async def test_create_batch_but_file_already_exists(
     file = await crud.file.create(tx, namespace.path, "f")
 
     with pytest.raises(errors.FileAlreadyExists):
-        await crud.file.create_batch(tx, namespace.path, ".", files=[file])
+        await crud.file.create_batch(tx, namespace.path, files=[file])
 
 
 async def test_create_batch_but_no_files_given():
@@ -204,31 +205,9 @@ async def test_create_batch_but_no_files_given():
     result = await crud.file.create_batch(
         object(),  # type: ignore
         "namespace",
-        ".",
         files=[],
     )
     assert result is None
-
-
-async def test_create_batch_but_parent_not_exists(
-    tx: DBTransaction,
-    namespace: Namespace,
-):
-    file = File.construct()  # type: ignore
-
-    with pytest.raises(errors.FileNotFound):
-        await crud.file.create_batch(tx, namespace.path, "a", files=[file])
-
-
-async def test_create_batch_but_parent_not_a_folder(
-    tx: DBTransaction,
-    namespace: Namespace,
-):
-    file = File.construct()  # type: ignore
-    await crud.file.create(tx, namespace.path, "f")
-
-    with pytest.raises(errors.NotADirectory):
-        await crud.file.create_batch(tx, namespace.path, "f", files=[file])
 
 
 async def test_create_folder(tx: DBTransaction, namespace: Namespace):
