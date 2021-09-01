@@ -123,8 +123,6 @@ class NamespaceFactory:
         )
 
         query = """
-            WITH
-                Parent := File
             SELECT (
                 INSERT File {
                     name := <str>$name,
@@ -143,30 +141,23 @@ class NamespaceFactory:
                                 .name = <str>$mediatype
                         )
                     ),
-                    parent := (
-                        SELECT
-                            Parent
-                        FILTER
-                            .id = <OPTIONAL uuid>$parent_id
-                        LIMIT 1
-                    ),
                     namespace := (
                         SELECT
                             Namespace
                         FILTER
                             .id = <uuid>$namespace_id
+                        LIMIT 1
                     )
                 }
-            ) { id }
+            )
         """
 
-        home = await self._db_conn.query_single(
+        await self._db_conn.query_single(
             query,
             name=str(namespace.path),
             path=".",
             mtime=time.time(),
             mediatype=mediatypes.FOLDER,
-            parent_id=None,
             namespace_id=namespace.id,
         )
 
@@ -176,7 +167,6 @@ class NamespaceFactory:
             path=config.TRASH_FOLDER_NAME,
             mtime=time.time(),
             mediatype=mediatypes.FOLDER,
-            parent_id=home.id,
             namespace_id=namespace.id,
         )
 

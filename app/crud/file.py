@@ -77,17 +77,6 @@ async def create(
             raise errors.NotADirectory()
 
     query = """
-        WITH
-            Parent := File,
-            parent := (
-                SELECT
-                    Parent
-                FILTER
-                    str_lower(.path) = str_lower(<str>$parent)
-                    AND
-                    .namespace.path = <str>$namespace
-                LIMIT 1
-            )
         SELECT (
             INSERT File {
                 name := <str>$name,
@@ -106,8 +95,13 @@ async def create(
                             .name = <str>$mediatype
                     )
                 ),
-                parent := parent,
-                namespace := parent.namespace,
+                namespace := (
+                    SELECT
+                        Namespace
+                    FILTER
+                        .path = <str>$namespace
+                    LIMIT 1
+                ),
             }
         ) { id, name, path, size, mtime, mediatype: { name } }
     """
@@ -119,7 +113,6 @@ async def create(
         "mtime": mtime,
         "mediatype": mediatype,
         "namespace": str(namespace),
-        "parent": str(path.parent),
     }
 
     try:
@@ -172,13 +165,11 @@ async def create_batch(
     query = """
         WITH
             files := array_unpack(<array<json>>$files),
-            parent := (
+            namespace := (
                 SELECT
-                    File
+                    Namespace
                 FILTER
-                    str_lower(.path) = str_lower(<str>$parent)
-                    AND
-                    .namespace.path = <str>$namespace
+                    .path = <str>$namespace
                 LIMIT 1
             ),
             mediatypes := (
@@ -206,15 +197,13 @@ async def create_batch(
                     FILTER
                         .name = <str>file['mediatype']
                 ),
-                parent := parent,
-                namespace := parent.namespace,
+                namespace := namespace,
             }
         )
     """
 
     params = {
         "namespace": str(namespace),
-        "parent": str(path),
         "files": [file.json() for file in files],
     }
 
@@ -301,6 +290,7 @@ async def create_home_folder(conn: DBAnyConn, namespace: StrOrPath) -> File:
                         Namespace
                     FILTER
                         .path = <str>$namespace
+                    LIMIT 1
                 ),
             }
         ) { id, name, path, size, mtime, mediatype: { name } }
@@ -344,16 +334,19 @@ async def delete(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> File
                 File
             FILTER
                 .namespace.path = <str>$namespace
-                AND
-                str_lower(.path) = str_lower(<str>$path)
+                AND (
+                    str_lower(.path) = str_lower(<str>$path)
+                    OR
+                    str_lower(.path) LIKE str_lower(<str>$path) ++ '/%'
+                )
         ) { id, name, path, size, mtime, mediatype: { name } }
     """
 
     try:
         file = from_db(
-            await conn.query_single(query, namespace=str(namespace), path=str(path))
+            (await conn.query(query, namespace=str(namespace), path=str(path)))[0]
         )
-    except edgedb.NoDataError as exc:
+    except IndexError as exc:
         raise errors.FileNotFound() from exc
 
     await inc_size_batch(conn, namespace, Path(path).parents, size=-file.size)
@@ -544,41 +537,41 @@ async def list_folder(
     """
     path = str(path)
 
+    parent = await get(conn, namespace, path)
+    if not parent.mediatype == mediatypes.FOLDER:
+        raise errors.NotADirectory()
+
     filter_clause = ""
-    if not with_trash and str(path) == ".":
-        filter_clause = "FILTER .path != 'Trash'"
+    if path == ".":
+        filter_clause = "AND .path != '.'"
+        if not with_trash:
+            filter_clause += " AND .path != 'Trash'"
 
     query = f"""
         SELECT
             File {{
-                mediatype: {{ name }},
-                children := (
-                    SELECT
-                        .<parent[IS File] {{
-                            id, name, path, size, mtime, mediatype: {{ name }},
-                        }}
-                    {filter_clause}
-                    ORDER BY
-                        (.mediatype.name = '{mediatypes.FOLDER}') DESC
-                    THEN
-                        str_lower(.path) ASC
-            )
-        }}
+                id, name, path, size, mtime, mediatype: {{ name }},
+            }}
         FILTER
-            str_lower(.path) = str_lower(<str>$path)
-            AND
             .namespace.path = <str>$namespace
-        LIMIT 1
+            AND
+            .path LIKE <str>$path ++ '%'
+            AND
+            .path NOT LIKE <str>$path ++ '%/%'
+            {filter_clause}
+        ORDER BY
+            .mediatype.name = '{mediatypes.FOLDER}' DESC
+        THEN
+            str_lower(.path) ASC
     """
+
+    path = "" if path == "." else f"{path}/"
     try:
-        parent = await conn.query_single(query, namespace=str(namespace), path=path)
+        files = await conn.query(query, namespace=str(namespace), path=path)
     except edgedb.NoDataError as exc:
         raise errors.FileNotFound() from exc
 
-    if not parent.mediatype.name == mediatypes.FOLDER:
-        raise errors.NotADirectory()
-
-    return [from_db(child) for child in parent.children]
+    return [from_db(file) for file in files]
 
 
 async def move(
@@ -670,8 +663,6 @@ async def _move_file(conn: DBAnyConn, file_id: UUID, next_path: StrOrPath) -> Fi
         File: Updated file.
     """
     query = """
-        WITH
-            Parent := File,
         SELECT (
             UPDATE
                 File
@@ -680,15 +671,6 @@ async def _move_file(conn: DBAnyConn, file_id: UUID, next_path: StrOrPath) -> Fi
             SET {
                 name := <str>$name,
                 path := <str>$path,
-                parent := (
-                    SELECT
-                        Parent
-                    FILTER
-                        str_lower(.path) = str_lower(<str>$next_parent)
-                        AND
-                        .namespace = File.namespace
-                    LIMIT 1
-                )
             }
         ) { id, name, path, size, mtime, mediatype: { name } }
     """
@@ -698,7 +680,6 @@ async def _move_file(conn: DBAnyConn, file_id: UUID, next_path: StrOrPath) -> Fi
             file_id=str(file_id),
             name=Path(next_path).name,
             path=str(next_path),
-            next_parent=str(Path(next_path).parent),
         )
     )
 
