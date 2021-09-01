@@ -19,12 +19,8 @@ module default {
 
         required link mediatype -> MediaType;
         required link namespace -> Namespace;
-        single link parent -> File {
-            on target delete DELETE SOURCE;
-        };
 
         constraint exclusive on ((.path, .namespace));
-        index on (str_lower(.path));
     }
 
     type MediaType {
