@@ -279,11 +279,19 @@ class LocalStorage(Storage):
     def iterdir(self, path: StrOrPath) -> Iterator[StorageFile]:
         dir_path = joinpath(self.location, path)
         try:
-            return (self._from_entry(entry) for entry in os.scandir(dir_path))
+            entries = os.scandir(dir_path)
         except FileNotFoundError as exc:
             raise errors.FileNotFound() from exc
         except NotADirectoryError as exc:
             raise errors.NotADirectory() from exc
+
+        for entry in entries:
+            try:
+                yield self._from_entry(entry)
+            except FileNotFoundError:
+                if entry.is_symlink():
+                    continue
+                raise
 
     @sync_to_async
     def makedirs(self, path: StrOrPath) -> None:

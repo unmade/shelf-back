@@ -3,9 +3,10 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
+import edgedb
 import typer
 
-from app import actions, crud, db
+from app import actions, config, crud, db
 
 cli = typer.Typer()
 
@@ -30,9 +31,14 @@ def createsuperuser(
 def reconcile(namespace: str) -> None:
     """Reconcile storage and database for a given namespace."""
     async def _reconcile():
-        async with db.connect() as conn:
-            ns = await crud.namespace.get(conn, namespace)
-            await actions.reconcile(conn, ns, ".")
+        async with edgedb.create_async_pool(
+            dsn=config.DATABASE_DSN,
+            min_size=4,
+            max_size=4,
+            tls_ca_file=config.DATABASE_TLS_CA_FILE,
+        ) as pool:
+            ns = await crud.namespace.get(pool, namespace)
+            await actions.reconcile(pool, ns, ".")
 
     asyncio.run(_reconcile())
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os.path
 from collections import deque
 from datetime import datetime
@@ -231,7 +232,7 @@ async def move_to_trash(
     return await move(conn, namespace, path, next_path)
 
 
-async def reconcile(conn: DBConnOrPool, namespace: Namespace, path: StrOrPath) -> None:
+async def reconcile(conn: DBPool, namespace: Namespace, path: StrOrPath) -> None:
     """
     Create files that are missing in the database, but present in the storage and remove
     files that are present in the database, but missing in the storage.
@@ -245,8 +246,10 @@ async def reconcile(conn: DBConnOrPool, namespace: Namespace, path: StrOrPath) -
         errors.FileNotFound: If path to a folder does not exists.
         errors.NotADirectory: If path to a folder is not a directory.
     """
-    ns_path = namespace.path
+    ns_path = str(namespace.path)
     folders = deque([path])
+    missing = []
+    to_skip = set()
     while True:
         try:
             folder = folders.pop()
@@ -256,12 +259,15 @@ async def reconcile(conn: DBConnOrPool, namespace: Namespace, path: StrOrPath) -
         files = await storage.iterdir(joinpath(ns_path, folder))
 
         in_storage = {f.name: f for f in files}
-        in_db = await crud.file.list_folder(conn, ns_path, folder, with_trash=True)
+        if folder in to_skip:
+            in_db = []
+        else:
+            in_db = await crud.file.list_folder(conn, ns_path, folder, with_trash=True)
 
         names_storage = set(in_storage.keys())
         names_db = set(f.name for f in in_db)
 
-        missing = [
+        missing.append([
             File.construct(  # type: ignore
                 name=file.name,
                 path=os.path.relpath(file.path, ns_path),
@@ -273,16 +279,24 @@ async def reconcile(conn: DBConnOrPool, namespace: Namespace, path: StrOrPath) -
             )
             for name in names_storage.difference(names_db)
             if (file := in_storage[name])
-        ]
-        await crud.file.create_batch(conn, ns_path, files=missing)
+        ])
 
         stale = names_db.difference(names_storage)
         await crud.file.delete_batch(conn, ns_path, folder, names=stale)
+
+        for name in names_storage.difference(names_db):
+            if in_storage[name].is_dir():
+                to_skip.add(os.path.relpath(in_storage[name].path, ns_path))
 
         folders.extend(
             os.path.relpath(f.path, ns_path)
             for f in in_storage.values() if f.is_dir()
         )
+
+    await asyncio.gather(*(
+        crud.file.create_batch(conn, ns_path, files=files)
+        for files in missing
+    ))
 
 
 async def save_file(
