@@ -127,40 +127,24 @@ async def create(
 
 
 async def create_batch(
-    conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath, files: list[File],
+    conn: DBAnyConn, namespace: StrOrPath, files: Iterable[File],
 ) -> None:
     """
-    Create files in a given path and updates parents size accordingly.
+    Create files at once.
 
-    Note, this method will restore original casing for path. In other words, if one of
-    the files to be created has path 'a/b', and parent name is in upper case, the path
-    will be replaced with 'A/b'.
-
-    Similarly, if 'path' argument is 'a' and one of the files has path like 'd/b/c',
-    then file path will be replaced with 'a/c'.
+    CAUTION:
+        - method doesn't update size of the parents
+        - method doesn't restore original casing
+        - method doesn't enforce parent path existence
 
     Args:
         conn (DBAnyConn): Database connection.
         namespace (StrOrPath): Namespace where files will be created.
-        path (StrOrPath): Path to a folder where files will be created.
-        files (list[File]): List of files to create. All files MUST have 'path'
-            as a parent (if not, the path will be replaced with proper parent).
+        files (Iterable[File]): Iterable of files to create.
 
     Raises:
         errors.FileAlreadyExists: If some file already exists.
-        errors.FileNotFound: If path to a folder does not exists.
-        errors.NotADirectory: If path to a folder is not a directory.
     """
-    if not files:
-        return
-
-    parent = await get(conn, namespace, path)
-    if not parent.is_folder():
-        raise errors.NotADirectory
-
-    # restore original casing
-    for file in files:
-        file.path = normpath(joinpath(parent.path, file.name))
 
     query = """
         WITH
@@ -207,14 +191,13 @@ async def create_batch(
         "files": [file.json() for file in files],
     }
 
+    if not params["files"]:
+        return
+
     try:
         await conn.query(query, **params)
     except edgedb.ConstraintViolationError as exc:
         raise errors.FileAlreadyExists() from exc
-
-    if size := sum(f.size for f in files):
-        paths = [str(path)] + [str(p) for p in Path(path).parents]
-        await inc_size_batch(conn, namespace, paths, size)
 
 
 async def create_folder(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> None:

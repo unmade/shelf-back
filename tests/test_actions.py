@@ -409,15 +409,7 @@ async def test_move_to_trash_autorename(
     assert await crud.file.exists(db_pool, namespace.path, f"{file.path}/f1")
 
 
-@pytest.mark.xfail(
-    reason="does not clean up folder content from db",
-    strict=True,
-)
-async def test_reconcile(
-    db_pool: DBPool,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
+async def test_reconcile_creates_missing_files(db_pool: DBPool, namespace: Namespace):
     dummy_text = b"Dummy file"
 
     # these files exist in the storage, but not in the database
@@ -425,18 +417,11 @@ async def test_reconcile(
     await storage.makedirs(namespace.path / "b")
     await storage.save(namespace.path / "b/f.txt", content=BytesIO(dummy_text))
 
-    # these files exist in the database, but not in the storage
-    await crud.file.create_folder(db_pool, namespace.path, "c/d")
-    await crud.file.create(db_pool, namespace.path, "c/d/f.txt", size=32)
-
-    # these files exist both in the storage and in the database
-    file = await file_factory(namespace.path, path="e/g/f.txt")
-
     await actions.reconcile(db_pool, namespace, ".")
 
     # ensure home size is correct
     home = await crud.file.get(db_pool, namespace.path, ".")
-    assert home.size == file.size + len(dummy_text)
+    assert home.size == 0
 
     # ensure missing files in the database has been created
     paths = ["a", "b", "b/f.txt"]
@@ -444,14 +429,48 @@ async def test_reconcile(
     assert a.is_folder()
     assert a.size == 0
     assert b.is_folder()
-    assert b.size == len(dummy_text)
+    assert b.size == 0
     assert f.size == len(dummy_text)
     assert f.mediatype == 'text/plain'
+
+
+@pytest.mark.xfail(
+    reason="does not clean up folder content from db",
+    strict=True,
+)
+async def test_reconcile_removes_stale_files(
+    db_pool: DBPool,
+    namespace: Namespace,
+):
+    # these files exist in the database, but not in the storage
+    await crud.file.create_folder(db_pool, namespace.path, "c/d")
+    await crud.file.create(db_pool, namespace.path, "c/d/f.txt", size=32)
+
+    await actions.reconcile(db_pool, namespace, ".")
+
+    # ensure home size is correct
+    home = await crud.file.get(db_pool, namespace.path, ".")
+    assert home.size == 0
 
     # ensure stale files has been deleted
     assert not await crud.file.exists(db_pool, namespace.path, "c")
     assert not await crud.file.exists(db_pool, namespace.path, "c/d")
     assert not await crud.file.exists(db_pool, namespace.path, "c/d/f.txt")
+
+
+async def test_reconcile_do_nothing_when_files_consistent(
+    db_pool: DBPool,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    # these files exist both in the storage and in the database
+    file = await file_factory(namespace.path, path="e/g/f.txt")
+
+    await actions.reconcile(db_pool, namespace, ".")
+
+    # ensure home size is correct
+    home = await crud.file.get(db_pool, namespace.path, ".")
+    assert home.size == file.size
 
     # ensure correct files remain the same
     assert await crud.file.exists(db_pool, namespace.path, "e/g/f.txt")

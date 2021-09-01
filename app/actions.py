@@ -274,7 +274,7 @@ async def reconcile(conn: DBConnOrPool, namespace: Namespace, path: StrOrPath) -
             for name in names_storage.difference(names_db)
             if (file := in_storage[name])
         ]
-        await crud.file.create_batch(conn, ns_path, folder, files=missing)
+        await crud.file.create_batch(conn, ns_path, files=missing)
 
         stale = names_db.difference(names_storage)
         await crud.file.delete_batch(conn, ns_path, folder, names=stale)
