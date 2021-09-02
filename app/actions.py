@@ -233,7 +233,7 @@ async def move_to_trash(
     return await move(conn, namespace, path, next_path)
 
 
-async def reconcile(conn: DBPool, namespace: Namespace, path: StrOrPath) -> None:
+async def reconcile(conn: DBPool, namespace: Namespace) -> None:
     """
     Create files that are missing in the database, but present in the storage and remove
     files that are present in the database, but missing in the storage.
@@ -241,55 +241,44 @@ async def reconcile(conn: DBPool, namespace: Namespace, path: StrOrPath) -> None
     Args:
         conn (DBConnOrPool): Database connection or connection pool.
         namespace (Namespace): Namespace where file will be reconciled.
-        path (StrOrPath): Path to a folder to reconcile.
 
     Raises:
         errors.FileNotFound: If path to a folder does not exists.
         errors.NotADirectory: If path to a folder is not a directory.
     """
     ns_path = str(namespace.path)
-    folders = deque([(path, False)])
-    missing: list[File] = []
+    folders = deque(["."])
+    missing = []
+
+    # For now, it is faster to re-create all files from scratch
+    # then iterate through large directories looking for one missing/dangling file
+    await crud.file.reset(conn, ns_path)
+
     while True:
         try:
-            folder, should_skip = folders.pop()
+            folder = folders.pop()
         except IndexError:
             break
 
-        files = await storage.iterdir(ns_path, folder)
-        in_storage = {f.name: f for f in files}
+        for file in await storage.iterdir(ns_path, folder):
+            if file.is_dir():
+                folders.append(file.path)
+                size = 0
+                mediatype = mediatypes.FOLDER
+            else:
+                size = file.size
+                mediatype = mediatypes.guess(file.name)
 
-        if should_skip:
-            names_db = set()
-        else:
-            in_db = await crud.file.list_folder(conn, ns_path, folder, with_trash=True)
-
-        names_storage = set(in_storage.keys())
-        names_db = set(f.name for f in in_db)
-
-        diff = names_storage.difference(names_db)
-        missing.extend(
-            File(
-                id=None,  # type: ignore
-                name=file.name,
-                path=file.path,
-                size=0 if file.is_dir() else file.size,
-                mtime=file.mtime,
-                mediatype=(
-                    mediatypes.FOLDER if file.is_dir() else mediatypes.guess(file.name)
-                ),
+            missing.append(
+                File(
+                    id=None,  # type: ignore
+                    name=file.name,
+                    path=file.path,
+                    size=size,
+                    mtime=file.mtime,
+                    mediatype=mediatype,
+                )
             )
-            for name in diff
-            if (file := in_storage[name])
-        )
-
-        # stale = names_db.difference(names_storage)
-        # await crud.file.delete_batch(conn, ns_path, folder, names=stale)
-
-        folders.extend(
-            (f.path, f.name in diff)
-            for f in in_storage.values() if f.is_dir()
-        )
 
     await asyncio.gather(*(
         crud.file.create_batch(conn, ns_path, files=files)

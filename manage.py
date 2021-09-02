@@ -38,7 +38,7 @@ def reconcile(namespace: str) -> None:
             tls_ca_file=config.DATABASE_TLS_CA_FILE,
         ) as pool:
             ns = await crud.namespace.get(pool, namespace)
-            await actions.reconcile(pool, ns, ".")
+            await actions.reconcile(pool, ns)
 
     asyncio.run(_reconcile())
 
