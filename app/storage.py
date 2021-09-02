@@ -19,28 +19,38 @@ if TYPE_CHECKING:
 
 
 class StorageFile:
-    __slots__ = ("name", "path", "size", "mtime", "_is_dir")
+    __slots__ = ("name", "ns_path", "path", "size", "mtime", "_is_dir")
 
-    def __init__(self, name: str, path: str, size: int, mtime: float, is_dir: bool):
+    def __init__(
+        self,
+        name: str,
+        ns_path: str,
+        path: str,
+        size: int,
+        mtime: float,
+        is_dir: bool
+    ):
         self.name = name
+        self.ns_path = ns_path
         self.path = path
         self.size = size
         self.mtime = mtime
         self._is_dir = is_dir
 
-    def __str__(self) -> str:
-        return str(self.path)
-
     def __repr__(self) -> str:
         return (
             f"{self.__class__.__name__}("
             f"name='{self.name}', "
+            f"ns_path='{self.ns_path}', "
             f"path='{self.path}', "
             f"size={self.size}, "
             f"mtime={self.mtime}, "
             f"is_dir={self.is_dir()}"
             ")"
         )
+
+    def __str__(self) -> str:
+        return f"{self.ns_path}:{self.path}"
 
     def is_dir(self) -> bool:
         """True if file is a directory, False otherwise."""
@@ -244,21 +254,25 @@ class LocalStorage(Storage):
                 has_content = len(chunk) == chunk_size
                 yield chunk
 
-    def _from_entry(self, entry: os.DirEntry[str]) -> StorageFile:
+    def _from_entry(self, ns_path: StrOrPath, entry: os.DirEntry[str]) -> StorageFile:
+        ns_path = str(ns_path)
         stat = entry.stat()
         return StorageFile(
             name=entry.name,
-            path=os.path.relpath(entry.path, self.location),
+            ns_path=ns_path,
+            path=entry.path[len(self.location) + len(ns_path) + 2:],
             size=stat.st_size,
             mtime=stat.st_mtime,
             is_dir=entry.is_dir(),
         )
 
-    def _from_path(self, path: StrOrPath) -> StorageFile:
+    def _from_path(self, ns_path: StrOrPath, path: str) -> StorageFile:
+        ns_path = str(ns_path)
         stat = os.lstat(path)
         return StorageFile(
             name=os.path.basename(path),
-            path=os.path.relpath(path, self.location),
+            ns_path=ns_path,
+            path=path[len(self.location) + len(ns_path) + 2:],
             size=stat.st_size,
             mtime=stat.st_mtime,
             is_dir=os.path.isdir(path),
@@ -316,7 +330,7 @@ class LocalStorage(Storage):
 
         for entry in entries:
             try:
-                yield self._from_entry(entry)
+                yield self._from_entry(ns_path, entry)
             except FileNotFoundError:
                 if entry.is_symlink():
                     continue
@@ -364,7 +378,7 @@ class LocalStorage(Storage):
         except NotADirectoryError as exc:
             raise errors.NotADirectory() from exc
 
-        return self._from_path(fullpath)
+        return self._from_path(ns_path, fullpath)
 
     @sync_to_async
     def size(self, ns_path: StrOrPath, path: StrOrPath) -> int:

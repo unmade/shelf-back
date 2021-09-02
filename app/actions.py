@@ -270,7 +270,7 @@ async def reconcile(conn: DBPool, namespace: Namespace, path: StrOrPath) -> None
         missing.append([
             File.construct(  # type: ignore
                 name=file.name,
-                path=os.path.relpath(file.path, ns_path),
+                path=file.path,
                 size=0 if file.is_dir() else file.size,
                 mtime=file.mtime,
                 mediatype=(
@@ -286,10 +286,10 @@ async def reconcile(conn: DBPool, namespace: Namespace, path: StrOrPath) -> None
 
         for name in names_storage.difference(names_db):
             if in_storage[name].is_dir():
-                to_skip.add(os.path.relpath(in_storage[name].path, ns_path))
+                to_skip.add(in_storage[name].path)
 
         folders.extend(
-            os.path.relpath(f.path, ns_path)
+            f.path
             for f in in_storage.values() if f.is_dir()
         )
 

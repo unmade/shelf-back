@@ -44,6 +44,7 @@ def storage_file() -> StorageFile:
     """A simple instance of a storage file."""
     return StorageFile(
         name="f.txt",
+        ns_path="user",
         path="a/f.txt",
         size=8,
         mtime=1628154987,
@@ -58,12 +59,13 @@ def local_storage(tmp_path: Path) -> LocalStorage:
 
 class TestStorageFile:
     def test_string_representation(self, storage_file: StorageFile):
-        assert str(storage_file) == "a/f.txt"
+        assert str(storage_file) == "user:a/f.txt"
 
     def test_representation(self, storage_file: StorageFile):
         assert repr(storage_file) == (
             "StorageFile("
             "name='f.txt', "
+            "ns_path='user', "
             "path='a/f.txt', "
             "size=8, "
             "mtime=1628154987, "
@@ -146,9 +148,11 @@ class TestLocalStorage:
         )
 
         assert x.name == "x.txt"
-        assert x.path == "user/a/x.txt"
+        assert x.ns_path == "user"
+        assert x.path == "a/x.txt"
         assert y.name == "y.txt"
-        assert y.path == "user/a/y.txt"
+        assert y.ns_path == "user"
+        assert y.path == "a/y.txt"
 
     async def test_iterdir_but_path_does_not_exist(self, local_storage: LocalStorage):
         with pytest.raises(errors.FileNotFound):
@@ -240,7 +244,8 @@ class TestLocalStorage:
 
         assert (tmp_path / "user/a/f.txt").exists()
         assert file.name == "f.txt"
-        assert file.path == "user/a/f.txt"
+        assert file.ns_path == "user"
+        assert file.path == "a/f.txt"
         assert file.size == 15
         assert file.is_dir() is False
 
