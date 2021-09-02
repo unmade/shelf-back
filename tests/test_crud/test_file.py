@@ -91,14 +91,16 @@ async def test_create_but_file_already_exists(tx: DBTransaction, namespace: Name
 async def test_create_batch(tx: DBTransaction, namespace: Namespace):
     a_size, f_size = 32, 16
     files = [
-        File.construct(  # type: ignore
+        File(
+            id=None,  # type: ignore
             name="a",
             path="a",
             size=a_size,
             mtime=time.time(),
             mediatype=FOLDER,
         ),
-        File.construct(  # type: ignore
+        File(
+            id=None,  # type: ignore
             name="f",
             path="f",
             size=f_size,
@@ -132,7 +134,8 @@ async def test_create_batch_but_all_the_same(tx: DBTransaction, namespace: Names
     mediatypes = ["application/x-create-batch-1", "application/x-create-batch-2"]
     all_paths = [("a", "b"), ("c", "d")]
     to_create = [
-        File.construct(  # type: ignore
+        File(
+            id=None,  # type: ignore
             name=path,
             path=path,
             size=0,
@@ -161,14 +164,16 @@ async def test_create_batch_is_case_sensitive(
     await crud.file.create(tx, namespace.path, "A", mediatype=FOLDER)
 
     to_create = [
-        File.construct(  # type: ignore
+        File(
+            id=None,  # type: ignore
             name="B",
             path="A/B",
             size=0,
             mtime=time.time(),
             mediatype=FOLDER,
         ),
-        File.construct(  # type: ignore
+        File(
+            id=None,  # type: ignore
             name="f",
             path="a/f",
             size=8,

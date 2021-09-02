@@ -269,7 +269,8 @@ async def reconcile(conn: DBPool, namespace: Namespace, path: StrOrPath) -> None
 
         diff = names_storage.difference(names_db)
         missing.extend(
-            File.construct(  # type: ignore
+            File(
+                id=None,  # type: ignore
                 name=file.name,
                 path=file.path,
                 size=0 if file.is_dir() else file.size,
