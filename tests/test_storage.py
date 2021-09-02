@@ -154,6 +154,21 @@ class TestLocalStorage:
         assert y.ns_path == "user"
         assert y.path == "a/y.txt"
 
+    async def test_iterdir_does_not_include_broken_symlinks(
+        self,
+        tmp_path: Path,
+        file_factory,
+        local_storage: LocalStorage,
+    ):
+        await file_factory("user/x.txt")
+        fullpath = await file_factory("user/y.txt")
+        (tmp_path / "user/y_symlink.txt").symlink_to(fullpath)
+        fullpath.unlink()
+
+        files = list(await local_storage.iterdir("user", "."))
+        assert(len(files)) == 1
+        assert files[0].path == "x.txt"
+
     async def test_iterdir_but_path_does_not_exist(self, local_storage: LocalStorage):
         with pytest.raises(errors.FileNotFound):
             list(await local_storage.iterdir("user", "a"))

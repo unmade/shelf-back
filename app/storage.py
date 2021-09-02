@@ -334,7 +334,7 @@ class LocalStorage(Storage):
             except FileNotFoundError:
                 if entry.is_symlink():
                     continue
-                raise
+                raise  # pragma: no cover
 
     @sync_to_async
     def makedirs(self, ns_path: StrOrPath, path: StrOrPath) -> None:
