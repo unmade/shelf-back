@@ -13,7 +13,7 @@ from app.config import TRASH_FOLDER_NAME
 from .exceptions import FileAlreadyDeleted, MalformedPath
 
 if TYPE_CHECKING:
-    from app.entities import File as FileEntity
+    from app import entities
 
 
 class ThumbnailSize(str, Enum):
@@ -57,7 +57,7 @@ class File(BaseModel):
     has_thumbnail: bool = False
 
     @classmethod
-    def from_entity(cls: Type[File], file: FileEntity) -> File:
+    def from_entity(cls: Type[File], file: entities.File) -> File:
         return cls.construct(
             id=file.id,
             name=file.name,
@@ -97,6 +97,13 @@ class AsyncTaskStatus(str, Enum):
 class AsyncTaskResult(BaseModel):
     file: Optional[File]
     err_code: Optional[errors.ErrorCode]
+
+    @classmethod
+    def from_entity(cls, entity: entities.FileTaskResult) -> AsyncTaskResult:
+        return cls.construct(
+            file=File.from_entity(entity.file) if entity.file else None,
+            err_code=entity.err_code if entity.err_code else None,
+        )
 
 
 class DeleteImmediatelyRequest(PathRequest):

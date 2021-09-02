@@ -36,11 +36,13 @@ async def create_folder(
     if not existed, and 'c' will be returned as a response.
     """
     try:
-        return await actions.create_folder(db_pool, namespace, payload.path)
+        folder = await actions.create_folder(db_pool, namespace, payload.path)
     except errors.FileAlreadyExists as exc:
         raise exceptions.FileAlreadyExists(path=payload.path) from exc
     except errors.NotADirectory as exc:
         raise exceptions.NotADirectory(path=payload.path) from exc
+
+    return schemas.File.from_entity(folder)
 
 
 @router.post("/delete_immediately_batch", response_model=schemas.AsyncTaskID)
@@ -67,7 +69,10 @@ def delete_immediately_check(
     if task.status == celery.states.SUCCESS:
         return response_model(
             status=schemas.AsyncTaskStatus.completed,
-            result=task.result,
+            result=[
+                schemas.AsyncTaskResult.from_entity(result)
+                for result in task.result
+            ],
         )
     return response_model(status=schemas.AsyncTaskStatus.pending)
 
@@ -264,7 +269,7 @@ async def move(
     """
     from_path, to_path = payload.from_path, payload.to_path
     try:
-        return await actions.move(db_pool, namespace, from_path, to_path)
+        file = await actions.move(db_pool, namespace, from_path, to_path)
     except errors.FileAlreadyExists as exc:
         raise exceptions.FileAlreadyExists(path=to_path) from exc
     except errors.FileNotFound as exc:
@@ -274,6 +279,8 @@ async def move(
     except errors.MissingParent as exc:
         message = "Some parents don't exist in the destination path"
         raise exceptions.MalformedPath(message) from exc
+
+    return schemas.File.from_entity(file)
 
 
 @router.post("/move_batch", response_model=schemas.AsyncTaskID)
@@ -297,7 +304,10 @@ def move_batch_check(
     if task.status == celery.states.SUCCESS:
         return response_model(
             status=schemas.AsyncTaskStatus.completed,
-            result=task.result,
+            result=[
+                schemas.AsyncTaskResult.from_entity(result)
+                for result in task.result
+            ],
         )
     return response_model(status=schemas.AsyncTaskStatus.pending)
 
@@ -310,9 +320,11 @@ async def move_to_trash(
 ):
     """Move file to the Trash folder."""
     try:
-        return await actions.move_to_trash(db_pool, namespace, payload.path)
+        file = await actions.move_to_trash(db_pool, namespace, payload.path)
     except errors.FileNotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
+
+    return schemas.File.from_entity(file)
 
 
 @router.post("/move_to_trash_batch", response_model=schemas.AsyncTaskID)

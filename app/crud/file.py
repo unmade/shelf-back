@@ -24,7 +24,7 @@ def _lowered(items: Iterable[Any]) -> Iterator[str]:
 
 
 def from_db(obj: edgedb.Object) -> File:
-    return File.construct(
+    return File(
         id=obj.id,
         name=obj.name,
         path=obj.path,
