@@ -337,38 +337,6 @@ async def delete(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> File
     return file
 
 
-async def delete_batch(
-    conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath, names: Iterable[str],
-) -> None:
-    """
-    Delete all files with target names in specified path and updates parents size.
-
-    Note, that 'names' are case-sensitive.
-
-    Args:
-        conn (DBAnyConn): Database connection.
-        namespace (StrOrPath): Namespace where to delete files.
-        path (StrOrPath): Path where to delete files.
-        names (Iterable[str]): File names to delete.
-    """
-    if not names:
-        return
-
-    query = """
-        SELECT sum((
-            DELETE
-                File
-            FILTER
-                .namespace.path = <str>$namespace
-                AND
-                .name IN {array_unpack(<array<str>>$names)}
-        ).size)
-    """
-    size = await conn.query_single(query, namespace=str(namespace), names=list(names))
-    parents = [path] + [p for p in PurePath(path).parents]
-    await inc_size_batch(conn, namespace, parents, size=-size)
-
-
 async def empty_trash(conn: DBAnyConn, namespace: StrOrPath) -> File:
     """
     Delete all files and folders in the Trash.
@@ -753,3 +721,23 @@ async def inc_size_batch(
             size := .size + <int64>$size
         }
     """, namespace=str(namespace), paths=[str(p).lower() for p in paths], size=size)
+
+
+async def reset(conn: DBAnyConn, namespace: StrOrPath) -> None:
+    """
+    Delete all files in namespace except home and Trash folders.
+
+    Args:
+        conn (DBAnyConn): Database connection.
+        namespace (StrOrPath): Namespace to reset.
+    """
+    query = """
+        DELETE
+            File
+        FILTER
+            .namespace.path = <str>$namespace
+            AND
+            .path != '.'
+    """
+
+    await conn.query(query, namespace=str(namespace))

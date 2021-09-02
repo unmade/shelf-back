@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -12,7 +13,7 @@ from app.mediatypes import FOLDER, OCTET_STREAM
 
 if TYPE_CHECKING:
     from app.entities import Namespace
-    from app.typedefs import DBTransaction
+    from app.typedefs import DBPool, DBTransaction
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
@@ -238,6 +239,46 @@ async def test_create_folder(tx: DBTransaction, namespace: Namespace):
     assert c.path == "a/b/c"
 
 
+@pytest.mark.database(transaction=True)
+async def test_create_folder_concurrently_with_overlapping_parents(
+    db_pool: DBPool,
+    namespace: Namespace,
+):
+    paths = [
+        Path("a/b"),
+        Path("a/b/c/d"),
+        Path("a/b/c/d/e/f/g"),
+        Path("a/b/c/d/c"),
+    ]
+
+    await asyncio.gather(*(
+        crud.file.create_folder(db_pool, namespace.path, path)
+        for path in paths
+    ))
+
+    files = await db_pool.query("""
+        SELECT File { id, path }
+        FILTER
+            str_lower(.path) != 'trash'
+            AND
+            .namespace.path = <str>$namespace
+        ORDER BY str_lower(.path) ASC
+    """, namespace=str(namespace.path))
+
+    expected_path = [
+        ".",
+        "a",
+        "a/b",
+        "a/b/c",
+        "a/b/c/d",
+        "a/b/c/d/c",
+        "a/b/c/d/e",
+        "a/b/c/d/e/f",
+        "a/b/c/d/e/f/g",
+    ]
+    assert [file.path for file in files] == expected_path
+
+
 async def test_create_folder_is_case_insensitive(
     tx: DBTransaction,
     namespace: Namespace,
@@ -356,31 +397,6 @@ async def test_delete_file_but_it_does_not_exist(
 ):
     with pytest.raises(errors.FileNotFound):
         await crud.file.delete(tx, namespace.path, "f")
-
-
-@pytest.mark.xfail(
-    reason="does not delete folder content",
-    strict=True,
-)
-async def test_delete_batch(tx: DBTransaction, namespace: Namespace):
-    await crud.file.create(tx, namespace.path, "a", mediatype=FOLDER)
-    await crud.file.create(tx, namespace.path, "a/B", mediatype=FOLDER)
-    await crud.file.create(tx, namespace.path, "a/B/c", size=8)
-    await crud.file.create(tx, namespace.path, "a/f", size=16)
-
-    # ensure parent size has increased
-    a, b = await crud.file.get_many(tx, namespace.path, ["a", "a/b"])
-    assert a.size == 24
-    assert b.size == 8
-
-    await crud.file.delete_batch(tx, namespace.path, "A", ["B", "f"])
-    assert not await crud.file.exists(tx, namespace.path, "a/b")
-    assert not await crud.file.exists(tx, namespace.path, "a/b/c")
-    assert not await crud.file.exists(tx, namespace.path, "a/f")
-
-    # ensure size has decreased
-    parent = await crud.file.get(tx, namespace.path, "a")
-    assert parent.size == 0
 
 
 async def test_empty_trash(tx: DBTransaction, namespace: Namespace):
@@ -681,6 +697,11 @@ async def test_next_path_is_case_insensitive(tx: DBTransaction, namespace: Names
     assert not await crud.file.exists(tx, namespace.path, "f (2).tar.gz")
 
 
+async def test_next_path_returns_path_as_is(tx: DBTransaction, namespace: Namespace):
+    next_path = await crud.file.next_path(tx, namespace.path, "f.txt")
+    assert next_path == "f.txt"
+
+
 async def test_inc_size_batch(tx: DBTransaction, namespace: Namespace):
     await crud.file.create_folder(tx, namespace.path, "a/b")
     await crud.file.create_folder(tx, namespace.path, "a/c")
@@ -719,3 +740,19 @@ async def test_inc_size_batch_but_size_is_zero():
         size=0,
     )
     assert result is None
+
+
+async def test_reset(tx, namespace: Namespace):
+    await crud.file.create_folder(tx, namespace.path, "a")
+    paths = ["x.txt", "a/f.txt", "Trash/f.txt"]
+    for path in paths:
+        await crud.file.create(tx, namespace.path, path)
+
+    await crud.file.reset(tx, namespace.path)
+
+    assert not await crud.file.exists(tx, namespace.path, "a")
+    for path in paths:
+        assert not await crud.file.exists(tx, namespace.path, path)
+
+    assert not await crud.file.exists(tx, namespace.path, "Trash")
+    assert await crud.file.exists(tx, namespace.path, ".")
