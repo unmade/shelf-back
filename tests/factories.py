@@ -75,15 +75,14 @@ class FileFactory:
         path = path or fake.file_name(category="text", extension="txt")
         parent = os.path.normpath(os.path.dirname(path))
 
-        await storage.makedirs(os.path.normpath(os.path.join(ns_path, parent)))
+        await storage.makedirs(ns_path, parent)
         if not await crud.file.exists(self._db_conn, ns_path, parent):
             await crud.file.create_folder(self._db_conn, ns_path, parent)
 
         if isinstance(content, bytes):
             content = BytesIO(content)
 
-        storage_path = os.path.normpath(os.path.join(ns_path, path))
-        file = await storage.save(storage_path, content=content)
+        file = await storage.save(ns_path, path, content=content)
         return await crud.file.create(
             self._db_conn,
             ns_path,
@@ -170,8 +169,8 @@ class NamespaceFactory:
             namespace_id=namespace.id,
         )
 
-        await storage.makedirs(namespace.path)
-        await storage.makedirs(namespace.path / config.TRASH_FOLDER_NAME)
+        await storage.makedirs(namespace.path, ".")
+        await storage.makedirs(namespace.path, config.TRASH_FOLDER_NAME)
 
         return namespace
 

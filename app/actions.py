@@ -9,7 +9,7 @@ from typing import IO, TYPE_CHECKING, Optional
 
 from app import config, crud, errors, mediatypes
 from app.entities import Account, File, Namespace
-from app.storage import joinpath, storage
+from app.storage import storage
 
 if TYPE_CHECKING:
     from app.typedefs import DBConnOrPool, DBPool, StrOrPath
@@ -44,7 +44,7 @@ async def create_account(
     Returns:
         Account: A freshly created account.
     """
-    await storage.makedirs(joinpath(username, config.TRASH_FOLDER_NAME))
+    await storage.makedirs(username, config.TRASH_FOLDER_NAME)
 
     async for tx in conn.retrying_transaction():  # pragma: no branch
         async with tx:
@@ -76,7 +76,7 @@ async def create_folder(
     Returns:
         File: Created folder.
     """
-    await storage.makedirs(joinpath(namespace.path, path))
+    await storage.makedirs(namespace.path, path)
     await crud.file.create_folder(conn, namespace.path, path)
     return await crud.file.get(conn, namespace.path, path)
 
@@ -102,7 +102,7 @@ async def delete_immediately(
         async with tx:
             file = await crud.file.delete(tx, namespace.path, path)
 
-    await storage.delete(joinpath(namespace.path, path)),
+    await storage.delete(namespace.path, path),
     return file
 
 
@@ -123,7 +123,7 @@ async def empty_trash(conn: DBConnOrPool, namespace: Namespace) -> File:
             await crud.file.empty_trash(tx, namespace.path)
 
     for file in files:
-        await storage.delete(joinpath(namespace.path, file.path))
+        await storage.delete(namespace.path, file.path)
 
     return await crud.file.get(conn, namespace.path, config.TRASH_FOLDER_NAME)
 
@@ -149,7 +149,7 @@ async def get_thumbnail(
         tuple[File, int, BytesIO]: Tuple of file, thumbnail disk size and thumbnail.
     """
     file = await crud.file.get(conn, namespace.path, path)
-    thumbsize, thumbnail = await storage.thumbnail(namespace.path / path, size=size)
+    thumbsize, thumbnail = await storage.thumbnail(namespace.path, path, size=size)
     return file, thumbsize, thumbnail
 
 
@@ -195,7 +195,7 @@ async def move(
     if await crud.file.exists(conn, namespace.path, next_path):
         raise errors.FileAlreadyExists() from None
 
-    await storage.move(namespace.path / path, namespace.path / next_path)
+    await storage.move(namespace.path, path, next_path)
 
     async for tx in conn.retrying_transaction():  # pragma: no branch
         async with tx:
@@ -256,7 +256,7 @@ async def reconcile(conn: DBPool, namespace: Namespace, path: StrOrPath) -> None
         except IndexError:
             break
 
-        files = await storage.iterdir(joinpath(ns_path, folder))
+        files = await storage.iterdir(ns_path, folder)
 
         in_storage = {f.name: f for f in files}
         if folder in to_skip:
@@ -327,7 +327,7 @@ async def save_file(
 
     next_path = await crud.file.next_path(conn, namespace.path, path)
 
-    storage_file = await storage.save(namespace.path / next_path, content)
+    storage_file = await storage.save(namespace.path, next_path, content)
 
     async for tx in conn.retrying_transaction():  # pragma: no branch
         async with tx:

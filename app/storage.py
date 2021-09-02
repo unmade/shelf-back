@@ -18,11 +18,6 @@ if TYPE_CHECKING:
     from app.typedefs import StrOrPath
 
 
-def joinpath(path: StrOrPath, *paths: StrOrPath) -> str:
-    """Join two or more paths and return a normalize path."""
-    return os.path.normpath(os.path.join(path, *paths))
-
-
 class StorageFile:
     __slots__ = ("name", "path", "size", "mtime", "_is_dir")
 
@@ -57,49 +52,53 @@ class Storage:
         self.location = str(location)
 
     @abc.abstractmethod
-    async def delete(self, path: StrOrPath) -> None:
+    async def delete(self, ns_path: StrOrPath, path: StrOrPath) -> None:
         """
         Delete file or a folder by path.
 
         Args:
-            path (StrOrPath): Path relative to storage location.
+            ns_path (StrOrPath): Namespace path.
+            path (StrOrPath): File pathname relative to namespace.
 
         Raises:
             errors.FileNotFound: If file not found.
         """
 
     @abc.abstractmethod
-    def download(self, path: StrOrPath) -> Iterator[bytes]:
+    def download(self, ns_path: StrOrPath, path: StrOrPath) -> Iterator[bytes]:
         """
         Return an iterator over a file content. If a file is a folder, then it will be
         be a zip archive.
 
         Args:
-            path (StrOrPath): Path relative to storage location.
+            ns_path (StrOrPath): Namespace path.
+            path (StrOrPath): File pathname relative to namespace.
 
         Yields:
             Iterator[bytes]: Iterator to a file content.
         """
 
     @abc.abstractmethod
-    async def exists(self, path: StrOrPath) -> bool:
+    async def exists(self, ns_path: StrOrPath, path: StrOrPath) -> bool:
         """
         Check whether if file exists or not in the specified path.
 
         Args:
-            path (StrOrPath): Path relative to storage location.
+            ns_path (StrOrPath): Namespace path.
+            path (StrOrPath): File pathname relative to namespace.
 
         Returns:
             bool: True if file exists, False otherwise.
         """
 
     @abc.abstractmethod
-    async def get_modified_time(self, path: StrOrPath) -> float:
+    async def get_modified_time(self, ns_path: StrOrPath, path: StrOrPath) -> float:
         """
         Get a datetime of the last modified time of the file.
 
         Args:
-            path (StrOrPath): Path relative to storage location.
+            ns_path (StrOrPath): Namespace path.
+            path (StrOrPath): File pathname relative to namespace.
 
         Raises:
             errors.FileNotFound: If file in path doesn't exists
@@ -109,12 +108,17 @@ class Storage:
         """
 
     @abc.abstractmethod
-    async def iterdir(self, path: StrOrPath) -> Iterator[StorageFile]:
+    async def iterdir(
+        self,
+        ns_path: StrOrPath,
+        path: StrOrPath,
+    ) -> Iterator[StorageFile]:
         """
         Return an iterator of StorageFile objects for a given path.
 
         Args:
-            path (StrOrPath): Path relative to storage location.
+            ns_path (StrOrPath): Namespace path.
+            path (StrOrPath): File pathname relative to namespace.
 
         Raises:
             errors.FileNotFound: If given path does not exist
@@ -125,12 +129,13 @@ class Storage:
         """
 
     @abc.abstractmethod
-    async def makedirs(self, path: StrOrPath) -> None:
+    async def makedirs(self, ns_path: StrOrPath, path: StrOrPath) -> None:
         """
         Create a directory with any missing directories in a given path.
 
         Args:
-            path (StrOrPath): Path relative to a storage location.
+            ns_path (StrOrPath): Namespace path.
+            path (StrOrPath): File pathname relative to namespace.
 
         Raises:
             errors.FileAlreadyExists: If some file already exists in a given path.
@@ -138,15 +143,21 @@ class Storage:
         """
 
     @abc.abstractmethod
-    async def move(self, from_path: StrOrPath, to_path: StrOrPath) -> None:
+    async def move(
+        self,
+        ns_path: StrOrPath,
+        from_path: StrOrPath,
+        to_path: StrOrPath,
+    ) -> None:
         """
         Move file or folder to a destination path. Destination path should include
         source file name. For example to move file 'f.txt' to a folder 'b', destination
         should as 'b/f.txt'.
 
         Args:
-            from_path (StrOrPath): Current file path relative to storage location.
-            to_path (StrOrPath): New file path relative to storage location.
+            ns_path (StrOrPath): Namespace path.
+            from_path (StrOrPath): Current file pathname relative to namespace.
+            to_path (StrOrPath): Next file pathname relative to namespace.
 
         Raises:
             errors.FileNotFound: If source or destination path does not exist.
@@ -154,12 +165,18 @@ class Storage:
         """
 
     @abc.abstractmethod
-    async def save(self, path: StrOrPath, content: IO[bytes]) -> StorageFile:
+    async def save(
+        self,
+        ns_path: StrOrPath,
+        path: StrOrPath,
+        content: IO[bytes],
+    ) -> StorageFile:
         """
         Save content to a given path.
 
         Args:
-            path (StrOrPath): Path relative to storage location.
+            ns_path (StrOrPath): Namespace path.
+            path (StrOrPath): File pathname relative to namespace.
             content (IO[bytes]): Content to save.
 
         Raises:
@@ -170,12 +187,13 @@ class Storage:
         """
 
     @abc.abstractmethod
-    async def size(self, path: StrOrPath) -> int:
+    async def size(self, ns_path: StrOrPath, path: StrOrPath) -> int:
         """
         Get the total size, in bytes, of the file referenced by path.
 
         Args:
-            path (StrOrPath): Path relative to storage location.
+            ns_path (StrOrPath): Namespace path.
+            path (StrOrPath): File pathname relative to namespace.
 
         Raises:
             errors.FileNotFound: If given path does not exist.
@@ -185,12 +203,18 @@ class Storage:
         """
 
     @abc.abstractmethod
-    async def thumbnail(self, path: StrOrPath, size: int) -> tuple[int, IO[bytes]]:
+    async def thumbnail(
+        self,
+        ns_path: StrOrPath,
+        path: StrOrPath,
+        size: int,
+    ) -> tuple[int, IO[bytes]]:
         """
         Generate thumbnail with a specified size for the given path.
 
         Args:
-            path (StrOrPath): Path relative to storage location.
+            ns_path (StrOrPath): Namespace path.
+            path (StrOrPath): File pathname relative to namespace.
             size (int): Size of thumbnail in pixels.
 
         Raises:
@@ -205,25 +229,10 @@ class Storage:
 
 
 class LocalStorage(Storage):
-    def _from_path(self, path: StrOrPath) -> StorageFile:
-        stat = os.lstat(path)
-        return StorageFile(
-            name=os.path.basename(path),
-            path=os.path.relpath(path, self.location),
-            size=stat.st_size,
-            mtime=stat.st_mtime,
-            is_dir=os.path.isdir(path),
-        )
-
-    def _from_entry(self, entry: os.DirEntry[str]) -> StorageFile:
-        stat = entry.stat()
-        return StorageFile(
-            name=entry.name,
-            path=os.path.relpath(entry.path, self.location),
-            size=stat.st_size,
-            mtime=stat.st_mtime,
-            is_dir=entry.is_dir(),
-        )
+    @staticmethod
+    def _joinpath(path: StrOrPath, *paths: StrOrPath) -> str:
+        """Join two or more paths and return a normalize path."""
+        return os.path.normpath(os.path.join(path, *paths))
 
     @staticmethod
     def _readchunks(path: StrOrPath) -> Iterator[bytes]:
@@ -235,9 +244,29 @@ class LocalStorage(Storage):
                 has_content = len(chunk) == chunk_size
                 yield chunk
 
+    def _from_entry(self, entry: os.DirEntry[str]) -> StorageFile:
+        stat = entry.stat()
+        return StorageFile(
+            name=entry.name,
+            path=os.path.relpath(entry.path, self.location),
+            size=stat.st_size,
+            mtime=stat.st_mtime,
+            is_dir=entry.is_dir(),
+        )
+
+    def _from_path(self, path: StrOrPath) -> StorageFile:
+        stat = os.lstat(path)
+        return StorageFile(
+            name=os.path.basename(path),
+            path=os.path.relpath(path, self.location),
+            size=stat.st_size,
+            mtime=stat.st_mtime,
+            is_dir=os.path.isdir(path),
+        )
+
     @sync_to_async
-    def delete(self, path: StrOrPath) -> None:
-        fullpath = joinpath(self.location, path)
+    def delete(self, ns_path: StrOrPath, path: StrOrPath) -> None:
+        fullpath = self._joinpath(self.location, ns_path, path)
         try:
             if os.path.isdir(fullpath):
                 shutil.rmtree(fullpath)
@@ -246,9 +275,9 @@ class LocalStorage(Storage):
         except FileNotFoundError as exc:
             raise errors.FileNotFound() from exc
 
-    def download(self, path: StrOrPath) -> Iterator[bytes]:
-        fullpath = joinpath(self.location, path)
-        pathnames = glob.iglob(joinpath(fullpath, "**/*"), recursive=True)
+    def download(self, ns_path: StrOrPath, path: StrOrPath) -> Iterator[bytes]:
+        fullpath = self._joinpath(self.location, ns_path, path)
+        pathnames = glob.iglob(self._joinpath(fullpath, "**/*"), recursive=True)
         if os.path.isdir(fullpath):
             paths = [
                 {
@@ -263,21 +292,21 @@ class LocalStorage(Storage):
         return self._readchunks(fullpath)
 
     @sync_to_async
-    def exists(self, path: StrOrPath) -> bool:
-        fullpath = joinpath(self.location, path)
+    def exists(self, ns_path: StrOrPath, path: StrOrPath) -> bool:
+        fullpath = self._joinpath(self.location, ns_path, path)
         return os.path.exists(fullpath)
 
     @sync_to_async
-    def get_modified_time(self, path: StrOrPath) -> float:
-        fullpath = joinpath(self.location, path)
+    def get_modified_time(self, ns_path: StrOrPath, path: StrOrPath) -> float:
+        fullpath = self._joinpath(self.location, ns_path, path)
         try:
             return os.lstat(fullpath).st_mtime
         except FileNotFoundError as exc:
             raise errors.FileNotFound() from exc
 
     @sync_to_async
-    def iterdir(self, path: StrOrPath) -> Iterator[StorageFile]:
-        dir_path = joinpath(self.location, path)
+    def iterdir(self, ns_path: StrOrPath, path: StrOrPath) -> Iterator[StorageFile]:
+        dir_path = self._joinpath(self.location, ns_path, path)
         try:
             entries = os.scandir(dir_path)
         except FileNotFoundError as exc:
@@ -294,8 +323,8 @@ class LocalStorage(Storage):
                 raise
 
     @sync_to_async
-    def makedirs(self, path: StrOrPath) -> None:
-        fullpath = joinpath(self.location, path)
+    def makedirs(self, ns_path: StrOrPath, path: StrOrPath) -> None:
+        fullpath = self._joinpath(self.location, ns_path, path)
         try:
             os.makedirs(fullpath, exist_ok=True)
         except FileExistsError as exc:
@@ -304,9 +333,14 @@ class LocalStorage(Storage):
             raise errors.NotADirectory() from exc
 
     @sync_to_async
-    def move(self, from_path: StrOrPath, to_path: StrOrPath) -> None:
-        source = joinpath(self.location, from_path)
-        destination = joinpath(self.location, to_path)
+    def move(
+        self,
+        ns_path: StrOrPath,
+        from_path: StrOrPath,
+        to_path: StrOrPath,
+    ) -> None:
+        source = self._joinpath(self.location, ns_path, from_path)
+        destination = self._joinpath(self.location, ns_path, to_path)
         try:
             shutil.move(source, destination)
         except FileNotFoundError as exc:
@@ -315,9 +349,14 @@ class LocalStorage(Storage):
             raise errors.NotADirectory() from exc
 
     @sync_to_async
-    def save(self, path: StrOrPath, content: IO[bytes]) -> StorageFile:
+    def save(
+        self,
+        ns_path: StrOrPath,
+        path: StrOrPath,
+        content: IO[bytes],
+    ) -> StorageFile:
         content.seek(0)
-        fullpath = joinpath(self.location, path)
+        fullpath = self._joinpath(self.location, ns_path, path)
 
         try:
             with open(fullpath, "wb") as buffer:
@@ -328,16 +367,21 @@ class LocalStorage(Storage):
         return self._from_path(fullpath)
 
     @sync_to_async
-    def size(self, path: StrOrPath) -> int:
-        fullpath = joinpath(self.location, path)
+    def size(self, ns_path: StrOrPath, path: StrOrPath) -> int:
+        fullpath = self._joinpath(self.location, ns_path, path)
         try:
             return os.lstat(fullpath).st_size
         except FileNotFoundError as exc:
             raise errors.FileNotFound() from exc
 
     @sync_to_async
-    def thumbnail(self, path: StrOrPath, size: int) -> tuple[int, IO[bytes]]:
-        fullpath = joinpath(self.location, path)
+    def thumbnail(
+        self,
+        ns_path: StrOrPath,
+        path: StrOrPath,
+        size: int,
+    ) -> tuple[int, IO[bytes]]:
+        fullpath = self._joinpath(self.location, ns_path, path)
         buffer = BytesIO()
         try:
             with Image.open(fullpath) as im:

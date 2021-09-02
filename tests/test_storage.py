@@ -30,7 +30,7 @@ def file_factory(tmp_path: Path):
         content: IO[bytes] = BytesIO(b"I'm Dummy File!"),
     ) -> Path:
         fullpath = tmp_path / path
-        fullpath.parent.mkdir(exist_ok=True)
+        fullpath.parent.mkdir(parents=True, exist_ok=True)
         with open(fullpath, 'wb') as buffer:
             shutil.copyfileobj(content, buffer)
 
@@ -75,37 +75,37 @@ class TestStorageFile:
 @pytest.mark.asyncio
 class TestLocalStorage:
     async def test_delete_file(self, file_factory, local_storage: LocalStorage):
-        fullpath = await file_factory("f.txt")
+        fullpath = await file_factory("user/f.txt")
         assert fullpath.exists()
-        await local_storage.delete("f.txt")
+        await local_storage.delete("user", "f.txt")
         assert not fullpath.exists()
 
     async def test_delete_folder(self, file_factory, local_storage: LocalStorage):
-        fullpath = await file_factory("a/f.txt")
+        fullpath = await file_factory("user/a/f.txt")
         assert fullpath.exists()
-        await local_storage.delete("a")
+        await local_storage.delete("user", "a")
         assert not fullpath.exists()
         assert not fullpath.parent.exists()
 
     async def test_delete_but_file_does_not_exist(self, local_storage: LocalStorage):
         with pytest.raises(errors.FileNotFound):
-            await local_storage.delete("f.txt")
+            await local_storage.delete("user", "f.txt")
 
     async def test_download_file(self, file_factory, local_storage: LocalStorage):
-        await file_factory("f.txt")
+        await file_factory("user/f.txt")
         buffer = BytesIO()
-        for chunk in local_storage.download("f.txt"):
+        for chunk in local_storage.download("user", "f.txt"):
             buffer.write(chunk)
         buffer.seek(0)
         assert buffer.read() == b"I'm Dummy File!"
 
     async def test_download_folder(self, file_factory, local_storage: LocalStorage):
-        await file_factory("a/x.txt", content=BytesIO(b"Hello"))
-        await file_factory("a/y.txt", content=BytesIO(b"World"))
+        await file_factory("user/a/x.txt", content=BytesIO(b"Hello"))
+        await file_factory("user/a/y.txt", content=BytesIO(b"World"))
 
-        await file_factory("a/b/z.txt", content=BytesIO(b"!"))
+        await file_factory("user/a/b/z.txt", content=BytesIO(b"!"))
         buffer = BytesIO()
-        for chunk in local_storage.download("a"):
+        for chunk in local_storage.download("user", "a"):
             buffer.write(chunk)
         buffer.seek(0)
 
@@ -116,174 +116,184 @@ class TestLocalStorage:
             assert archive.read("b/z.txt") == b"!"
 
     async def test_exists(self, file_factory, local_storage: LocalStorage):
-        assert not await local_storage.exists("a")
-        await file_factory("a/f.txt")
-        assert await local_storage.exists("a")
-        assert await local_storage.exists("a/f.txt")
+        assert not await local_storage.exists("user", "a")
+        await file_factory("user/a/f.txt")
+        assert await local_storage.exists("user", "a")
+        assert await local_storage.exists("user", "a/f.txt")
 
     async def test_get_modified_time(self, file_factory, local_storage: LocalStorage):
-        fullpath = await file_factory("a/f.txt")
-        mtime = await local_storage.get_modified_time("a/f.txt")
+        fullpath = await file_factory("user/a/f.txt")
+        mtime = await local_storage.get_modified_time("user", "a/f.txt")
         assert mtime == fullpath.lstat().st_mtime
 
-        mtime = await local_storage.get_modified_time("a")
+        mtime = await local_storage.get_modified_time("user", "a")
         assert mtime == fullpath.parent.lstat().st_mtime
 
     async def test_get_modified_time_but_file_does_not_exist(
         self, local_storage: LocalStorage
     ):
         with pytest.raises(errors.FileNotFound):
-            await local_storage.get_modified_time("f.txt")
+            await local_storage.get_modified_time("user", "f.txt")
 
     async def test_iterdir(self, file_factory, local_storage: LocalStorage):
-        await file_factory("a/x.txt")
-        await file_factory("a/y.txt")
-        await file_factory("b/z.txt")
+        await file_factory("user/a/x.txt")
+        await file_factory("user/a/y.txt")
+        await file_factory("user/b/z.txt")
 
         x, y = sorted(
-            await local_storage.iterdir("a"),
+            await local_storage.iterdir("user", "a"),
             key=operator.attrgetter("path")
         )
 
         assert x.name == "x.txt"
-        assert x.path == "a/x.txt"
+        assert x.path == "user/a/x.txt"
         assert y.name == "y.txt"
-        assert y.path == "a/y.txt"
+        assert y.path == "user/a/y.txt"
 
     async def test_iterdir_but_path_does_not_exist(self, local_storage: LocalStorage):
         with pytest.raises(errors.FileNotFound):
-            await local_storage.iterdir("a")
+            list(await local_storage.iterdir("user", "a"))
 
     async def test_iterdir_but_it_is_a_file(
         self, file_factory, local_storage: LocalStorage
     ):
-        await file_factory("f.txt")
+        await file_factory("user/f.txt")
         with pytest.raises(errors.NotADirectory):
-            await local_storage.iterdir("f.txt")
+            list(await local_storage.iterdir("user", "f.txt"))
 
-    async def test_makedirs(self, local_storage: LocalStorage):
-        assert not await local_storage.exists("a")
+    async def test_makedirs(self, tmp_path: Path, local_storage: LocalStorage):
+        assert not (tmp_path / "user/a").exists()
 
-        await local_storage.makedirs("a")
-        assert await local_storage.exists("a")
+        await local_storage.makedirs("user", "a")
+        assert (tmp_path / "user/a").exists()
 
-        await local_storage.makedirs("a/b/c")
-        assert await local_storage.exists("a/b/c")
+        await local_storage.makedirs("user", "a/b/c")
+        assert (tmp_path / "user/a/b/c").exists()
 
     async def test_makedirs_but_file_already_exists(
         self, file_factory, local_storage: LocalStorage
     ):
-        await file_factory("a")
+        await file_factory("user/a")
 
         with pytest.raises(errors.FileAlreadyExists):
-            await local_storage.makedirs("a")
+            await local_storage.makedirs("user", "a")
 
     async def test_makedirs_but_parent_is_a_directory(
         self, file_factory, local_storage: LocalStorage
     ):
-        await file_factory("x.txt")
+        await file_factory("user/x.txt")
 
         with pytest.raises(errors.NotADirectory):
-            await local_storage.makedirs("x.txt/y.txt")
+            await local_storage.makedirs("user", "x.txt/y.txt")
 
-    async def test_move_file(self, file_factory, local_storage: LocalStorage):
-        await file_factory("x.txt")
+    async def test_move_file(
+        self,
+        tmp_path: Path,
+        file_factory,
+        local_storage: LocalStorage,
+    ):
+        await file_factory("user/x.txt")
 
-        await local_storage.move("x.txt", "y.txt")
+        await local_storage.move("user", "x.txt", "y.txt")
 
-        assert not await local_storage.exists("x.txt")
-        assert await local_storage.exists("y.txt")
+        assert not (tmp_path / "user/x.txt").exists()
+        assert (tmp_path / "user/y.txt").exists
 
-    async def test_move_folder(self, file_factory, local_storage: LocalStorage):
-        await file_factory("a/f.txt")
-        await file_factory("b/f.txt")
+    async def test_move_folder(
+        self,
+        tmp_path: Path,
+        file_factory,
+        local_storage: LocalStorage,
+    ):
+        await file_factory("user/a/f.txt")
+        await file_factory("user/b/f.txt")
 
         # move folder 'a' to 'a/b' under name 'a'
-        await local_storage.move("a", "b/a")
+        await local_storage.move("user", "a", "b/a")
 
-        assert not await local_storage.exists("a")
-        assert await local_storage.exists("b/a")
-        assert await local_storage.exists("b/a/f.txt")
+        assert not (tmp_path / "user/a").exists()
+        assert (tmp_path / "user/b/a/f.txt").exists()
 
     async def test_move_but_source_does_not_exist(self, local_storage: LocalStorage):
         with pytest.raises(errors.FileNotFound):
-            await local_storage.move("x.txt", "y.txt")
+            await local_storage.move("user", "x.txt", "y.txt")
 
     async def test_move_but_destination_does_not_exist(
         self, file_factory, local_storage: LocalStorage
     ):
-        await file_factory("x.txt")
+        await file_factory("user/x.txt")
         with pytest.raises(errors.FileNotFound):
-            await local_storage.move("x.txt", "a/y.txt")
+            await local_storage.move("user", "x.txt", "a/y.txt")
 
     async def test_move_but_destination_is_not_a_directory(
         self, file_factory, local_storage: LocalStorage
     ):
-        await file_factory("x.txt")
-        await file_factory("y.txt")
+        await file_factory("user/x.txt")
+        await file_factory("user/y.txt")
         with pytest.raises(errors.NotADirectory):
-            await local_storage.move("x.txt", "y.txt/x.txt")
+            await local_storage.move("user", "x.txt", "y.txt/x.txt")
 
-    async def test_save(self, local_storage: LocalStorage):
-        await local_storage.makedirs("a")
-        file = await local_storage.save("a/f.txt", content=BytesIO(b"I'm Dummy file!"))
+    async def test_save(self, tmp_path: Path, local_storage: LocalStorage):
+        await local_storage.makedirs("user", "a")
+        content = BytesIO(b"I'm Dummy file!")
+        file = await local_storage.save("user", "a/f.txt", content=content)
 
-        await local_storage.exists("a/f.txt")
+        assert (tmp_path / "user/a/f.txt").exists()
         assert file.name == "f.txt"
-        assert file.path == "a/f.txt"
+        assert file.path == "user/a/f.txt"
         assert file.size == 15
         assert file.is_dir() is False
 
     async def test_save_but_path_is_not_a_folder(
         self, file_factory, local_storage: LocalStorage
     ):
-        await file_factory("f.txt")
+        await file_factory("user/f.txt")
 
         with pytest.raises(errors.NotADirectory):
-            await local_storage.save("f.txt/f.txt", content=BytesIO(b""))
+            await local_storage.save("user", "f.txt/f.txt", content=BytesIO(b""))
 
     async def test_save_overrides_existing_file(
         self, file_factory, local_storage: LocalStorage
     ):
-        fullpath = await file_factory("f.txt")
+        fullpath = await file_factory("user/f.txt")
         assert fullpath.lstat().st_size == 15
-        file = await local_storage.save("f.txt", content=BytesIO(b""))
+        file = await local_storage.save("user", "f.txt", content=BytesIO(b""))
         assert file.size == 0
 
     async def test_size(self, file_factory, local_storage: LocalStorage):
-        fullpath = await file_factory("f.txt")
-        size = await local_storage.size("f.txt")
+        fullpath = await file_factory("user/f.txt")
+        size = await local_storage.size("user", "f.txt")
         assert size == fullpath.lstat().st_size
 
     async def test_size_but_file_does_not_exist(self, local_storage: LocalStorage):
         with pytest.raises(errors.FileNotFound):
-            await local_storage.size("f.txt")
+            await local_storage.size("user", "f.txt")
 
     async def test_thumbnail(
         self, file_factory, image_content, local_storage: LocalStorage
     ):
-        await file_factory("im.jpg", content=image_content)
-        size, content = await local_storage.thumbnail("im.jpg", size=128)
+        await file_factory("user/im.jpg", content=image_content)
+        size, content = await local_storage.thumbnail("user", "im.jpg", size=128)
         assert size == 883
         assert size == len(content.read())
 
     async def test_thumbnail_but_path_is_a_directory(
         self, file_factory, image_content, local_storage: LocalStorage
     ):
-        await file_factory("a/im.jpg", content=image_content)
+        await file_factory("user/a/im.jpg", content=image_content)
 
         with pytest.raises(errors.IsADirectory) as excinfo:
-            await local_storage.thumbnail("a", size=128)
+            await local_storage.thumbnail("user", "a", size=128)
 
         assert str(excinfo.value) == "Path 'a' is a directory"
 
     async def test_thumbnail_but_file_is_not_an_image(
         self, file_factory, local_storage: LocalStorage
     ):
-        await file_factory("im.jpg")
+        await file_factory("user/im.jpg")
 
         with pytest.raises(errors.ThumbnailUnavailable) as excinfo:
-            await local_storage.thumbnail("im.jpg", size=128)
+            await local_storage.thumbnail("user", "im.jpg", size=128)
 
         assert str(excinfo.value) == "Can't generate thumbnail for a file: 'im.jpg'"
 
@@ -291,4 +301,4 @@ class TestLocalStorage:
         self, local_storage: LocalStorage
     ):
         with pytest.raises(errors.FileNotFound):
-            await local_storage.thumbnail("im.jpg", size=128)
+            await local_storage.thumbnail("user", "im.jpg", size=128)
