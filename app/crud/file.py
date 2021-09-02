@@ -4,7 +4,7 @@ import json
 import time
 from os.path import join as joinpath
 from os.path import normpath
-from pathlib import Path
+from pathlib import PurePath
 from typing import TYPE_CHECKING, Any, Iterable, Iterator, cast
 
 import edgedb
@@ -64,8 +64,8 @@ async def create(
     Returns:
         File: Created file.
     """
-    namespace = Path(namespace)
-    path = Path(path)
+    namespace = PurePath(namespace)
+    path = PurePath(path)
     mtime = mtime or time.time()
 
     try:
@@ -213,7 +213,7 @@ async def create_folder(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) 
         FileAlreadyExists: If folder at target path already exists.
         NotADirectory: If one of the parents is not a directory.
     """
-    paths = [str(path)] + [str(p) for p in Path(path).parents]
+    paths = [str(path)] + [str(p) for p in PurePath(path).parents]
 
     parents = await get_many(conn, namespace, paths)
     assert len(parents) > 0, f"No home folder in a namespace: '{namespace}'"
@@ -247,7 +247,7 @@ async def create_home_folder(conn: DBAnyConn, namespace: StrOrPath) -> File:
     Returns:
         File: A freshly created home folder.
     """
-    namespace = Path(namespace)
+    namespace = PurePath(namespace)
 
     query = """
         SELECT (
@@ -332,7 +332,7 @@ async def delete(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> File
     except IndexError as exc:
         raise errors.FileNotFound() from exc
 
-    await inc_size_batch(conn, namespace, Path(path).parents, size=-file.size)
+    await inc_size_batch(conn, namespace, PurePath(path).parents, size=-file.size)
 
     return file
 
@@ -365,7 +365,7 @@ async def delete_batch(
         ).size)
     """
     size = await conn.query_single(query, namespace=str(namespace), names=list(names))
-    parents = [path] + [p for p in Path(path).parents]
+    parents = [path] + [p for p in PurePath(path).parents]
     await inc_size_batch(conn, namespace, parents, size=-size)
 
 
@@ -581,8 +581,8 @@ async def move(
     Returns:
         File: Moved file.
     """
-    path = Path(path)
-    next_path = Path(next_path)
+    path = PurePath(path)
+    next_path = PurePath(next_path)
 
     # this call also ensures path exists
     target = await get(conn, namespace, path)
@@ -592,7 +592,7 @@ async def move(
         raise errors.NotADirectory()
 
     # restore original parent casing
-    next_path = Path(next_parent.path) / next_path.name
+    next_path = PurePath(next_parent.path) / next_path.name
     if await exists(conn, namespace, next_path):
         raise errors.FileAlreadyExists()
 
@@ -661,7 +661,7 @@ async def _move_file(conn: DBAnyConn, file_id: UUID, next_path: StrOrPath) -> Fi
         await conn.query_single(
             query,
             file_id=str(file_id),
-            name=Path(next_path).name,
+            name=PurePath(next_path).name,
             path=str(next_path),
         )
     )
@@ -714,7 +714,7 @@ async def next_path(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> s
     if not await exists(conn, namespace, path):
         return str(path)
 
-    suffix = "".join(Path(path).suffixes)
+    suffix = "".join(PurePath(path).suffixes)
     path_stem = str(path).rstrip(suffix)
     count = await conn.query_single("""
         SELECT count(

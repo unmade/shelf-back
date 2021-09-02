@@ -19,6 +19,7 @@ from app.tasks import CeleryConfig
 
 if TYPE_CHECKING:
     from uuid import UUID
+    from pathlib import Path
     from pytest import FixtureRequest
     from app.entities import Account, Namespace, User
     from app.typedefs import DBPool, DBPoolOrTransaction
@@ -86,11 +87,11 @@ def celery_config():
 
 
 @pytest.fixture(autouse=True)
-def replace_storage_location_with_tmp_path(tmp_path):
+def replace_storage_location_with_tmp_path(tmp_path: Path):
     """Monkey patches storage root_dir with a temporary directory."""
     from app.storage import storage
 
-    storage.location = tmp_path
+    storage.location = str(tmp_path)
 
 
 @pytest.fixture(autouse=True, scope="session")
