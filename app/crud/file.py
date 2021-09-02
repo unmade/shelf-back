@@ -5,7 +5,7 @@ import time
 from os.path import join as joinpath
 from os.path import normpath
 from pathlib import PurePath
-from typing import TYPE_CHECKING, Any, Iterable, Iterator, cast
+from typing import TYPE_CHECKING, Any, Iterable, Iterator, Optional, cast
 
 import edgedb
 
@@ -127,7 +127,7 @@ async def create(
 
 
 async def create_batch(
-    conn: DBAnyConn, namespace: StrOrPath, files: Iterable[File],
+    conn: DBAnyConn, namespace: StrOrPath, files: Iterable[Optional[File]],
 ) -> None:
     """
     Create files at once.
@@ -140,7 +140,7 @@ async def create_batch(
     Args:
         conn (DBAnyConn): Database connection.
         namespace (StrOrPath): Namespace where files will be created.
-        files (Iterable[File]): Iterable of files to create.
+        files (Iterable[Optional[File]]): Iterable of files to create.
 
     Raises:
         errors.FileAlreadyExists: If some file already exists.
@@ -188,7 +188,7 @@ async def create_batch(
 
     params = {
         "namespace": str(namespace),
-        "files": [file.json() for file in files],
+        "files": [file.json() for file in files if file is not None],
     }
 
     if not params["files"]:
@@ -549,11 +549,7 @@ async def list_folder(
     """
 
     path = "" if path == "." else f"{path}/"
-    try:
-        files = await conn.query(query, namespace=str(namespace), path=path)
-    except edgedb.NoDataError as exc:
-        raise errors.FileNotFound() from exc
-
+    files = await conn.query(query, namespace=str(namespace), path=path)
     return [from_db(file) for file in files]
 
 

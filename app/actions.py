@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import itertools
 import os.path
 from collections import deque
 from datetime import datetime
@@ -247,27 +248,27 @@ async def reconcile(conn: DBPool, namespace: Namespace, path: StrOrPath) -> None
         errors.NotADirectory: If path to a folder is not a directory.
     """
     ns_path = str(namespace.path)
-    folders = deque([path])
-    missing = []
-    to_skip = set()
+    folders = deque([(path, False)])
+    missing: list[File] = []
     while True:
         try:
-            folder = folders.pop()
+            folder, should_skip = folders.pop()
         except IndexError:
             break
 
         files = await storage.iterdir(ns_path, folder)
-
         in_storage = {f.name: f for f in files}
-        if folder in to_skip:
-            in_db = []
+
+        if should_skip:
+            names_db = set()
         else:
             in_db = await crud.file.list_folder(conn, ns_path, folder, with_trash=True)
 
         names_storage = set(in_storage.keys())
         names_db = set(f.name for f in in_db)
 
-        missing.append([
+        diff = names_storage.difference(names_db)
+        missing.extend(
             File.construct(  # type: ignore
                 name=file.name,
                 path=file.path,
@@ -277,25 +278,21 @@ async def reconcile(conn: DBPool, namespace: Namespace, path: StrOrPath) -> None
                     mediatypes.FOLDER if file.is_dir() else mediatypes.guess(file.name)
                 ),
             )
-            for name in names_storage.difference(names_db)
+            for name in diff
             if (file := in_storage[name])
-        ])
+        )
 
-        stale = names_db.difference(names_storage)
-        await crud.file.delete_batch(conn, ns_path, folder, names=stale)
-
-        for name in names_storage.difference(names_db):
-            if in_storage[name].is_dir():
-                to_skip.add(in_storage[name].path)
+        # stale = names_db.difference(names_storage)
+        # await crud.file.delete_batch(conn, ns_path, folder, names=stale)
 
         folders.extend(
-            f.path
+            (f.path, f.name in diff)
             for f in in_storage.values() if f.is_dir()
         )
 
     await asyncio.gather(*(
         crud.file.create_batch(conn, ns_path, files=files)
-        for files in missing
+        for files in itertools.zip_longest(*[iter(missing)] * 500)
     ))
 
 
