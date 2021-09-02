@@ -87,9 +87,9 @@ async def download(
         raise exceptions.DownloadNotFound()
     await cache.delete(key)
 
-    namespace, path = value.split(':', maxsplit=1)
+    ns_path, path = value.split(':', maxsplit=1)
     try:
-        file = await crud.file.get(db_pool, namespace, path)
+        file = await crud.file.get(db_pool, ns_path, path)
     except errors.FileNotFound as exc:
         raise exceptions.PathNotFound(path=path) from exc
 
@@ -105,8 +105,7 @@ async def download(
             "Content-Length": str(file.size),
             "Content-Type": file.mediatype,
         }
-    fullpath = Path(namespace) / path
-    return StreamingResponse(storage.download(fullpath), headers=headers)
+    return StreamingResponse(storage.download(ns_path, path), headers=headers)
 
 
 @router.post("/download")
@@ -138,7 +137,7 @@ async def download_xhr(
             "Content-Type": file.mediatype,
         }
 
-    attachment = storage.download(namespace.path / payload.path)
+    attachment = storage.download(namespace.path, payload.path)
     if file.is_folder() or file.size > config.APP_MAX_DOWNLOAD_WITHOUT_STREAMING:
         return StreamingResponse(attachment, headers=headers)
 

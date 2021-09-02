@@ -52,8 +52,8 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
 async def test_create_account(db_pool: DBPool, given, expected):
     await actions.create_account(db_pool, **given)
 
-    assert await storage.exists(expected["username"])
-    assert await storage.exists(f"{expected['username']}/Trash")
+    assert await storage.exists(expected["username"], ".")
+    assert await storage.exists(f"{expected['username']}", "Trash")
 
     account = await db_pool.query_single("""
         SELECT Account {
@@ -126,7 +126,7 @@ async def test_create_folder(db_pool: DBPool, namespace: Namespace):
     path = Path("a/b/c")
     await actions.create_folder(db_pool, namespace, path)
 
-    assert await storage.exists(namespace.path / path)
+    assert await storage.exists(namespace.path, path)
 
     query = """
         SELECT File { id }
@@ -152,7 +152,7 @@ async def test_create_folder_but_folder_exists(db_pool: DBPool, namespace: Names
     with pytest.raises(errors.FileAlreadyExists):
         await actions.create_folder(db_pool, namespace, path.parent)
 
-    assert await storage.exists(namespace.path / path.parent)
+    assert await storage.exists(namespace.path, path.parent)
 
 
 async def test_create_folder_but_parent_is_file(
@@ -176,7 +176,7 @@ async def test_delete_immediately_file(
     deleted_file = await actions.delete_immediately(db_pool, namespace, path)
     assert deleted_file.path == "file"
 
-    assert not await storage.exists(namespace.path / file.path)
+    assert not await storage.exists(namespace.path, file.path)
     assert not await crud.file.exists(db_pool, namespace.path, path)
 
 
@@ -198,7 +198,7 @@ async def test_empty_trash(
 
     await actions.empty_trash(db_pool, namespace)
 
-    assert not list(await storage.iterdir(namespace.path / "Trash"))
+    assert not list(await storage.iterdir(namespace.path, "Trash"))
 
     trash = await crud.file.get(db_pool, namespace.path, "Trash")
     files = await crud.file.list_folder(db_pool, namespace.path, "Trash")
@@ -268,10 +268,10 @@ async def test_move(
     # rename folder 'b' to 'c'
     await actions.move(db_pool, namespace, "a/b", "a/c")
 
-    assert not await storage.exists(namespace.path / "a/b")
+    assert not await storage.exists(namespace.path, "a/b")
     assert not await crud.file.exists(db_pool, namespace.path, "a/b")
 
-    assert await storage.exists(namespace.path / "a/c")
+    assert await storage.exists(namespace.path, "a/c")
     assert await crud.file.exists(db_pool, namespace.path, "a/c")
 
 
@@ -285,10 +285,10 @@ async def test_move_with_renaming(
     # rename file 'file.txt' to '.file.txt'
     await actions.move(db_pool, namespace, "file.txt", ".file.txt")
 
-    assert not await storage.exists(namespace.path / "file.txt")
+    assert not await storage.exists(namespace.path, "file.txt")
     assert not await crud.file.exists(db_pool, namespace.path, "file.txt")
 
-    assert await storage.exists(namespace.path / ".file.txt")
+    assert await storage.exists(namespace.path, ".file.txt")
     assert await crud.file.exists(db_pool, namespace.path, ".file.txt")
 
 
@@ -303,7 +303,7 @@ async def test_move_but_next_path_is_already_taken(
     with pytest.raises(errors.FileAlreadyExists):
         await actions.move(db_pool, namespace, "a/b", "a/c")
 
-    assert await storage.exists(namespace.path / "a/b")
+    assert await storage.exists(namespace.path, "a/b")
     assert await crud.file.exists(db_pool, namespace.path, "a/b")
 
 
@@ -375,11 +375,11 @@ async def test_move_to_trash(
 
     await actions.move_to_trash(db_pool, namespace, "a/b")
 
-    assert not await storage.exists(namespace.path / "a/b")
+    assert not await storage.exists(namespace.path, "a/b")
     assert not await crud.file.exists(db_pool, namespace.path, "a/b")
 
-    assert await storage.exists(namespace.path / "Trash/b")
-    assert await storage.exists(namespace.path / "Trash/b/f1")
+    assert await storage.exists(namespace.path, "Trash/b")
+    assert await storage.exists(namespace.path, "Trash/b/f1")
     assert await crud.file.exists(db_pool, namespace.path, "Trash/b")
     assert await crud.file.exists(db_pool, namespace.path, "Trash/b/f1")
 
@@ -394,17 +394,17 @@ async def test_move_to_trash_autorename(
 
     file = await actions.move_to_trash(db_pool, namespace, "a/b")
 
-    assert not await storage.exists(namespace.path / "a/b")
+    assert not await storage.exists(namespace.path, "a/b")
     assert not await crud.file.exists(db_pool, namespace.path, "a/b")
 
-    assert await storage.exists(namespace.path / "Trash/b")
+    assert await storage.exists(namespace.path, "Trash/b")
     assert await crud.file.exists(db_pool, namespace.path, "Trash/b")
-    assert not await storage.exists(namespace.path / "Trash/b/f1")
+    assert not await storage.exists(namespace.path, "Trash/b/f1")
     assert not await crud.file.exists(db_pool, namespace.path, "Trash/b/f1")
 
     assert file.path.startswith("Trash")
-    assert await storage.exists(namespace.path / file.path)
-    assert await storage.exists(namespace.path / f"{file.path}/f1")
+    assert await storage.exists(namespace.path, file.path)
+    assert await storage.exists(namespace.path, f"{file.path}/f1")
     assert await crud.file.exists(db_pool, namespace.path, file.path)
     assert await crud.file.exists(db_pool, namespace.path, f"{file.path}/f1")
 
@@ -413,9 +413,9 @@ async def test_reconcile_creates_missing_files(db_pool: DBPool, namespace: Names
     dummy_text = b"Dummy file"
 
     # these files exist in the storage, but not in the database
-    await storage.makedirs(namespace.path / "a")
-    await storage.makedirs(namespace.path / "b")
-    await storage.save(namespace.path / "b/f.txt", content=BytesIO(dummy_text))
+    await storage.makedirs(namespace.path, "a")
+    await storage.makedirs(namespace.path, "b")
+    await storage.save(namespace.path, "b/f.txt", content=BytesIO(dummy_text))
 
     await actions.reconcile(db_pool, namespace, ".")
 
@@ -491,11 +491,11 @@ async def test_save_file(db_pool: DBPool, namespace: Namespace, path: str):
     assert file_in_db.size == 10
     assert file_in_db.mediatype == 'text/plain'
 
-    size = await storage.size(namespace.path / path)
+    size = await storage.size(namespace.path, path)
     assert file_in_db.size == size
 
     # there can be slight gap between saving to the DB and the storage
-    mtime = await storage.get_modified_time(namespace.path / path)
+    mtime = await storage.get_modified_time(namespace.path, path)
     assert file_in_db.mtime == pytest.approx(mtime)
 
 
