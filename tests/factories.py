@@ -98,13 +98,8 @@ class NamespaceFactory:
     def __init__(self, db_conn: DBAnyConn) -> None:
         self._db_conn = db_conn
 
-    async def __call__(
-        self,
-        owner: Optional[User] = None,
-    ) -> Namespace:
-        if owner is None:
-            owner = await UserFactory(self._db_conn)()
-
+    async def __call__(self) -> Namespace:
+        owner = await UserFactory(self._db_conn)()
         namespace = crud.namespace.from_db(
             await self._db_conn.query_single("""
                 SELECT (
