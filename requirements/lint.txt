@@ -88,7 +88,9 @@ pyparsing==2.4.7
 pytest==6.2.5
     # via -r requirements/lint.in
 pyyaml==5.4.1
-    # via pre-commit
+    # via
+    #   -c requirements/base.txt
+    #   pre-commit
 rfc3986[idna2008]==1.5.0
     # via httpx
 six==1.16.0
@@ -113,11 +115,17 @@ typer==0.4.0
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
+types-orjson==3.6.0
+    # via -r requirements/lint.in
 typing-extensions==3.10.0.2
     # via
     #   -c requirements/base.txt
     #   edgedb
     #   mypy
     #   pydantic
+uvloop==0.16.0
+    # via
+    #   -c requirements/base.txt
+    #   -r requirements/lint.in
 virtualenv==20.7.2
     # via pre-commit
