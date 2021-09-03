@@ -6,6 +6,7 @@ celery[redis]
 edgedb
 fastapi
 filetype
+orjson
 passlib
 pillow-simd
 pydantic[email]

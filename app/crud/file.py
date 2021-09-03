@@ -14,8 +14,7 @@ from app.config import TRASH_FOLDER_NAME
 from app.entities import File
 
 if TYPE_CHECKING:
-    from uuid import UUID
-    from app.typedefs import DBAnyConn, StrOrPath
+    from app.typedefs import DBAnyConn, StrOrPath, StrOrUUID
 
 
 def _lowered(items: Iterable[Any]) -> Iterator[str]:
@@ -25,7 +24,7 @@ def _lowered(items: Iterable[Any]) -> Iterator[str]:
 
 def from_db(obj: edgedb.Object) -> File:
     return File(
-        id=obj.id,
+        id=str(obj.id),
         name=obj.name,
         path=obj.path,
         size=obj.size,
@@ -597,7 +596,7 @@ async def move(
     return file
 
 
-async def _move_file(conn: DBAnyConn, file_id: UUID, next_path: StrOrPath) -> File:
+async def _move_file(conn: DBAnyConn, file_id: StrOrUUID, next_path: StrOrPath) -> File:
     """
     Update file name and path.
 
@@ -624,7 +623,7 @@ async def _move_file(conn: DBAnyConn, file_id: UUID, next_path: StrOrPath) -> Fi
     return from_db(
         await conn.query_single(
             query,
-            file_id=str(file_id),
+            file_id=file_id,
             name=PurePath(next_path).name,
             path=str(next_path),
         )

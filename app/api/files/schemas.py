@@ -59,13 +59,14 @@ class File(BaseModel):
     @classmethod
     def from_entity(cls: Type[File], file: entities.File) -> File:
         return cls.construct(
-            id=file.id,
+            id=file.id,  # type: ignore
             name=file.name,
             path=file.path,
             size=file.size,
             mtime=file.mtime,
             mediatype=file.mediatype,
             hidden=file.is_hidden(),
+            has_thumbnail=mediatypes.is_image(file.mediatype),
         )
 
     @validator("hidden", always=True)
@@ -74,9 +75,7 @@ class File(BaseModel):
 
     @validator("has_thumbnail", always=True)
     def set_has_thumbnail(cls, value, values, config, field):
-        if mediatypes.is_image(values["mediatype"]):
-            return True
-        return False
+        return mediatypes.is_image(values["mediatype"])
 
 
 class PathRequest(BaseModel):
