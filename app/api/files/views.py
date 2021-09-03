@@ -10,7 +10,7 @@ from edgedb import AsyncIOPool
 from fastapi import APIRouter, Depends
 from fastapi import File as FileParam
 from fastapi import Form, Query, Request, UploadFile
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import ORJSONResponse, Response, StreamingResponse
 
 from app import actions, config, crud, errors, tasks
 from app.api import deps
@@ -244,11 +244,13 @@ async def list_folder(
     except errors.NotADirectory as exc:
         raise exceptions.NotADirectory(path=payload.path) from exc
 
-    return schemas.ListFolderResult.construct(
-        path=payload.path,
-        items=[schemas.File.from_entity(f) for f in files],
-        count=len(files)
-    )
+    # by returning response class directly we avoid pydantic checks
+    # that way we speed up a litle bit on the large volume of data
+    return ORJSONResponse(content={
+        "path": payload.path,
+        "items": [schemas.File.from_entity(file).dict() for file in files],
+        "count": len(files),
+    })
 
 
 @router.post("/move", response_model=schemas.File)

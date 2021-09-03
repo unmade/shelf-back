@@ -717,7 +717,7 @@ async def test_move_to_trash_batch(
 async def test_upload(client: TestClient, namespace: Namespace):
     payload = {
         "file": BytesIO(b"Dummy file"),
-        "path": (None, "folder/file.txt"),
+        "path": (None, b"folder/file.txt"),
     }
     client.login(namespace.owner.id)
     response = await client.post("/files/upload", files=payload)  # type: ignore
@@ -729,7 +729,7 @@ async def test_upload(client: TestClient, namespace: Namespace):
 async def test_upload_but_to_a_special_path(client: TestClient, namespace: Namespace):
     payload = {
         "file": BytesIO(b"Dummy file"),
-        "path": (None, "Trash"),
+        "path": (None, b"Trash"),
     }
     client.login(namespace.owner.id)
     response = await client.post("/files/upload", files=payload)  # type: ignore
@@ -746,7 +746,7 @@ async def test_upload_but_path_is_a_file(
     file = await file_factory(namespace.path, path="f.txt")
     payload = {
         "file": BytesIO(b"Dummy file"),
-        "path": (None, f"{file.path}/dummy"),
+        "path": (None, f"{file.path}/dummy".encode()),
     }
     client.login(namespace.owner.id)
     response = await client.post("/files/upload", files=payload)  # type: ignore

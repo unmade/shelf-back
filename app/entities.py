@@ -1,13 +1,16 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID
 
+import orjson
 from pydantic import BaseModel
 
 from app import errors, mediatypes
+
+if TYPE_CHECKING:
+    from app.typedefs import StrOrUUID
 
 
 class Account(BaseModel):
@@ -23,14 +26,14 @@ class File:
 
     def __init__(
         self,
-        id: UUID,
+        id: StrOrUUID,
         name: str,
         path: str,
         size: int,
         mtime: float,
         mediatype: str,
     ) -> None:
-        self.id = id
+        self.id = str(id)
         self.name = name
         self.path = path
         self.size = size
@@ -56,14 +59,14 @@ class File:
 
     def json(self) -> str:
         """Dump instance to json."""
-        return json.dumps({
+        return orjson.dumps({
             "id": str(self.id),
             "name": self.name,
             "path": self.path,
             "size": self.size,
             "mtime": self.mtime,
             "mediatype": self.mediatype,
-        })
+        }).decode()
 
 
 class FileTaskResult:
