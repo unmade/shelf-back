@@ -13,5 +13,6 @@ pydantic[email]
 python-jose[cryptography]
 python-multipart
 typer
-uvicorn
+uvicorn[standard]
+uvloop
 zipfly

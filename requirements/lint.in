@@ -13,3 +13,5 @@ httpx
 pydantic
 pytest
 typer
+types-orjson
+uvloop

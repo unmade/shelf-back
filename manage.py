@@ -5,10 +5,13 @@ from pathlib import Path
 
 import edgedb
 import typer
+import uvloop
 
 from app import actions, config, crud, db
 
 cli = typer.Typer()
+
+uvloop.install()
 
 
 @cli.command()
