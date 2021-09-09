@@ -8,7 +8,7 @@ fastapi
 filetype
 orjson
 passlib
-pillow-simd
+pillow
 pydantic[email]
 python-jose[cryptography]
 python-multipart

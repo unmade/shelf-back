@@ -11,6 +11,7 @@ from typing import IO, TYPE_CHECKING, Iterator
 import zipfly
 from asgiref.sync import sync_to_async
 from PIL import Image, UnidentifiedImageError
+from PIL.ImageOps import exif_transpose
 
 from app import config, errors
 
@@ -400,7 +401,7 @@ class LocalStorage(Storage):
         try:
             with Image.open(fullpath) as im:
                 im.thumbnail((size, size))
-                im.save(buffer, im.format)
+                exif_transpose(im).save(buffer, im.format)
         except FileNotFoundError as exc:
             raise errors.FileNotFound() from exc
         except IsADirectoryError as exc:
