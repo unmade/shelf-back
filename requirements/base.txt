@@ -64,7 +64,7 @@ orjson==3.6.3
     # via -r requirements/base.in
 passlib==1.7.4
     # via -r requirements/base.in
-pillow-simd==7.0.0.post3
+pillow==8.3.2
     # via -r requirements/base.in
 prompt-toolkit==3.0.20
     # via click-repl
@@ -121,7 +121,7 @@ watchgod==0.7
     # via uvicorn
 wcwidth==0.2.5
     # via prompt-toolkit
-websockets==9.1
+websockets==10.0
     # via uvicorn
 zipfly==6.0.3
     # via -r requirements/base.in
