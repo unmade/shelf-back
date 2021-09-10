@@ -1,7 +1,8 @@
 aiofiles
+aioredis<2
 asgiref
 bcrypt
-cashews
+cashews[redis]
 celery[redis]
 edgedb
 fastapi

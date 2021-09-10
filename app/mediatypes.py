@@ -62,4 +62,4 @@ def guess(name: StrOrPath, file: Optional[Union[bytes, IO[bytes]]] = None) -> st
 
 def is_image(mediatype: str) -> bool:
     """True if mediatype corresponds to an image file, otherwise False."""
-    return mediatype in ("image/jpeg", "image/png", "image/x-icon")
+    return mediatype in ("image/jpeg", "image/png", "image/x-icon", "image/webp")
