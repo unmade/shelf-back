@@ -6,17 +6,23 @@
 #
 aiofiles==0.7.0
     # via -r requirements/base.in
+aioredis==1.3.1
+    # via
+    #   -r requirements/base.in
+    #   cashews
 amqp==5.0.6
     # via kombu
 asgiref==3.4.1
     # via
     #   -r requirements/base.in
     #   uvicorn
+async-timeout==3.0.1
+    # via aioredis
 bcrypt==3.2.0
     # via -r requirements/base.in
 billiard==3.6.4.0
     # via celery
-cashews==2.11.1
+cashews[redis]==2.11.1
     # via -r requirements/base.in
 celery[redis]==5.1.2
     # via -r requirements/base.in
@@ -54,6 +60,8 @@ filetype==1.0.7
     # via -r requirements/base.in
 h11==0.12.0
     # via uvicorn
+hiredis==2.0.0
+    # via aioredis
 httptools==0.2.0
     # via uvicorn
 idna==3.2

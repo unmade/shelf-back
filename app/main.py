@@ -39,5 +39,5 @@ def create_app() -> FastAPI:
     return app
 
 
-cache.setup("mem://")
+cache.setup(config.CACHE_BACKEND_DSN)
 app = create_app()

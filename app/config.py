@@ -41,6 +41,8 @@ APP_VERSION = os.getenv("APP_VERSION")
 
 BASE_DIR = Path(__file__).absolute().resolve().parent.parent
 
+CACHE_BACKEND_DSN = os.getenv("CACHE_BACKEND_DSN", "mem://")
+
 CELERY_BACKEND_DSN = os.environ["CELERY_BACKEND_DSN"]
 CELERY_BROKER_DSN = os.environ["CELERY_BROKER_DSN"]
 
