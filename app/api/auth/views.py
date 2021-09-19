@@ -19,8 +19,9 @@ async def get_tokens(
     pool: AsyncIOPool = Depends(deps.db_pool),
 ):
     """Grant new access token for a given credentials."""
+    username = form_data.username.lower()
     try:
-        uid, password = await crud.user.get_password(pool, username=form_data.username)
+        uid, password = await crud.user.get_password(pool, username=username)
     except errors.UserNotFound as exc:
         raise exceptions.InvalidCredentials() from exc
 

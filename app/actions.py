@@ -45,6 +45,7 @@ async def create_account(
     Returns:
         Account: A freshly created account.
     """
+    username = username.lower()
     await storage.makedirs(username, config.TRASH_FOLDER_NAME)
 
     async for tx in conn.retrying_transaction():  # pragma: no branch

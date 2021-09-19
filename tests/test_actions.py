@@ -21,7 +21,7 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
 @pytest.mark.parametrize(["given", "expected"], [
     (
         {
-            "username": "johndoe",
+            "username": "JohnDoe",
             "password": "psswd"
         },
         {
