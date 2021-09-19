@@ -14,10 +14,11 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
 
 
-async def test_get_tokens(client: TestClient, user_factory: UserFactory):
-    user = await user_factory(hash_password=True)
+@pytest.mark.parametrize("username", ["johndoe", "JohnDoe"])
+async def test_get_tokens(client: TestClient, user_factory: UserFactory, username: str):
+    await user_factory(username="johndoe", hash_password=True)
     data = {
-        "username": user.username,
+        "username": username,
         "password": "root",
     }
     response = await client.post("/auth/tokens", data=data)
