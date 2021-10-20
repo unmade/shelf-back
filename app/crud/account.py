@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, TypedDict, cast, get_type_hints
+from typing import TYPE_CHECKING, TypedDict, cast, get_type_hints
 
 import edgedb
 
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 
 class AccountUpdate(TypedDict, total=False):
-    email: Optional[str]
+    email: str | None
     first_name: str
     last_name: str
 
@@ -46,7 +46,7 @@ async def create(
     conn: DBAnyConn,
     username: str,
     *,
-    email: Optional[str] = None,
+    email: str | None = None,
     first_name: str = "",
     last_name: str = ""
 ) -> Account:
@@ -56,7 +56,7 @@ async def create(
     Args:
         conn (DBAnyConn): Database connection.
         username (str): Username to create account for.
-        email (Optional[str], optional): Email. Defaults to None.
+        email (str | None, optional): Email. Defaults to None.
         first_name (str, optional): First name. Defaults to "".
         last_name (str, optional): Last name. Defaults to "".
 

@@ -5,7 +5,7 @@ import time
 from os.path import join as joinpath
 from os.path import normpath
 from pathlib import PurePath
-from typing import TYPE_CHECKING, Any, Iterable, Iterator, Optional, cast
+from typing import TYPE_CHECKING, Any, Iterable, Iterator, cast
 
 import edgedb
 
@@ -126,7 +126,7 @@ async def create(
 
 
 async def create_batch(
-    conn: DBAnyConn, namespace: StrOrPath, files: Iterable[Optional[File]],
+    conn: DBAnyConn, namespace: StrOrPath, files: Iterable[File | None],
 ) -> None:
     """
     Create files at once.
@@ -139,7 +139,7 @@ async def create_batch(
     Args:
         conn (DBAnyConn): Database connection.
         namespace (StrOrPath): Namespace where files will be created.
-        files (Iterable[Optional[File]]): Iterable of files to create.
+        files (Iterable[File | None]): Iterable of files to create.
 
     Raises:
         errors.FileAlreadyExists: If some file already exists.

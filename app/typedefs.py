@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Union
 if TYPE_CHECKING:
     from pathlib import PurePath
     from uuid import UUID
+
     from edgedb import AsyncIOConnection, AsyncIOPool, AsyncIOTransaction
 
 DBAnyConn = Union[AsyncIOConnection, AsyncIOPool, AsyncIOTransaction]

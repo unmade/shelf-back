@@ -6,7 +6,7 @@ import os.path
 from collections import deque
 from datetime import datetime
 from pathlib import PurePath
-from typing import IO, TYPE_CHECKING, Optional
+from typing import IO, TYPE_CHECKING
 
 from app import config, crud, errors, mediatypes
 from app.entities import Account, File, Namespace
@@ -21,7 +21,7 @@ async def create_account(
     username: str,
     password: str,
     *,
-    email: Optional[str] = None,
+    email: str | None = None,
     first_name: str = "",
     last_name: str = "",
     superuser: bool = False,
@@ -33,7 +33,7 @@ async def create_account(
         conn (DBConnOrPool): Database connection or connection pool.
         username (str): Username for a new user.
         password (str): Plain-text password.
-        email (Optional[str], optional): Email. Defaults to None.
+        email (str | None, optional): Email. Defaults to None.
         first_name (str, optional): First name. Defaults to "".
         last_name (str, optional): Last name. Defaults to "".
         superuser (bool, optional): Whether user is super user or not. Defaults to

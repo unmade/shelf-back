@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import mimetypes
-from typing import IO, TYPE_CHECKING, Optional, Union, cast
+from typing import IO, TYPE_CHECKING, cast
 
 import filetype
 
@@ -34,7 +34,7 @@ mimetypes.add_type("text/x-toml", ".toml")
 mimetypes.add_type("text/x-vim", ".vim")
 
 
-def guess(name: StrOrPath, file: Optional[Union[bytes, IO[bytes]]] = None) -> str:
+def guess(name: StrOrPath, file: bytes | IO[bytes] | None = None) -> str:
     """
     Guess file media type.
 
@@ -43,7 +43,7 @@ def guess(name: StrOrPath, file: Optional[Union[bytes, IO[bytes]]] = None) -> st
 
     Args:
         name (StrOrPath): Filename or path.
-        file (Optional[Union[bytes, IO[bytes]]], optional): File-obj. Defaults to None.
+        file (bytes | IO[bytes | None, optional): File-obj. Defaults to None.
 
     Returns:
         str: Guessed media type. For unknown files returns 'application/octet-stream'.

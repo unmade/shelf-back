@@ -12,6 +12,7 @@ from app.security import TokenPayload
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
+
     from tests.conftest import TestClient
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]

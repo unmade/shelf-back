@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, TypedDict
+from typing import TypedDict
 
 from fastapi.responses import JSONResponse
 
@@ -17,7 +17,7 @@ class APIError(Exception):
     code_verbose = "A server error occurred"
     default_message = "Something has gone wrong on the server"
 
-    def __init__(self, message: Optional[str] = None):
+    def __init__(self, message: str | None = None):
         self.message = message or self.default_message
 
     def __repr__(self):

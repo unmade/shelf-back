@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from edgedb import AsyncIOPool
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
@@ -25,7 +23,7 @@ reusable_oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/tokens", auto_error=False
 db_pool = db.db_pool
 
 
-def token_payload(token: Optional[str] = Depends(reusable_oauth2)) -> TokenPayload:
+def token_payload(token: str | None = Depends(reusable_oauth2)) -> TokenPayload:
     """Return payload from authentication token."""
     if token is None:
         raise exceptions.MissingToken() from None
@@ -61,7 +59,9 @@ async def namespace(
     pool: AsyncIOPool = Depends(db_pool),
     user_id: str = Depends(current_user_id),
 ) -> Namespace:
-    # if namespace is not found, we should fail, so don't catch NamespaceNotFound here.
+    # If namespace is not found, we should fail, so don't catch NamespaceNotFound here.
+    # We should fail because the system is in the inconsistent state - user exists,
+    # but doesn't have a namespace
     return await crud.namespace.get_by_owner(pool, user_id)
 
 

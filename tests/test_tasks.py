@@ -11,6 +11,7 @@ from app.entities import RelocationPath
 
 if TYPE_CHECKING:
     from pytest import LogCaptureFixture
+
     from app.entities import FileTaskResult, Namespace
     from app.typedefs import DBPool
     from tests.factories import FileFactory
