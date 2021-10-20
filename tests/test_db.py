@@ -28,5 +28,5 @@ def test_autocast_but_type_is_union() -> None:
     with pytest.raises(TypeError) as excinfo:
         db.autocast(Union[int, float])
 
-    message = "Can't cast python type `typing.Union[int, float]` to EdgeDB type."
+    message = "Unsupported type: `Union`."
     assert str(excinfo.value) == message
