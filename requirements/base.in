@@ -1,8 +1,8 @@
 aiofiles
-aioredis<2
+aioredis
 asgiref
 bcrypt
-cashews[redis]
+git+https://github.com/Krukov/cashews.git@master
 celery[redis]
 edgedb
 fastapi
