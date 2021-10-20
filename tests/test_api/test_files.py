@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import secrets
 from io import BytesIO
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import pytest
 from cashews import cache
@@ -21,7 +21,7 @@ from app.api.files.exceptions import (
 from app.entities import RelocationPath
 
 if TYPE_CHECKING:
-    from app.entities import Namespace, FileTaskResult
+    from app.entities import FileTaskResult, Namespace
     from tests.conftest import TestClient
     from tests.factories import FileFactory
 
@@ -39,7 +39,7 @@ async def test_create_folder(
     namespace: Namespace,
     path: str,
     name: str,
-    expected_path: Optional[str],
+    expected_path: str | None,
     hidden: bool,
 ):
     payload = {"path": path}

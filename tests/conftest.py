@@ -11,16 +11,18 @@ import pytest
 from faker import Faker
 from httpx import AsyncClient
 from PIL import Image
-from tests import factories
 
 from app import config, db, security
 from app.main import create_app
 from app.tasks import CeleryConfig
+from tests import factories
 
 if TYPE_CHECKING:
-    from uuid import UUID
     from pathlib import Path
+    from uuid import UUID
+
     from pytest import FixtureRequest
+
     from app.entities import Account, Namespace, User
     from app.typedefs import DBPool, DBPoolOrTransaction
 

@@ -4,10 +4,10 @@ from typing import TYPE_CHECKING
 
 import edgedb
 import pytest
-from manage import cli
 from typer.testing import CliRunner
 
 from app import config
+from manage import cli
 
 if TYPE_CHECKING:
     from edgedb import BlockingIOConnection as DBConn

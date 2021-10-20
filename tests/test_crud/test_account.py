@@ -8,9 +8,9 @@ import pytest
 from app import crud, errors
 
 if TYPE_CHECKING:
-    from app.typedefs import DBTransaction
-    from app.entities import Account
     from app.crud.account import AccountUpdate
+    from app.entities import Account
+    from app.typedefs import DBTransaction
     from tests.factories import AccountFactory
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]

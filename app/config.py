@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 from datetime import timedelta
 from pathlib import Path
-from typing import Optional
 
 
 def _get_bool(key: str) -> bool:
@@ -13,7 +12,7 @@ def _get_bool(key: str) -> bool:
     return False
 
 
-def _get_list(key: str, default: Optional[list[str]] = None) -> list[str]:
+def _get_list(key: str, default: list[str] | None = None) -> list[str]:
     value = os.getenv(key)
     if value is not None:
         return value.split(",")

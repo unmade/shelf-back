@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import PurePath
-from typing import Optional
 
 import pytest
 from faker import Faker
@@ -15,8 +14,8 @@ fake = Faker()
 @pytest.fixture
 def file_factory():
     def _file_factory(
-        path: Optional[str] = None,
-        mediatype: Optional[str] = None,
+        path: str | None = None,
+        mediatype: str | None = None,
     ) -> File:
         if path is not None:
             pathname = PurePath(path)

@@ -12,6 +12,7 @@ from app.entities import FileTaskResult
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+
     from app.entities import Namespace, RelocationPath
     from app.typedefs import StrOrPath
 

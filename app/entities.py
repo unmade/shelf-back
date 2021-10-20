@@ -74,8 +74,8 @@ class FileTaskResult:
 
     def __init__(
         self,
-        file: Optional[File] = None,
-        err_code: Optional[errors.ErrorCode] = None,
+        file: File | None = None,
+        err_code: errors.ErrorCode | None = None,
     ) -> None:
         self.file = file
         self.err_code = err_code

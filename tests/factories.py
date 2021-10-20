@@ -3,7 +3,7 @@ from __future__ import annotations
 import os.path
 import time
 from io import BytesIO
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING
 
 from faker import Faker
 
@@ -25,10 +25,10 @@ class AccountFactory:
 
     async def __call__(
         self,
-        email: Optional[str] = None,
+        email: str | None = None,
         first_name: str = "",
         last_name: str = "",
-        user: Optional[User] = None
+        user: User | None = None
     ) -> Account:
         if user is None:
             user = await UserFactory(self._db_conn)()
@@ -70,7 +70,7 @@ class FileFactory:
         self,
         ns_path: StrOrPath,
         path: StrOrPath = None,
-        content: Union[bytes, BytesIO] = b"I'm Dummy File!",
+        content: bytes | BytesIO = b"I'm Dummy File!",
     ) -> File:
         path = path or fake.file_name(category="text", extension="txt")
         parent = os.path.normpath(os.path.dirname(path))

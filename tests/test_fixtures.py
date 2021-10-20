@@ -7,7 +7,8 @@ import pytest
 
 if TYPE_CHECKING:
     from pytest import Pytester
-    from app.typedefs import DBPool, DBTransaction, DBPoolOrTransaction
+
+    from app.typedefs import DBPool, DBPoolOrTransaction, DBTransaction
 
 pytestmark = [pytest.mark.metatest]
 

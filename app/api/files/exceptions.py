@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from app.api.exceptions import APIError
 
@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 
 class FilesError(APIError):
-    def __init__(self, message: Optional[str] = None, path: Optional[StrOrPath] = None):
+    def __init__(self, message: str | None = None, path: StrOrPath | None = None):
         super().__init__(message)
         assert path is not None, "Missing required argument: 'path'"
         self.message = self.get_message(path)

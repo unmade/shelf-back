@@ -9,6 +9,7 @@ from app.entities import User
 
 if TYPE_CHECKING:
     from uuid import UUID
+
     from app.typedefs import DBAnyConn, StrOrUUID
 
 
