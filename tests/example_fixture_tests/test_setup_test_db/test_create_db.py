@@ -21,7 +21,7 @@ def event_loop():
     Redefine event loop without closing it after tests. This is intentional,
     since event loop will be closed in the parent test.
     """
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_event_loop_policy().get_event_loop()
     yield loop
     # don't close the loop since it will be managed by parent test
 

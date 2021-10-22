@@ -2,9 +2,9 @@ aiofiles
 aioredis
 asgiref
 bcrypt
-git+https://github.com/Krukov/cashews.git@master
+cashews
 celery[redis]
-edgedb
+git+https://github.com/edgedb/edgedb-python.git@v0.18.0a2
 fastapi
 filetype
 orjson

@@ -1,6 +1,6 @@
 services:
   edgedb:
-    image: edgedb/edgedb:1-beta3
+    image: edgedb/edgedb:1-rc1
     environment:
       - EDGEDB_USER=edgedb
       - EDGEDB_PASSWORD=root

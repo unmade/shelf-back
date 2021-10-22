@@ -33,7 +33,7 @@ dnspython==2.1.0
     # via
     #   -c requirements/base.txt
     #   email-validator
-edgedb==0.17.3
+edgedb @ git+https://github.com/edgedb/edgedb-python.git@v0.18.0a2
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in

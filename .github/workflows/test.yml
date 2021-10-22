@@ -16,16 +16,16 @@ jobs:
 
     services:
       edgedb:
-        image: fdooch/edgedb:1-beta-3.dev
+        image: fdooch/edgedb:1-rc1.dev
         env:
-          EDGEDB_USER: edgedb
-          EDGEDB_PASSWORD: root
-          EDGEDB_TLS_CERT_FILE: /certs/edbtlscert.dev.pem
-          EDGEDB_TLS_KEY_FILE: /certs/edbprivkey.dev.pem
+          EDGEDB_SERVER_USER: edgedb
+          EDGEDB_SERVER_PASSWORD: root
+          EDGEDB_SERVER_TLS_KEY_FILE: /certs/edbprivkey.dev.pem
+          EDGEDB_SERVER_TLS_CERT_FILE: /certs/edbtlscert.dev.pem
         ports:
         - 5656:5656
         options: >-
-          --health-cmd="edgedb query -H localhost --tls-ca-file "${EDGEDB_TLS_CERT_FILE}" 'SELECT 1;'"
+          --health-cmd="echo "${EDGEDB_SERVER_PASSWORD}" | edgedb query -H localhost --password-from-stdin --tls-ca-file "${EDGEDB_TLS_CERT_FILE}" 'SELECT 1;'"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
