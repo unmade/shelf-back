@@ -47,7 +47,7 @@ click-repl==0.2.0
     #   celery
 coverage[toml]==6.0.2
     # via pytest-cov
-faker==9.5.0
+faker==9.5.2
     # via -r requirements/test.in
 h11==0.12.0
     # via
@@ -72,7 +72,7 @@ packaging==21.0
     # via pytest
 pluggy==1.0.0
     # via pytest
-prompt-toolkit==3.0.20
+prompt-toolkit==3.0.21
     # via
     #   -c requirements/base.txt
     #   click-repl

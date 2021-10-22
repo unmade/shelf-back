@@ -122,7 +122,7 @@ def replace_database_dsn(db_dsn):
 @pytest.fixture(scope="session")
 def event_loop():
     """Redefine pytest-asyncio event_loop fixture with 'session' scope."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_event_loop_policy().get_event_loop()
     yield loop
     loop.close()
 

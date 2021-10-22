@@ -22,7 +22,7 @@ pexpect==4.8.0
     # via ipython
 pickleshare==0.7.5
     # via ipython
-prompt-toolkit==3.0.20
+prompt-toolkit==3.0.21
     # via
     #   -c requirements/base.txt
     #   -c requirements/test.txt

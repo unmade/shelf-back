@@ -22,7 +22,7 @@ bcrypt==3.2.0
     # via -r requirements/base.in
 billiard==3.6.4.0
     # via celery
-cashews @ git+https://github.com/Krukov/cashews.git@master
+cashews==3.0.0
     # via -r requirements/base.in
 celery[redis]==5.1.2
     # via -r requirements/base.in
@@ -50,7 +50,7 @@ dnspython==2.1.0
     # via email-validator
 ecdsa==0.17.0
     # via python-jose
-edgedb==0.17.3
+edgedb @ git+https://github.com/edgedb/edgedb-python.git@v0.18.0a2
     # via -r requirements/base.in
 email-validator==1.1.3
     # via pydantic
@@ -74,7 +74,7 @@ passlib==1.7.4
     # via -r requirements/base.in
 pillow==8.4.0
     # via -r requirements/base.in
-prompt-toolkit==3.0.20
+prompt-toolkit==3.0.21
     # via click-repl
 pyasn1==0.4.8
     # via
