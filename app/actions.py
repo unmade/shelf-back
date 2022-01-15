@@ -13,7 +13,26 @@ from app.entities import Account, File, Namespace
 from app.storage import storage
 
 if TYPE_CHECKING:
-    from app.typedefs import DBConnOrPool, DBPool, StrOrPath
+    from app.typedefs import DBConnOrPool, DBPool, StrOrPath, StrOrUUID
+
+
+async def add_bookmark(
+    conn: DBConnOrPool,
+    user_id: StrOrUUID,
+    file_id: StrOrUUID,
+) -> None:
+    """
+    Add a file to user bookmarks.
+
+    Args:
+        conn (DBConnOrPool): Database connection.
+        user_id (StrOrUUID): Target user ID.
+        file_id (StrOrUUID): Target file ID.
+
+    Raises:
+        errors.UserNotFound: If User with a target user_id does not exists.
+    """
+    await crud.user.add_bookmark(conn, user_id, file_id)
 
 
 async def create_account(
@@ -252,7 +271,7 @@ async def reconcile(conn: DBPool, namespace: Namespace) -> None:
     missing = []
 
     # For now, it is faster to re-create all files from scratch
-    # then iterate through large directories looking for one missing/dangling file
+    # than iterating through large directories looking for one missing/dangling file
     await crud.file.reset(conn, ns_path)
 
     while True:

@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 DBAnyConn = Union[AsyncIOConnection, AsyncIOPool, AsyncIOTransaction]
 DBConnOrPool = Union[AsyncIOConnection, AsyncIOPool]
 DBPool = AsyncIOPool
-DBTransaction = Union[AsyncIOTransaction]
+DBTransaction = AsyncIOTransaction
 DBPoolOrTransaction = Union[DBPool, DBTransaction]
 
 StrOrPath = Union[str, PurePath]

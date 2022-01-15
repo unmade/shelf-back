@@ -425,6 +425,36 @@ async def get(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> File:
         raise errors.FileNotFound() from exc
 
 
+async def get_by_id(conn: DBAnyConn, file_id: StrOrUUID) -> File:
+    """
+    Return a file by ID.
+
+    Args:
+        conn (DBAnyConn): Database connection.
+        file_id (StrOrUUID): File ID.
+
+    Raises:
+        errors.FileNotFound: If file with a given ID does not exists.
+
+    Returns:
+        File: File with a target ID.
+    """
+    query = """
+        SELECT
+            File {
+                id, name, path, size, mtime, mediatype: { name }
+            }
+        FILTER
+            .id = <uuid>$file_id
+    """
+    try:
+        return from_db(
+            await conn.query_single(query, file_id=file_id)
+        )
+    except edgedb.NoDataError as exc:
+        raise errors.FileNotFound() from exc
+
+
 async def get_many(
     conn: DBAnyConn, namespace: StrOrPath, paths: Iterable[StrOrPath],
 ) -> list[File]:

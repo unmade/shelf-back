@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -455,9 +456,24 @@ async def test_get(tx: DBTransaction, namespace: Namespace, a, b):
     assert file.path == a
 
 
-async def test_get_but_file_does_not_exists(tx: DBTransaction, namespace: Namespace):
+async def test_get_but_file_does_not_exist(tx: DBTransaction, namespace: Namespace):
     with pytest.raises(errors.FileNotFound):
         await crud.file.get(tx, namespace.path, "file")
+
+
+async def test_get_by_id(tx: DBTransaction, namespace: Namespace):
+    file = await crud.file.create(tx, namespace.path, "f.txt")
+    result = await crud.file.get_by_id(tx, file.id)
+    assert result == file
+
+
+async def test_get_by_id_but_file_does_not_exist(
+    tx: DBTransaction,
+    namespace: Namespace,
+):
+    file_id = uuid.uuid4()
+    with pytest.raises(errors.FileNotFound):
+        await crud.file.get_by_id(tx, file_id)
 
 
 async def test_get_many(tx: DBTransaction, namespace: Namespace):

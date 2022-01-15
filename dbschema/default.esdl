@@ -44,5 +44,9 @@ module default {
         };
         required property password -> str;
         required property superuser -> bool;
+
+        multi link bookmarks -> File {
+            on target delete ALLOW;
+        };
     }
 }
