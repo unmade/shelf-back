@@ -8,9 +8,64 @@ import pytest
 from app import crud, errors
 
 if TYPE_CHECKING:
-    from app.typedefs import DBTransaction
+    from uuid import UUID
+
+    from app.entities import Namespace, User
+    from app.typedefs import DBAnyConn, DBTransaction, StrOrUUID
+    from tests.factories import FileFactory
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
+
+
+async def _get_bookmarks_id(conn: DBAnyConn, user_id: StrOrUUID) -> list[UUID]:
+    query = """
+        SELECT User { bookmarks: { id } }
+        FILTER .id = <uuid>$user_id
+    """
+    user = await conn.query_single(query, user_id=user_id)
+    return user.bookmarks  # type: ignore
+
+
+async def test_add_bookmark(
+    tx: DBTransaction,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    file = await file_factory(namespace.path)
+    await crud.user.add_bookmark(tx, namespace.owner.id, file.id)
+    bookmarks = await _get_bookmarks_id(tx, user_id=namespace.owner.id)
+    assert len(bookmarks) == 1
+
+
+async def test_add_bookmark_twice(
+    tx: DBTransaction,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    file = await file_factory(namespace.path)
+    await crud.user.add_bookmark(tx, namespace.owner.id, file.id)
+    await crud.user.add_bookmark(tx, namespace.owner.id, file.id)
+    bookmarks = await _get_bookmarks_id(tx, user_id=namespace.owner.id)
+    assert len(bookmarks) == 1
+
+
+async def test_add_bookmark_but_user_does_not_exist(
+    tx: DBTransaction,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    file = await file_factory(namespace.path)
+    user_id = uuid.uuid4()
+
+    with pytest.raises(errors.UserNotFound):
+        await crud.user.add_bookmark(tx, user_id, file.id)
+
+
+async def test_add_bookmark_but_file_does_not_exist(tx: DBTransaction, user: User):
+    file_id = uuid.uuid4()
+    await crud.user.add_bookmark(tx, user.id, file_id)
+    bookmarks = await _get_bookmarks_id(tx, user_id=user.id)
+    assert len(bookmarks) == 0
 
 
 async def test_create_user(tx: DBTransaction):

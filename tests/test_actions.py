@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import uuid
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -16,6 +17,33 @@ if TYPE_CHECKING:
     from tests.factories import FileFactory
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
+
+
+async def test_add_bookmark(
+    db_pool: DBPool,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    file = await file_factory(namespace.path)
+    await actions.add_bookmark(db_pool, namespace.owner.id, file.id)
+    user = await db_pool.query_single("""
+        SELECT User { bookmarks: { id } }
+        FILTER .id = <uuid>$user_id
+    """, user_id=namespace.owner.id)
+
+    assert len(user.bookmarks) == 1
+    assert str(user.bookmarks[0].id) == file.id
+
+
+async def test_add_bookmark_but_user_does_not_exists(
+    db_pool: DBPool,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    file = await file_factory(namespace.path)
+    user_id = uuid.uuid4()
+    with pytest.raises(errors.UserNotFound):
+        await actions.add_bookmark(db_pool, user_id, file.id)
 
 
 @pytest.mark.parametrize(["given", "expected"], [
