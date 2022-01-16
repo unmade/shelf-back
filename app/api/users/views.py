@@ -29,3 +29,14 @@ async def add_bookmark(
         raise exceptions.FileNotFound()
 
     await actions.add_bookmark(db_pool, user_id, file.id)
+
+
+@router.get("/bookmarks/list", response_model=schemas.ListBookmarksResponse)
+async def list_bookmarks(
+    db_pool: AsyncIOPool = Depends(deps.db_pool),
+    user_id: str = Depends(deps.current_user_id),
+):
+    """List user bookmarks."""
+    return schemas.ListBookmarksResponse(
+        items=await crud.user.list_bookmarks(db_pool, user_id),
+    )

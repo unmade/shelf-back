@@ -245,7 +245,7 @@ async def list_folder(
         raise exceptions.NotADirectory(path=payload.path) from exc
 
     # by returning response class directly we avoid pydantic checks
-    # that way we speed up on the large volume of data
+    # that way we speed up on a large volume of data
     return ORJSONResponse(content={
         "path": payload.path,
         "items": [schemas.File.from_entity(file).dict() for file in files],
