@@ -306,6 +306,21 @@ async def reconcile(conn: DBPool, namespace: Namespace) -> None:
     ))
 
 
+async def remove_bookmark(conn: DBPool, user_id: StrOrUUID, file_id: StrOrUUID) -> None:
+    """
+    Remove a file from user bookmarks.
+
+    Args:
+        conn (DBConnOrPool): Database connection.
+        user_id (StrOrUUID): Target user ID.
+        file_id (StrOrUUID): Target file ID.
+
+    Raises:
+        errors.UserNotFound: If User with a target user_id does not exists.
+    """
+    await crud.user.remove_bookmark(conn, user_id, file_id)
+
+
 async def save_file(
     conn: DBPool, namespace: Namespace, path: StrOrPath, content: IO[bytes],
 ) -> File:

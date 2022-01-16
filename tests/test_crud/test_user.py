@@ -23,7 +23,7 @@ async def _get_bookmarks_id(conn: DBAnyConn, user_id: StrOrUUID) -> list[UUID]:
         FILTER .id = <uuid>$user_id
     """
     user = await conn.query_single(query, user_id=user_id)
-    return user.bookmarks  # type: ignore
+    return [entry.id for entry in user.bookmarks]
 
 
 async def test_add_bookmark(
@@ -148,7 +148,7 @@ async def test_list_bookmarks(
     await bookmark_factory(user_id, file_b.id)
 
     bookmarks = await crud.user.list_bookmarks(tx, user_id)
-    assert bookmarks == [uuid.UUID(file_a.id), uuid.UUID(file_b.id)]
+    assert sorted(bookmarks) == sorted([uuid.UUID(file_a.id), uuid.UUID(file_b.id)])
 
 
 async def test_list_empty_bookmarks(
@@ -164,3 +164,44 @@ async def test_list_bookmarks_but_user_does_not_exist(tx: DBTransaction):
     user_id = uuid.uuid4()
     with pytest.raises(errors.UserNotFound):
         await crud.user.list_bookmarks(tx, user_id)
+
+
+async def test_remove_bookmark(
+    tx: DBTransaction,
+    namespace: Namespace,
+    file_factory: FileFactory,
+    bookmark_factory: BookmarkFactory,
+):
+    file = await file_factory(namespace.path)
+    await bookmark_factory(namespace.owner.id, file.id)
+    bookmarks = await _get_bookmarks_id(tx, user_id=namespace.owner.id)
+    assert len(bookmarks) == 1
+    await crud.user.remove_bookmark(tx, namespace.owner.id, file.id)
+    bookmarks = await _get_bookmarks_id(tx, user_id=namespace.owner.id)
+    assert len(bookmarks) == 0
+
+
+async def test_remove_bookmark_twice(
+    tx: DBTransaction,
+    namespace: Namespace,
+    file_factory: FileFactory,
+    bookmark_factory: BookmarkFactory,
+):
+    file = await file_factory(namespace.path)
+    await bookmark_factory(namespace.owner.id, file.id)
+    await crud.user.remove_bookmark(tx, namespace.owner.id, file.id)
+    await crud.user.remove_bookmark(tx, namespace.owner.id, file.id)
+    bookmarks = await _get_bookmarks_id(tx, user_id=namespace.owner.id)
+    assert len(bookmarks) == 0
+
+
+async def test_remove_bookmark_but_user_does_not_exist(
+    tx: DBTransaction,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    file = await file_factory(namespace.path)
+    user_id = uuid.uuid4()
+
+    with pytest.raises(errors.UserNotFound):
+        await crud.user.remove_bookmark(tx, user_id, file.id)

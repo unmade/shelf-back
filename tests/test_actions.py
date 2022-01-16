@@ -12,11 +12,22 @@ from app import actions, crud, errors
 from app.storage import storage
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from app.entities import Namespace
-    from app.typedefs import DBPool
-    from tests.factories import FileFactory
+    from app.typedefs import DBAnyConn, DBPool, StrOrUUID
+    from tests.factories import BookmarkFactory, FileFactory
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
+
+
+async def _get_bookmarks_id(conn: DBAnyConn, user_id: StrOrUUID) -> list[UUID]:
+    query = """
+        SELECT User { bookmarks: { id } }
+        FILTER .id = <uuid>$user_id
+    """
+    user = await conn.query_single(query, user_id=user_id)
+    return [entry.id for entry in user.bookmarks]
 
 
 async def test_add_bookmark(
@@ -26,13 +37,9 @@ async def test_add_bookmark(
 ):
     file = await file_factory(namespace.path)
     await actions.add_bookmark(db_pool, namespace.owner.id, file.id)
-    user = await db_pool.query_single("""
-        SELECT User { bookmarks: { id } }
-        FILTER .id = <uuid>$user_id
-    """, user_id=namespace.owner.id)
-
-    assert len(user.bookmarks) == 1
-    assert str(user.bookmarks[0].id) == file.id
+    bookmarks = await _get_bookmarks_id(db_pool, user_id=namespace.owner.id)
+    assert len(bookmarks) == 1
+    assert str(bookmarks[0]) == file.id
 
 
 async def test_add_bookmark_but_user_does_not_exists(
@@ -498,6 +505,32 @@ async def test_reconcile_do_nothing_when_files_consistent(
 
     # ensure correct files remain the same
     assert await crud.file.exists(db_pool, namespace.path, "e/g/f.txt")
+
+
+async def test_remove_bookmark(
+    db_pool: DBPool,
+    namespace: Namespace,
+    file_factory: FileFactory,
+    bookmark_factory: BookmarkFactory,
+):
+    file = await file_factory(namespace.path)
+    await bookmark_factory(namespace.owner.id, file.id)
+    bookmarks = await _get_bookmarks_id(db_pool, user_id=namespace.owner.id)
+    assert len(bookmarks) == 1
+    await actions.remove_bookmark(db_pool, namespace.owner.id, file.id)
+    bookmarks = await _get_bookmarks_id(db_pool, user_id=namespace.owner.id)
+    assert len(bookmarks) == 0
+
+
+async def test_remove_bookmark_but_user_does_not_exists(
+    db_pool: DBPool,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    file = await file_factory(namespace.path)
+    user_id = uuid.uuid4()
+    with pytest.raises(errors.UserNotFound):
+        await actions.remove_bookmark(db_pool, user_id, file.id)
 
 
 @pytest.mark.parametrize("path", ["f.txt", "a/b/f.txt"])
