@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
     from app.entities import Namespace, User
     from app.typedefs import DBAnyConn, DBTransaction, StrOrUUID
-    from tests.factories import FileFactory
+    from tests.factories import BookmarkFactory, FileFactory
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
@@ -132,3 +132,35 @@ async def test_get_password_but_user_not_found(tx: DBTransaction):
         await crud.user.get_password(tx, username="user")
 
     assert str(excinfo.value) == "No user with username: 'user'"
+
+
+async def test_list_bookmarks(
+    tx: DBTransaction,
+    namespace: Namespace,
+    file_factory: FileFactory,
+    bookmark_factory: BookmarkFactory,
+):
+    user_id = namespace.owner.id
+    file_a = await file_factory(namespace.path)
+    file_b = await file_factory(namespace.path)
+    await file_factory(namespace.path)
+    await bookmark_factory(user_id, file_a.id)
+    await bookmark_factory(user_id, file_b.id)
+
+    bookmarks = await crud.user.list_bookmarks(tx, user_id)
+    assert bookmarks == [uuid.UUID(file_a.id), uuid.UUID(file_b.id)]
+
+
+async def test_list_empty_bookmarks(
+    tx: DBTransaction,
+    namespace: Namespace,
+):
+    user_id = namespace.owner.id
+    bookmarks = await crud.user.list_bookmarks(tx, user_id)
+    assert bookmarks == []
+
+
+async def test_list_bookmarks_but_user_does_not_exist(tx: DBTransaction):
+    user_id = uuid.uuid4()
+    with pytest.raises(errors.UserNotFound):
+        await crud.user.list_bookmarks(tx, user_id)

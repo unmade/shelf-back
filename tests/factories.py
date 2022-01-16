@@ -12,7 +12,7 @@ from app.entities import Account, File, Namespace, User
 from app.storage import storage
 
 if TYPE_CHECKING:
-    from app.typedefs import DBAnyConn, StrOrPath
+    from app.typedefs import DBAnyConn, StrOrPath, StrOrUUID
 
 fake = Faker()
 
@@ -58,6 +58,31 @@ class AccountFactory:
                 last_name=last_name,
             )
         )
+
+
+class BookmarkFactory:
+    __slots__ = ["_db_conn"]
+
+    def __init__(self, db_conn: DBAnyConn) -> None:
+        self._db_conn = db_conn
+
+    async def __call__(self, user_id: StrOrUUID, file_id: StrOrUUID) -> None:
+        query = """
+            UPDATE
+                User
+            FILTER
+                .id = <uuid>$user_id
+            SET {
+                bookmarks += (
+                    SELECT
+                        File
+                    FILTER
+                        .id = <uuid>$file_id
+                )
+            }
+        """
+
+        await self._db_conn.query_single(query, user_id=user_id, file_id=file_id)
 
 
 class FileFactory:

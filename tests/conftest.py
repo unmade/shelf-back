@@ -15,7 +15,13 @@ from PIL import Image
 from app import config, db, security
 from app.main import create_app
 from app.tasks import CeleryConfig
-from tests import factories
+from tests.factories import (
+    AccountFactory,
+    BookmarkFactory,
+    FileFactory,
+    NamespaceFactory,
+    UserFactory,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -246,21 +252,27 @@ async def flush_db_if_needed(request: FixtureRequest):
 
 
 @pytest.fixture
-def account_factory(db_pool_or_tx: DBPoolOrTransaction) -> factories.AccountFactory:
+def account_factory(db_pool_or_tx: DBPoolOrTransaction) -> AccountFactory:
     """Create Account in the database."""
-    return factories.AccountFactory(db_pool_or_tx)
+    return AccountFactory(db_pool_or_tx)
 
 
 @pytest.fixture
-async def account(account_factory: factories.AccountFactory) -> Account:
+async def account(account_factory: AccountFactory) -> Account:
     """An Account instance."""
     return await account_factory(email=fake.email())
 
 
 @pytest.fixture
-def file_factory(db_pool_or_tx: DBPoolOrTransaction) -> factories.FileFactory:
+async def bookmark_factory(db_pool_or_tx: DBPoolOrTransaction) -> BookmarkFactory:
+    """Add file to user bookmarks"""
+    return BookmarkFactory(db_pool_or_tx)
+
+
+@pytest.fixture
+def file_factory(db_pool_or_tx: DBPoolOrTransaction) -> FileFactory:
     """Create dummy file, put it in a storage and save to database."""
-    return factories.FileFactory(db_pool_or_tx)
+    return FileFactory(db_pool_or_tx)
 
 
 @pytest.fixture
@@ -274,33 +286,33 @@ def image_content() -> BytesIO:
 
 
 @pytest.fixture
-def namespace_factory(db_pool_or_tx: DBPoolOrTransaction) -> factories.NamespaceFactory:
+def namespace_factory(db_pool_or_tx: DBPoolOrTransaction) -> NamespaceFactory:
     """
     Create a Namespace with home and trash directories both in the database
     and in the storage.
     """
-    return factories.NamespaceFactory(db_pool_or_tx)
+    return NamespaceFactory(db_pool_or_tx)
 
 
 @pytest.fixture
-async def namespace(namespace_factory: factories.NamespaceFactory) -> Namespace:
+async def namespace(namespace_factory: NamespaceFactory) -> Namespace:
     """A Namespace instance with a home and trash directories."""
     return await namespace_factory()
 
 
 @pytest.fixture
-def user_factory(db_pool_or_tx: DBPoolOrTransaction) -> factories.UserFactory:
+def user_factory(db_pool_or_tx: DBPoolOrTransaction) -> UserFactory:
     """Create a new user in the database."""
-    return factories.UserFactory(db_pool_or_tx)
+    return UserFactory(db_pool_or_tx)
 
 
 @pytest.fixture
-async def user(user_factory: factories.UserFactory) -> User:
+async def user(user_factory: UserFactory) -> User:
     """A User instance."""
     return await user_factory()
 
 
 @pytest.fixture
-async def superuser(user_factory: factories.UserFactory) -> User:
+async def superuser(user_factory: UserFactory) -> User:
     """A User instance as a superuser."""
     return await user_factory(superuser=True)
