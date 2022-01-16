@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from app.api.exceptions import UserNotFound
 from app.api.users.exceptions import FileNotFound
 from tests.factories import BookmarkFactory
 
@@ -68,7 +67,7 @@ async def test_list_bookmarks(
     await bookmark_factory(namespace.owner.id, file_a.id)
     await bookmark_factory(namespace.owner.id, file_b.id)
     response = await client.login(namespace.owner.id).get("/users/bookmarks/list")
-    assert response.json() == {"items": [file_a.id, file_b.id]}
+    assert sorted(response.json()["items"]) == sorted([file_a.id, file_b.id])
     assert response.status_code == 200
 
 
@@ -78,7 +77,27 @@ async def test_list_empty_bookmarks(client: TestClient, namespace: Namespace):
     assert response.status_code == 200
 
 
-async def test_list_bookmarks_but_user_does_not_exist(client: TestClient, db_pool):
-    user_id = uuid.uuid4()
-    response = await client.login(user_id).get("/users/bookmarks/list")
-    assert response.json() == UserNotFound().as_dict()
+async def test_remove_bookmark(
+    client: TestClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+    bookmark_factory: BookmarkFactory,
+):
+    file = await file_factory(namespace.path)
+    await bookmark_factory(namespace.owner.id, file.id)
+    payload = {"id": str(file.id)}
+    user_id = namespace.owner.id
+    response = await client.login(user_id).post("/users/bookmarks/remove", json=payload)
+    assert response.json() is None
+    assert response.status_code == 200
+
+
+async def test_remove_bookmark_but_file_does_not_exist(
+    client: TestClient,
+    namespace: Namespace,
+):
+    user_id = namespace.owner.id
+    payload = {"id": str(uuid.uuid4())}
+    response = await client.login(user_id).post("/users/bookmarks/remove", json=payload)
+    assert response.json() is None
+    assert response.status_code == 200

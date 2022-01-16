@@ -40,3 +40,13 @@ async def list_bookmarks(
     return schemas.ListBookmarksResponse(
         items=await crud.user.list_bookmarks(db_pool, user_id),
     )
+
+
+@router.post("/bookmarks/remove")
+async def remove_bookmark(
+    payload: schemas.IDRequest,
+    db_pool: AsyncIOPool = Depends(deps.db_pool),
+    user_id: str = Depends(deps.current_user_id),
+):
+    """Remove a file from user bookmarks."""
+    await actions.remove_bookmark(db_pool, user_id, payload.id)

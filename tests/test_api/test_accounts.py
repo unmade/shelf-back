@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from typing import TYPE_CHECKING
 
 import pytest
@@ -103,9 +102,8 @@ async def test_list_all(
     account_factory: AccountFactory,
 ):
     await account_factory(user=superuser)
-    await asyncio.gather(
-        *(account_factory() for _ in range(3))
-    )
+    for _ in range(3):  # strangely, edegdb has some trouble with asyncio.gather
+        await account_factory()
     client.login(superuser.id)
     response = await client.get("/accounts/list_all")
     data = response.json()
@@ -122,9 +120,8 @@ async def test_list_all_with_page_params(
     account_factory: AccountFactory,
 ) -> None:
     await account_factory(user=superuser)
-    await asyncio.gather(
-        *(account_factory() for _ in range(7))
-    )
+    for _ in range(7):  # strangely, edegdb has some trouble with asyncio.gather
+        await account_factory()
     client.login(superuser.id)
     response = await client.get("/accounts/list_all?page=2&per_page=5")
     data = response.json()
