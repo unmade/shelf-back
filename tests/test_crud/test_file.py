@@ -15,6 +15,7 @@ from app.mediatypes import FOLDER, OCTET_STREAM
 if TYPE_CHECKING:
     from app.entities import Namespace
     from app.typedefs import DBPool, DBTransaction
+    from tests.factories import FileFactory, NamespaceFactory
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
@@ -474,6 +475,32 @@ async def test_get_by_id_but_file_does_not_exist(
     file_id = uuid.uuid4()
     with pytest.raises(errors.FileNotFound):
         await crud.file.get_by_id(tx, file_id)
+
+
+async def test_get_by_id_batch(
+    tx: DBTransaction,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    files = [await file_factory(namespace.path) for _ in range(7)]
+    ids = [file.id for file in files[::2]]
+    files = await crud.file.get_by_id_batch(tx, namespace.path, ids=ids)
+    assert len(files) == len(ids)
+    assert set(f.id for f in files) == set(ids)
+
+
+async def test_get_by_id_batch_filters_only_by_ids_in_namespace(
+    tx: DBTransaction,
+    namespace_factory: NamespaceFactory,
+    file_factory: FileFactory,
+):
+    namespace_a = await namespace_factory()
+    namespace_b = await namespace_factory()
+    files_a = [await file_factory(namespace_a.path) for _ in range(2)]
+    files_b = [await file_factory(namespace_b.path) for _ in range(2)]
+    ids = [file.id for file in files_a] + [file.id for file in files_b]
+    files = await crud.file.get_by_id_batch(tx, namespace_a.path, ids=ids)
+    assert set(f.id for f in files) == set(f.id for f in files_a)
 
 
 async def test_get_many(tx: DBTransaction, namespace: Namespace):
