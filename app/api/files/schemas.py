@@ -128,6 +128,15 @@ class EmptyTrashCheckResponse(BaseModel):
     result: None = None
 
 
+class GetBatchRequest(BaseModel):
+    ids: list[UUID]
+
+
+class GetBatchResult(BaseModel):
+    items: list[File]
+    count: int
+
+
 class GetDownloadUrlResult(BaseModel):
     download_url: str
 

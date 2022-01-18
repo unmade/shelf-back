@@ -176,6 +176,23 @@ def empty_trash_check(
     return response_model(status=schemas.AsyncTaskStatus.pending)
 
 
+@router.post("/get_batch", response_model=schemas.GetBatchResult)
+async def get_batch(
+    payload: schemas.GetBatchRequest,
+    db_pool: AsyncIOPool = Depends(deps.db_pool),
+    namespace: Namespace = Depends(deps.namespace),
+):
+    """Return all files with specified IDs."""
+    files = await crud.file.get_by_id_batch(db_pool, namespace.path, payload.ids)
+
+    # by returning response class directly we avoid pydantic checks
+    # that way we speed up on a large volume of data
+    return ORJSONResponse(content={
+        "items": [schemas.File.from_entity(file).dict() for file in files],
+        "count": len(files),
+    })
+
+
 @router.post("/get_download_url", response_model=schemas.GetDownloadUrlResult)
 async def get_download_url(
     request: Request,

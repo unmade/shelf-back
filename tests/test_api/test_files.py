@@ -326,6 +326,25 @@ async def test_empty_trash_check_task_is_completed(
     assert response.json()["result"] is None
 
 
+async def test_get_batch(
+    client: TestClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    files = [
+        await file_factory(namespace.path, path=f"{i}.txt")
+        for i in range(3)
+    ]
+    payload = {"ids": [file.id for file in files[::2]]}
+    client.login(namespace.owner.id)
+    response = await client.post("/files/get_batch", json=payload)
+    assert response.json()["count"] == 2
+    assert len(response.json()["items"]) == 2
+    assert response.json()["items"][0]["id"] == files[0].id
+    assert response.json()["items"][1]["id"] == files[2].id
+    assert response.status_code == 200
+
+
 async def test_get_download_url(
     client: TestClient,
     namespace: Namespace,

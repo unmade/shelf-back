@@ -455,6 +455,41 @@ async def get_by_id(conn: DBAnyConn, file_id: StrOrUUID) -> File:
         raise errors.FileNotFound() from exc
 
 
+async def get_by_id_batch(
+    conn: DBAnyConn, namespace: StrOrPath, ids: Iterable[StrOrUUID],
+) -> list[File]:
+    """
+    Return all files with target IDs.
+
+    Args:
+        conn (DBAnyConn): Database connection.
+        namespace (StrOrPath): Namespace where files are located.
+        ids (Iterable[StrOrUUID]): Iterable of paths to look for.
+
+    Returns:
+        List[File]: Files with target IDs.
+    """
+    query = """
+        SELECT
+            File {
+                id, name, path, size, mtime, mediatype: { name },
+            }
+        FILTER
+            .id IN {array_unpack(<array<uuid>>$ids)}
+            AND
+            .namespace.path = <str>$namespace
+        ORDER BY
+            str_lower(.path) ASC
+    """
+    files = await conn.query(
+        query,
+        namespace=str(namespace),
+        ids=ids,
+    )
+
+    return [from_db(f) for f in files]
+
+
 async def get_many(
     conn: DBAnyConn, namespace: StrOrPath, paths: Iterable[StrOrPath],
 ) -> list[File]:
