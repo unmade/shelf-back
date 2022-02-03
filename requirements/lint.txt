@@ -4,32 +4,35 @@
 #
 #    pip-compile requirements/lint.in
 #
-anyio==3.3.4
+anyio==3.5.0
     # via
     #   -c requirements/base.txt
     #   httpcore
     #   starlette
-asgiref==3.4.1
+asgiref==3.5.0
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
-attrs==21.2.0
+attrs==21.4.0
     # via pytest
-backports.entry-points-selectable==1.1.0
-    # via virtualenv
 certifi==2021.10.8
-    # via httpx
+    # via
+    #   -c requirements/base.txt
+    #   httpcore
+    #   httpx
 cfgv==3.3.1
     # via pre-commit
-charset-normalizer==2.0.7
-    # via httpx
-click==7.1.2
+charset-normalizer==2.0.11
+    # via
+    #   -c requirements/base.txt
+    #   httpx
+click==8.0.3
     # via
     #   -c requirements/base.txt
     #   typer
-distlib==0.3.3
+distlib==0.3.4
     # via virtualenv
-dnspython==2.1.0
+dnspython==2.2.0
     # via
     #   -c requirements/base.txt
     #   email-validator
@@ -41,21 +44,25 @@ email-validator==1.1.3
     # via
     #   -c requirements/base.txt
     #   pydantic
-fastapi==0.70.0
+fastapi==0.73.0
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
-filelock==3.3.1
+filelock==3.4.2
     # via virtualenv
 h11==0.12.0
     # via
     #   -c requirements/base.txt
     #   httpcore
-httpcore==0.13.7
-    # via httpx
-httpx==0.20.0
-    # via -r requirements/lint.in
-identify==2.3.0
+httpcore==0.14.6
+    # via
+    #   -c requirements/base.txt
+    #   httpx
+httpx==0.22.0
+    # via
+    #   -c requirements/base.txt
+    #   -r requirements/lint.in
+identify==2.4.8
     # via pre-commit
 idna==3.3
     # via
@@ -65,29 +72,33 @@ idna==3.3
     #   rfc3986
 iniconfig==1.1.1
     # via pytest
-mypy==0.910
+mypy==0.931
     # via -r requirements/lint.in
 mypy-extensions==0.4.3
     # via mypy
 nodeenv==1.6.0
     # via pre-commit
-packaging==21.0
-    # via pytest
-platformdirs==2.4.0
+packaging==21.3
+    # via
+    #   -c requirements/base.txt
+    #   pytest
+platformdirs==2.4.1
     # via virtualenv
 pluggy==1.0.0
     # via pytest
-pre-commit==2.15.0
+pre-commit==2.17.0
     # via -r requirements/lint.in
-py==1.10.0
+py==1.11.0
     # via pytest
-pydantic[email]==1.8.2
+pydantic[email]==1.9.0
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
     #   fastapi
-pyparsing==2.4.7
-    # via packaging
+pyparsing==3.0.7
+    # via
+    #   -c requirements/base.txt
+    #   packaging
 pytest==6.2.5
     # via -r requirements/lint.in
 pyyaml==6.0
@@ -95,7 +106,9 @@ pyyaml==6.0
     #   -c requirements/base.txt
     #   pre-commit
 rfc3986[idna2008]==1.5.0
-    # via httpx
+    # via
+    #   -c requirements/base.txt
+    #   httpx
 six==1.16.0
     # via
     #   -c requirements/base.txt
@@ -106,22 +119,23 @@ sniffio==1.2.0
     #   anyio
     #   httpcore
     #   httpx
-starlette==0.16.0
+starlette==0.17.1
     # via
     #   -c requirements/base.txt
     #   fastapi
 toml==0.10.2
     # via
-    #   mypy
     #   pre-commit
     #   pytest
+tomli==2.0.0
+    # via mypy
 typer==0.4.0
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
-types-orjson==3.6.1
+types-orjson==3.6.2
     # via -r requirements/lint.in
-typing-extensions==3.10.0.2
+typing-extensions==4.0.1
     # via
     #   -c requirements/base.txt
     #   edgedb
@@ -131,5 +145,5 @@ uvloop==0.16.0
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
-virtualenv==20.8.1
+virtualenv==20.13.0
     # via pre-commit

@@ -4,9 +4,10 @@ asgiref
 bcrypt
 cashews
 celery[redis]
-git+https://github.com/edgedb/edgedb-python.git@v0.18.0a2
+edgedb
 fastapi
 filetype
+httpx  # this is required only for tests, however put it here to correcly resolve dependencies
 orjson
 passlib
 pillow

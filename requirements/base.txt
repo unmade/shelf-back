@@ -4,33 +4,41 @@
 #
 #    pip-compile requirements/base.in
 #
-aiofiles==0.7.0
+aiofiles==0.8.0
     # via -r requirements/base.in
-aioredis==2.0.0
+aioredis==2.0.1
     # via -r requirements/base.in
-amqp==5.0.6
+amqp==5.0.9
     # via kombu
-anyio==3.3.4
-    # via starlette
-asgiref==3.4.1
+anyio==3.5.0
+    # via
+    #   httpcore
+    #   starlette
+asgiref==3.5.0
     # via
     #   -r requirements/base.in
     #   uvicorn
-async-timeout==3.0.1
+async-timeout==4.0.2
     # via aioredis
 bcrypt==3.2.0
     # via -r requirements/base.in
 billiard==3.6.4.0
     # via celery
-cashews==3.0.0
+cashews==3.3.0
     # via -r requirements/base.in
-celery[redis]==5.1.2
+celery[redis]==5.2.3
     # via -r requirements/base.in
+certifi==2021.10.8
+    # via
+    #   httpcore
+    #   httpx
 cffi==1.15.0
     # via
     #   bcrypt
     #   cryptography
-click==7.1.2
+charset-normalizer==2.0.11
+    # via httpx
+click==8.0.3
     # via
     #   celery
     #   click-didyoumean
@@ -44,49 +52,62 @@ click-plugins==1.1.1
     # via celery
 click-repl==0.2.0
     # via celery
-cryptography==35.0.0
+cryptography==36.0.1
     # via python-jose
-dnspython==2.1.0
+deprecated==1.2.13
+    # via redis
+dnspython==2.2.0
     # via email-validator
 ecdsa==0.17.0
     # via python-jose
-edgedb @ git+https://github.com/edgedb/edgedb-python.git@v0.18.0a2
+edgedb==0.21.0
     # via -r requirements/base.in
 email-validator==1.1.3
     # via pydantic
-fastapi==0.70.0
+fastapi==0.73.0
     # via -r requirements/base.in
-filetype==1.0.8
+filetype==1.0.10
     # via -r requirements/base.in
 h11==0.12.0
+    # via
+    #   httpcore
+    #   uvicorn
+httpcore==0.14.6
+    # via httpx
+httptools==0.3.0
     # via uvicorn
-httptools==0.2.0
-    # via uvicorn
+httpx==0.22.0
+    # via -r requirements/base.in
 idna==3.3
     # via
     #   anyio
     #   email-validator
-kombu==5.1.0
+    #   rfc3986
+kombu==5.2.3
     # via celery
-orjson==3.6.4
+orjson==3.6.6
     # via -r requirements/base.in
+packaging==21.3
+    # via redis
 passlib==1.7.4
     # via -r requirements/base.in
-pillow==8.4.0
+pillow==9.0.1
     # via -r requirements/base.in
-prompt-toolkit==3.0.21
+prompt-toolkit==3.0.26
     # via click-repl
 pyasn1==0.4.8
     # via
     #   python-jose
     #   rsa
-pycparser==2.20
+pycparser==2.21
     # via cffi
-pydantic[email]==1.8.2
+pydantic[email]==1.9.0
     # via
     #   -r requirements/base.in
     #   fastapi
-python-dotenv==0.19.1
+pyparsing==3.0.7
+    # via packaging
+python-dotenv==0.19.2
     # via uvicorn
 python-jose[cryptography]==3.3.0
     # via -r requirements/base.in
@@ -96,9 +117,11 @@ pytz==2021.3
     # via celery
 pyyaml==6.0
     # via uvicorn
-redis==3.5.3
+redis==4.1.2
     # via celery
-rsa==4.7.2
+rfc3986[idna2008]==1.5.0
+    # via httpx
+rsa==4.8
     # via python-jose
 six==1.16.0
     # via
@@ -107,17 +130,20 @@ six==1.16.0
     #   ecdsa
     #   python-multipart
 sniffio==1.2.0
-    # via anyio
-starlette==0.16.0
+    # via
+    #   anyio
+    #   httpcore
+    #   httpx
+starlette==0.17.1
     # via fastapi
 typer==0.4.0
     # via -r requirements/base.in
-typing-extensions==3.10.0.2
+typing-extensions==4.0.1
     # via
     #   aioredis
     #   edgedb
     #   pydantic
-uvicorn[standard]==0.15.0
+uvicorn[standard]==0.17.3
     # via -r requirements/base.in
 uvloop==0.16.0
     # via
@@ -132,8 +158,10 @@ watchgod==0.7
     # via uvicorn
 wcwidth==0.2.5
     # via prompt-toolkit
-websockets==10.0
+websockets==10.1
     # via uvicorn
+wrapt==1.13.3
+    # via deprecated
 zipfly==6.0.3
     # via -r requirements/base.in
 
