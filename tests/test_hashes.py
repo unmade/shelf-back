@@ -8,14 +8,6 @@ import pytest
 from app import hashes
 
 
-@pytest.mark.parametrize(["given", "expected"], [
-    [0, (0, 0, 0, 0)],
-    [9_223_372_036_854_775_807, (65_535, 65_535, 65_535, 32_767)]
-])
-def test_split_int8_by_int2(given, expected):
-    assert hashes.split_int8_by_int2(given) == expected
-
-
 def test_dhash_for_image():
     with resources.open_binary("tests.data.images", "baikal_v1.jpeg") as im:
         assert hashes.dhash(im, mediatype="image/jpeg")

@@ -563,6 +563,7 @@ async def test_save_file_updates_parents_size(db_pool: DBPool, namespace: Namesp
     await actions.save_file(db_pool, namespace, path, file)
 
     parents = await crud.file.get_many(db_pool, namespace.path, path.parents)
+    assert len(parents) == 3
     for parent in parents:
         assert parent.size == 10
 
@@ -585,6 +586,27 @@ async def test_save_files_concurrently(db_pool: DBPool, namespace: Namespace):
 
     home = await crud.file.get(db_pool, namespace.path, ".")
     assert home.size == CONCURRENCY
+
+
+async def test_save_files_creates_fingerprint(
+    db_pool: DBPool,
+    namespace: Namespace,
+    image_content: BytesIO,
+):
+    path = Path("im.jpeg")
+
+    image_in_db = await actions.save_file(db_pool, namespace, path, image_content)
+    assert image_in_db.mediatype == "image/jpeg"
+
+    query = """
+        SELECT EXIST (
+            SELECT Fingerprint
+            FILTER .file.id = <uuid>$file_id
+            LIMIT 1
+        )
+    """
+
+    assert db_pool.query_single(query, file_id=image_in_db.id)
 
 
 async def test_save_file_but_name_already_taken(
