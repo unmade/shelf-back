@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from io import BytesIO
 from typing import IO, TYPE_CHECKING
 
 from PIL import Image
@@ -9,18 +8,6 @@ from app import mediatypes
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-
-_MASK = 0xFFFF
-
-
-def split_int8_by_int2(integer: int) -> tuple[int, int, int, int]:
-    """Split a 64-bit integer to four 16-bit ones."""
-    return (
-        (integer) & _MASK,
-        (integer >> 16) & _MASK,
-        (integer >> 32) & _MASK,
-        (integer >> 48) & _MASK,
-    )
 
 
 def dhash(content: IO[bytes], mediatype: str) -> int | None:
@@ -73,10 +60,9 @@ def _dhash_image_prepare_data(
     Returns:
         Sequence[int]: Downscaled greyscale image data.
     """
-    buffer = BytesIO(content.read())
     content.seek(0)
 
-    with Image.open(buffer) as im:
+    with Image.open(content) as im:
         return (  # type: ignore
             im
             .convert("L")

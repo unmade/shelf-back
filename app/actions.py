@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import PurePath
 from typing import IO, TYPE_CHECKING
 
-from app import config, crud, errors, mediatypes
+from app import config, crud, errors, hashes, mediatypes
 from app.entities import Account, File, Namespace
 from app.storage import storage
 
@@ -351,6 +351,9 @@ async def save_file(
 
     storage_file = await storage.save(namespace.path, next_path, content)
 
+    mediatype = mediatypes.guess(next_path, content)
+    dhash = hashes.dhash(content, mediatype=mediatype)
+
     async for tx in conn.retrying_transaction():  # pragma: no branch
         async with tx:
             file = await crud.file.create(
@@ -358,7 +361,13 @@ async def save_file(
                 namespace.path,
                 next_path,
                 size=storage_file.size,
-                mediatype=mediatypes.guess(next_path, content)
+                mediatype=mediatype,
             )
+            if dhash is not None:
+                await crud.fingerprint.create(
+                    tx,
+                    file.id,
+                    fp=dhash,
+                )
 
     return file

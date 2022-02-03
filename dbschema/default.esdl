@@ -23,6 +23,20 @@ module default {
         constraint exclusive on ((.path, .namespace));
     }
 
+    type Fingerprint {
+        required property part1 -> int32;
+        required property part2 -> int32;
+        required property part3 -> int32;
+        required property part4 -> int32;
+
+        required link file -> File {
+            constraint exclusive;
+            on target delete DELETE SOURCE;
+        };
+
+        index on ((.part1, .part2, .part3, .part4));
+    }
+
     type MediaType {
         required property name -> str {
             constraint exclusive;
@@ -46,7 +60,7 @@ module default {
         required property superuser -> bool;
 
         multi link bookmarks -> File {
-            on target delete ALLOW;
+            on target delete DELETE SOURCE;
         };
     }
 }

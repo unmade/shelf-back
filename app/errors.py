@@ -4,12 +4,13 @@ import enum
 
 
 class ErrorCode(str, enum.Enum):
-    internal = 'internal_error'
-    file_already_exists = 'file_already_exists'
-    file_not_found = 'file_not_found'
-    is_a_directory = 'is_a_directory'
-    missing_parent = 'missing_parent'
-    not_a_directory = 'not_a_directory'
+    internal = "internal_error"
+    file_already_exists = "file_already_exists"
+    file_not_found = "file_not_found"
+    fingerprint_already_exists = "fingerprint_already_exists"
+    is_a_directory = "is_a_directory"
+    missing_parent = "missing_parent"
+    not_a_directory = "not_a_directory"
 
 
 class Error(Exception):
@@ -24,6 +25,10 @@ class FileAlreadyExists(Error):
 
 class FileNotFound(Error):
     code = ErrorCode.file_not_found
+
+
+class FingerprintAlreadyExists(Error):
+    code = ErrorCode.fingerprint_already_exists
 
 
 class IsADirectory(Error):
