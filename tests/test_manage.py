@@ -33,7 +33,7 @@ def test_createsuperuser(conn: DBConn):
     assert result.exit_code == 0
     assert "User created successfully." in result.stdout
 
-    user = conn.query_single(
+    user = conn.query_required_single(
         "SELECT User { username, superuser } FILTER .username = 'johndoe'"
     )
     assert user.username == "johndoe"
@@ -44,4 +44,4 @@ def test_createuser_but_passwords_dont_match():
     params = ["johndoe", "pass_a", "pass_b", "pass_a", "pass_a"]
     result = runner.invoke(cli, ["createsuperuser"], input="\n".join(params))
     assert result.exit_code == 0
-    assert "Error: the two entered values do not match" in result.stdout
+    assert "Error: The two entered values do not match" in result.stdout

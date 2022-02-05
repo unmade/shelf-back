@@ -22,7 +22,7 @@ async def _get_bookmarks_id(conn: DBAnyConn, user_id: StrOrUUID) -> list[UUID]:
         SELECT User { bookmarks: { id } }
         FILTER .id = <uuid>$user_id
     """
-    user = await conn.query_single(query, user_id=user_id)
+    user = await conn.query_required_single(query, user_id=user_id)
     return [entry.id for entry in user.bookmarks]
 
 
@@ -72,7 +72,7 @@ async def test_create_user(tx: DBTransaction):
     user = await crud.user.create(tx, "user", "psswd")
     assert user.username == "user"
 
-    user_in_db = await tx.query_single("""
+    user_in_db = await tx.query_required_single("""
         SELECT User {
             username,
             password,
@@ -94,7 +94,7 @@ async def test_create_user_but_it_already_exists(tx: DBTransaction):
 
 async def test_exists(tx: DBTransaction):
     await crud.user.create(tx, "user", "psswd")
-    user = await tx.query_single("SELECT User FILTER .username = 'user'")
+    user = await tx.query_required_single("SELECT User FILTER .username = 'user'")
     assert await crud.user.exists(tx, user_id=user.id)
 
 
@@ -104,7 +104,8 @@ async def test_exists_but_it_is_not(tx: DBTransaction):
 
 async def test_get_by_id(tx: DBTransaction):
     await crud.user.create(tx, "user", "psswd")
-    user_id = (await tx.query_single("SELECT User FILTER .username = 'user'")).id
+    query = "SELECT User FILTER .username = 'user'"
+    user_id = (await tx.query_required_single(query)).id
     user = await crud.user.get_by_id(tx, user_id=user_id)
 
     assert user.username == "user"

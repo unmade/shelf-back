@@ -115,7 +115,7 @@ async def create(
     }
 
     try:
-        file = await conn.query_single(query, **params)
+        file = await conn.query_required_single(query, **params)
     except edgedb.ConstraintViolationError as exc:
         raise errors.FileAlreadyExists() from exc
 
@@ -279,7 +279,7 @@ async def create_home_folder(conn: DBAnyConn, namespace: StrOrPath) -> File:
     """
 
     try:
-        file = await conn.query_single(
+        file = await conn.query_required_single(
             query,
             name=namespace.name,
             path=".",
@@ -375,6 +375,8 @@ async def exists(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> bool
     Returns:
         bool: True if file/folder exists, False otherwise.
     """
+    ns_path = str(namespace)
+
     query = """
         SELECT EXISTS (
             SELECT
@@ -388,7 +390,7 @@ async def exists(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> bool
 
     return cast(
         bool,
-        await conn.query_single(query, namespace=str(namespace), path=str(path)),
+        await conn.query_required_single(query, namespace=ns_path, path=str(path)),
     )
 
 
@@ -419,7 +421,9 @@ async def get(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> File:
     """
     try:
         return from_db(
-            await conn.query_single(query, namespace=str(namespace), path=str(path))
+            await conn.query_required_single(
+                query, namespace=str(namespace), path=str(path)
+            )
         )
     except edgedb.NoDataError as exc:
         raise errors.FileNotFound() from exc
@@ -449,7 +453,7 @@ async def get_by_id(conn: DBAnyConn, file_id: StrOrUUID) -> File:
     """
     try:
         return from_db(
-            await conn.query_single(query, file_id=file_id)
+            await conn.query_required_single(query, file_id=file_id)
         )
     except edgedb.NoDataError as exc:
         raise errors.FileNotFound() from exc
@@ -686,7 +690,7 @@ async def _move_file(conn: DBAnyConn, file_id: StrOrUUID, next_path: StrOrPath) 
         ) { id, name, path, size, mtime, mediatype: { name } }
     """
     return from_db(
-        await conn.query_single(
+        await conn.query_required_single(
             query,
             file_id=file_id,
             name=PurePath(next_path).name,
@@ -744,7 +748,7 @@ async def next_path(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> s
 
     suffix = "".join(PurePath(path).suffixes)
     path_stem = str(path).rstrip(suffix)
-    count = await conn.query_single("""
+    count = await conn.query_required_single("""
         SELECT count(
             File
             FILTER

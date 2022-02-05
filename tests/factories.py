@@ -50,7 +50,7 @@ class AccountFactory:
         """
 
         return crud.account.from_db(
-            await self._db_conn.query_single(
+            await self._db_conn.query_required_single(
                 query,
                 email=email,
                 user_id=user.id,
@@ -82,7 +82,9 @@ class BookmarkFactory:
             }
         """
 
-        await self._db_conn.query_single(query, user_id=user_id, file_id=file_id)
+        await self._db_conn.query_required_single(
+            query, user_id=user_id, file_id=file_id
+        )
 
 
 class FileFactory:
@@ -126,7 +128,7 @@ class NamespaceFactory:
     async def __call__(self) -> Namespace:
         owner = await UserFactory(self._db_conn)()
         namespace = crud.namespace.from_db(
-            await self._db_conn.query_single("""
+            await self._db_conn.query_required_single("""
                 SELECT (
                     INSERT Namespace {
                         path := <str>$path,
@@ -142,36 +144,34 @@ class NamespaceFactory:
         )
 
         query = """
-            SELECT (
-                INSERT File {
-                    name := <str>$name,
-                    path := <str>$path,
-                    size := 0,
-                    mtime := <float64>$mtime,
-                    mediatype := (
-                        INSERT MediaType {
-                            name := <str>$mediatype
-                        }
-                        UNLESS CONFLICT ON .name
-                        ELSE (
-                            SELECT
-                                MediaType
-                            FILTER
-                                .name = <str>$mediatype
-                        )
-                    ),
-                    namespace := (
+            INSERT File {
+                name := <str>$name,
+                path := <str>$path,
+                size := 0,
+                mtime := <float64>$mtime,
+                mediatype := (
+                    INSERT MediaType {
+                        name := <str>$mediatype
+                    }
+                    UNLESS CONFLICT ON .name
+                    ELSE (
                         SELECT
-                            Namespace
+                            MediaType
                         FILTER
-                            .id = <uuid>$namespace_id
-                        LIMIT 1
+                            .name = <str>$mediatype
                     )
-                }
-            )
+                ),
+                namespace := (
+                    SELECT
+                        Namespace
+                    FILTER
+                        .id = <uuid>$namespace_id
+                    LIMIT 1
+                )
+            }
         """
 
-        await self._db_conn.query_single(
+        await self._db_conn.query_required_single(
             query,
             name=str(namespace.path),
             path=".",
@@ -180,7 +180,7 @@ class NamespaceFactory:
             namespace_id=namespace.id,
         )
 
-        await self._db_conn.query_single(
+        await self._db_conn.query_required_single(
             query,
             name=config.TRASH_FOLDER_NAME,
             path=config.TRASH_FOLDER_NAME,
@@ -214,7 +214,7 @@ class UserFactory:
 
         # create user with plain query, cause crud.user.create do too much stuff
         return crud.user.from_db(
-            await self._db_conn.query_single("""
+            await self._db_conn.query_required_single("""
                 SELECT (
                     INSERT User {
                         username := <str>$username,

@@ -20,7 +20,7 @@ async def test_create_account(tx: DBTransaction):
     await crud.user.create(tx, "johndoe", "psswd")
     await crud.account.create(tx, "johndoe", first_name="John")
 
-    account = await tx.query_single("""
+    account = await tx.query_required_single("""
         SELECT Account {
             email,
             first_name,

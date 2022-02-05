@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 import edgedb
 import pytest
+from edgedb.transaction import BaseAsyncIOTransaction
 
 if TYPE_CHECKING:
     from pytest import Pytester
@@ -35,8 +36,8 @@ def test_can_not_use_db_pool_without_transaction_flag(db_pool):
 @pytest.mark.asyncio
 @pytest.mark.database(transaction=True)
 async def test_can_use_db_pool(db_pool: DBPool):
-    assert isinstance(db_pool, edgedb.AsyncIOPool)
-    assert await db_pool.query_single("SELECT 1") == 1
+    assert isinstance(db_pool, edgedb.AsyncIOClient)
+    assert await db_pool.query_required_single("SELECT 1") == 1
 
 
 @pytest.mark.xfail(
@@ -61,8 +62,8 @@ def test_can_not_use_tx_without_transaction_flag(tx):
 @pytest.mark.asyncio
 @pytest.mark.database
 async def test_can_use_tx(tx: DBTransaction):
-    assert isinstance(tx, edgedb.AsyncIOTransaction)
-    assert await tx.query_single("SELECT 1") == 1
+    assert isinstance(tx, BaseAsyncIOTransaction)
+    assert await tx.query_required_single("SELECT 1") == 1
 
 
 @pytest.mark.xfail(
@@ -76,12 +77,12 @@ def test_can_not_use_db_pool_or_tx(db_pool_or_tx):
 
 @pytest.mark.database(transaction=True)
 def test_use_db_pool_or_tx_returns_db_pool(db_pool_or_tx: DBPoolOrTransaction):
-    assert isinstance(db_pool_or_tx, edgedb.AsyncIOPool)
+    assert isinstance(db_pool_or_tx, edgedb.AsyncIOClient)
 
 
 @pytest.mark.database
 def test_use_db_pool_or_tx_returns_tx(db_pool_or_tx: DBPoolOrTransaction):
-    assert isinstance(db_pool_or_tx, edgedb.AsyncIOTransaction)
+    assert isinstance(db_pool_or_tx, BaseAsyncIOTransaction)
 
 
 @pytest.mark.database

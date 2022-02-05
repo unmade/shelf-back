@@ -39,7 +39,7 @@ async def count(conn: DBAnyConn) -> int:
     Returns:
         int: Total number of Accounts
     """
-    return cast(int, await conn.query_single("SELECT count(Account)"))
+    return cast(int, await conn.query_required_single("SELECT count(Account)"))
 
 
 async def create(
@@ -83,7 +83,7 @@ async def create(
         ) { id, email, first_name, last_name, user: { id, username, superuser } }
     """
     try:
-        account = await conn.query_single(
+        account = await conn.query_required_single(
             query,
             username=username,
             email=email,
@@ -119,7 +119,7 @@ async def get(conn: DBAnyConn, user_id: StrOrUUID) -> Account:
         LIMIT 1
     """
     try:
-        account = await conn.query_single(query, user_id=user_id)
+        account = await conn.query_required_single(query, user_id=user_id)
     except edgedb.NoDataError as exc:
         raise errors.UserNotFound(f"No account for user with id: {user_id}") from exc
 
@@ -163,5 +163,5 @@ async def update(conn: DBAnyConn, user_id, fields: AccountUpdate) -> Account:
             }}
         ) {{ id, email, first_name, last_name, user: {{  username, superuser }} }}
     """
-    account = await conn.query_single(query, user_id=user_id, **fields)
+    account = await conn.query_required_single(query, user_id=user_id, **fields)
     return from_db(account)

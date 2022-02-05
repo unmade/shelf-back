@@ -6,7 +6,7 @@ from pathlib import Path
 
 import celery.states
 from cashews import cache
-from edgedb import AsyncIOPool
+from edgedb import AsyncIOClient
 from fastapi import APIRouter, Depends
 from fastapi import File as FileParam
 from fastapi import Form, Query, Request, UploadFile
@@ -25,7 +25,7 @@ router = APIRouter()
 @router.post("/create_folder", response_model=schemas.File)
 async def create_folder(
     payload: schemas.PathRequest,
-    db_pool: AsyncIOPool = Depends(deps.db_pool),
+    db_pool: AsyncIOClient = Depends(deps.db_pool),
     namespace: Namespace = Depends(deps.namespace),
 ):
     """
@@ -79,7 +79,7 @@ def delete_immediately_check(
 
 @router.get("/download")
 async def download(
-    key: str = Query(None), db_pool: AsyncIOPool = Depends(deps.db_pool),
+    key: str = Query(None), db_pool: AsyncIOClient = Depends(deps.db_pool),
 ):
     """
     Download a file or a folder.
@@ -116,7 +116,7 @@ async def download(
 @router.post("/download")
 async def download_xhr(
     payload: schemas.PathRequest,
-    db_pool: AsyncIOPool = Depends(deps.db_pool),
+    db_pool: AsyncIOClient = Depends(deps.db_pool),
     namespace: Namespace = Depends(deps.namespace),
 ):
     """
@@ -179,7 +179,7 @@ def empty_trash_check(
 @router.post("/get_batch", response_model=schemas.GetBatchResult)
 async def get_batch(
     payload: schemas.GetBatchRequest,
-    db_pool: AsyncIOPool = Depends(deps.db_pool),
+    db_pool: AsyncIOClient = Depends(deps.db_pool),
     namespace: Namespace = Depends(deps.namespace),
 ):
     """Return all files with specified IDs."""
@@ -197,7 +197,7 @@ async def get_batch(
 async def get_download_url(
     request: Request,
     payload: schemas.PathRequest,
-    db_pool: AsyncIOPool = Depends(deps.db_pool),
+    db_pool: AsyncIOClient = Depends(deps.db_pool),
     namespace: Namespace = Depends(deps.namespace),
 ):
     """Return a link to download requested file or folder."""
@@ -216,7 +216,7 @@ async def get_download_url(
 async def get_thumbnail(
     payload: schemas.PathRequest,
     size: schemas.ThumbnailSize = schemas.ThumbnailSize.xs,
-    db_pool: AsyncIOPool = Depends(deps.db_pool),
+    db_pool: AsyncIOClient = Depends(deps.db_pool),
     namespace: Namespace = Depends(deps.namespace),
 ):
     """Generate thumbnail for an image file."""
@@ -246,7 +246,7 @@ async def get_thumbnail(
 @router.post("/list_folder", response_model=schemas.ListFolderResult)
 async def list_folder(
     payload: schemas.PathRequest,
-    db_pool: AsyncIOPool = Depends(deps.db_pool),
+    db_pool: AsyncIOClient = Depends(deps.db_pool),
     namespace: Namespace = Depends(deps.namespace),
 ):
     """
@@ -273,7 +273,7 @@ async def list_folder(
 @router.post("/move", response_model=schemas.File)
 async def move(
     payload: schemas.MoveRequest,
-    db_pool: AsyncIOPool = Depends(deps.db_pool),
+    db_pool: AsyncIOClient = Depends(deps.db_pool),
     namespace: Namespace = Depends(deps.namespace),
 ):
     """
@@ -334,7 +334,7 @@ def move_batch_check(
 @router.post("/move_to_trash", response_model=schemas.File)
 async def move_to_trash(
     payload: schemas.MoveToTrashRequest,
-    db_pool: AsyncIOPool = Depends(deps.db_pool),
+    db_pool: AsyncIOClient = Depends(deps.db_pool),
     namespace: Namespace = Depends(deps.namespace),
 ):
     """Move file to the Trash folder."""
@@ -365,7 +365,7 @@ def move_to_trash_batch(
 async def upload_file(
     file: UploadFile = FileParam(...),
     path: str = Form(...),
-    db_pool: AsyncIOPool = Depends(deps.db_pool),
+    db_pool: AsyncIOClient = Depends(deps.db_pool),
     namespace: Namespace = Depends(deps.namespace),
 ):
     """Upload file to a specified path."""

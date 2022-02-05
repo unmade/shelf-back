@@ -8,6 +8,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import edgedb
 import pytest
+from edgedb.transaction import TransactionState
 from faker import Faker
 from httpx import AsyncClient
 from PIL import Image
@@ -140,7 +141,7 @@ async def setup_test_db(reuse_db, db_dsn) -> None:
     no `--reuse-db` provided, then test database will be re-created.
     """
     server_dsn, dsn, db_name = db_dsn
-    conn = await edgedb.async_connect(
+    conn = await edgedb.async_connect_raw(
         dsn=server_dsn,
         tls_ca_file=config.DATABASE_TLS_CA_FILE
     )
@@ -159,7 +160,7 @@ async def setup_test_db(reuse_db, db_dsn) -> None:
 
     if should_migrate:
         schema = (config.BASE_DIR / "./dbschema/default.esdl").read_text()
-        conn = await edgedb.async_connect(
+        conn = await edgedb.async_connect_raw(
             dsn=dsn,
             tls_ca_file=config.DATABASE_TLS_CA_FILE
         )
@@ -172,14 +173,17 @@ async def setup_test_db(reuse_db, db_dsn) -> None:
 @pytest.fixture(scope="session")
 async def session_db_pool(setup_test_db):
     """A session scoped connection pool to the database."""
-    async with edgedb.create_async_pool(
+    pool = edgedb.create_async_client(
         dsn=config.DATABASE_DSN,
-        min_size=3,
-        max_size=3,
+        concurrency=4,
         tls_ca_file=config.DATABASE_TLS_CA_FILE,
-    ) as pool:
+    )
+
+    try:
         with mock.patch("app.db._pool", pool):
             yield pool
+    finally:
+        await pool.aclose()
 
 
 @pytest.fixture
@@ -205,12 +209,13 @@ async def tx(request: FixtureRequest, session_db_pool: DBPool):
     if marker.kwargs.get("transaction", False):
         raise RuntimeError("Can't use `tx` fixture with `transaction=True` option")
 
-    transaction = session_db_pool.raw_transaction()
-    await transaction.start()
-    try:
-        yield transaction
-    finally:
-        await transaction.rollback()
+    async for transaction in session_db_pool.transaction():
+        transaction._managed = True
+        try:
+            yield transaction
+        finally:
+            if transaction._state is not TransactionState.NEW:
+                await transaction._rollback()
 
 
 @pytest.fixture

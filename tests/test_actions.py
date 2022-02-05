@@ -26,7 +26,7 @@ async def _get_bookmarks_id(conn: DBAnyConn, user_id: StrOrUUID) -> list[UUID]:
         SELECT User { bookmarks: { id } }
         FILTER .id = <uuid>$user_id
     """
-    user = await conn.query_single(query, user_id=user_id)
+    user = await conn.query_required_single(query, user_id=user_id)
     return [entry.id for entry in user.bookmarks]
 
 
@@ -90,7 +90,7 @@ async def test_create_account(db_pool: DBPool, given, expected):
     assert await storage.exists(expected["username"], ".")
     assert await storage.exists(f"{expected['username']}", "Trash")
 
-    account = await db_pool.query_single("""
+    account = await db_pool.query_required_single("""
         SELECT Account {
             email,
             first_name,
@@ -147,7 +147,7 @@ async def test_create_account_but_email_is_taken(db_pool: DBPool):
         await actions.create_account(db_pool, "user_b", "psswd", email=email)
 
     assert str(excinfo.value) == "Email 'user@example.com' is taken"
-    assert await db_pool.query_single("""
+    assert await db_pool.query_required_single("""
         SELECT NOT EXISTS (
             SELECT
                 User
@@ -599,14 +599,15 @@ async def test_save_files_creates_fingerprint(
     assert image_in_db.mediatype == "image/jpeg"
 
     query = """
-        SELECT EXIST (
-            SELECT Fingerprint
-            FILTER .file.id = <uuid>$file_id
-            LIMIT 1
+        SELECT EXISTS (
+            SELECT
+                Fingerprint
+            FILTER
+                .file.id = <uuid>$file_id
         )
     """
 
-    assert db_pool.query_single(query, file_id=image_in_db.id)
+    assert await db_pool.query_required_single(query, file_id=image_in_db.id)
 
 
 async def test_save_file_but_name_already_taken(
