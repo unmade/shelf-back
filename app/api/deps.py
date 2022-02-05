@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from edgedb import AsyncIOPool
+from edgedb import AsyncIOClient
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 
@@ -35,7 +35,7 @@ def token_payload(token: str | None = Depends(reusable_oauth2)) -> TokenPayload:
 
 
 async def current_user_id(
-    pool: AsyncIOPool = Depends(db_pool),
+    pool: AsyncIOClient = Depends(db_pool),
     payload: TokenPayload = Depends(token_payload),
 ) -> str:
     """Get user_id from a token payload."""
@@ -45,7 +45,7 @@ async def current_user_id(
 
 
 async def current_user(
-    pool: AsyncIOPool = Depends(db_pool),
+    pool: AsyncIOClient = Depends(db_pool),
     payload: TokenPayload = Depends(token_payload),
 ) -> User:
     """Get user from a token payload."""
@@ -56,7 +56,7 @@ async def current_user(
 
 
 async def namespace(
-    pool: AsyncIOPool = Depends(db_pool),
+    pool: AsyncIOClient = Depends(db_pool),
     user_id: str = Depends(current_user_id),
 ) -> Namespace:
     # If namespace is not found, we should fail, so don't catch NamespaceNotFound here.

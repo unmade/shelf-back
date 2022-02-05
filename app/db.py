@@ -61,7 +61,7 @@ async def connect():
     Yields:
         [type]: Connection to a database.
     """
-    conn = await edgedb.async_connect(
+    conn = await edgedb.async_connect_raw(
         dsn=config.DATABASE_DSN,
         tls_ca_file=config.DATABASE_TLS_CA_FILE,
     )
@@ -76,10 +76,9 @@ async def create_pool() -> None:
     """Create a new connection pool."""
     global _pool
 
-    _pool = await edgedb.create_async_pool(
+    _pool = await edgedb.create_async_client(
         dsn=config.DATABASE_DSN,
-        min_size=4,
-        max_size=4,
+        concurrency=4,
         tls_ca_file=config.DATABASE_TLS_CA_FILE,
     )
 
@@ -106,7 +105,7 @@ async def migrate(conn: DBConnOrPool, schema: str) -> None:
         conn (DBConnOrPool): Connection to a database.
         schema (str): Schema to migrate to.
     """
-    async for tx in conn.retrying_transaction():
+    async for tx in conn.transaction():
         async with tx:
             await tx.execute(f"""
                 START MIGRATION TO {{

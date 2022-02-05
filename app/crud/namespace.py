@@ -49,7 +49,7 @@ async def create(conn: DBAnyConn, path: StrOrPath, owner_id: StrOrUUID) -> Names
     """
 
     return from_db(
-        await conn.query_single(query, path=str(path), owner_id=owner_id)
+        await conn.query_required_single(query, path=str(path), owner_id=owner_id)
     )
 
 
@@ -77,7 +77,7 @@ async def get(conn: DBAnyConn, path: StrOrPath) -> Namespace:
     """
 
     try:
-        return from_db(await conn.query_single(query, path=str(path)))
+        return from_db(await conn.query_required_single(query, path=str(path)))
     except edgedb.NoDataError as exc:
         raise errors.NamespaceNotFound() from exc
 
@@ -92,6 +92,6 @@ async def get_by_owner(conn: DBAnyConn, owner_id: StrOrUUID) -> Namespace:
             .owner.id = <uuid>$owner_id
     """
     try:
-        return from_db(await conn.query_single(query, owner_id=owner_id))
+        return from_db(await conn.query_required_single(query, owner_id=owner_id))
     except edgedb.NoDataError as exc:
         raise errors.NamespaceNotFound() from exc

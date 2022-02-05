@@ -6,13 +6,16 @@ if TYPE_CHECKING:
     from pathlib import PurePath
     from uuid import UUID
 
-    from edgedb import AsyncIOConnection, AsyncIOPool, AsyncIOTransaction
+    from edgedb import AsyncIOClient
+    from edgedb.asyncio_con import AsyncIOConnection
+    from edgedb.transaction import BaseAsyncIOTransaction
 
-DBAnyConn = Union[AsyncIOConnection, AsyncIOPool, AsyncIOTransaction]
-DBConnOrPool = Union[AsyncIOConnection, AsyncIOPool]
-DBPool = AsyncIOPool
-DBTransaction = AsyncIOTransaction
+DBConn = AsyncIOConnection
+DBPool = AsyncIOClient
+DBTransaction = BaseAsyncIOTransaction
+DBConnOrPool = Union[DBConn, DBPool]
 DBPoolOrTransaction = Union[DBPool, DBTransaction]
+DBAnyConn = Union[DBConn, DBPool, DBTransaction]
 
 StrOrPath = Union[str, PurePath]
 StrOrUUID = Union[str, UUID]

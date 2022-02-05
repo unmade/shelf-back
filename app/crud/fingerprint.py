@@ -55,7 +55,7 @@ async def create(conn: DBAnyConn, file_id: StrOrUUID, fp: int) -> None:
     parts = _split_int8_by_int2(fp)
 
     try:
-        await conn.query_single(
+        await conn.query_required_single(
             query,
             file_id=file_id,
             part1=parts[0],

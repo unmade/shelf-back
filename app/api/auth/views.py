@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from edgedb import AsyncIOPool
+from edgedb import AsyncIOClient
 from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 
@@ -16,7 +16,7 @@ router = APIRouter()
 @router.post("/tokens", response_model=Tokens)
 async def get_tokens(
     form_data: OAuth2PasswordRequestForm = Depends(),
-    pool: AsyncIOPool = Depends(deps.db_pool),
+    pool: AsyncIOClient = Depends(deps.db_pool),
 ):
     """Grant new access token for a given credentials."""
     username = form_data.username.lower()

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from edgedb import AsyncIOPool
+from edgedb import AsyncIOClient
 from fastapi import APIRouter, Depends
 
 from app import actions, crud, errors
@@ -15,7 +15,7 @@ router = APIRouter()
 @router.post("/bookmarks/add")
 async def add_bookmark(
     payload: schemas.IDRequest,
-    db_pool: AsyncIOPool = Depends(deps.db_pool),
+    db_pool: AsyncIOClient = Depends(deps.db_pool),
     namespace: Namespace = Depends(deps.namespace),
     user_id: str = Depends(deps.current_user_id),
 ):
@@ -33,7 +33,7 @@ async def add_bookmark(
 
 @router.get("/bookmarks/list", response_model=schemas.ListBookmarksResponse)
 async def list_bookmarks(
-    db_pool: AsyncIOPool = Depends(deps.db_pool),
+    db_pool: AsyncIOClient = Depends(deps.db_pool),
     user_id: str = Depends(deps.current_user_id),
 ):
     """List user bookmarks."""
@@ -45,7 +45,7 @@ async def list_bookmarks(
 @router.post("/bookmarks/remove")
 async def remove_bookmark(
     payload: schemas.IDRequest,
-    db_pool: AsyncIOPool = Depends(deps.db_pool),
+    db_pool: AsyncIOClient = Depends(deps.db_pool),
     user_id: str = Depends(deps.current_user_id),
 ):
     """Remove a file from user bookmarks."""

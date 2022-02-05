@@ -34,14 +34,16 @@ def createsuperuser(
 def reconcile(namespace: str) -> None:
     """Reconcile storage and database for a given namespace."""
     async def _reconcile():
-        async with edgedb.create_async_pool(
+        pool = edgedb.create_async_client(
             dsn=config.DATABASE_DSN,
-            min_size=4,
-            max_size=4,
+            concurrency=4,
             tls_ca_file=config.DATABASE_TLS_CA_FILE,
-        ) as pool:
+        )
+        try:
             ns = await crud.namespace.get(pool, namespace)
             await actions.reconcile(pool, ns)
+        finally:
+            await pool.aclose()
 
     asyncio.run(_reconcile())
 

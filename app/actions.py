@@ -67,7 +67,7 @@ async def create_account(
     username = username.lower()
     await storage.makedirs(username, config.TRASH_FOLDER_NAME)
 
-    async for tx in conn.retrying_transaction():  # pragma: no branch
+    async for tx in conn.transaction():  # pragma: no branch
         async with tx:
             user = await crud.user.create(tx, username, password, superuser=superuser)
             namespace = await crud.namespace.create(tx, username, user.id)
@@ -119,7 +119,7 @@ async def delete_immediately(
     Returns:
         File: Deleted file.
     """
-    async for tx in conn.retrying_transaction():  # pragma: no branch
+    async for tx in conn.transaction():  # pragma: no branch
         async with tx:
             file = await crud.file.delete(tx, namespace.path, path)
 
@@ -139,7 +139,7 @@ async def empty_trash(conn: DBConnOrPool, namespace: Namespace) -> File:
         File: Trash folder.
     """
     files = await crud.file.list_folder(conn, namespace.path, config.TRASH_FOLDER_NAME)
-    async for tx in conn.retrying_transaction():  # pragma: no branch
+    async for tx in conn.transaction():  # pragma: no branch
         async with tx:
             await crud.file.empty_trash(tx, namespace.path)
 
@@ -218,7 +218,7 @@ async def move(
 
     await storage.move(namespace.path, path, next_path)
 
-    async for tx in conn.retrying_transaction():  # pragma: no branch
+    async for tx in conn.transaction():  # pragma: no branch
         async with tx:
             file = await crud.file.move(tx, namespace.path, path, next_path)
     return file
@@ -354,7 +354,7 @@ async def save_file(
     mediatype = mediatypes.guess(next_path, content)
     dhash = hashes.dhash(content, mediatype=mediatype)
 
-    async for tx in conn.retrying_transaction():  # pragma: no branch
+    async for tx in conn.transaction():  # pragma: no branch
         async with tx:
             file = await crud.file.create(
                 tx,

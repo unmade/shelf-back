@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
-from edgedb import AsyncIOPool
+from edgedb import AsyncIOClient
 from fastapi import APIRouter, Depends
 
 from app import actions, crud, errors
@@ -19,7 +19,7 @@ router = APIRouter()
 @router.post("/create", response_model=Account)
 async def create(
     payload: CreateAccountRequest,
-    db_pool: AsyncIOPool = Depends(deps.db_pool),
+    db_pool: AsyncIOClient = Depends(deps.db_pool),
     _: User = Depends(deps.superuser),
 ):
     """Create new account."""
@@ -40,7 +40,7 @@ async def create(
 
 @router.get("/get_current", response_model=Account)
 async def get_current(
-    db_pool: AsyncIOPool = Depends(deps.db_pool),
+    db_pool: AsyncIOClient = Depends(deps.db_pool),
     user_id: str = Depends(deps.current_user_id),
 ):
     """Get account information for a current user."""
@@ -55,7 +55,7 @@ async def get_current(
 async def list_all(
     page: int = PageParam,
     per_page: int = PageSizeParam,
-    db_pool: AsyncIOPool = Depends(deps.db_pool),
+    db_pool: AsyncIOClient = Depends(deps.db_pool),
     _: User = Depends(deps.superuser),
 ):
     """List all accounts."""
@@ -74,7 +74,7 @@ async def list_all(
 @router.patch("/update", response_model=Account)
 async def update(
     payload: UpdateAccountRequest,
-    db_pool: AsyncIOPool = Depends(deps.db_pool),
+    db_pool: AsyncIOClient = Depends(deps.db_pool),
     user_id: str = Depends(deps.current_user_id),
 ):
     """Update account details."""

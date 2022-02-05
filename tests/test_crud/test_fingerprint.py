@@ -33,7 +33,7 @@ async def test_create(
 
     await crud.fingerprint.create(tx, file.id, fp=fp)
 
-    fingerprint = await tx.query_single("""
+    fingerprint = await tx.query_required_single("""
         SELECT Fingerprint { part1, part2, part3, part4 }
         FILTER .file.id = <uuid>$file_id
     """, file_id=file.id)
