@@ -33,6 +33,13 @@ mimetypes.add_type("text/x-rust", ".rs")
 mimetypes.add_type("text/x-toml", ".toml")
 mimetypes.add_type("text/x-vim", ".vim")
 
+IMAGES = {
+    "image/jpeg",
+    "image/png",
+    "image/x-icon",
+    "image/webp",
+}
+
 
 def guess(name: StrOrPath, file: bytes | IO[bytes] | None = None) -> str:
     """
@@ -62,4 +69,4 @@ def guess(name: StrOrPath, file: bytes | IO[bytes] | None = None) -> str:
 
 def is_image(mediatype: str) -> bool:
     """True if mediatype corresponds to an image file, otherwise False."""
-    return mediatype in ("image/jpeg", "image/png", "image/x-icon", "image/webp")
+    return mediatype in IMAGES

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import itertools
 import os.path
 from collections import deque
 from datetime import datetime
+from io import BytesIO
 from pathlib import PurePath
 from typing import IO, TYPE_CHECKING
 
@@ -269,6 +271,7 @@ async def reconcile(conn: DBPool, namespace: Namespace) -> None:
     ns_path = str(namespace.path)
     folders = deque(["."])
     missing = []
+    to_fingerprint = []
 
     # For now, it is faster to re-create all files from scratch
     # than iterating through large directories looking for one missing/dangling file
@@ -289,6 +292,9 @@ async def reconcile(conn: DBPool, namespace: Namespace) -> None:
                 size = file.size
                 mediatype = mediatypes.guess(file.name)
 
+            if mediatypes.is_image(mediatype):
+                to_fingerprint.append(file.path)
+
             missing.append(
                 File(
                     id=None,  # type: ignore
@@ -300,10 +306,41 @@ async def reconcile(conn: DBPool, namespace: Namespace) -> None:
                 )
             )
 
+    chunk_size = min(len(missing), 500)
     await asyncio.gather(*(
-        crud.file.create_batch(conn, ns_path, files=files)
-        for files in itertools.zip_longest(*[iter(missing)] * 500)
+        crud.file.create_batch(conn, ns_path, files=chunk)
+        for chunk in itertools.zip_longest(*[iter(missing)] * chunk_size)
     ))
+
+    loop = asyncio.get_running_loop()
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        tasks = [
+            loop.run_in_executor(executor, _reconcile_calc_fp, storage, ns_path, path)
+            for path in to_fingerprint
+        ]
+        fingerprints = await asyncio.gather(*tasks)
+
+    chunk_size = min(len(to_fingerprint), 500)
+    chunks = [zip(to_fingerprint, fingerprints)] * chunk_size
+    await asyncio.gather(*(
+        crud.fingerprint.create_batch(conn, namespace=ns_path, fingerprints=chunk)
+        for chunk in itertools.zip_longest(*chunks)
+    ))
+
+
+def _reconcile_calc_fp(storage, ns_path, path: StrOrPath) -> int:
+    """
+    Download file content and calculate a d-hash for a file in a given path.
+
+    The `storage` argument is passed as a workaround to make test work correctly
+    when substituting `.location`.
+    """
+    buf = BytesIO()
+    content = storage.download(ns_path, path)
+    for chunk in content:
+        buf.write(chunk)
+    buf.seek(0)
+    return hashes.dhash_image(buf)
 
 
 async def remove_bookmark(conn: DBPool, user_id: StrOrUUID, file_id: StrOrUUID) -> None:
