@@ -444,13 +444,18 @@ async def test_move_to_trash_autorename(
     assert await crud.file.exists(db_pool, namespace.path, f"{file.path}/f1")
 
 
-async def test_reconcile_creates_missing_files(db_pool: DBPool, namespace: Namespace):
+async def test_reconcile_creates_missing_files(
+    db_pool: DBPool,
+    namespace: Namespace,
+    image_content: BytesIO,
+):
     dummy_text = b"Dummy file"
 
     # these files exist in the storage, but not in the database
     await storage.makedirs(namespace.path, "a")
     await storage.makedirs(namespace.path, "b")
     await storage.save(namespace.path, "b/f.txt", content=BytesIO(dummy_text))
+    await storage.save(namespace.path, "im.jpeg", content=image_content)
 
     await actions.reconcile(db_pool, namespace)
 
@@ -459,14 +464,25 @@ async def test_reconcile_creates_missing_files(db_pool: DBPool, namespace: Names
     assert home.size == 0
 
     # ensure missing files in the database has been created
-    paths = ["a", "b", "b/f.txt"]
-    a, b, f = await crud.file.get_many(db_pool, namespace.path, paths=paths)
+    paths = ["a", "b", "b/f.txt", "im.jpeg"]
+    a, b, f, i = await crud.file.get_many(db_pool, namespace.path, paths=paths)
     assert a.is_folder()
     assert a.size == 0
     assert b.is_folder()
     assert b.size == 0
     assert f.size == len(dummy_text)
-    assert f.mediatype == 'text/plain'
+    assert f.mediatype == "text/plain"
+    assert i.mediatype == "image/jpeg"
+    assert i.size == image_content.seek(0, 2)
+
+    # ensure fingerprints were created
+    query = """
+        SELECT Fingerprint { file: { id }}
+        FILTER .file.id IN {array_unpack(<array<uuid>>$file_ids)}
+    """
+    fingerprints = await db_pool.query(query, file_ids=[a.id, b.id, f.id, i.id])
+    assert len(fingerprints) == 1
+    assert str(fingerprints[0].file.id) == i.id
 
 
 async def test_reconcile_removes_dangling_files(
