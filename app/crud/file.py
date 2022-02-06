@@ -495,7 +495,7 @@ async def get_by_id_batch(
     files = await conn.query(
         query,
         namespace=str(namespace),
-        ids=ids,
+        ids=list(ids),
     )
 
     return [from_db(f) for f in files]

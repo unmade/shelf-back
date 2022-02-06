@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
     from app.entities import Namespace
     from app.typedefs import DBAnyConn, DBClient, StrOrUUID
-    from tests.factories import BookmarkFactory, FileFactory
+    from tests.factories import BookmarkFactory, FileFactory, FingerprintFactory
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
 
@@ -252,6 +252,50 @@ async def test_empty_trash_but_its_already_empty(
 
     trash = await crud.file.get(db_client, namespace.path, "Trash")
     assert trash.size == 0
+
+
+async def test_find_duplicates(
+    db_client: DBClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+    fingerprint_factory: FingerprintFactory,
+):
+    ns_path = str(namespace.path)
+
+    file_1 = await file_factory(ns_path, "f1.txt")
+    file_1_copy = await file_factory(ns_path, "a/b/f1 (copy).txt")
+
+    file_2 = await file_factory(ns_path, "a/f2 (false positive to f1).txt")
+
+    file_3 = await file_factory(ns_path, "f3.txt")
+    file_3_match = await file_factory(ns_path, "f3 (match).txt")
+
+    # full match
+    fp1 = await fingerprint_factory(file_1.id, 57472, 4722, 63684, 52728)
+    fp1_copy = await fingerprint_factory(file_1_copy.id, 57472, 4722, 63684, 52728)
+
+    # false positive match to 'fp1' and 'fp1_copy'
+    fp2 = await fingerprint_factory(file_2.id, 12914, 44137, 63684, 63929)
+
+    # these fingerprints has distance of 1
+    fp3 = await fingerprint_factory(file_3.id, 56797, 56781, 18381, 58597)
+    fp3_match = await fingerprint_factory(file_3_match.id, 56797, 56797, 18381, 58597)
+
+    # find duplicates in the home folder
+    dupes = await actions.find_duplicates(db_client, namespace, ".")
+    assert len(dupes) == 2
+    assert set(dupes[0]) == {fp1, fp1_copy}
+    assert set(dupes[1]) == {fp3, fp3_match}
+
+    # find duplicates in the home folder with max distance
+    dupes = await actions.find_duplicates(db_client, namespace, ".", max_distance=30)
+    assert len(dupes) == 2
+    assert set(dupes[0]) == {fp1, fp1_copy, fp2}
+    assert set(dupes[1]) == {fp3, fp3_match}
+
+    # find duplicates in the folder 'a'
+    dupes = await actions.find_duplicates(db_client, namespace, "a")
+    assert len(dupes) == 0
 
 
 async def test_get_thumbnail(

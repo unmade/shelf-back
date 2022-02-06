@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import secrets
 from io import BytesIO
 from pathlib import Path
@@ -174,6 +175,41 @@ def empty_trash_check(
     if task.status == celery.states.SUCCESS:
         return response_model(status=schemas.AsyncTaskStatus.completed)
     return response_model(status=schemas.AsyncTaskStatus.pending)
+
+
+@router.post("/find_duplicates", response_model=schemas.FindDuplicatesResponse)
+async def find_duplicates(
+    payload: schemas.FindDuplicatesRequest,
+    db_client: AsyncIOClient = Depends(deps.db_client),
+    namespace: Namespace = Depends(deps.namespace),
+):
+    """Find all duplicate files in a folder including all sub-folders."""
+    path, max_distance = payload.path, payload.max_distance
+    groups = await actions.find_duplicates(db_client, namespace, path, max_distance)
+
+    ids = itertools.chain.from_iterable(
+        (fp.file_id for fp in group)
+        for group in groups
+    )
+
+    files = {
+        file.id: file
+        for file in await crud.file.get_by_id_batch(db_client, namespace.path, ids=ids)
+    }
+
+    # by returning response class directly we avoid pydantic checks
+    # that way we speed up on a large volume of data
+    return ORJSONResponse(content={
+        "path": payload.path,
+        "items": [
+            [
+                schemas.File.from_entity(files[fp.file_id]).dict()
+                for fp in group
+            ]
+            for group in groups
+        ],
+        "count": len(groups),
+    })
 
 
 @router.post("/get_batch", response_model=schemas.GetBatchResult)

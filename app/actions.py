@@ -4,14 +4,14 @@ import asyncio
 import concurrent.futures
 import itertools
 import os.path
-from collections import deque
+from collections import defaultdict, deque
 from datetime import datetime
 from io import BytesIO
 from pathlib import PurePath
 from typing import IO, TYPE_CHECKING
 
 from app import config, crud, errors, hashes, mediatypes
-from app.entities import Account, File, Namespace
+from app.entities import Account, File, Fingerprint, Namespace
 from app.storage import storage
 
 if TYPE_CHECKING:
@@ -150,6 +150,60 @@ async def empty_trash(db_client: DBClient, namespace: Namespace) -> File:
         await storage.delete(ns_path, file.path)
 
     return await crud.file.get(db_client, ns_path, config.TRASH_FOLDER_NAME)
+
+
+async def find_duplicates(
+    db_client: DBClient, namespace: Namespace, path: StrOrPath, max_distance: int = 5,
+) -> list[list[Fingerprint]]:
+    """
+    Find all duplicate fingerprints in a folder, including sub-folders.
+
+    Duplicate fingerprints are grouped into the same list.
+
+    Args:
+        db_client (DBClient): Database client.
+        namespace (Namespace): Target namespace.
+        path (StrOrPath): Folder path where to search for fingerprints.
+        max_distance (int, optional): The maximum distance at which two fingerprints
+            are considered the same. Defaults to 5.
+
+    Returns:
+        list[list[Fingerprint]]: List of lists of duplicate fingerprints.
+    """
+    def _traverse(graph, node, visited=set()):
+        """Returns list of all direct/indirect adjacent nodes for a given node."""
+        nodes: list[Fingerprint] = []
+        if node in visited:
+            return nodes
+        visited.add(node)
+        nodes.append(node)
+        for adjacent in graph[node]:
+            nodes.extend(_traverse(graph, adjacent))
+        return nodes
+
+    # fetch fingerprints and possible duplicates
+    ns_path = namespace.path
+    intersection = await crud.fingerprint.intersect_in_folder(db_client, ns_path, path)
+
+    # calculate distance and store it as adjacency list
+    visited = set()
+    matches = defaultdict(list)
+    for fp, dupes in intersection.items():
+        for dupe in dupes:
+            if (fp, dupe) in visited:
+                continue
+            visited.add((dupe, fp))
+            distance = (fp.value ^ dupe.value).bit_count()
+            if distance <= max_distance:
+                matches[fp].append(dupe)
+                matches[dupe].append(fp)
+
+    # traverse adjacency list to group direct/indirect adjacent nodes
+    return [
+        group
+        for node in matches
+        if (group := _traverse(matches, node))
+    ]
 
 
 async def get_thumbnail(
