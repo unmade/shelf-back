@@ -19,6 +19,7 @@ from tests.factories import (
     AccountFactory,
     BookmarkFactory,
     FileFactory,
+    FingerprintFactory,
     MediaTypeFactory,
     NamespaceFactory,
     UserFactory,
@@ -263,7 +264,7 @@ async def account(account_factory: AccountFactory) -> Account:
 
 @pytest.fixture
 async def bookmark_factory(db_client_or_tx: DBAnyConn) -> BookmarkFactory:
-    """Add file to user bookmarks"""
+    """Add file to user bookmarks."""
     return BookmarkFactory(db_client_or_tx)
 
 
@@ -271,6 +272,12 @@ async def bookmark_factory(db_client_or_tx: DBAnyConn) -> BookmarkFactory:
 def file_factory(db_client_or_tx: DBAnyConn) -> FileFactory:
     """Create dummy file, put it in a storage and save to database."""
     return FileFactory(db_client_or_tx)
+
+
+@pytest.fixture
+async def fingerprint_factory(db_client_or_tx: DBAnyConn) -> FingerprintFactory:
+    """Add fingerprint."""
+    return FingerprintFactory(db_client_or_tx)
 
 
 @pytest.fixture

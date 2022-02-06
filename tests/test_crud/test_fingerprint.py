@@ -10,7 +10,7 @@ from app import crud, errors
 if TYPE_CHECKING:
     from app.entities import Namespace
     from app.typedefs import DBTransaction
-    from tests.factories import FileFactory
+    from tests.factories import FileFactory, FingerprintFactory
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
@@ -21,6 +21,14 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 ])
 def test_split_int8_by_int2(given, expected):
     assert crud.fingerprint._split_int8_by_int2(given) == expected
+
+
+@pytest.mark.parametrize(["given", "expected"], [
+    [(36, 36096, 52428, 61423), 17289262673409605668],
+    [(65_535, 65_535, 65_535, 32_767), 9_223_372_036_854_775_807],
+])
+def test_join_int2(given, expected):
+    assert crud.fingerprint._join_int2(*reversed(given)) == expected
 
 
 async def test_create(
@@ -135,3 +143,55 @@ async def test_create_batch_but_file_does_not_exist(
     fingerprints = [(file_a.path, hash_a), (file_b_path, hash_b)]
     with pytest.raises(errors.FileNotFound):
         await crud.fingerprint.create_batch(tx, ns_path, fingerprints=fingerprints)
+
+
+async def test_intersect_in_folder(
+    tx: DBTransaction,
+    namespace: Namespace,
+    file_factory: FileFactory,
+    fingerprint_factory: FingerprintFactory
+):
+    ns_path = str(namespace.path)
+
+    file_1 = await file_factory(ns_path, "f1.txt")
+    file_1_copy = await file_factory(ns_path, "a/b/f1 (copy).txt")
+
+    file_2 = await file_factory(ns_path, "a/f2 (false positive to f1).txt")
+
+    file_3 = await file_factory(ns_path, "f3.txt")
+    file_3_match = await file_factory(ns_path, "f3 (match).txt")
+
+    file_4 = await file_factory(ns_path, "a/f4.txt")
+
+    # full match
+    fp1 = await fingerprint_factory(file_1.id, 57472, 4722, 63684, 52728)
+    fp1_copy = await fingerprint_factory(file_1_copy.id, 57472, 4722, 63684, 52728)
+
+    # false positive match to 'fp1' and 'fp1_copy'
+    fp2 = await fingerprint_factory(file_2.id, 12914, 44137, 63684, 63929)
+
+    # these fingerprints has distance of 1
+    fp3 = await fingerprint_factory(file_3.id, 56797, 56781, 18381, 58597)
+    fp3_match = await fingerprint_factory(file_3_match.id, 56797, 56797, 18381, 58597)
+
+    # this fingerprint has no match
+    await fingerprint_factory(file_4.id, 40, 36096, 36040, 65516)
+
+    # intersect in the home folder
+    intersection = await crud.fingerprint.intersect_in_folder(tx, ns_path, ".")
+    assert len(intersection.keys()) == 5
+    assert set(intersection[fp1]) == {fp1_copy, fp2}
+    assert set(intersection[fp1_copy]) == {fp1, fp2}
+    assert set(intersection[fp2]) == {fp1, fp1_copy}
+    assert set(intersection[fp3]) == {fp3_match}
+    assert set(intersection[fp3_match]) == {fp3}
+
+    # intersect in the folder 'a'
+    intersection = await crud.fingerprint.intersect_in_folder(tx, ns_path, "a")
+    assert len(intersection.keys()) == 2
+    assert intersection[fp1_copy] == [fp2]
+    assert intersection[fp2] == [fp1_copy]
+
+    # intersect in the folder 'b'
+    intersection = await crud.fingerprint.intersect_in_folder(tx, ns_path, "b")
+    assert intersection == {}

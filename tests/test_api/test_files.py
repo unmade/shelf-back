@@ -23,7 +23,7 @@ from app.entities import RelocationPath
 if TYPE_CHECKING:
     from app.entities import FileTaskResult, Namespace
     from tests.conftest import TestClient
-    from tests.factories import FileFactory
+    from tests.factories import FileFactory, FingerprintFactory
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
 
@@ -324,6 +324,57 @@ async def test_empty_trash_check_task_is_completed(
     assert response.status_code == 200
     assert response.json()["status"] == "completed"
     assert response.json()["result"] is None
+
+
+async def test_find_duplicates(
+    client: TestClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+    fingerprint_factory: FingerprintFactory,
+):
+    ns_path = namespace.path
+
+    file_1 = await file_factory(ns_path, "f1.txt")
+    file_1_match = await file_factory(ns_path, "f1 (match).txt")
+
+    await fingerprint_factory(file_1.id, 56797, 56781, 18381, 58597)
+    await fingerprint_factory(file_1_match.id, 56797, 56797, 18381, 58597)
+
+    payload = {"path": "."}
+    client.login(namespace.owner.id)
+    response = await client.post("/files/find_duplicates", json=payload)
+    assert response.json()["path"] == "."
+    assert response.json()["count"] == 1
+    assert len(response.json()["items"]) == 1
+    assert len(response.json()["items"][0]) == 2
+    names = {
+        response.json()["items"][0][0]["name"],
+        response.json()["items"][0][1]["name"],
+    }
+    assert names == {"f1.txt", "f1 (match).txt"}
+    assert response.status_code == 200
+
+
+async def test_find_duplicates_with_zero_distance(
+    client: TestClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+    fingerprint_factory: FingerprintFactory,
+):
+    ns_path = namespace.path
+
+    file_1 = await file_factory(ns_path, "f1.txt")
+    file_1_match = await file_factory(ns_path, "f1 (match).txt")
+
+    await fingerprint_factory(file_1.id, 56797, 56781, 18381, 58597)
+    await fingerprint_factory(file_1_match.id, 56797, 56797, 18381, 58597)
+
+    payload = {"path": ".", "max_distance": 0}
+    client.login(namespace.owner.id)
+    response = await client.post("/files/find_duplicates", json=payload)
+    assert response.json()["path"] == "."
+    assert response.json()["count"] == 0
+    assert len(response.json()["items"]) == 0
 
 
 async def test_get_batch(

@@ -128,6 +128,16 @@ class EmptyTrashCheckResponse(BaseModel):
     result: None = None
 
 
+class FindDuplicatesRequest(PathRequest):
+    max_distance: int = 5
+
+
+class FindDuplicatesResponse(BaseModel):
+    path: str
+    items: list[list[File]]
+    count: int
+
+
 class GetBatchRequest(BaseModel):
     ids: list[UUID]
 

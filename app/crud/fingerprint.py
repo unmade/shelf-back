@@ -6,6 +6,7 @@ import edgedb
 import orjson
 
 from app import errors
+from app.entities import Fingerprint
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -23,6 +24,19 @@ def _split_int8_by_int2(integer: int) -> tuple[int, int, int, int]:
         (integer >> 32) & _MASK,
         (integer >> 48) & _MASK,
     )
+
+
+def _join_int2(*integers: int) -> int:
+    """Join 16-bit integers to one integer."""
+    result = integers[0]
+    for x in integers[1:]:
+        result = result << 16 | x
+    return result
+
+
+def from_db(obj: edgedb.Object) -> Fingerprint:
+    value = _join_int2(obj.part4, obj.part3, obj.part2, obj.part1)
+    return Fingerprint(obj.file.id, value)
 
 
 async def create(conn: DBAnyConn, file_id: StrOrUUID, fp: int) -> None:
@@ -141,3 +155,70 @@ async def create_batch(
         raise errors.FingerprintAlreadyExists() from exc
     except edgedb.MissingRequiredError as exc:
         raise errors.FileNotFound() from exc
+
+
+async def intersect_in_folder(
+    conn: DBAnyConn,
+    namespace: StrOrPath,
+    path: StrOrPath,
+) -> dict[Fingerprint, list[Fingerprint]]:
+    """
+    Find all approximately matching fingerprints for each f-print in the given folder.
+
+    The resulting intersection also includes sub-folders.
+
+    Args:
+        conn (DBAnyConn): Database connection.
+        namespace (StrOrPath): Target namespace.
+        path (StrOrPath): Folder path where to intersect fingerprints.
+
+    Returns:
+        dict[Fingerprint, list[Fingerprint]]: Adjacency list containing fingerprints.
+    """
+
+    query = """
+        WITH
+            Duplicate := Fingerprint,
+        SELECT
+            Fingerprint {
+                part1,
+                part2,
+                part3,
+                part4,
+                file: { id },
+                dupes := (
+                    SELECT
+                        Duplicate { part1, part2, part3, part4, file: { id } }
+                    FILTER
+                        Duplicate.file.namespace.path = <str>$ns_path
+                        AND
+                        Duplicate.file.path LIKE <str>$path ++ '%'
+                        AND
+                        Duplicate.file != Fingerprint.file
+                        AND
+                        (
+                            Duplicate.part1 = Fingerprint.part1
+                            OR
+                            Duplicate.part2 = Fingerprint.part2
+                            OR
+                            Duplicate.part3 = Fingerprint.part3
+                            OR
+                            Duplicate.part4 = Fingerprint.part4
+                        )
+                ),
+            }
+        FILTER
+            .file.namespace.path = <str>$ns_path
+            AND
+            .file.path LIKE <str>$path ++ '%'
+            AND
+            count(.dupes) > 0
+    """
+
+    path = "" if path == "." else f"{path}/"
+    fingerprints = await conn.query(query, ns_path=str(namespace), path=str(path))
+
+    return {
+        from_db(fp): [from_db(dupe) for dupe in fp.dupes]
+        for fp in fingerprints
+    }
