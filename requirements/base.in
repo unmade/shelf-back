@@ -7,7 +7,7 @@ celery[redis]
 edgedb
 fastapi
 filetype
-httpx  # this is required only for tests, however put it here to correcly resolve dependencies
+h11<0.13  # this is required only for tests, however put it here to correcly resolve dependencies
 orjson
 passlib
 pillow

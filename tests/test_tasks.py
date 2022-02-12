@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from pytest import LogCaptureFixture
 
     from app.entities import FileTaskResult, Namespace
-    from app.typedefs import DBPool
+    from app.typedefs import DBClient
     from tests.factories import FileFactory
 
 
@@ -80,7 +80,7 @@ async def test_delete_immediately_batch_but_delete_fails_with_exception(
 
 
 async def test_empty_trash(
-    db_pool: DBPool,
+    db_client: DBClient,
     namespace: Namespace,
     file_factory: FileFactory,
 ):
@@ -93,11 +93,11 @@ async def test_empty_trash(
 
     assert result is None
 
-    trash = await crud.file.get(db_pool, namespace.path, "Trash")
+    trash = await crud.file.get(db_client, namespace.path, "Trash")
     assert trash.size == 0
 
     for path in paths:
-        assert not await crud.file.exists(db_pool, namespace.path, path)
+        assert not await crud.file.exists(db_client, namespace.path, path)
 
 
 async def test_move_batch(namespace: Namespace, file_factory: FileFactory):

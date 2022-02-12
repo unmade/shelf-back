@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import contextlib
-from types import UnionType  # type: ignore
+from types import UnionType
 from typing import TYPE_CHECKING, Union
 
 import edgedb
@@ -9,9 +9,11 @@ import edgedb
 from app import config
 
 if TYPE_CHECKING:
-    from app.typedefs import DBConnOrPool, DBPool
+    from collections.abc import AsyncIterator
 
-_pool: DBPool | None = None
+    from app.typedefs import DBClient
+
+_client: DBClient | None = None
 
 _TYPE_NAME = {
     "bool": "bool",
@@ -54,55 +56,53 @@ def autocast(pytype) -> str:
 
 
 @contextlib.asynccontextmanager
-async def connect():
+async def create_client(max_concurrency: int = 1) -> AsyncIterator[DBClient]:
     """
-    Acquire new connection to the database.
+    Create a new database client.
 
-    Yields:
-        [type]: Connection to a database.
+    Args:
+        max_concurrency (int, optional): Max number of connections in the pool.
+            Defaults to 1.
     """
-    conn = await edgedb.async_connect_raw(
+    async with edgedb.create_async_client(
         dsn=config.DATABASE_DSN,
+        max_concurrency=max_concurrency,
+        tls_ca_file=config.DATABASE_TLS_CA_FILE,
+    ) as client:
+        yield client
+
+
+async def init_client() -> None:  # pragma: no cover
+    """Initialize a database client."""
+    global _client
+
+    _client = edgedb.create_async_client(
+        dsn=config.DATABASE_DSN,
+        max_concurrency=4,
         tls_ca_file=config.DATABASE_TLS_CA_FILE,
     )
 
-    try:
-        yield conn
-    finally:
-        await conn.aclose()
+
+async def close_client() -> None:  # pragma: no cover
+    """Gracefully close database close."""
+    global _client
+
+    assert _client is not None, "Database client is not initialized."
+    await _client.aclose()
+    _client = None
 
 
-async def create_pool() -> None:
-    """Create a new connection pool."""
-    global _pool
-
-    _pool = await edgedb.create_async_client(
-        dsn=config.DATABASE_DSN,
-        concurrency=4,
-        tls_ca_file=config.DATABASE_TLS_CA_FILE,
-    )
+def client() -> DBClient:
+    assert _client is not None, "Database client is not initialized."
+    return _client
 
 
-async def close_pool() -> None:
-    """Gracefully close connection pool."""
-    global _pool
-
-    assert _pool is not None, "Connection pool is not initialized."
-    await _pool.aclose()
-    _pool = None
-
-
-def db_pool() -> DBPool:
-    assert _pool is not None, "Connection pool is not initialized."
-    return _pool
-
-
-async def migrate(conn: DBConnOrPool, schema: str) -> None:
+async def migrate(conn: DBClient, schema: str) -> None:
     """
     Run migration to a target schema in a new transaction.
 
     Args:
-        conn (DBConnOrPool): Connection to a database.
+        conn (DBClient): Connection to a database.
         schema (str): Schema to migrate to.
     """
     async for tx in conn.transaction():

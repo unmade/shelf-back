@@ -20,15 +20,13 @@ attrs==21.4.0
     #   pytest
 certifi==2021.10.8
     # via
-    #   -c requirements/base.txt
     #   -c requirements/test.txt
     #   httpcore
     #   httpx
 cfgv==3.3.1
     # via pre-commit
-charset-normalizer==2.0.11
+charset-normalizer==2.0.12
     # via
-    #   -c requirements/base.txt
     #   -c requirements/test.txt
     #   httpx
 click==8.0.3
@@ -42,7 +40,7 @@ dnspython==2.2.0
     # via
     #   -c requirements/base.txt
     #   email-validator
-edgedb==0.21.0
+edgedb==0.22.0
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
@@ -61,17 +59,15 @@ h11==0.12.0
     #   -c requirements/base.txt
     #   -c requirements/test.txt
     #   httpcore
-httpcore==0.14.6
+httpcore==0.14.7
     # via
-    #   -c requirements/base.txt
     #   -c requirements/test.txt
     #   httpx
 httpx==0.22.0
     # via
-    #   -c requirements/base.txt
     #   -c requirements/test.txt
     #   -r requirements/lint.in
-identify==2.4.8
+identify==2.4.9
     # via pre-commit
 idna==3.3
     # via
@@ -95,7 +91,7 @@ packaging==21.3
     #   -c requirements/base.txt
     #   -c requirements/test.txt
     #   pytest
-platformdirs==2.4.1
+platformdirs==2.5.0
     # via virtualenv
 pluggy==1.0.0
     # via
@@ -117,7 +113,7 @@ pyparsing==3.0.7
     #   -c requirements/base.txt
     #   -c requirements/test.txt
     #   packaging
-pytest==7.0.0
+pytest==7.0.1
     # via
     #   -c requirements/test.txt
     #   -r requirements/lint.in
@@ -127,7 +123,6 @@ pyyaml==6.0
     #   pre-commit
 rfc3986[idna2008]==1.5.0
     # via
-    #   -c requirements/base.txt
     #   -c requirements/test.txt
     #   httpx
 six==1.16.0
@@ -148,7 +143,7 @@ starlette==0.17.1
     #   fastapi
 toml==0.10.2
     # via pre-commit
-tomli==2.0.0
+tomli==2.0.1
     # via
     #   -c requirements/test.txt
     #   mypy
@@ -169,5 +164,5 @@ uvloop==0.16.0
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
-virtualenv==20.13.0
+virtualenv==20.13.1
     # via pre-commit

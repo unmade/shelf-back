@@ -3,11 +3,10 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
-import edgedb
 import typer
 import uvloop
 
-from app import actions, config, crud, db
+from app import actions, crud, db
 
 cli = typer.Typer()
 
@@ -23,7 +22,7 @@ def createsuperuser(
 ) -> None:
     """Create a new super user with namespace, home and trash directories."""
     async def _createuser(username: str, password: str):
-        async with db.connect() as conn:
+        async with db.create_client() as conn:
             await actions.create_account(conn, username, password, superuser=True)
 
     asyncio.run(_createuser(username, password))
@@ -34,16 +33,9 @@ def createsuperuser(
 def reconcile(namespace: str) -> None:
     """Reconcile storage and database for a given namespace."""
     async def _reconcile():
-        pool = edgedb.create_async_client(
-            dsn=config.DATABASE_DSN,
-            concurrency=4,
-            tls_ca_file=config.DATABASE_TLS_CA_FILE,
-        )
-        try:
-            ns = await crud.namespace.get(pool, namespace)
-            await actions.reconcile(pool, ns)
-        finally:
-            await pool.aclose()
+        async with db.create_client(max_concurrency=4) as db_client:
+            ns = await crud.namespace.get(db_client, namespace)
+            await actions.reconcile(db_client, ns)
 
     asyncio.run(_reconcile())
 
@@ -52,7 +44,7 @@ def reconcile(namespace: str) -> None:
 def migrate(schema: Path) -> None:
     """Apply target schema to a database."""
     async def run_migration(schema: str) -> None:
-        async with db.connect() as conn:
+        async with db.create_client() as conn:
             await db.migrate(conn, schema)
 
     with open(schema.expanduser().resolve(), 'r') as f:

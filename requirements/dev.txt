@@ -40,11 +40,11 @@ pexpect==4.8.0
     # via ipython
 pickleshare==0.7.5
     # via ipython
-platformdirs==2.4.1
+platformdirs==2.5.0
     # via
     #   -c requirements/lint.txt
     #   black
-prompt-toolkit==3.0.26
+prompt-toolkit==3.0.28
     # via
     #   -c requirements/base.txt
     #   -c requirements/test.txt
@@ -63,7 +63,7 @@ six==1.16.0
     #   asttokens
 stack-data==0.1.4
     # via ipython
-tomli==2.0.0
+tomli==2.0.1
     # via
     #   -c requirements/lint.txt
     #   -c requirements/test.txt

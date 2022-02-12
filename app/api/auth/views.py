@@ -16,12 +16,12 @@ router = APIRouter()
 @router.post("/tokens", response_model=Tokens)
 async def get_tokens(
     form_data: OAuth2PasswordRequestForm = Depends(),
-    pool: AsyncIOClient = Depends(deps.db_pool),
+    db_client: AsyncIOClient = Depends(deps.db_client),
 ):
     """Grant new access token for a given credentials."""
     username = form_data.username.lower()
     try:
-        uid, password = await crud.user.get_password(pool, username=username)
+        uid, password = await crud.user.get_password(db_client, username=username)
     except errors.UserNotFound as exc:
         raise exceptions.InvalidCredentials() from exc
 

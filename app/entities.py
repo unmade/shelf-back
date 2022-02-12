@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 import orjson
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 class Account(BaseModel):
     id: UUID
-    email: Optional[str]
+    email: str | None
     first_name: str
     last_name: str
     user: User

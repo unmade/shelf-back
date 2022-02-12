@@ -1,21 +1,16 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, TypeAlias
 
 if TYPE_CHECKING:
     from pathlib import PurePath
     from uuid import UUID
 
-    from edgedb import AsyncIOClient
-    from edgedb.asyncio_con import AsyncIOConnection
-    from edgedb.transaction import BaseAsyncIOTransaction
+    from edgedb.asyncio_client import AsyncIOClient, AsyncIOIteration
 
-DBConn = AsyncIOConnection
-DBPool = AsyncIOClient
-DBTransaction = BaseAsyncIOTransaction
-DBConnOrPool = Union[DBConn, DBPool]
-DBPoolOrTransaction = Union[DBPool, DBTransaction]
-DBAnyConn = Union[DBConn, DBPool, DBTransaction]
+DBClient: TypeAlias = AsyncIOClient
+DBTransaction: TypeAlias = AsyncIOIteration
+DBAnyConn: TypeAlias = DBClient | DBTransaction
 
-StrOrPath = Union[str, PurePath]
-StrOrUUID = Union[str, UUID]
+StrOrPath: TypeAlias = str | PurePath
+StrOrUUID: TypeAlias = str | UUID

@@ -30,4 +30,4 @@ def test_dhash_image(name_a, name_b, delta):
     with resources.open_binary("tests.data.images", name_b) as image_b:
         hash_b = hashes.dhash_image(image_b)
 
-    assert (hash_a ^ hash_b).bit_count() == delta  # type: ignore
+    assert (hash_a ^ hash_b).bit_count() == delta
