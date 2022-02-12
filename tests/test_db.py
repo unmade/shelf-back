@@ -12,6 +12,7 @@ from app import db
     (Optional[str], '<OPTIONAL str>'),
     (Union[None, str], '<OPTIONAL str>'),
     (Union[str, None], '<OPTIONAL str>'),
+    (str | None, '<OPTIONAL str>'),
 ])
 def test_autocast(pytype, dbtype) -> None:
     assert db.autocast(pytype) == dbtype
@@ -25,11 +26,15 @@ def test_autocast_but_type_is_unsupported() -> None:
     assert str(excinfo.value) == message
 
 
-def test_autocast_but_type_is_union() -> None:
+@pytest.mark.parametrize(["pytype", "pytype_as_str"], [
+    (Union[int, float], "typing.Union[int, float]"),
+    (int | float, "int | float"),
+])
+def test_autocast_but_type_is_union(pytype, pytype_as_str) -> None:
     with pytest.raises(TypeError) as excinfo:
-        db.autocast(Union[int, float])
+        db.autocast(pytype)
 
-    message = "Can't cast python type `typing.Union[int, float]` to EdgeDB type."
+    message = f"Can't cast python type `{pytype_as_str}` to EdgeDB type."
     assert str(excinfo.value) == message
 
 

@@ -15,11 +15,11 @@ from app.entities import Account, File, Namespace
 from app.storage import storage
 
 if TYPE_CHECKING:
-    from app.typedefs import DBConnOrPool, DBPool, StrOrPath, StrOrUUID
+    from app.typedefs import DBClient, StrOrPath, StrOrUUID
 
 
 async def add_bookmark(
-    conn: DBConnOrPool,
+    db_client: DBClient,
     user_id: StrOrUUID,
     file_id: StrOrUUID,
 ) -> None:
@@ -27,18 +27,18 @@ async def add_bookmark(
     Add a file to user bookmarks.
 
     Args:
-        conn (DBConnOrPool): Database connection.
+        db_client (DBClient): Database client.
         user_id (StrOrUUID): Target user ID.
         file_id (StrOrUUID): Target file ID.
 
     Raises:
         errors.UserNotFound: If User with a target user_id does not exists.
     """
-    await crud.user.add_bookmark(conn, user_id, file_id)
+    await crud.user.add_bookmark(db_client, user_id, file_id)
 
 
 async def create_account(
-    conn: DBConnOrPool,
+    db_client: DBClient,
     username: str,
     password: str,
     *,
@@ -51,7 +51,7 @@ async def create_account(
     Create a new user, namespace, home and trash folders.
 
     Args:
-        conn (DBConnOrPool): Database connection or connection pool.
+        db_client (DBClient): Database client.
         username (str): Username for a new user.
         password (str): Plain-text password.
         email (str | None, optional): Email. Defaults to None.
@@ -69,7 +69,7 @@ async def create_account(
     username = username.lower()
     await storage.makedirs(username, config.TRASH_FOLDER_NAME)
 
-    async for tx in conn.transaction():  # pragma: no branch
+    async for tx in db_client.transaction():  # pragma: no branch
         async with tx:
             user = await crud.user.create(tx, username, password, superuser=superuser)
             namespace = await crud.namespace.create(tx, username, user.id)
@@ -82,13 +82,13 @@ async def create_account(
 
 
 async def create_folder(
-    conn: DBConnOrPool, namespace: Namespace, path: StrOrPath,
+    db_client: DBClient, namespace: Namespace, path: StrOrPath,
 ) -> File:
     """
     Create folder with any missing parents in a target Namespace.
 
     Args:
-        conn (DBConnOrPool): Database connection or connection pool.
+        db_client (DBClient): Database client.
         namespace (Namespace): Namespace where a folder should be created.
         path (StrOrPath): Path to a folder to create.
 
@@ -100,18 +100,18 @@ async def create_folder(
         File: Created folder.
     """
     await storage.makedirs(namespace.path, path)
-    await crud.file.create_folder(conn, namespace.path, path)
-    return await crud.file.get(conn, namespace.path, path)
+    await crud.file.create_folder(db_client, namespace.path, path)
+    return await crud.file.get(db_client, namespace.path, path)
 
 
 async def delete_immediately(
-    conn: DBConnOrPool, namespace: Namespace, path: StrOrPath,
+    db_client: DBClient, namespace: Namespace, path: StrOrPath,
 ) -> File:
     """
     Permanently delete a file or a folder with all of its contents.
 
     Args:
-        conn (DBConnOrPool): Database connection or connection pool.
+        db_client (DBClient): Database client.
         namespace (Namespace): Namespace where file/folder should be deleted.
         path (StrOrPath): Path to a file/folder to delete.
 
@@ -121,7 +121,7 @@ async def delete_immediately(
     Returns:
         File: Deleted file.
     """
-    async for tx in conn.transaction():  # pragma: no branch
+    async for tx in db_client.transaction():  # pragma: no branch
         async with tx:
             file = await crud.file.delete(tx, namespace.path, path)
 
@@ -129,36 +129,37 @@ async def delete_immediately(
     return file
 
 
-async def empty_trash(conn: DBConnOrPool, namespace: Namespace) -> File:
+async def empty_trash(db_client: DBClient, namespace: Namespace) -> File:
     """
     Delete all files and folders in the Trash folder within a target Namespace.
 
     Args:
-        conn (DBConnOrPool): Database connection or connection pool.
+        db_client (DBClient): Database client.
         namespace (Namespace): Namespace where Trash folder should be emptied.
 
     Returns:
         File: Trash folder.
     """
-    files = await crud.file.list_folder(conn, namespace.path, config.TRASH_FOLDER_NAME)
-    async for tx in conn.transaction():  # pragma: no branch
+    ns_path = namespace.path
+    files = await crud.file.list_folder(db_client, ns_path, config.TRASH_FOLDER_NAME)
+    async for tx in db_client.transaction():  # pragma: no branch
         async with tx:
-            await crud.file.empty_trash(tx, namespace.path)
+            await crud.file.empty_trash(tx, ns_path)
 
     for file in files:
-        await storage.delete(namespace.path, file.path)
+        await storage.delete(ns_path, file.path)
 
-    return await crud.file.get(conn, namespace.path, config.TRASH_FOLDER_NAME)
+    return await crud.file.get(db_client, ns_path, config.TRASH_FOLDER_NAME)
 
 
 async def get_thumbnail(
-    conn: DBConnOrPool, namespace: Namespace, path: StrOrPath, *, size: int,
+    db_client: DBClient, namespace: Namespace, path: StrOrPath, *, size: int,
 ) -> tuple[File, int, IO[bytes]]:
     """
     Generate in-memory thumbnail with preserved aspect ratio.
 
     Args:
-        conn (DBConnOrPool): Database connection or connection pool.
+        db_client (DBClient):Database client.
         namespace (Namespace): Namespace where a file is located.
         path (StrOrPath): Path to a file.
         size (int): Thumbnail dimension.
@@ -171,13 +172,13 @@ async def get_thumbnail(
     Returns:
         tuple[File, int, BytesIO]: Tuple of file, thumbnail disk size and thumbnail.
     """
-    file = await crud.file.get(conn, namespace.path, path)
+    file = await crud.file.get(db_client, namespace.path, path)
     thumbsize, thumbnail = await storage.thumbnail(namespace.path, path, size=size)
     return file, thumbsize, thumbnail
 
 
 async def move(
-    conn: DBConnOrPool,
+    db_client: DBClient,
     namespace: Namespace,
     path: StrOrPath,
     next_path: StrOrPath,
@@ -187,7 +188,7 @@ async def move(
     If the source path is a folder all its contents will be moved.
 
     Args:
-        conn (DBConnOrPool): Database connection or connection pool.
+        db_client (DBClient): Database client.
         namespace (Namespace): Namespace, where file/folder should be moved.
         path (StrOrPath): Path to be moved.
         next_path (StrOrPath): Path that is the destination.
@@ -208,26 +209,26 @@ async def move(
         "Can't move to itself."
     )
 
-    if not await crud.file.exists(conn, namespace.path, path):
+    if not await crud.file.exists(db_client, namespace.path, path):
         raise errors.FileNotFound() from None
 
     next_parent = os.path.normpath(os.path.dirname(next_path))
-    if not await crud.file.exists(conn, namespace.path, next_parent):
+    if not await crud.file.exists(db_client, namespace.path, next_parent):
         raise errors.MissingParent() from None
 
-    if await crud.file.exists(conn, namespace.path, next_path):
+    if await crud.file.exists(db_client, namespace.path, next_path):
         raise errors.FileAlreadyExists() from None
 
     await storage.move(namespace.path, path, next_path)
 
-    async for tx in conn.transaction():  # pragma: no branch
+    async for tx in db_client.transaction():  # pragma: no branch
         async with tx:
             file = await crud.file.move(tx, namespace.path, path, next_path)
     return file
 
 
 async def move_to_trash(
-    conn: DBConnOrPool, namespace: Namespace, path: StrOrPath,
+    db_client: DBClient, namespace: Namespace, path: StrOrPath,
 ) -> File:
     """
     Move a file or folder to the Trash folder in the target Namespace.
@@ -235,7 +236,7 @@ async def move_to_trash(
     If file with the same name already in the Trash, then path will be renamed.
 
     Args:
-        conn (DBConnOrPool): Database session or connection pool.
+        db_client (DBClient): Database client.
         namespace (Namespace): Namespace where path located.
         path (StrOrPath): Path to a file or folder to be moved to the Trash folder.
 
@@ -247,21 +248,21 @@ async def move_to_trash(
     """
     next_path = PurePath(config.TRASH_FOLDER_NAME) / os.path.basename(path)
 
-    if await crud.file.exists(conn, namespace.path, next_path):
+    if await crud.file.exists(db_client, namespace.path, next_path):
         name = next_path.name.strip(next_path.suffix)
         timestamp = f"{datetime.now():%H%M%S%f}"
         next_path = next_path.parent / f"{name} {timestamp}{next_path.suffix}"
 
-    return await move(conn, namespace, path, next_path)
+    return await move(db_client, namespace, path, next_path)
 
 
-async def reconcile(conn: DBPool, namespace: Namespace) -> None:
+async def reconcile(db_client: DBClient, namespace: Namespace) -> None:
     """
     Create files that are missing in the database, but present in the storage and remove
     files that are present in the database, but missing in the storage.
 
     Args:
-        conn (DBConnOrPool): Database connection or connection pool.
+        db_client (DBClient): Database client.
         namespace (Namespace): Namespace where file will be reconciled.
 
     Raises:
@@ -275,7 +276,7 @@ async def reconcile(conn: DBPool, namespace: Namespace) -> None:
 
     # For now, it is faster to re-create all files from scratch
     # than iterating through large directories looking for one missing/dangling file
-    await crud.file.reset(conn, ns_path)
+    await crud.file.reset(db_client, ns_path)
 
     while True:
         try:
@@ -308,7 +309,7 @@ async def reconcile(conn: DBPool, namespace: Namespace) -> None:
 
     chunk_size = min(len(missing), 500)
     await asyncio.gather(*(
-        crud.file.create_batch(conn, ns_path, files=chunk)
+        crud.file.create_batch(db_client, ns_path, files=chunk)
         for chunk in itertools.zip_longest(*[iter(missing)] * chunk_size)
     ))
 
@@ -323,7 +324,7 @@ async def reconcile(conn: DBPool, namespace: Namespace) -> None:
     chunk_size = min(len(to_fingerprint), 500)
     chunks = [zip(to_fingerprint, fingerprints)] * chunk_size
     await asyncio.gather(*(
-        crud.fingerprint.create_batch(conn, namespace=ns_path, fingerprints=chunk)
+        crud.fingerprint.create_batch(db_client, namespace=ns_path, fingerprints=chunk)
         for chunk in itertools.zip_longest(*chunks)
     ))
 
@@ -343,23 +344,25 @@ def _reconcile_calc_fp(storage, ns_path, path: StrOrPath) -> int:
     return hashes.dhash_image(buf)
 
 
-async def remove_bookmark(conn: DBPool, user_id: StrOrUUID, file_id: StrOrUUID) -> None:
+async def remove_bookmark(
+    db_client: DBClient, user_id: StrOrUUID, file_id: StrOrUUID,
+) -> None:
     """
     Remove a file from user bookmarks.
 
     Args:
-        conn (DBConnOrPool): Database connection.
+        db_client (DBClient): Database db_clientection.
         user_id (StrOrUUID): Target user ID.
         file_id (StrOrUUID): Target file ID.
 
     Raises:
         errors.UserNotFound: If User with a target user_id does not exists.
     """
-    await crud.user.remove_bookmark(conn, user_id, file_id)
+    await crud.user.remove_bookmark(db_client, user_id, file_id)
 
 
 async def save_file(
-    conn: DBPool, namespace: Namespace, path: StrOrPath, content: IO[bytes],
+    db_client: DBClient, namespace: Namespace, path: StrOrPath, content: IO[bytes],
 ) -> File:
     """
     Save file to storage and database.
@@ -368,7 +371,7 @@ async def save_file(
     For example - if target name 'f.txt' is taken, then new name will be 'f (1).txt'.
 
     Args:
-        conn (DBConnOrPool): Database connection or connection pool.
+        db_client (DBClient): Database client.
         namespace (Namespace): Namespace where a file should be saved.
         path (StrOrPath): Path where a file will be saved.
         content (IO): Actual file.
@@ -381,17 +384,17 @@ async def save_file(
     """
     parent = os.path.normpath(os.path.dirname(path))
 
-    if not await crud.file.exists(conn, namespace.path, parent):
-        await create_folder(conn, namespace, parent)
+    if not await crud.file.exists(db_client, namespace.path, parent):
+        await create_folder(db_client, namespace, parent)
 
-    next_path = await crud.file.next_path(conn, namespace.path, path)
+    next_path = await crud.file.next_path(db_client, namespace.path, path)
 
     storage_file = await storage.save(namespace.path, next_path, content)
 
     mediatype = mediatypes.guess(next_path, content)
     dhash = hashes.dhash(content, mediatype=mediatype)
 
-    async for tx in conn.transaction():  # pragma: no branch
+    async for tx in db_client.transaction():  # pragma: no branch
         async with tx:
             file = await crud.file.create(
                 tx,

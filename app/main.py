@@ -29,12 +29,12 @@ def create_app() -> FastAPI:
     )
 
     @app.on_event("startup")
-    async def create_pool():
-        await db.create_pool()
+    async def init_db_client():
+        await db.init_client()
 
     @app.on_event("shutdown")
-    async def close_pool():
-        await db.close_pool()
+    async def close_db_client():
+        await db.close_client()
 
     return app
 

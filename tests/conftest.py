@@ -8,7 +8,6 @@ from urllib.parse import urlsplit, urlunsplit
 
 import edgedb
 import pytest
-from edgedb.transaction import TransactionState
 from faker import Faker
 from httpx import AsyncClient
 from PIL import Image
@@ -31,7 +30,7 @@ if TYPE_CHECKING:
     from pytest import FixtureRequest
 
     from app.entities import Account, Namespace, User
-    from app.typedefs import DBPool, DBPoolOrTransaction
+    from app.typedefs import DBAnyConn, DBClient
 
 fake = Faker()
 
@@ -141,66 +140,59 @@ async def setup_test_db(reuse_db, db_dsn) -> None:
     no `--reuse-db` provided, then test database will be re-created.
     """
     server_dsn, dsn, db_name = db_dsn
-    conn = await edgedb.async_connect_raw(
-        dsn=server_dsn,
-        tls_ca_file=config.DATABASE_TLS_CA_FILE
-    )
 
-    should_migrate = True
-    try:
-        await conn.execute(f"CREATE DATABASE {db_name};")
-    except edgedb.DuplicateDatabaseDefinitionError:
-        if not reuse_db:
-            await conn.execute(f"DROP DATABASE {db_name};")
+    async with edgedb.create_async_client(
+        dsn=server_dsn,
+        max_concurrency=1,
+        tls_ca_file=config.DATABASE_TLS_CA_FILE,
+    ) as conn:
+        should_migrate = True
+        try:
             await conn.execute(f"CREATE DATABASE {db_name};")
-        else:
-            should_migrate = False
-    finally:
-        await conn.aclose()
+        except edgedb.DuplicateDatabaseDefinitionError:
+            if not reuse_db:
+                await conn.execute(f"DROP DATABASE {db_name};")
+                await conn.execute(f"CREATE DATABASE {db_name};")
+            else:
+                should_migrate = False
 
     if should_migrate:
         schema = (config.BASE_DIR / "./dbschema/default.esdl").read_text()
-        conn = await edgedb.async_connect_raw(
+        async with edgedb.create_async_client(
             dsn=dsn,
-            tls_ca_file=config.DATABASE_TLS_CA_FILE
-        )
-        try:
+            max_concurrency=1,
+            tls_ca_file=config.DATABASE_TLS_CA_FILE,
+        ) as conn:
             await db.migrate(conn, schema)
-        finally:
-            await conn.aclose()
 
 
 @pytest.fixture(scope="session")
-async def session_db_pool(setup_test_db):
-    """A session scoped connection pool to the database."""
-    pool = edgedb.create_async_client(
+async def session_db_client(setup_test_db):
+    """A session scoped database client."""
+    async with edgedb.create_async_client(
         dsn=config.DATABASE_DSN,
-        concurrency=4,
+        max_concurrency=4,
         tls_ca_file=config.DATABASE_TLS_CA_FILE,
-    )
-
-    try:
-        with mock.patch("app.db._pool", pool):
-            yield pool
-    finally:
-        await pool.aclose()
+    ) as client:
+        with mock.patch("app.db._client", client):
+            yield client
 
 
 @pytest.fixture
-async def db_pool(request: FixtureRequest, session_db_pool: DBPool):
-    """Yield a connection pool."""
+async def db_client(request: FixtureRequest, session_db_client: DBClient):
+    """Yield a function-scoped database client."""
     marker = request.node.get_closest_marker("database")
     if not marker:
         raise RuntimeError("Access to database without `database` marker!")
 
     if not marker.kwargs.get("transaction", False):
-        raise RuntimeError("Use `transaction=True` to access database pool")
+        raise RuntimeError("Use `transaction=True` to access database client")
 
-    yield session_db_pool
+    yield session_db_client
 
 
 @pytest.fixture
-async def tx(request: FixtureRequest, session_db_pool: DBPool):
+async def tx(request: FixtureRequest, session_db_client: DBClient):
     """Yield a transaction and rollback it after each test."""
     marker = request.node.get_closest_marker("database")
     if not marker:
@@ -209,19 +201,18 @@ async def tx(request: FixtureRequest, session_db_pool: DBPool):
     if marker.kwargs.get("transaction", False):
         raise RuntimeError("Can't use `tx` fixture with `transaction=True` option")
 
-    async for transaction in session_db_pool.transaction():
+    async for transaction in session_db_client.transaction():
         transaction._managed = True
         try:
             yield transaction
         finally:
-            if transaction._state is not TransactionState.NEW:
-                await transaction._rollback()
+            await transaction._exit(Exception, None)
 
 
 @pytest.fixture
-def db_pool_or_tx(request: FixtureRequest):
+def db_client_or_tx(request: FixtureRequest):
     """
-    Yield either a `tx` or a `db_pool` fixture depending on `pytest.mark.database`
+    Yield either a `tx` or a `db_client` fixture depending on `pytest.mark.database`
     params.
     """
     marker = request.node.get_closest_marker("database")
@@ -229,7 +220,7 @@ def db_pool_or_tx(request: FixtureRequest):
         raise RuntimeError("Access to database without `database` marker!")
 
     if marker.kwargs.get("transaction", False):
-        yield request.getfixturevalue("db_pool")
+        yield request.getfixturevalue("db_client")
     else:
         yield request.getfixturevalue("tx")
 
@@ -247,8 +238,8 @@ async def flush_db_if_needed(request: FixtureRequest):
         if not marker.kwargs.get("transaction", False):
             return
 
-        session_db_pool: DBPool = request.getfixturevalue("session_db_pool")
-        await session_db_pool.execute("""
+        session_db_client: DBClient = request.getfixturevalue("session_db_client")
+        await session_db_client.execute("""
             DELETE Account;
             DELETE File;
             DELETE Namespace;
@@ -257,9 +248,9 @@ async def flush_db_if_needed(request: FixtureRequest):
 
 
 @pytest.fixture
-def account_factory(db_pool_or_tx: DBPoolOrTransaction) -> AccountFactory:
+def account_factory(db_client_or_tx: DBAnyConn) -> AccountFactory:
     """Create Account in the database."""
-    return AccountFactory(db_pool_or_tx)
+    return AccountFactory(db_client_or_tx)
 
 
 @pytest.fixture
@@ -269,15 +260,15 @@ async def account(account_factory: AccountFactory) -> Account:
 
 
 @pytest.fixture
-async def bookmark_factory(db_pool_or_tx: DBPoolOrTransaction) -> BookmarkFactory:
+async def bookmark_factory(db_client_or_tx: DBAnyConn) -> BookmarkFactory:
     """Add file to user bookmarks"""
-    return BookmarkFactory(db_pool_or_tx)
+    return BookmarkFactory(db_client_or_tx)
 
 
 @pytest.fixture
-def file_factory(db_pool_or_tx: DBPoolOrTransaction) -> FileFactory:
+def file_factory(db_client_or_tx: DBAnyConn) -> FileFactory:
     """Create dummy file, put it in a storage and save to database."""
-    return FileFactory(db_pool_or_tx)
+    return FileFactory(db_client_or_tx)
 
 
 @pytest.fixture
@@ -291,12 +282,12 @@ def image_content() -> BytesIO:
 
 
 @pytest.fixture
-def namespace_factory(db_pool_or_tx: DBPoolOrTransaction) -> NamespaceFactory:
+def namespace_factory(db_client_or_tx: DBAnyConn) -> NamespaceFactory:
     """
     Create a Namespace with home and trash directories both in the database
     and in the storage.
     """
-    return NamespaceFactory(db_pool_or_tx)
+    return NamespaceFactory(db_client_or_tx)
 
 
 @pytest.fixture
@@ -306,9 +297,9 @@ async def namespace(namespace_factory: NamespaceFactory) -> Namespace:
 
 
 @pytest.fixture
-def user_factory(db_pool_or_tx: DBPoolOrTransaction) -> UserFactory:
+def user_factory(db_client_or_tx: DBAnyConn) -> UserFactory:
     """Create a new user in the database."""
-    return UserFactory(db_pool_or_tx)
+    return UserFactory(db_client_or_tx)
 
 
 @pytest.fixture

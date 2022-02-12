@@ -14,7 +14,7 @@ from app.mediatypes import FOLDER, OCTET_STREAM
 
 if TYPE_CHECKING:
     from app.entities import Namespace
-    from app.typedefs import DBPool, DBTransaction
+    from app.typedefs import DBClient, DBTransaction
     from tests.factories import FileFactory, NamespaceFactory
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
@@ -243,7 +243,7 @@ async def test_create_folder(tx: DBTransaction, namespace: Namespace):
 
 @pytest.mark.database(transaction=True)
 async def test_create_folder_concurrently_with_overlapping_parents(
-    db_pool: DBPool,
+    db_client: DBClient,
     namespace: Namespace,
 ):
     paths = [
@@ -254,11 +254,11 @@ async def test_create_folder_concurrently_with_overlapping_parents(
     ]
 
     await asyncio.gather(*(
-        crud.file.create_folder(db_pool, namespace.path, path)
+        crud.file.create_folder(db_client, namespace.path, path)
         for path in paths
     ))
 
-    files = await db_pool.query("""
+    files = await db_client.query("""
         SELECT File { id, path }
         FILTER
             str_lower(.path) != 'trash'

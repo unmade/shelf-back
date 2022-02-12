@@ -4,12 +4,12 @@ from typing import TYPE_CHECKING
 
 import edgedb
 import pytest
-from edgedb.transaction import BaseAsyncIOTransaction
+from edgedb.asyncio_client import AsyncIOIteration
 
 if TYPE_CHECKING:
     from pytest import Pytester
 
-    from app.typedefs import DBPool, DBPoolOrTransaction, DBTransaction
+    from app.typedefs import DBAnyConn, DBClient, DBTransaction
 
 pytestmark = [pytest.mark.metatest]
 
@@ -19,7 +19,7 @@ pytestmark = [pytest.mark.metatest]
     reason="missing 'database' marker",
     strict=True,
 )
-def test_can_not_use_db_pool_without_marker(db_pool):
+def test_can_not_use_db_client_without_marker(db_client):
     """Test raises RuntimError since it does not have a `database` marker."""
 
 
@@ -29,15 +29,15 @@ def test_can_not_use_db_pool_without_marker(db_pool):
     strict=True,
 )
 @pytest.mark.database
-def test_can_not_use_db_pool_without_transaction_flag(db_pool):
+def test_can_not_use_db_client_without_transaction_flag(db_client):
     """Test raises RuntimeError since it does not have `transaction=True` flag."""
 
 
 @pytest.mark.asyncio
 @pytest.mark.database(transaction=True)
-async def test_can_use_db_pool(db_pool: DBPool):
-    assert isinstance(db_pool, edgedb.AsyncIOClient)
-    assert await db_pool.query_required_single("SELECT 1") == 1
+async def test_can_use_db_client(db_client: DBClient):
+    assert isinstance(db_client, edgedb.AsyncIOClient)
+    assert await db_client.query_required_single("SELECT 1") == 1
 
 
 @pytest.mark.xfail(
@@ -62,7 +62,7 @@ def test_can_not_use_tx_without_transaction_flag(tx):
 @pytest.mark.asyncio
 @pytest.mark.database
 async def test_can_use_tx(tx: DBTransaction):
-    assert isinstance(tx, BaseAsyncIOTransaction)
+    assert isinstance(tx, AsyncIOIteration)
     assert await tx.query_required_single("SELECT 1") == 1
 
 
@@ -71,18 +71,18 @@ async def test_can_use_tx(tx: DBTransaction):
     reason="missing 'database' marker",
     strict=True,
 )
-def test_can_not_use_db_pool_or_tx(db_pool_or_tx):
+def test_can_not_use_db_client_or_tx(db_client_or_tx):
     """Test raises RuntimeError since it does not have `database` marker."""
 
 
 @pytest.mark.database(transaction=True)
-def test_use_db_pool_or_tx_returns_db_pool(db_pool_or_tx: DBPoolOrTransaction):
-    assert isinstance(db_pool_or_tx, edgedb.AsyncIOClient)
+def test_use_db_client_or_tx_returns_db_client(db_client_or_tx: DBAnyConn):
+    assert isinstance(db_client_or_tx, edgedb.AsyncIOClient)
 
 
 @pytest.mark.database
-def test_use_db_pool_or_tx_returns_tx(db_pool_or_tx: DBPoolOrTransaction):
-    assert isinstance(db_pool_or_tx, BaseAsyncIOTransaction)
+def test_use_db_client_or_tx_returns_tx(db_client_or_tx: DBAnyConn):
+    assert isinstance(db_client_or_tx, AsyncIOIteration)
 
 
 @pytest.mark.database

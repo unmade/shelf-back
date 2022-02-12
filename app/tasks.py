@@ -64,7 +64,7 @@ async def delete_immediately_batch(
             or an error code.
     """
     results = []
-    async with db.connect() as conn:
+    async with db.create_client() as conn:
         for path in paths:
             file, err_code = None, None
 
@@ -88,7 +88,7 @@ async def empty_trash(namespace: Namespace) -> None:
     Args:
         namespace (Namespace): Namespace where Trash should be emptied.
     """
-    async with db.connect() as conn:
+    async with db.create_client() as conn:
         await actions.empty_trash(conn, namespace)
 
 
@@ -110,7 +110,7 @@ async def move_batch(
             or an error code.
     """
     results = []
-    async with db.connect() as conn:
+    async with db.create_client() as conn:
         for relocation in relocations:
             path, next_path = relocation.from_path, relocation.to_path
             file, err_code = None, None
@@ -144,7 +144,7 @@ async def move_to_trash_batch(
             or an error code.
     """
     results = []
-    async with db.connect() as conn:
+    async with db.create_client() as conn:
         for path in paths:
             file, err_code = None, None
 

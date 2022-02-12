@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, Optional, cast
+from typing import Annotated, cast
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
@@ -12,7 +12,7 @@ from app.entities import Account as AccountEntity
 class Account(BaseModel):
     id: UUID
     username: str
-    email: Optional[str]
+    email: str | None
     first_name: str
     last_name: str
     superuser: bool
@@ -32,13 +32,13 @@ class Account(BaseModel):
 class CreateAccountRequest(BaseModel):
     username: Annotated[str, Field(min_length=3, max_length=31)]
     password: Annotated[str, Field(min_length=8, max_length=63)]
-    email: Optional[EmailStr] = None
+    email: EmailStr | None = None
     first_name: Annotated[str, Field(max_length=63)] = ""
     last_name: Annotated[str, Field(max_length=63)] = ""
 
 
 class UpdateAccountRequest(BaseModel):
-    email: Optional[EmailStr] = None
+    email: EmailStr | None = None
     first_name: str = ""
     last_name: str = ""
 

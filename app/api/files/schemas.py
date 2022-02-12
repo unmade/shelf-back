@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import Enum
 from os.path import normpath
-from typing import TYPE_CHECKING, Optional, Type
+from typing import TYPE_CHECKING, Type
 from uuid import UUID
 
 from pydantic import BaseModel, root_validator, validator
@@ -94,8 +94,8 @@ class AsyncTaskStatus(str, Enum):
 
 
 class AsyncTaskResult(BaseModel):
-    file: Optional[File]
-    err_code: Optional[errors.ErrorCode]
+    file: File | None
+    err_code: errors.ErrorCode | None
 
     @classmethod
     def from_entity(cls, entity: entities.FileTaskResult) -> AsyncTaskResult:
@@ -120,7 +120,7 @@ class DeleteImmediatelyBatchRequest(BaseModel):
 
 class DeleteImmediatelyBatchCheckResponse(BaseModel):
     status: AsyncTaskStatus
-    result: Optional[list[AsyncTaskResult]] = None
+    result: list[AsyncTaskResult] | None = None
 
 
 class EmptyTrashCheckResponse(BaseModel):
@@ -178,7 +178,7 @@ class MoveBatchRequest(BaseModel):
 
 class MoveBatchCheckResponse(BaseModel):
     status: AsyncTaskStatus
-    result: Optional[list[AsyncTaskResult]] = None
+    result: list[AsyncTaskResult] | None = None
 
 
 class MoveToTrashRequest(PathRequest):

@@ -11,7 +11,7 @@ import pytest
 from app import config
 
 if TYPE_CHECKING:
-    from edgedb import BlockingIOConnection
+    from edgedb import Client
     from pytest import FixtureRequest
 
 
@@ -35,24 +35,25 @@ def db_dsn(db_dsn):
 
 
 @contextlib.contextmanager
-def connection(dsn: str) -> Iterator[BlockingIOConnection]:
-    conn = edgedb.connect(dsn=dsn, tls_ca_file=config.DATABASE_TLS_CA_FILE)
-    try:
-        yield conn
-    finally:
-        conn.close()
+def create_db_client(dsn: str) -> Iterator[Client]:
+    with edgedb.create_client(
+        dsn=dsn,
+        max_concurrency=1,
+        tls_ca_file=config.DATABASE_TLS_CA_FILE,
+    ) as client:
+        yield client
 
 
 @pytest.mark.database
 def test_recreates_db_and_applies_migration(request: FixtureRequest, db_dsn):
     server_dsn, dsn, db_name = db_dsn
-    with connection(server_dsn) as conn:
-        conn.execute(f"CREATE DATABASE {db_name};")
+    with create_db_client(server_dsn) as db_client:
+        db_client.execute(f"CREATE DATABASE {db_name};")
 
     request.getfixturevalue("setup_test_db")
 
-    with connection(dsn) as conn:
-        assert len(conn.query("SELECT File")) == 0
+    with create_db_client(dsn) as db_client:
+        assert len(db_client.query("SELECT File")) == 0
 
-    with connection(server_dsn) as conn:
-        conn.execute(f"DROP DATABASE {db_name};")
+    with create_db_client(server_dsn) as db_client:
+        db_client.execute(f"DROP DATABASE {db_name};")
