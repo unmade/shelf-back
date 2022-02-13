@@ -22,7 +22,7 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
 async def test_create(tx: DBTransaction, namespace: Namespace):
     path = Path("a/b/f")
-    for parent in list(reversed(path.parents))[1:]:
+    for parent in reversed(path.parents[:-1]):
         await crud.file.create(tx, namespace.path, parent, mediatype=FOLDER)
 
     folder = await crud.file.get(tx, namespace.path, path.parent)
