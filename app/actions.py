@@ -202,10 +202,13 @@ async def move(
     Returns:
         File: Moved file/folder.
     """
-    assert str(path).lower() not in (".", config.TRASH_FOLDER_NAME.lower()), (
+    path = str(path)
+    next_path = str(next_path)
+
+    assert path.lower() not in (".", config.TRASH_FOLDER_NAME.lower()), (
         "Can't move Home or Trash folder."
     )
-    assert not str(next_path).lower().startswith(f"{str(path).lower()}/"), (
+    assert not next_path.lower().startswith(f"{path.lower()}/"), (
         "Can't move to itself."
     )
 
@@ -216,8 +219,9 @@ async def move(
     if not await crud.file.exists(db_client, namespace.path, next_parent):
         raise errors.MissingParent() from None
 
-    if await crud.file.exists(db_client, namespace.path, next_path):
-        raise errors.FileAlreadyExists() from None
+    if path.lower() != next_path.lower():
+        if await crud.file.exists(db_client, namespace.path, next_path):
+            raise errors.FileAlreadyExists() from None
 
     await storage.move(namespace.path, path, next_path)
 

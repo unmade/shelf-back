@@ -600,6 +600,21 @@ async def test_move_with_renaming(tx: DBTransaction, namespace: Namespace):
     assert f.name == "f.txt"
 
 
+async def test_move_with_case_sensitive_renaming(
+    tx: DBTransaction,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    await file_factory(namespace.path, path="a/f.txt")
+
+    # rename file 'f.txt' to 'F.txt'
+    await crud.file.move(tx, namespace.path, "a/f.txt", "a/F.txt")
+
+    f = await crud.file.get(tx, namespace.path, "a/F.txt")
+    assert f.name == "F.txt"
+    assert f.path == "a/F.txt"
+
+
 async def test_move_file_is_case_insensitive(tx: DBTransaction, namespace: Namespace):
     await crud.file.create(tx, namespace.path, "a", mediatype=FOLDER)
     await crud.file.create(tx, namespace.path, "a/B", mediatype=FOLDER)
