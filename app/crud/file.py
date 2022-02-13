@@ -614,8 +614,9 @@ async def move(
 
     # restore original parent casing
     next_path = PurePath(next_parent.path) / next_path.name
-    if await exists(conn, namespace, next_path):
-        raise errors.FileAlreadyExists()
+    if str(path).lower() != str(next_path).lower():
+        if await exists(conn, namespace, next_path):
+            raise errors.FileAlreadyExists()
 
     to_decrease = set(_lowered(path.parents)).difference(_lowered(next_path.parents))
     to_increase = set(_lowered(next_path.parents)).difference(_lowered(path.parents))

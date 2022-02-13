@@ -299,7 +299,7 @@ async def test_get_thumbnail_but_file_is_a_text_file(
 async def test_move(
     db_client: DBClient,
     namespace: Namespace,
-    file_factory
+    file_factory: FileFactory,
 ):
     await file_factory(namespace.path, path="a/b/f.txt")
 
@@ -328,6 +328,23 @@ async def test_move_with_renaming(
 
     assert await storage.exists(namespace.path, ".file.txt")
     assert await crud.file.exists(db_client, namespace.path, ".file.txt")
+
+
+async def test_move_with_case_sensitive_renaming(
+    db_client: DBClient,
+    namespace: Namespace,
+    file_factory
+):
+    await file_factory(namespace.path, path="file.txt")
+
+    # rename file 'file.txt' to '.file.txt'
+    await actions.move(db_client, namespace, "file.txt", "File.txt")
+
+    # assert not await storage.exists(namespace.path, "file.txt")
+    # assert not await crud.file.exists(db_client, namespace.path, "file.txt")
+
+    assert await storage.exists(namespace.path, "File.txt")
+    assert await crud.file.exists(db_client, namespace.path, "File.txt")
 
 
 async def test_move_but_next_path_is_already_taken(
