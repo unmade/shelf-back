@@ -307,6 +307,9 @@ async def reconcile(db_client: DBClient, namespace: Namespace) -> None:
                 )
             )
 
+    mediatype_names = set(file.mediatype for file in missing)
+    await crud.mediatype.create_missing(db_client, names=mediatype_names)
+
     chunk_size = min(len(missing), 500)
     await asyncio.gather(*(
         crud.file.create_batch(db_client, ns_path, files=chunk)

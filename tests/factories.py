@@ -119,6 +119,22 @@ class FileFactory:
         )
 
 
+class MediaTypeFactory:
+    __slots__ = ["_db_conn"]
+
+    def __init__(self, db_conn: DBAnyConn) -> None:
+        self._db_conn = db_conn
+
+    async def __call__(self, name: str) -> str:
+        await self._db_conn.query("""
+            INSERT MediaType {
+                name := <str>$name
+            }
+            UNLESS CONFLICT
+        """, name=name)
+        return name
+
+
 class NamespaceFactory:
     __slots__ = ["_db_conn"]
 

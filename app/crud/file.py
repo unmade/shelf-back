@@ -135,6 +135,7 @@ async def create_batch(
         - method doesn't update size of the parents
         - method doesn't restore original casing
         - method doesn't enforce parent path existence
+        - method doesn't create corresponding MediaTypes
 
     Args:
         conn (DBAnyConn): Database connection.
@@ -155,18 +156,6 @@ async def create_batch(
                     .path = <str>$namespace
                 LIMIT 1
             ),
-            mediatypes := (
-                FOR mediatype IN {DISTINCT files['mediatype']}
-                UNION (
-                    INSERT MediaType {
-                        name := <str>mediatype
-                    }
-                    UNLESS CONFLICT ON .name
-                    ELSE (
-                        SELECT MediaType
-                    )
-                )
-            ),
         FOR file IN {files}
         UNION (
             INSERT File {
@@ -176,7 +165,7 @@ async def create_batch(
                 mtime := <float64>file['mtime'],
                 mediatype := (
                     SELECT
-                        mediatypes
+                        MediaType
                     FILTER
                         .name = <str>file['mediatype']
                 ),
