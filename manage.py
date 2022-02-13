@@ -33,7 +33,7 @@ def createsuperuser(
 def reconcile(namespace: str) -> None:
     """Reconcile storage and database for a given namespace."""
     async def _reconcile():
-        async with db.create_client(max_concurrency=4) as db_client:
+        async with db.create_client(max_concurrency=None) as db_client:
             ns = await crud.namespace.get(db_client, namespace)
             await actions.reconcile(db_client, ns)
 

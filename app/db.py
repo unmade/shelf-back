@@ -56,13 +56,14 @@ def autocast(pytype) -> str:
 
 
 @contextlib.asynccontextmanager
-async def create_client(max_concurrency: int = 1) -> AsyncIterator[DBClient]:
+async def create_client(max_concurrency: int | None = 1) -> AsyncIterator[DBClient]:
     """
     Create a new database client.
 
     Args:
         max_concurrency (int, optional): Max number of connections in the pool.
-            Defaults to 1.
+            Defaults to 1. Use `None` to use suggested concurrency value provided by
+            the server.
     """
     async with edgedb.create_async_client(
         dsn=config.DATABASE_DSN,

@@ -19,6 +19,7 @@ from tests.factories import (
     AccountFactory,
     BookmarkFactory,
     FileFactory,
+    MediaTypeFactory,
     NamespaceFactory,
     UserFactory,
 )
@@ -242,6 +243,7 @@ async def flush_db_if_needed(request: FixtureRequest):
         await session_db_client.execute("""
             DELETE Account;
             DELETE File;
+            DELETE MediaType;
             DELETE Namespace;
             DELETE User;
         """)
@@ -279,6 +281,12 @@ def image_content() -> BytesIO:
         im.save(buffer, "JPEG")
     buffer.seek(0)
     return buffer
+
+
+@pytest.fixture
+def mediatype_factory(db_client_or_tx: DBAnyConn) -> MediaTypeFactory:
+    """Create a new media type."""
+    return MediaTypeFactory(db_client_or_tx)
 
 
 @pytest.fixture

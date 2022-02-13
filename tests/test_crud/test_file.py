@@ -15,7 +15,7 @@ from app.mediatypes import FOLDER, OCTET_STREAM
 if TYPE_CHECKING:
     from app.entities import Namespace
     from app.typedefs import DBClient, DBTransaction
-    from tests.factories import FileFactory, NamespaceFactory
+    from tests.factories import FileFactory, MediaTypeFactory, NamespaceFactory
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
@@ -91,7 +91,12 @@ async def test_create_but_file_already_exists(tx: DBTransaction, namespace: Name
         await crud.file.create(tx, namespace.path, ".")
 
 
-async def test_create_batch(tx: DBTransaction, namespace: Namespace):
+async def test_create_batch(
+    tx: DBTransaction, namespace: Namespace, mediatype_factory: MediaTypeFactory,
+):
+    await mediatype_factory(FOLDER)
+    await mediatype_factory(OCTET_STREAM)
+
     a_size, f_size = 32, 16
     files = [
         File(
@@ -130,40 +135,14 @@ async def test_create_batch(tx: DBTransaction, namespace: Namespace):
     assert files[1].mediatype == OCTET_STREAM
 
 
-async def test_create_batch_but_all_the_same(tx: DBTransaction, namespace: Namespace):
-    # Insert Files with media type that does not exists in the database.
-    # This test assures that first query inserts a file and inserts a mediatype
-    # and second query inserts a file, but selects a mediatype.
-    mediatypes = ["application/x-create-batch-1", "application/x-create-batch-2"]
-    all_paths = [("a", "b"), ("c", "d")]
-    to_create = [
-        File(
-            id=None,  # type: ignore
-            name=path,
-            path=path,
-            size=0,
-            mtime=time.time(),
-            mediatype=mediatype,
-        )
-        for mediatype, paths in zip(mediatypes, all_paths)
-        for path in paths
-    ]
-
-    await crud.file.create_batch(tx, namespace.path, files=to_create)
-
-    files = await crud.file.list_folder(tx, namespace.path, ".")
-    assert len(files) == 4
-
-    for i, mediatype, paths in zip(range(0, len(files), 2), mediatypes, all_paths):
-        for j, path in enumerate(paths):
-            assert files[i + j].name == path
-            assert files[i + j].mediatype == mediatype
-
-
 async def test_create_batch_is_case_sensitive(
     tx: DBTransaction,
     namespace: Namespace,
+    mediatype_factory: MediaTypeFactory,
 ):
+    await mediatype_factory(FOLDER)
+    await mediatype_factory(OCTET_STREAM)
+
     await crud.file.create(tx, namespace.path, "A", mediatype=FOLDER)
 
     to_create = [
