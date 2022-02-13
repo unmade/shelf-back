@@ -99,7 +99,7 @@ class FileFactory:
         path: StrOrPath = None,
         content: bytes | BytesIO = b"I'm Dummy File!",
     ) -> File:
-        path = path or fake.file_name(category="text", extension="txt")
+        path = path or fake.unique.file_name(category="text", extension="txt")
         parent = os.path.normpath(os.path.dirname(path))
 
         await storage.makedirs(ns_path, parent)
@@ -224,7 +224,7 @@ class UserFactory:
         superuser: bool = False,
         hash_password: bool = False,
     ) -> User:
-        username = username or fake.simple_profile()["username"]
+        username = username or fake.unique.user_name()
         if hash_password:
             password = security.make_password(password)
 

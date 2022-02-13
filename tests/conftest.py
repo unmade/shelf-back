@@ -258,7 +258,7 @@ def account_factory(db_client_or_tx: DBAnyConn) -> AccountFactory:
 @pytest.fixture
 async def account(account_factory: AccountFactory) -> Account:
     """An Account instance."""
-    return await account_factory(email=fake.email())
+    return await account_factory(email=fake.unique.email())
 
 
 @pytest.fixture
