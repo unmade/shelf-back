@@ -380,6 +380,22 @@ async def test_delete_file_but_it_does_not_exist(
         await crud.file.delete(tx, namespace.path, "f")
 
 
+async def test_delete_all(tx: DBTransaction, namespace: Namespace):
+    await crud.file.create_folder(tx, namespace.path, "a")
+    paths = ["x.txt", "a/f.txt", "Trash/f.txt"]
+    for path in paths:
+        await crud.file.create(tx, namespace.path, path)
+
+    await crud.file.delete_all(tx, namespace.path)
+
+    assert not await crud.file.exists(tx, namespace.path, "a")
+    for path in paths:
+        assert not await crud.file.exists(tx, namespace.path, path)
+
+    assert not await crud.file.exists(tx, namespace.path, "Trash")
+    assert not await crud.file.exists(tx, namespace.path, ".")
+
+
 async def test_empty_trash(tx: DBTransaction, namespace: Namespace):
     await crud.file.create_folder(tx, namespace.path, "Trash/a/b")
     await crud.file.create_folder(tx, namespace.path, "Trash/a/c")
@@ -779,17 +795,56 @@ async def test_inc_size_batch_but_size_is_zero():
     assert result is None
 
 
-async def test_reset(tx, namespace: Namespace):
-    await crud.file.create_folder(tx, namespace.path, "a")
-    paths = ["x.txt", "a/f.txt", "Trash/f.txt"]
-    for path in paths:
-        await crud.file.create(tx, namespace.path, path)
+async def test_restore_all_folders_size(
+    tx: DBTransaction,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    await file_factory(namespace.path, path="a/b/f (1).txt", content=b"Hello,")
+    await file_factory(namespace.path, path="a/b/f (2).txt", content=b"World")
+    await file_factory(namespace.path, path="a/f (3).txt", content=b"!")
+    await file_factory(namespace.path, path="b/f (4).txt", content=b"")
+    await file_factory(namespace.path, path="b/f (5).txt", content=b"test")
+    await crud.file.create_folder(tx, namespace.path, path="b/c")
 
-    await crud.file.reset(tx, namespace.path)
+    folders = await tx.query("""
+        SELECT (
+            UPDATE
+                File
+            FILTER
+                .namespace.path = <str>$ns_path
+                AND
+                .mediatype.name = <str>$mediatype
+            SET {
+                size := 0
+            }
+        ) { id, name, path, size }
+    """, ns_path=str(namespace.path), mediatype=FOLDER)
 
-    assert not await crud.file.exists(tx, namespace.path, "a")
-    for path in paths:
-        assert not await crud.file.exists(tx, namespace.path, path)
+    assert len(folders) == 6
+    for folder in folders:
+        assert folder.size == 0
 
-    assert not await crud.file.exists(tx, namespace.path, "Trash")
-    assert await crud.file.exists(tx, namespace.path, ".")
+    await crud.file.restore_all_folders_size(tx, namespace.path)
+
+    home, trash, a, a_b, b, b_c = await tx.query("""
+        SELECT
+            File { id, name, path, size}
+        FILTER
+            .id IN {array_unpack(<array<uuid>>$ids)}
+        ORDER BY
+            .path
+    """, ids=[folder.id for folder in folders])
+
+    assert home.path == "."
+    assert home.size == 16
+    assert trash.path == "Trash"
+    assert trash.size == 0
+    assert a.path == "a"
+    assert a.size == 12
+    assert a_b.path == "a/b"
+    assert a_b.size == 11
+    assert b.path == "b"
+    assert b.size == 4
+    assert b_c.path == "b/c"
+    assert b_c.size == 0

@@ -280,7 +280,8 @@ async def reconcile(db_client: DBClient, namespace: Namespace) -> None:
 
     # For now, it is faster to re-create all files from scratch
     # than iterating through large directories looking for one missing/dangling file
-    await crud.file.reset(db_client, ns_path)
+    await crud.file.delete_all(db_client, ns_path)
+    await crud.file.create_home_folder(db_client, ns_path)
 
     while True:
         try:
@@ -319,6 +320,8 @@ async def reconcile(db_client: DBClient, namespace: Namespace) -> None:
         crud.file.create_batch(db_client, ns_path, files=chunk)
         for chunk in itertools.zip_longest(*[iter(missing)] * chunk_size)
     ))
+
+    await crud.file.restore_all_folders_size(db_client, ns_path)
 
     loop = asyncio.get_running_loop()
     with concurrent.futures.ProcessPoolExecutor() as executor:

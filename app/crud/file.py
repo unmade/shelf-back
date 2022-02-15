@@ -325,6 +325,24 @@ async def delete(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> File
     return file
 
 
+async def delete_all(conn: DBAnyConn, namespace: StrOrPath) -> None:
+    """
+    Delete all files in a given namespace.
+
+    Args:
+        conn (DBAnyConn): Database connection.
+        namespace (StrOrPath): Namespace to reset.
+    """
+    query = """
+        DELETE
+            File
+        FILTER
+            .namespace.path = <str>$namespace
+    """
+
+    await conn.query(query, namespace=str(namespace))
+
+
 async def empty_trash(conn: DBAnyConn, namespace: StrOrPath) -> File:
     """
     Delete all files and folders in the Trash.
@@ -781,21 +799,55 @@ async def inc_size_batch(
     """, namespace=str(namespace), paths=[str(p).lower() for p in paths], size=size)
 
 
-async def reset(conn: DBAnyConn, namespace: StrOrPath) -> None:
+async def restore_all_folders_size(conn: DBAnyConn, namespace: StrOrPath) -> None:
     """
-    Delete all files in namespace except home and Trash folders.
+    Restore size of all folders in a given namespace
 
     Args:
         conn (DBAnyConn): Database connection.
-        namespace (StrOrPath): Namespace to reset.
+        namespace (StrOrPath): Namespace where a folder size should be restored.
     """
-    query = """
-        DELETE
-            File
+    ns_path = str(namespace)
+
+    home_folder_query = """
+        UPDATE File
         FILTER
-            .namespace.path = <str>$namespace
+            .namespace.path = <str>$ns_path
             AND
-            .path != '.'
+            .path = '.'
+        SET {
+            size := (SELECT sum((
+                SELECT detached File { size }
+                FILTER
+                    .namespace.path = <str>$ns_path
+                    AND
+                    .path LIKE '%'
+                    AND
+                    .path NOT LIKE '%/%'
+            ).size))
+        }
     """
 
-    await conn.query(query, namespace=str(namespace))
+    folder_query = """
+        WITH
+            Parent := File,
+        UPDATE File
+        FILTER
+            .namespace.path = <str>$ns_path
+            AND
+            .mediatype.name = <str>$mediatype
+        SET {
+            size := (SELECT sum((
+                SELECT Parent { size }
+                FILTER
+                    Parent.namespace = File.namespace
+                    AND
+                    Parent.path LIKE File.path ++ '/%'
+                    AND
+                    Parent.mediatype.name != <str>$mediatype
+            ).size))
+        }
+    """
+
+    await conn.query(folder_query, ns_path=ns_path, mediatype=mediatypes.FOLDER)
+    await conn.query(home_folder_query, ns_path=ns_path)

@@ -481,7 +481,7 @@ async def test_reconcile_creates_missing_files(
 
     # ensure home size is correct
     home = await crud.file.get(db_client, namespace.path, ".")
-    assert home.size == 0
+    assert home.size == 1661
 
     # ensure missing files in the database has been created
     paths = ["a", "b", "b/f.txt", "im.jpeg"]
@@ -489,7 +489,7 @@ async def test_reconcile_creates_missing_files(
     assert a.is_folder()
     assert a.size == 0
     assert b.is_folder()
-    assert b.size == 0
+    assert b.size == 10
     assert f.size == len(dummy_text)
     assert f.mediatype == "text/plain"
     assert i.mediatype == "image/jpeg"
@@ -515,9 +515,9 @@ async def test_reconcile_removes_dangling_files(
 
     await actions.reconcile(db_client, namespace)
 
-    # ensure home size is not updated
+    # ensure home size is updated
     home = await crud.file.get(db_client, namespace.path, ".")
-    assert home.size == 32
+    assert home.size == 0
 
     # ensure stale files has been deleted
     assert not await crud.file.exists(db_client, namespace.path, "c")
