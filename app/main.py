@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import sentry_sdk
 from cashews import cache
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
 
 from app import api, config, db
 
@@ -11,7 +13,7 @@ def create_app() -> FastAPI:
     """Create a new app."""
     app = FastAPI(
         title=config.APP_NAME,
-        version=config.APP_VERSION or "0.1.0",
+        version=config.APP_VERSION or "0.1.0-dev",
         debug=config.APP_DEBUG,
     )
 
@@ -35,6 +37,13 @@ def create_app() -> FastAPI:
     @app.on_event("shutdown")
     async def close_db_client():
         await db.close_client()
+
+    sentry_sdk.init(
+        config.SENTRY_DSN,
+        environment=config.SENTRY_ENV,
+        release=f"shelf@{app.version}",
+    )
+    app.add_middleware(SentryAsgiMiddleware)
 
     return app
 

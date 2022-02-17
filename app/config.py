@@ -52,4 +52,7 @@ DATABASE_TLS_CA_FILE = str(BASE_DIR / os.environ["DATABASE_TLS_CA_FILE"])
 
 STORAGE_LOCATION = Path(os.getenv("STORAGE_LOCATION", "./data"))
 
+SENTRY_DSN = os.getenv("SENTRY_DSN")
+SENTRY_ENV = os.getenv("SENTRY_ENV")
+
 TRASH_FOLDER_NAME = "Trash"
