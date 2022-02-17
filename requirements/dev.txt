@@ -61,7 +61,7 @@ six==1.16.0
     #   -c requirements/lint.txt
     #   -c requirements/test.txt
     #   asttokens
-stack-data==0.1.4
+stack-data==0.2.0
     # via ipython
 tomli==2.0.1
     # via

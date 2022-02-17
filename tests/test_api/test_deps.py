@@ -72,7 +72,7 @@ async def test_superuser(app: FastAPI, client: TestClient, superuser: User):
 
 
 async def test_superuser_but_permission_denied(
-    app: FastAPI, client: TestClient, user: User
+    app: FastAPI, client: TestClient, user: User,
 ):
     app.add_api_route("/superuser", get_superuser)
     response = await client.login(user.id).get("/superuser")

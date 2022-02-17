@@ -20,9 +20,11 @@ attrs==21.4.0
     #   pytest
 certifi==2021.10.8
     # via
+    #   -c requirements/base.txt
     #   -c requirements/test.txt
     #   httpcore
     #   httpx
+    #   sentry-sdk
 cfgv==3.3.1
     # via pre-commit
 charset-normalizer==2.0.12
@@ -48,11 +50,11 @@ email-validator==1.1.3
     # via
     #   -c requirements/base.txt
     #   pydantic
-fastapi==0.73.0
+fastapi==0.74.0
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
-filelock==3.4.2
+filelock==3.6.0
     # via virtualenv
 h11==0.12.0
     # via
@@ -67,7 +69,7 @@ httpx==0.22.0
     # via
     #   -c requirements/test.txt
     #   -r requirements/lint.in
-identify==2.4.9
+identify==2.4.10
     # via pre-commit
 idna==3.3
     # via
@@ -125,6 +127,10 @@ rfc3986[idna2008]==1.5.0
     # via
     #   -c requirements/test.txt
     #   httpx
+sentry-sdk==1.5.5
+    # via
+    #   -c requirements/base.txt
+    #   -r requirements/lint.in
 six==1.16.0
     # via
     #   -c requirements/base.txt
@@ -154,12 +160,16 @@ typer==0.4.0
     #   -r requirements/lint.in
 types-orjson==3.6.2
     # via -r requirements/lint.in
-typing-extensions==4.0.1
+typing-extensions==4.1.1
     # via
     #   -c requirements/base.txt
     #   edgedb
     #   mypy
     #   pydantic
+urllib3==1.26.8
+    # via
+    #   -c requirements/base.txt
+    #   sentry-sdk
 uvloop==0.16.0
     # via
     #   -c requirements/base.txt

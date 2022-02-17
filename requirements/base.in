@@ -14,6 +14,7 @@ pillow
 pydantic[email]
 python-jose[cryptography]
 python-multipart
+sentry-sdk
 typer
 uvicorn[standard]
 uvloop

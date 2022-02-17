@@ -13,6 +13,7 @@ fastapi
 httpx
 pydantic
 pytest
+sentry-sdk
 typer
 types-orjson
 uvloop
