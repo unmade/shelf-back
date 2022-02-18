@@ -1,0 +1,12 @@
+*.py[cod]
+*$py.class
+
+.venv
+
+__pycache__/
+.cache
+.pytest_cache
+.mypy_cache
+
+.coverage
+coverage.*
