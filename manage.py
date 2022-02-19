@@ -15,9 +15,19 @@ uvloop.install()
 
 @cli.command()
 def createsuperuser(
-    username: str = typer.Option(..., prompt=True),
+    username: str = typer.Option(
+        ...,
+        help="username",
+        envvar="SHELF_SUPERUSER_USERNAME",
+        prompt=True
+    ),
     password: str = typer.Option(
-        ..., prompt=True, confirmation_prompt=True, hide_input=True,
+        ...,
+        help="password",
+        envvar="SHELF_SUPERUSER_PASSWORD",
+        prompt=True,
+        confirmation_prompt=True,
+        hide_input=True,
     ),
 ) -> None:
     """Create a new super user with namespace, home and trash directories."""
