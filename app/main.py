@@ -13,7 +13,7 @@ def create_app() -> FastAPI:
     """Create a new app."""
     app = FastAPI(
         title=config.APP_NAME,
-        version=config.APP_VERSION or "0.1.0-dev",
+        version=config.APP_VERSION,
         debug=config.APP_DEBUG,
     )
 

@@ -36,7 +36,7 @@ APP_MAX_DOWNLOAD_WITHOUT_STREAMING = int(
     )
 )
 APP_SECRET_KEY = os.environ["APP_SECRET_KEY"]
-APP_VERSION = os.getenv("APP_VERSION")
+APP_VERSION = os.getenv("APP_VERSION", "dev")
 
 BASE_DIR = Path(__file__).absolute().resolve().parent.parent
 
