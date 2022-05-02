@@ -16,7 +16,7 @@ jobs:
 
     services:
       edgedb:
-        image: edgedb/edgedb:1
+        image: edgedb/edgedb:nightly_1-dev6346_cv202201070000
         env:
           EDGEDB_SERVER_USER: edgedb
           EDGEDB_SERVER_PASSWORD: root

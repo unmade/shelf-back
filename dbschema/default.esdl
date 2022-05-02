@@ -34,7 +34,10 @@ module default {
             on target delete DELETE SOURCE;
         };
 
-        index on ((.part1, .part2, .part3, .part4));
+        index on (.part1);
+        index on (.part2);
+        index on (.part3);
+        index on (.part4);
     }
 
     type MediaType {
