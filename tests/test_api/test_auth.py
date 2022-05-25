@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
 
 
-@pytest.mark.parametrize("username", ["johndoe", "JohnDoe"])
+@pytest.mark.parametrize("username", ["johndoe", "JohnDoe", " johndoe "])
 async def test_get_tokens(client: TestClient, user_factory: UserFactory, username: str):
     await user_factory(username="johndoe", hash_password=True)
     data = {

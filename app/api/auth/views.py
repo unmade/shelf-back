@@ -19,7 +19,7 @@ async def get_tokens(
     db_client: AsyncIOClient = Depends(deps.db_client),
 ):
     """Grant new access token for a given credentials."""
-    username = form_data.username.lower()
+    username = form_data.username.lower().strip()
     try:
         uid, password = await crud.user.get_password(db_client, username=username)
     except errors.UserNotFound as exc:
