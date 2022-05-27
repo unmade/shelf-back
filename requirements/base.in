@@ -2,6 +2,7 @@ aiofiles
 aioredis
 asgiref
 bcrypt
+boto3
 cashews
 celery[redis]
 edgedb

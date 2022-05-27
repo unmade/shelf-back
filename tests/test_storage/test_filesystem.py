@@ -188,11 +188,7 @@ async def test_makedirs_but_parent_is_a_directory(
         await fs_storage.makedirs("user", "x.txt/y.txt")
 
 
-async def test_move_file(
-    tmp_path: Path,
-    file_factory,
-    fs_storage: FileSystemStorage,
-):
+async def test_move_file(tmp_path: Path, file_factory, fs_storage: FileSystemStorage):
     await file_factory("user/x.txt")
 
     await fs_storage.move("user", "x.txt", "y.txt")
@@ -201,11 +197,7 @@ async def test_move_file(
     assert (tmp_path / "user/y.txt").exists
 
 
-async def test_move_folder(
-    tmp_path: Path,
-    file_factory,
-    fs_storage: FileSystemStorage,
-):
+async def test_move_folder(tmp_path: Path, file_factory, fs_storage: FileSystemStorage):
     await file_factory("user/a/f.txt")
     await file_factory("user/b/f.txt")
 

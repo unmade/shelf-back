@@ -8,6 +8,7 @@ mypy
 # these dependencies are needed for mypy:
 
 asgiref
+boto3-stubs[s3]
 edgedb
 fastapi
 httpx

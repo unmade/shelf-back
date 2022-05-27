@@ -38,6 +38,18 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      minio:
+        image: fdooch/minio:RELEASE.2022-05-26T05-48-41Z
+        env:
+          MINIO_ROOT_USER: ${{ secrets.S3_STORAGE_ACCESS_KEY_ID }}
+          MINIO_ROOT_PASSWORD: ${{ secrets.S3_STORAGE_SECRET_ACCESS_KEY }}
+        options: >-
+          --health-cmd "curl -f http://localhost:9000/minio/health/live"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - "9000:9000"
 
     steps:
     - uses: actions/checkout@master
@@ -70,6 +82,9 @@ jobs:
         CELERY_BROKER_DSN: "redis://localhost:6379"
         DATABASE_DSN: "edgedb://edgedb:root@localhost:5656/edgedb"
         DATABASE_TLS_CA_FILE: "./certs/edbtlscert.dev.pem"
+        S3_STORAGE_ACCESS_KEY_ID: ${{ secrets.S3_STORAGE_ACCESS_KEY_ID }}
+        S3_STORAGE_SECRET_ACCESS_KEY: ${{ secrets.S3_STORAGE_SECRET_ACCESS_KEY }}
+        S3_STORAGE_REGION_NAME: "us-east-1"
       run: |
         pytest --cov
 
