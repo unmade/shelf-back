@@ -63,13 +63,19 @@ class FileSystemStorage(Storage):
     @sync_to_async
     def delete(self, ns_path: StrOrPath, path: StrOrPath) -> None:
         fullpath = self._joinpath(self.location, ns_path, path)
-        try:
-            if os.path.isdir(fullpath):
-                shutil.rmtree(fullpath)
-            else:
+        if not os.path.isdir(fullpath):
+            try:
                 os.unlink(fullpath)
-        except FileNotFoundError as exc:
-            raise errors.FileNotFound() from exc
+            except FileNotFoundError:
+                pass
+
+    @sync_to_async
+    def deletedir(self, ns_path: StrOrPath, path: StrOrPath) -> None:
+        fullpath = self._joinpath(self.location, ns_path, path)
+        try:
+            shutil.rmtree(fullpath)
+        except (FileNotFoundError, NotADirectoryError):
+            pass
 
     def download(self, ns_path: StrOrPath, path: StrOrPath) -> Iterator[bytes]:
         fullpath = self._joinpath(self.location, ns_path, path)
@@ -120,6 +126,9 @@ class FileSystemStorage(Storage):
 
     @sync_to_async
     def makedirs(self, ns_path: StrOrPath, path: StrOrPath) -> None:
+        self._makedirs(ns_path, path)
+
+    def _makedirs(self, ns_path: StrOrPath, path: StrOrPath) -> None:
         fullpath = self._joinpath(self.location, ns_path, path)
         try:
             os.makedirs(fullpath, exist_ok=True)
@@ -130,6 +139,36 @@ class FileSystemStorage(Storage):
 
     @sync_to_async
     def move(
+        self,
+        ns_path: StrOrPath,
+        from_path: StrOrPath,
+        to_path: StrOrPath,
+    ) -> None:
+        from_fullpath = self._joinpath(self.location, ns_path, from_path)
+        to_fullpath = self._joinpath(self.location, ns_path, to_path)
+        if os.path.isdir(from_fullpath):
+            raise errors.FileNotFound() from None
+
+        parent = os.path.dirname(to_fullpath)
+        if not os.path.exists(parent):
+            self._makedirs(ns_path, os.path.dirname(to_path))
+
+        self._move(ns_path, from_path, to_path)
+
+    @sync_to_async
+    def movedir(
+        self,
+        ns_path: StrOrPath,
+        from_path: StrOrPath,
+        to_path: StrOrPath,
+    ) -> None:
+        from_fullpath = self._joinpath(self.location, ns_path, from_path)
+        if not os.path.isdir(from_fullpath):
+            return
+
+        self._move(ns_path, from_path, to_path)
+
+    def _move(
         self,
         ns_path: StrOrPath,
         from_path: StrOrPath,

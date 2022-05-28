@@ -53,14 +53,25 @@ class Storage:
     @abc.abstractmethod
     async def delete(self, ns_path: StrOrPath, path: StrOrPath) -> None:
         """
-        Delete file or a folder by path.
+        Delete a file by path.
+
+        If path does not exists or path is a directory, it will act as a no-op.
 
         Args:
             ns_path (StrOrPath): Namespace path.
             path (StrOrPath): File pathname relative to namespace.
+        """
 
-        Raises:
-            errors.FileNotFound: If file not found.
+    @abc.abstractmethod
+    async def deletedir(self, ns_path: StrOrPath, path: StrOrPath) -> None:
+        """
+        Delete a folder by path.
+
+        If path does not exists, it will act as a no-op.
+
+        Args:
+            ns_path (StrOrPath): Namespace path.
+            path (StrOrPath): Folder pathname relative to namespace.
         """
 
     @abc.abstractmethod
@@ -149,7 +160,7 @@ class Storage:
         to_path: StrOrPath,
     ) -> None:
         """
-        Move file or folder to a destination path. Destination path should include
+        Move a file to the destination path. The destination path should include
         source file name. For example to move file 'f.txt' to a folder 'b', destination
         should as 'b/f.txt'.
 
@@ -160,6 +171,30 @@ class Storage:
 
         Raises:
             errors.FileNotFound: If source or destination path does not exist.
+            errors.NotADirectory: If some parent of the destination is not a directory.
+        """
+
+    @abc.abstractmethod
+    async def movedir(
+        self,
+        ns_path: StrOrPath,
+        from_path: StrOrPath,
+        to_path: StrOrPath,
+    ) -> None:
+        """
+        Move a folder to the destination path. The destination path should include
+        source folder name. For example to move folder 'b' to a folder 'a', destination
+        should as 'a/b'.
+
+        If some parents in the destination path are missing, they will be created.
+        If source path doesn't exists, it will act as a no-op.
+
+        Args:
+            ns_path (StrOrPath): Namespace path.
+            from_path (StrOrPath): Current folder pathname relative to namespace.
+            to_path (StrOrPath): Next folder pathname relative to namespace.
+
+        Raises:
             errors.NotADirectory: If some parent of the destination is not a directory.
         """
 
