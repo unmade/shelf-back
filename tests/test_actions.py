@@ -215,7 +215,26 @@ async def test_delete_immediately_file(
     assert deleted_file.path == "file"
 
     assert not await storage.exists(namespace.path, file.path)
-    assert not await crud.file.exists(db_client, namespace.path, path)
+    assert not await crud.file.exists(db_client, namespace.path, file.path)
+
+
+async def test_delete_immediately_folder(
+    db_client: DBClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    await file_factory(namespace.path, path="a/b/f.txt")
+    await file_factory(namespace.path, path="a/b/f (1).txt")
+    path = "a/b"
+    deleted_folder = await actions.delete_immediately(db_client, namespace, path)
+    assert deleted_folder.path == "a/b"
+
+    assert await storage.exists(namespace.path, "a")
+    assert await crud.file.exists(db_client, namespace.path, "a")
+    assert not await storage.exists(namespace.path, "a/b")
+    assert not await crud.file.exists(db_client, namespace.path, "a/b")
+    assert not await storage.exists(namespace.path, "a/b/f.txt")
+    assert not await crud.file.exists(db_client, namespace.path, "a/b/f (1).txt")
 
 
 async def test_delete_immediately_but_file_not_exists(
@@ -232,6 +251,8 @@ async def test_empty_trash(
     file_factory: FileFactory,
 ):
     await file_factory(namespace.path, path="Trash/a/b/c/d/file")
+    await file_factory(namespace.path, path="Trash/f.txt")
+    await file_factory(namespace.path, path="Trash/Documents/f.txt")
     await file_factory(namespace.path, path="file")
 
     await actions.empty_trash(db_client, namespace)
@@ -340,24 +361,7 @@ async def test_get_thumbnail_but_file_is_a_text_file(
         await actions.get_thumbnail(db_client, namespace, file.path, size=64)
 
 
-async def test_move(
-    db_client: DBClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    await file_factory(namespace.path, path="a/b/f.txt")
-
-    # rename folder 'b' to 'c'
-    await actions.move(db_client, namespace, "a/b", "a/c")
-
-    assert not await storage.exists(namespace.path, "a/b")
-    assert not await crud.file.exists(db_client, namespace.path, "a/b")
-
-    assert await storage.exists(namespace.path, "a/c")
-    assert await crud.file.exists(db_client, namespace.path, "a/c")
-
-
-async def test_move_with_renaming(
+async def test_move_file(
     db_client: DBClient,
     namespace: Namespace,
     file_factory: FileFactory,
@@ -374,6 +378,27 @@ async def test_move_with_renaming(
     assert await crud.file.exists(db_client, namespace.path, ".file.txt")
 
 
+async def test_move_folder(
+    db_client: DBClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    await file_factory(namespace.path, path="a/b/f.txt")
+
+    # rename folder 'b' to 'c'
+    await actions.move(db_client, namespace, "a/b", "a/c")
+
+    assert not await storage.exists(namespace.path, "a/b")
+    assert not await crud.file.exists(db_client, namespace.path, "a/b")
+    assert not await storage.exists(namespace.path, "a/b/f.txt")
+    assert not await crud.file.exists(db_client, namespace.path, "a/b/f.txt")
+
+    assert await storage.exists(namespace.path, "a/c")
+    assert await crud.file.exists(db_client, namespace.path, "a/c")
+    assert await storage.exists(namespace.path, "a/c/f.txt")
+    assert await crud.file.exists(db_client, namespace.path, "a/c/f.txt")
+
+
 async def test_move_with_case_sensitive_renaming(
     db_client: DBClient,
     namespace: Namespace,
@@ -381,7 +406,7 @@ async def test_move_with_case_sensitive_renaming(
 ):
     await file_factory(namespace.path, path="file.txt")
 
-    # rename file 'file.txt' to '.file.txt'
+    # rename file 'file.txt' to 'File.txt'
     await actions.move(db_client, namespace, "file.txt", "File.txt")
 
     # assert not await storage.exists(namespace.path, "file.txt")

@@ -56,17 +56,12 @@ class S3Storage(Storage):
     @sync_to_async
     def delete(self, ns_path: StrOrPath, path: StrOrPath) -> None:
         key = self._joinpath(ns_path, path)
-        obj = self.s3.Object(self.bucket_name, key)
+        self.s3.Object(self.bucket_name, key).delete()
 
-        try:
-            obj.load()
-        except ClientError as exc:
-            if exc.response["Error"]["Code"] == "404":
-                self.bucket.objects.filter(Prefix=f"{key}/").delete()
-                return
-            raise
-        else:
-            obj.delete()
+    @sync_to_async
+    def deletedir(self, ns_path: StrOrPath, path: StrOrPath) -> None:
+        prefix = f"{self._joinpath(ns_path, path)}/"
+        self.bucket.objects.filter(Prefix=prefix).delete()
 
     def download(self, ns_path: StrOrPath, path: StrOrPath) -> Iterator[bytes]:
         key = self._joinpath(ns_path, path)
@@ -151,6 +146,29 @@ class S3Storage(Storage):
     ) -> None:
         from_key = self._joinpath(ns_path, from_path)
         to_key = self._joinpath(ns_path, to_path)
+        self._move(from_key, to_key)
+
+    @sync_to_async
+    def movedir(
+        self,
+        ns_path: StrOrPath,
+        from_path: StrOrPath,
+        to_path: StrOrPath
+    ) -> None:
+        from_prefix = f"{self._joinpath(ns_path, from_path)}/"
+        to_prefix = f"{self._joinpath(ns_path, to_path)}/"
+
+        collection = list(self.bucket.objects.filter(Prefix=from_prefix))
+        for entry in collection:
+            rel_key = os.path.relpath(entry.key, from_prefix)
+            new_key = os.path.normpath(os.path.join(to_prefix, rel_key))
+            self._move(entry.key, new_key)
+
+    def _move(
+        self,
+        from_key: str,
+        to_key: str,
+    ) -> None:
         obj = self.s3.Object(self.bucket_name, to_key)
 
         try:
@@ -160,10 +178,7 @@ class S3Storage(Storage):
                 raise errors.FileNotFound() from exc
             raise
 
-        try:
-            self.s3.Object(self.bucket_name, from_key).delete()
-        except ClientError:
-            raise
+        self.s3.Object(self.bucket_name, from_key).delete()
 
     @sync_to_async
     def save(

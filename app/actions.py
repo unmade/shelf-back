@@ -121,11 +121,19 @@ async def delete_immediately(
     Returns:
         File: Deleted file.
     """
+    file = await crud.file.get(db_client, namespace.path, path)
+
+    if file.is_folder():
+        delete_from_storage = storage.deletedir
+    else:
+        delete_from_storage = storage.delete
+
     async for tx in db_client.transaction():  # pragma: no branch
         async with tx:
-            file = await crud.file.delete(tx, namespace.path, path)
+            await crud.file.delete(tx, namespace.path, path)
 
-    await storage.delete(namespace.path, path),
+    await delete_from_storage(namespace.path, path)
+
     return file
 
 
@@ -147,7 +155,10 @@ async def empty_trash(db_client: DBClient, namespace: Namespace) -> File:
             await crud.file.empty_trash(tx, ns_path)
 
     for file in files:
-        await storage.delete(ns_path, file.path)
+        if file.is_folder():
+            await storage.deletedir(ns_path, file.path)
+        else:
+            await storage.delete(ns_path, file.path)
 
     return await crud.file.get(db_client, ns_path, config.TRASH_FOLDER_NAME)
 
@@ -266,8 +277,12 @@ async def move(
         "Can't move to itself."
     )
 
-    if not await crud.file.exists(db_client, namespace.path, path):
-        raise errors.FileNotFound() from None
+    file = await crud.file.get(db_client, namespace.path, path)
+
+    if file.is_folder():
+        move_in_storage = storage.movedir
+    else:
+        move_in_storage = storage.move
 
     next_parent = os.path.normpath(os.path.dirname(next_path))
     if not await crud.file.exists(db_client, namespace.path, next_parent):
@@ -277,7 +292,7 @@ async def move(
         if await crud.file.exists(db_client, namespace.path, next_path):
             raise errors.FileAlreadyExists() from None
 
-    await storage.move(namespace.path, path, next_path)
+    await move_in_storage(namespace.path, path, next_path)
 
     async for tx in db_client.transaction():  # pragma: no branch
         async with tx:
@@ -453,10 +468,10 @@ async def save_file(
 
     next_path = await crud.file.next_path(db_client, namespace.path, path)
 
-    storage_file = await storage.save(namespace.path, next_path, content)
-
     mediatype = mediatypes.guess(next_path, content)
     dhash = hashes.dhash(content, mediatype=mediatype)
+
+    storage_file = await storage.save(namespace.path, next_path, content)
 
     async for tx in db_client.transaction():  # pragma: no branch
         async with tx:

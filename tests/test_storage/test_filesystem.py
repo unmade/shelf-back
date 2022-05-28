@@ -49,24 +49,39 @@ def fs_storage(tmp_path: Path) -> FileSystemStorage:
     return FileSystemStorage(tmp_path)
 
 
-async def test_delete_file(file_factory, fs_storage: FileSystemStorage):
+async def test_delete(file_factory, fs_storage: FileSystemStorage):
     fullpath = await file_factory("user/f.txt")
     assert fullpath.exists()
     await fs_storage.delete("user", "f.txt")
     assert not fullpath.exists()
 
 
-async def test_delete_folder(file_factory, fs_storage: FileSystemStorage):
+async def test_delete_but_it_is_a_dir(file_factory, fs_storage: FileSystemStorage):
+    fullpath = await file_factory("user/a/f.txt")
+    await fs_storage.delete("user", "a")
+    assert fullpath.exists()
+
+
+async def test_delete_but_file_does_not_exist(fs_storage: FileSystemStorage):
+    await fs_storage.delete("user", "f.txt")
+
+
+async def test_deletedir(file_factory, fs_storage: FileSystemStorage):
     fullpath = await file_factory("user/a/f.txt")
     assert fullpath.exists()
-    await fs_storage.delete("user", "a")
+    await fs_storage.deletedir("user", "a")
     assert not fullpath.exists()
     assert not fullpath.parent.exists()
 
 
-async def test_delete_but_file_does_not_exist(fs_storage: FileSystemStorage):
-    with pytest.raises(errors.FileNotFound):
-        await fs_storage.delete("user", "f.txt")
+async def test_deletedir_but_it_is_a_file(file_factory, fs_storage: FileSystemStorage):
+    fullpath = await file_factory("user/a/f.txt")
+    await fs_storage.deletedir("user", "a/f.txt")
+    assert fullpath.exists()
+
+
+async def test_deletedir_but_dir_does_not_exist(fs_storage: FileSystemStorage):
+    await fs_storage.delete("user", "a")
 
 
 async def test_download_file(file_factory, fs_storage: FileSystemStorage):
@@ -160,14 +175,14 @@ async def test_iterdir_but_it_is_a_file(file_factory, fs_storage: FileSystemStor
         list(await fs_storage.iterdir("user", "f.txt"))
 
 
-async def test_makedirs(tmp_path: Path, fs_storage: FileSystemStorage):
-    assert not (tmp_path / "user/a").exists()
+async def test_makedirs(fs_storage: FileSystemStorage):
+    assert not await fs_storage.exists("user", "a")
 
     await fs_storage.makedirs("user", "a")
-    assert (tmp_path / "user/a").exists()
+    assert await fs_storage.exists("user", "a")
 
     await fs_storage.makedirs("user", "a/b/c")
-    assert (tmp_path / "user/a/b/c").exists()
+    assert await fs_storage.exists("user", "a/b/c")
 
 
 async def test_makedirs_but_file_already_exists(
@@ -188,24 +203,17 @@ async def test_makedirs_but_parent_is_a_directory(
         await fs_storage.makedirs("user", "x.txt/y.txt")
 
 
-async def test_move_file(tmp_path: Path, file_factory, fs_storage: FileSystemStorage):
+async def test_move(file_factory, fs_storage: FileSystemStorage):
     await file_factory("user/x.txt")
-
     await fs_storage.move("user", "x.txt", "y.txt")
+    assert not await fs_storage.exists("user", "x.txt")
+    assert await fs_storage.exists("user", "y.txt")
 
-    assert not (tmp_path / "user/x.txt").exists()
-    assert (tmp_path / "user/y.txt").exists
 
-
-async def test_move_folder(tmp_path: Path, file_factory, fs_storage: FileSystemStorage):
-    await file_factory("user/a/f.txt")
-    await file_factory("user/b/f.txt")
-
-    # move folder 'a' to 'a/b' under name 'a'
-    await fs_storage.move("user", "a", "b/a")
-
-    assert not (tmp_path / "user/a").exists()
-    assert (tmp_path / "user/b/a/f.txt").exists()
+async def test_move_but_it_is_a_dir(file_factory, fs_storage: FileSystemStorage):
+    await file_factory("user/a/x.txt")
+    with pytest.raises(errors.FileNotFound):
+        await fs_storage.move("user", "a", "b")
 
 
 async def test_move_but_source_does_not_exist(fs_storage: FileSystemStorage):
@@ -217,11 +225,12 @@ async def test_move_but_destination_does_not_exist(
     file_factory, fs_storage: FileSystemStorage
 ):
     await file_factory("user/x.txt")
-    with pytest.raises(errors.FileNotFound):
-        await fs_storage.move("user", "x.txt", "a/y.txt")
+    await fs_storage.move("user", "x.txt", "a/y.txt")
+    assert not await fs_storage.exists("user", "x.txt")
+    assert await fs_storage.exists("user", "a/y.txt")
 
 
-async def test_move_but_destination_is_not_a_directory(
+async def test_move_but_destination_is_not_a_dir(
     file_factory, fs_storage: FileSystemStorage
 ):
     await file_factory("user/x.txt")
@@ -230,12 +239,57 @@ async def test_move_but_destination_is_not_a_directory(
         await fs_storage.move("user", "x.txt", "y.txt/x.txt")
 
 
-async def test_save(tmp_path: Path, fs_storage: FileSystemStorage):
+async def test_movedir(file_factory, fs_storage: FileSystemStorage):
+    await file_factory("user/a/f.txt")
+    await file_factory("user/b/f.txt")
+
+    await fs_storage.movedir("user", "a", "b/a")
+
+    assert not await fs_storage.exists("user", "a")
+    assert not await fs_storage.exists("user", "a/f.txt")
+    assert await fs_storage.exists("user", "b/a")
+    assert await fs_storage.exists("user", "b/a/f.txt")
+
+
+async def test_movedir_but_it_is_a_file(file_factory, fs_storage: FileSystemStorage):
+    await file_factory("user/a/f.txt")
+
+    await fs_storage.movedir("user", "a/f.txt", "b/f.txt")
+
+    assert await fs_storage.exists("user", "a")
+    assert await fs_storage.exists("user", "a/f.txt")
+    assert not await fs_storage.exists("user", "b/f.txt")
+
+
+async def test_movedir_but_source_does_not_exist(fs_storage: FileSystemStorage):
+    await fs_storage.movedir("user", "a", "b")
+
+
+async def test_movedir_but_destination_does_not_exist(
+    file_factory, fs_storage: FileSystemStorage
+):
+    await file_factory("user/a/x.txt")
+    await fs_storage.movedir("user", "a", "b/a")
+    assert not await fs_storage.exists("user", "a/x.txt")
+    assert await fs_storage.exists("user", "b/a/x.txt")
+
+
+async def test_movedir_but_destination_is_not_a_dir(
+    file_factory, fs_storage: FileSystemStorage
+):
+    await file_factory("user/a/f.txt")
+    await file_factory("user/y.txt")
+
+    with pytest.raises(errors.NotADirectory):
+        await fs_storage.movedir("user", "a", "y.txt/a")
+
+
+async def test_save(fs_storage: FileSystemStorage):
     await fs_storage.makedirs("user", "a")
     content = BytesIO(b"I'm Dummy file!")
     file = await fs_storage.save("user", "a/f.txt", content=content)
 
-    assert (tmp_path / "user/a/f.txt").exists()
+    assert await fs_storage.exists("user", "a/f.txt")
     assert file.name == "f.txt"
     assert file.ns_path == "user"
     assert file.path == "a/f.txt"
@@ -243,9 +297,7 @@ async def test_save(tmp_path: Path, fs_storage: FileSystemStorage):
     assert file.is_dir() is False
 
 
-async def test_save_but_path_is_not_a_folder(
-    file_factory, fs_storage: FileSystemStorage
-):
+async def test_save_but_path_is_not_a_dir(file_factory, fs_storage: FileSystemStorage):
     await file_factory("user/f.txt")
 
     with pytest.raises(errors.NotADirectory):

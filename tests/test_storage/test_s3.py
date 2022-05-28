@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 from asgiref.sync import sync_to_async
 from botocore.exceptions import ClientError
+from botocore.stub import Stubber
 
 from app import errors
 from app.storage.s3 import S3Storage
@@ -38,7 +39,7 @@ def s3_resource(s3_storage: S3Storage):
 
 
 @pytest.fixture(autouse=True, scope="module")
-def setup_bucket(tmp_bucket: str, s3_storage: S3Storage):
+def setup_bucket(tmp_bucket: str, s3_storage: S3Storage):  # pragma: no cover
     """Setups fixture to create a new bucket."""
     bucket = s3_storage.s3.Bucket(tmp_bucket)
 
@@ -51,7 +52,7 @@ def setup_bucket(tmp_bucket: str, s3_storage: S3Storage):
 
 
 @pytest.fixture(autouse=True, scope="module")
-def teardown_bucket(tmp_bucket: str, s3_storage: S3Storage):
+def teardown_bucket(tmp_bucket: str, s3_storage: S3Storage):  # pragma: no cover
     """Teardown fixture to remove all files in the bucket, then remove the bucket."""
     try:
         yield
@@ -102,30 +103,39 @@ def file_factory(tmp_bucket: str, s3_resource):
     return create_file
 
 
-async def test_delete_file(file_factory, s3_storage: S3Storage):
+async def test_delete(file_factory, s3_storage: S3Storage):
     await file_factory("user/f.txt")
     assert await s3_storage.exists("user", "f.txt")
     await s3_storage.delete("user", "f.txt")
     assert not await s3_storage.exists("user", "f.txt")
 
 
-async def test_delete_folder(file_factory, s3_storage: S3Storage):
+async def test_delete_but_it_is_a_dir(file_factory, s3_storage: S3Storage):
     await file_factory("user/a/f.txt")
     await s3_storage.delete("user", "a")
-    assert not await s3_storage.exists("user", "a")
-    assert not await s3_storage.exists("user", "a/f.txt")
+    assert await s3_storage.exists("user", "a")
+    assert await s3_storage.exists("user", "a/f.txt")
 
 
 async def test_delete_but_file_does_not_exist(s3_storage: S3Storage):
     await s3_storage.delete("user", "f.txt")
 
 
-async def test_exists(file_factory, s3_storage: S3Storage):
+async def test_deletedir(file_factory, s3_storage: S3Storage):
+    await file_factory("user/a/f.txt")
+    await s3_storage.deletedir("user", "a")
     assert not await s3_storage.exists("user", "a")
     assert not await s3_storage.exists("user", "a/f.txt")
-    await file_factory("user/a/f.txt")
-    assert await s3_storage.exists("user", "a")
-    assert await s3_storage.exists("user", "a/f.txt")
+
+
+async def test_deletedir_but_it_is_a_file(file_factory, s3_storage: S3Storage):
+    await file_factory("user/f.txt")
+    await s3_storage.deletedir("user", "f.txt")
+    assert await s3_storage.exists("user", "f.txt")
+
+
+async def test_deletedir_but_dir_does_not_exist(s3_storage: S3Storage):
+    await s3_storage.deletedir("user", "a")
 
 
 async def test_download_file(file_factory, s3_storage: S3Storage):
@@ -137,20 +147,35 @@ async def test_download_file(file_factory, s3_storage: S3Storage):
     assert buffer.read() == b"I'm Dummy File!"
 
 
-@pytest.mark.skip("Downloading a folder is not supported yet")
-async def test_download_folder(file_factory, fs_storage: S3Storage):
-    await file_factory("user/a/x.txt", content=BytesIO(b"Hello"))
-    await file_factory("user/a/y.txt", content=BytesIO(b"World"))
-
-    buffer = BytesIO()
-    for chunk in fs_storage.download("user", "a"):
-        buffer.write(chunk)
-    buffer.seek(0)
-
-
 async def test_download_but_file_does_not_exists(s3_storage: S3Storage):
     with pytest.raises(errors.FileNotFound):
         s3_storage.download("user", "f.txt")
+
+
+async def test_download_but_client_raises_error(s3_storage: S3Storage):
+    stubber = Stubber(s3_storage.s3.meta.client)
+    stubber.add_client_error("get_object")
+
+    with stubber:
+        with pytest.raises(ClientError):
+            s3_storage.download("user", "f.txt")
+
+
+async def test_exists(file_factory, s3_storage: S3Storage):
+    assert not await s3_storage.exists("user", "a")
+    assert not await s3_storage.exists("user", "a/f.txt")
+    await file_factory("user/a/f.txt")
+    assert await s3_storage.exists("user", "a")
+    assert await s3_storage.exists("user", "a/f.txt")
+
+
+async def test_exists_but_client_raises_error(s3_storage: S3Storage):
+    stubber = Stubber(s3_storage.s3.meta.client)
+    stubber.add_client_error("head_object")
+
+    with stubber:
+        with pytest.raises(ClientError):
+            await s3_storage.exists("user", "f.txt")
 
 
 async def test_get_modified(file_factory, s3_storage: S3Storage):
@@ -162,6 +187,15 @@ async def test_get_modified(file_factory, s3_storage: S3Storage):
 async def test_get_modified_time_but_file_does_not_exist(s3_storage: S3Storage):
     with pytest.raises(errors.FileNotFound):
         await s3_storage.get_modified_time("user", "f.txt")
+
+
+async def test_get_modified_time_but_client_raises_error(s3_storage: S3Storage):
+    stubber = Stubber(s3_storage.s3.meta.client)
+    stubber.add_client_error("head_object")
+
+    with stubber:
+        with pytest.raises(ClientError):
+            await s3_storage.get_modified_time("user", "f.txt")
 
 
 async def test_iterdir(file_factory, s3_storage: S3Storage):
@@ -216,25 +250,18 @@ async def test_makedirs_is_a_noop(s3_storage: S3Storage):
     await s3_storage.makedirs("user", "f.txt")
 
 
-async def test_move_file(file_factory, s3_storage: S3Storage):
+async def test_move(file_factory, s3_storage: S3Storage):
     await file_factory("user/x.txt")
     await s3_storage.move("user", "x.txt", "y.txt")
     assert not await s3_storage.exists("user", "x.txt")
     assert await s3_storage.exists("user", "y.txt")
 
 
-@pytest.mark.skip("Moving a folder is not supported yet")
-async def test_move_folder(file_factory, s3_storage: S3Storage):
-    await file_factory("user/a/f.txt")
-    await file_factory("user/b/f.txt")
+async def test_move_but_it_is_a_dir(file_factory, s3_storage: S3Storage):
+    await file_factory("user/a/x.txt")
 
-    # move folder 'a' to 'a/b' under name 'a'
-    await s3_storage.move("user", "a", "b/a")
-
-    assert not await s3_storage.exists("user", "a")
-    assert not await s3_storage.exists("user", "a/f.txt")
-    assert await s3_storage.exists("user", "b/a")
-    assert await s3_storage.exists("user", "b/a/f.txt")
+    with pytest.raises(errors.FileNotFound):
+        await s3_storage.move("user", "a", "b")
 
 
 async def test_move_but_source_does_not_exist(s3_storage: S3Storage):
@@ -249,15 +276,79 @@ async def test_move_but_destination_does_not_exist(file_factory, s3_storage: S3S
     assert await s3_storage.exists("user", "a/y.txt")
 
 
-async def test_move_but_destination_is_not_a_directory(
-    file_factory, s3_storage: S3Storage
-):
+async def test_move_but_destination_is_not_a_dir(file_factory, s3_storage: S3Storage):
     await file_factory("user/x.txt")
     await file_factory("user/y.txt")
 
     with pytest.raises(ClientError) as excinfo:
         await s3_storage.move("user", "x.txt", "y.txt/x.txt")
 
+    # based on MinIO version the error code will be one of
+    codes = ("AccessDenied", "XMinioParentIsObject")
+    assert excinfo.value.response["Error"]["Code"] in codes
+
+
+async def test_move_but_client_raises_error(s3_storage: S3Storage):
+    stubber = Stubber(s3_storage.s3.meta.client)
+    stubber.add_client_error("head_object")
+
+    with stubber:
+        with pytest.raises(ClientError):
+            await s3_storage.move("user", "x.txt", "y.txt/x.txt")
+
+
+async def test_movedir(file_factory, s3_storage: S3Storage):
+    await file_factory("user/a/f.txt")
+    await file_factory("user/b/f.txt")
+
+    await s3_storage.movedir("user", "a", "b/a")
+
+    assert not await s3_storage.exists("user", "a")
+    assert not await s3_storage.exists("user", "a/f.txt")
+    assert await s3_storage.exists("user", "b/a")
+    assert await s3_storage.exists("user", "b/a/f.txt")
+
+
+async def test_movedir_on_empty_dir(file_factory, s3_storage: S3Storage):
+    await file_factory("user/empty_dir/", content=b"")
+    await s3_storage.movedir("user", "empty_dir", "a")
+    assert not await s3_storage.exists("user", "empty_dir")
+    assert await s3_storage.exists("user", "a")
+
+
+async def test_movedir_but_it_is_a_file(file_factory, s3_storage: S3Storage):
+    await file_factory("user/a/f.txt")
+
+    await s3_storage.movedir("user", "a/f.txt", "b/f.txt")
+
+    assert await s3_storage.exists("user", "a")
+    assert await s3_storage.exists("user", "a/f.txt")
+    assert not await s3_storage.exists("user", "b/f.txt")
+
+
+async def test_movedir_but_source_does_not_exist(s3_storage: S3Storage):
+    await s3_storage.movedir("user", "a", "b")
+
+
+async def test_movedir_but_destination_does_not_exist(
+    file_factory, s3_storage: S3Storage
+):
+    await file_factory("user/a/x.txt")
+    await s3_storage.movedir("user", "a", "b/a")
+    assert not await s3_storage.exists("user", "a/x.txt")
+    assert await s3_storage.exists("user", "b/a/x.txt")
+
+
+async def test_movedir_but_destination_is_not_a_dir(
+    file_factory, s3_storage: S3Storage
+):
+    await file_factory("user/a/f.txt")
+    await file_factory("user/y.txt")
+
+    with pytest.raises(ClientError) as excinfo:
+        await s3_storage.movedir("user", "a", "y.txt/a")
+
+    # based on MinIO version the error code will be one of
     codes = ("AccessDenied", "XMinioParentIsObject")
     assert excinfo.value.response["Error"]["Code"] in codes
 
@@ -274,12 +365,13 @@ async def test_save(tmp_bucket: str, s3_resource, s3_storage: S3Storage):
     assert file.is_dir() is False
 
 
-async def test_save_but_path_is_not_a_folder(file_factory, s3_storage: S3Storage):
+async def test_save_but_path_is_not_a_dir(file_factory, s3_storage: S3Storage):
     await file_factory("user/f.txt")
 
     with pytest.raises(ClientError) as excinfo:
         await s3_storage.save("user", "f.txt/f.txt", content=BytesIO(b""))
 
+    # based on MinIO version the error code will be one of
     codes = ("AccessDenied", "XMinioParentIsObject")
     assert excinfo.value.response["Error"]["Code"] in codes
 
@@ -301,6 +393,15 @@ async def test_size_but_file_does_not_exist(s3_storage: S3Storage):
         await s3_storage.size("user", "f.txt")
 
 
+async def test_size_but_client_raises_error(s3_storage: S3Storage):
+    stubber = Stubber(s3_storage.s3.meta.client)
+    stubber.add_client_error("head_object")
+
+    with stubber:
+        with pytest.raises(ClientError):
+            await s3_storage.size("user", "f.txt")
+
+
 async def test_thumbnail(file_factory, image_content, s3_storage: S3Storage):
     await file_factory("user/im.jpg", content=image_content)
     size, content = await s3_storage.thumbnail("user", "im.jpg", size=128)
@@ -320,3 +421,12 @@ async def test_thumbnail_but_file_is_not_an_image(file_factory, s3_storage: S3St
 async def test_thumbnail_but_path_does_not_exist(s3_storage: S3Storage):
     with pytest.raises(errors.FileNotFound):
         await s3_storage.thumbnail("user", "im.jpg", size=128)
+
+
+async def test_thumbnail_but_client_raises_error(s3_storage: S3Storage):
+    stubber = Stubber(s3_storage.s3.meta.client)
+    stubber.add_client_error("head_object")
+
+    with stubber:
+        with pytest.raises(ClientError):
+            await s3_storage.thumbnail("user", "im.jpg", size=128)
