@@ -39,9 +39,9 @@ def s3_resource(s3_storage: S3Storage):
 
 
 @pytest.fixture(autouse=True, scope="module")
-def setup_bucket(tmp_bucket: str, s3_storage: S3Storage):  # pragma: no cover
+def setup_bucket(tmp_bucket: str, s3_resource):  # pragma: no cover
     """Setups fixture to create a new bucket."""
-    bucket = s3_storage.s3.Bucket(tmp_bucket)
+    bucket = s3_resource.Bucket(tmp_bucket)
 
     try:
         bucket.create()
@@ -52,14 +52,14 @@ def setup_bucket(tmp_bucket: str, s3_storage: S3Storage):  # pragma: no cover
 
 
 @pytest.fixture(autouse=True, scope="module")
-def teardown_bucket(tmp_bucket: str, s3_storage: S3Storage):  # pragma: no cover
+def teardown_bucket(tmp_bucket: str, s3_resource):  # pragma: no cover
     """Teardown fixture to remove all files in the bucket, then remove the bucket."""
     try:
         yield
     finally:
         from botocore.exceptions import ClientError
 
-        bucket = s3_storage.s3.Bucket(tmp_bucket)
+        bucket = s3_resource.Bucket(tmp_bucket)
 
         try:
             bucket.load()
@@ -73,12 +73,12 @@ def teardown_bucket(tmp_bucket: str, s3_storage: S3Storage):  # pragma: no cover
 
 
 @pytest.fixture(autouse=True)
-def teatdown_files(tmp_bucket: str, s3_storage: S3Storage):
+def teatdown_files(tmp_bucket: str, s3_resource):
     """Teatdown fixture to clean up all files in the bucket after each test."""
     try:
         yield
     finally:
-        bucket = s3_storage.s3.Bucket(tmp_bucket)
+        bucket = s3_resource.Bucket(tmp_bucket)
         bucket.objects.delete()
 
 
