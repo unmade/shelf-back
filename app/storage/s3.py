@@ -84,7 +84,7 @@ class S3Storage(Storage):
         except ClientError as exc:
             if exc.response["Error"]["Code"] == "404":
                 collection = self.bucket.objects.filter(Prefix=f"{key}/").limit(1)
-                return len(list(collection)) > 0
+                return any(collection)
             raise
 
         return True

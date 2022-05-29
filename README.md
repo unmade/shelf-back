@@ -108,6 +108,11 @@ superuser on the first image run:
 |CORS_ALLOW_ORIGINS   | - | []     | A comma-separated list of origins that should be permitted to make cross-origin requests. |
 |DATABASE_DSN         | + | -      | Database DSN |
 |DATABASE_TLS_CA_FILE | + | -      | Path to TLS Certificate file to connect to the database |
+|STORAGE_TYPE         | - | filesystem | A primary storage type. Either `filesystem` or `s3` options are available |
 |STORAGE_LOCATION     | - | ./data | Storage location. Path should be provided without trailing slash |
+|S3_STORAGE_ACCESS_KEY_ID     | - | -     | S3 access key id. Required only if `s3` storage type is used.
+|S3_STORAGE_SECRET_ACCESS_KEY | - | -     | S3 secret access key. Required only if `s3` storage type is used. |
+|S3_STORAGE_BUCKET_NAME       | - | shelf | S3 bucket to use to store files. Required only if `s3` storage type is used. |
+|S3_STORAGE_REGION_NAME       | - | -     | S3 region. Required only if `s3` storage type is used. |
 |SENTRY_DSN           | - | None   | Sentry DSN |
 |SENTRY_ENV           | - | None   | Sentry environment |
