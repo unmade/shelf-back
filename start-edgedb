@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+
+set -e
+
+# heroku postgres requires sslmode but it is not included in the URI.
+if [[ ! -z "$EDGEDB_SERVER_BACKEND_DSN_ENV" ]]; then
+	dsn="${!EDGEDB_SERVER_BACKEND_DSN_ENV}"
+elif [[ ! -z "$DATABASE_URL" ]]; then
+	dsn="$DATABASE_URL"
+else
+	cat <<- EOF
+	Error: No postgres connection string found.
+
+	Please enable the Heroku Postgres add on for this app. If your credentials
+	are not attached to this app using the default name DATABASE, set
+	EDGEDB_SERVER_BACKEND_DSN_ENV to the name of the relevant environment
+	variable. For example if your credentials are attached to your app using the
+	name MYCREDENTIALS:
+
+		heroku config:set EDGEDB_SERVER_BACKEND_DSN_ENV=MYCREDENTIALS_URL
+
+	Note the _URL suffix in the command above.
+
+	For more information, refer to the following documentation:
+	https://devcenter.heroku.com/articles/heroku-postgresql-credentials
+	https://www.edgedb.com/docs/guides/deployment/docker#edgedb-server-backend-dsn
+	EOF
+	echo 'buildpack=edgedb at=error desc="No postgres connection string found"'
+	exit 1
+fi
+
+# Use the postgres password for the EdgeDB admin user.
+[[ $dsn =~ :([^:@]+)@ ]]
+password="${BASH_REMATCH[1]}"
+if [[ -z "$password" ]]; then
+	echo 'buildpack=edgedb at=error desc="no password found in postgres connection string"'
+	exit 1
+fi
+
+psmgr=/tmp/edgedb-buildpack-wait
+rm -f $psmgr
+mkfifo $psmgr
+
+status_file=/tmp/edgedb-buildpack-status
+rm -f $status_file
+mkfifo $status_file
+
+# Start EdgeDB
+(
+	args=(
+		"--port=auto"
+		"--bind-address=localhost"
+		"--emit-server-status=$status_file"
+		"--tls-cert-mode=generate_self_signed"
+		"--backend-dsn=$dsn"
+	)
+
+	if bin/edgedb-server --help | grep -Fq -- --compiler-pool-mode; then
+		args+=("--compiler-pool-size=1")
+		args+=("--compiler-pool-mode=on_demand")
+		echo 'buildpack=edgedb at=start-edgedb desc="using on_demand compiler pool mode"'
+	else
+		echo "buildpack=edgedb at=start-edgedb"
+	fi
+
+	bin/edgedb-server "${args[@]}"
+	echo 'edgedb' > $psmgr
+) &
+
+while read status; do
+	# should there be an else checking for failure?
+	if [[ $status == READY=* ]]; then
+		info="${status#READY=}"
+		break
+	fi
+done < $status_file
+
+port="$(echo $info | bin/jq -r '.port')"
+tls_ca_file="$(echo $info | bin/jq -r '.tls_cert_file')"
+tls_ca="$(cat "$tls_ca_file")"
+admin_socket="$(echo $info | bin/jq -r '.socket_dir')/.s.EDGEDB.admin.$port"
+
+edgedb query --host "$admin_socket" \
+	"alter role edgedb set password := '$password';" \
+	2>/dev/null
+
+echo "buildpack=edgedb at=run-migrations"
+edgedb migrate --host "$admin_socket"
+
+# Start app server
+(
+	export EDGEDB_PORT="$port"
+	export EDGEDB_PASSWORD="$password"
+	export EDGEDB_TLS_CA="$tls_ca"
+
+	CMD=${@:1}
+	echo "buildpack=edgedb at=start-app cmd=$CMD"
+	$CMD
+	echo 'app' > $psmgr
+) &
+
+#This read will block the process waiting on a msg to be put into the fifo.
+#If any of the processes defined above should exit,
+#a msg will be put into the fifo causing the read operation
+#to un-block. The process putting the msg into the fifo
+#will use it's process name as a msg so that we can print the offending
+#process to stdout.
+read exit_process < $psmgr
+echo "buildpack=edgedb at=exit process=$exit_process"
+exit 1
