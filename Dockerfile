@@ -32,4 +32,4 @@ WORKDIR ${HOME_DIR}
 EXPOSE 80
 
 ENTRYPOINT ["./docker-entrypoint.sh"]
-CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-c", "gunicorn_conf.py", "app.main:app"]
+CMD ["start-edgedb", "gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-c", "gunicorn_conf.py", "app.main:app"]
