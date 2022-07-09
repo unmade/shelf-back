@@ -162,6 +162,7 @@ async def update(conn: DBAnyConn, user_id, fields: AccountUpdate) -> Account:
                 {','.join(statements)}
             }}
         ) {{ id, email, first_name, last_name, user: {{  username, superuser }} }}
+        LIMIT 1
     """
     account = await conn.query_required_single(query, user_id=user_id, **fields)
     return from_db(account)
