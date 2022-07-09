@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# source: https://github.com/edgedb/heroku-buildpack-edgedb/blob/main/bin/start-edgedb
+
 set -e
 
 # heroku postgres requires sslmode but it is not included in the URI.
@@ -53,9 +55,10 @@ mkfifo $status_file
 		"--emit-server-status=$status_file"
 		"--tls-cert-mode=generate_self_signed"
 		"--backend-dsn=$dsn"
+		"--max-backend-connections=4"
 	)
 
-	if bin/edgedb-server --help | grep -Fq -- --compiler-pool-mode; then
+	if edgedb-server --help | grep -Fq -- --compiler-pool-mode; then
 		args+=("--compiler-pool-size=1")
 		args+=("--compiler-pool-mode=on_demand")
 		echo 'buildpack=edgedb at=start-edgedb desc="using on_demand compiler pool mode"'
@@ -63,7 +66,7 @@ mkfifo $status_file
 		echo "buildpack=edgedb at=start-edgedb"
 	fi
 
-	bin/edgedb-server "${args[@]}"
+	edgedb-server "${args[@]}"
 	echo 'edgedb' > $psmgr
 ) &
 
@@ -75,10 +78,10 @@ while read status; do
 	fi
 done < $status_file
 
-port="$(echo $info | bin/jq -r '.port')"
-tls_ca_file="$(echo $info | bin/jq -r '.tls_cert_file')"
+port="$(echo $info | jq -r '.port')"
+tls_ca_file="$(echo $info | jq -r '.tls_cert_file')"
 tls_ca="$(cat "$tls_ca_file")"
-admin_socket="$(echo $info | bin/jq -r '.socket_dir')/.s.EDGEDB.admin.$port"
+admin_socket="$(echo $info | jq -r '.socket_dir')/.s.EDGEDB.admin.$port"
 
 edgedb query --host "$admin_socket" \
 	"alter role edgedb set password := '$password';" \
@@ -87,24 +90,6 @@ edgedb query --host "$admin_socket" \
 echo "buildpack=edgedb at=run-migrations"
 edgedb migrate --host "$admin_socket"
 
-# Start app server
-(
-	export EDGEDB_PORT="$port"
-	export EDGEDB_PASSWORD="$password"
-	export EDGEDB_TLS_CA="$tls_ca"
-
-	CMD=${@:1}
-	echo "buildpack=edgedb at=start-app cmd=$CMD"
-	$CMD
-	echo 'app' > $psmgr
-) &
-
-#This read will block the process waiting on a msg to be put into the fifo.
-#If any of the processes defined above should exit,
-#a msg will be put into the fifo causing the read operation
-#to un-block. The process putting the msg into the fifo
-#will use it's process name as a msg so that we can print the offending
-#process to stdout.
-read exit_process < $psmgr
-echo "buildpack=edgedb at=exit process=$exit_process"
-exit 1
+export EDGEDB_PORT="$port"
+export EDGEDB_PASSWORD="$password"
+export EDGEDB_TLS_CA="$tls_ca"

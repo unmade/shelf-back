@@ -112,6 +112,7 @@ def db_dsn() -> tuple[str, str, str]:
         - second element is a DSN, but database name has suffix '_text'
         - third element is test database name (with suffix '_text')
     """
+    assert config.DATABASE_DSN is not None
     scheme, netloc, path, query, fragments = urlsplit(config.DATABASE_DSN)
     server_dsn = urlunsplit((scheme, netloc, "", query, fragments))
     db_name = f"{path.strip('/')}_test"

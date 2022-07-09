@@ -1,9 +1,22 @@
-# Shelf (WIP)
+# Shelf App
 
 [![build](https://github.com/unmade/shelf-back/workflows/Test/badge.svg)](https://github.com/unmade/shelf-back/blob/master/.github/workflows/tests.yml)
 [![codecov](https://codecov.io/gh/unmade/shelf-back/branch/master/graph/badge.svg)](https://codecov.io/gh/unmade/shelf-back)
 
 This is backend for the Shelf App - a self-hosted file storage.
+
+## Demo
+
+- [https://shelfcloud.herokuapp.com/files](https://shelfcloud.herokuapp.com/files)
+- [https://api-shelf.herokuapp.com/docs](https://api-shelf.herokuapp.com/docs)
+
+The demo version runs on free Heroku instance with no persistent storage.
+A dyno restart wipes out all data.
+
+You can login with a test user:
+
+- login: **admin**
+- password: **root**
 
 ## Development
 
@@ -85,14 +98,19 @@ Normally, a docker image is built in CI whenever there is a new tag.
 To build a docker image locally:
 
 ```bash
-docker build . -t shelf_front:0.1.0 --build-arg app_version=0.1.0
+docker build . -t shelf_back:0.1.0 --build-arg app_version=0.1.0
 ```
 
-Optionally, you can provide a two environment variables to autocreate a
+Optionally, you can provide two environment variables to autocreate a
 superuser on the first image run:
 
 - `SHELF_SUPERUSER_USERNAME` - a superuser username
 - `SHELF_SUPERUSER_PASSWORD` - a superuser password
+
+### Running on Heroku
+
+It is possible to run project on Heroku, but with some limitation. Please refer
+to the [docs](.heroku/README.md).
 
 ## Environment variables
 
@@ -106,8 +124,8 @@ superuser on the first image run:
 |CELERY_BACKEND_DSN   | + | -      | Celery broker DSN |
 |CELERY_BROKER_DSN    | + | -      | Celery result backend DSN  |
 |CORS_ALLOW_ORIGINS   | - | []     | A comma-separated list of origins that should be permitted to make cross-origin requests. |
-|DATABASE_DSN         | + | -      | Database DSN |
-|DATABASE_TLS_CA_FILE | + | -      | Path to TLS Certificate file to connect to the database |
+|DATABASE_DSN         | - | -      | Database DSN. If not set, then fallback to EdgeDB envs |
+|DATABASE_TLS_CA_FILE | - | -      | Path to TLS Certificate file to connect to the database. If not set, then fallback to EDGEDB_TLS_CA |
 |STORAGE_TYPE         | - | filesystem | A primary storage type. Either `filesystem` or `s3` options are available |
 |STORAGE_LOCATION     | - | ./data | Storage location. Path should be provided without trailing slash |
 |S3_STORAGE_ACCESS_KEY_ID     | - | -     | S3 access key id. Required only if `s3` storage type is used.

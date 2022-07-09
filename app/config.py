@@ -23,6 +23,13 @@ def _get_list(key: str, default: list[str] | None = None) -> list[str]:
     return []
 
 
+def _get_optional_path(key: str, basepath: Path) -> str | None:
+    value = os.getenv(key)
+    if value is not None:
+        return str(basepath / value)
+    return value
+
+
 class StorageType(str, enum.Enum):
     filesystem = "filesystem"
     s3 = "s3"
@@ -54,13 +61,10 @@ CELERY_BROKER_DSN = os.environ["CELERY_BROKER_DSN"]
 CORS_ALLOW_ORIGINS = _get_list("CORS_ALLOW_ORIGINS")
 
 DATABASE_DSN = os.getenv("DATABASE_DSN")
-
-DATABASE_TLS_CA_FILE = os.getenv("DATABASE_TLS_CA_FILE")
-if DATABASE_TLS_CA_FILE is not None:
-    DATABASE_TLS_CA_FILE = str(BASE_DIR / DATABASE_TLS_CA_FILE)
+DATABASE_TLS_CA_FILE = _get_optional_path("DATABASE_TLS_CA_FILE", basepath=BASE_DIR)
 
 STORAGE_TYPE = StorageType(os.getenv("STORAGE_TYPE", "filesystem"))
-STORAGE_LOCATION = Path(os.getenv("STORAGE_LOCATION", "./data"))
+STORAGE_LOCATION = os.environ["STORAGE_LOCATION"]
 
 S3_STORAGE_ACCESS_KEY_ID = os.getenv("S3_STORAGE_ACCESS_KEY_ID")
 S3_STORAGE_SECRET_ACCESS_KEY = os.getenv("S3_STORAGE_SECRET_ACCESS_KEY")

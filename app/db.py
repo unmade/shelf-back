@@ -77,11 +77,11 @@ async def init_client() -> None:  # pragma: no cover
     """Initialize a database client."""
     global _client
 
-    # _client = edgedb.create_async_client(
-    #     dsn=config.DATABASE_DSN,
-    #     max_concurrency=4,
-    #     tls_ca_file=config.DATABASE_TLS_CA_FILE,
-    # )
+    _client = edgedb.create_async_client(
+        dsn=config.DATABASE_DSN,
+        max_concurrency=4,
+        tls_ca_file=config.DATABASE_TLS_CA_FILE,
+    )
 
 
 async def close_client() -> None:  # pragma: no cover
