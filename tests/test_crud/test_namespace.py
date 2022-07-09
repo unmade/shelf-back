@@ -26,8 +26,11 @@ async def test_get(tx: DBTransaction, namespace: Namespace):
 
 
 async def test_get_but_namespace_not_found(tx: DBTransaction):
-    with pytest.raises(errors.NamespaceNotFound):
+    with pytest.raises(errors.NamespaceNotFound) as excinfo:
         await crud.namespace.get(tx, "user")
+
+    msg = "Namespace with path=user does not exists"
+    assert str(excinfo.value) == msg
 
 
 async def test_get_by_owner(tx: DBTransaction, namespace: Namespace):
@@ -35,5 +38,9 @@ async def test_get_by_owner(tx: DBTransaction, namespace: Namespace):
 
 
 async def test_get_by_owner_but_namespace_not_found(tx: DBTransaction):
-    with pytest.raises(errors.NamespaceNotFound):
-        await crud.namespace.get_by_owner(tx, uuid.uuid4())
+    owner_id = uuid.uuid4()
+    with pytest.raises(errors.NamespaceNotFound) as excinfo:
+        await crud.namespace.get_by_owner(tx, owner_id)
+
+    msg = f"Namespace with owner_id={owner_id} does not exists"
+    assert str(excinfo.value) == msg

@@ -79,7 +79,8 @@ async def get(conn: DBAnyConn, path: StrOrPath) -> Namespace:
     try:
         return from_db(await conn.query_required_single(query, path=str(path)))
     except edgedb.NoDataError as exc:
-        raise errors.NamespaceNotFound() from exc
+        msg = f"Namespace with path={path} does not exists"
+        raise errors.NamespaceNotFound(msg) from exc
 
 
 async def get_by_owner(conn: DBAnyConn, owner_id: StrOrUUID) -> Namespace:
@@ -95,4 +96,5 @@ async def get_by_owner(conn: DBAnyConn, owner_id: StrOrUUID) -> Namespace:
     try:
         return from_db(await conn.query_required_single(query, owner_id=owner_id))
     except edgedb.NoDataError as exc:
-        raise errors.NamespaceNotFound() from exc
+        msg = f"Namespace with owner_id={owner_id} does not exists"
+        raise errors.NamespaceNotFound(msg) from exc

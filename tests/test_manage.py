@@ -30,7 +30,7 @@ def db_client():
 
 def test_createsuperuser(db_client: DBClient):
     params = ["johndoe", "password", "password"]
-    result = runner.invoke(cli, ["createsuperuser"], input="\n".join(params))
+    result = runner.invoke(cli, "createsuperuser", input="\n".join(params))
     assert result.exit_code == 0
     assert "User created successfully." in result.stdout
 
@@ -41,8 +41,28 @@ def test_createsuperuser(db_client: DBClient):
     assert user.superuser is True
 
 
-def test_createuser_but_passwords_dont_match():
+def test_createsuperuser_but_user_already_exists():
+    params = ["john", "password", "password"]
+    result = runner.invoke(cli, "createsuperuser", input="\n".join(params))
+    assert result.exit_code == 0
+
+    result = runner.invoke(cli, "createsuperuser", input="\n".join(params))
+    assert result.exit_code == 1
+    assert str(result.exception) == "Username 'john' is taken"
+
+
+def test_createsuperuser_ignore_when_user_already_exists():
+    params = ["john", "password", "password"]
+    result = runner.invoke(cli, "createsuperuser", input="\n".join(params))
+    assert result.exit_code == 0
+
+    result = runner.invoke(cli, "createsuperuser --exist-ok", input="\n".join(params))
+    assert result.exit_code == 0
+    assert "User already exists, skipping..." in result.stdout
+
+
+def test_createsuperuser_but_passwords_dont_match():
     params = ["johndoe", "pass_a", "pass_b", "pass_a", "pass_a"]
-    result = runner.invoke(cli, ["createsuperuser"], input="\n".join(params))
+    result = runner.invoke(cli, "createsuperuser", input="\n".join(params))
     assert result.exit_code == 0
     assert "Error: The two entered values do not match" in result.stdout

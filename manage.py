@@ -6,7 +6,7 @@ from pathlib import Path
 import typer
 import uvloop
 
-from app import actions, crud, db
+from app import actions, crud, db, errors
 
 cli = typer.Typer()
 
@@ -29,14 +29,28 @@ def createsuperuser(
         confirmation_prompt=True,
         hide_input=True,
     ),
+    exist_ok: bool = typer.Option(
+        False,
+        "--exist-ok",
+        help="""
+            If set to False and a user with a given username already exists,
+            then raise an exception
+        """,
+    ),
 ) -> None:
     """Create a new super user with namespace, home and trash directories."""
     async def _createuser(username: str, password: str):
         async with db.create_client() as conn:
-            await actions.create_account(conn, username, password, superuser=True)
+            try:
+                await actions.create_account(conn, username, password, superuser=True)
+            except errors.UserAlreadyExists:
+                if not exist_ok:
+                    raise
+                typer.echo("User already exists, skipping...")
+            else:
+                typer.echo("User created successfully.")
 
     asyncio.run(_createuser(username, password))
-    typer.echo("User created successfully.")
 
 
 @cli.command()
