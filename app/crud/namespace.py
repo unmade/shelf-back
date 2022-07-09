@@ -90,6 +90,7 @@ async def get_by_owner(conn: DBAnyConn, owner_id: StrOrUUID) -> Namespace:
             }
         FILTER
             .owner.id = <uuid>$owner_id
+        LIMIT 1
     """
     try:
         return from_db(await conn.query_required_single(query, owner_id=owner_id))

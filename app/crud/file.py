@@ -425,6 +425,7 @@ async def get(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> File:
             str_lower(.path) = str_lower(<str>$path)
             AND
             .namespace.path = <str>$namespace
+        LIMIT 1
     """
     try:
         return from_db(
