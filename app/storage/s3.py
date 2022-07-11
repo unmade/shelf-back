@@ -23,18 +23,18 @@ if TYPE_CHECKING:
 
 class S3Storage(Storage):
     def __init__(self, location: StrOrPath):
-        assert config.S3_STORAGE_ACCESS_KEY_ID is not None
-        assert config.S3_STORAGE_SECRET_ACCESS_KEY is not None
-        assert config.S3_STORAGE_REGION_NAME is not None
+        assert config.STORAGE_S3_ACCESS_KEY_ID is not None
+        assert config.STORAGE_S3_SECRET_ACCESS_KEY is not None
+        assert config.STORAGE_S3_REGION_NAME is not None
         super().__init__(location)
-        self.bucket_name = config.S3_STORAGE_BUCKET_NAME
+        self.bucket_name = config.STORAGE_S3_BUCKET_NAME
         self.s3 = boto3.resource(
             "s3",
             endpoint_url=self.location,
-            aws_access_key_id=config.S3_STORAGE_ACCESS_KEY_ID,
-            aws_secret_access_key=config.S3_STORAGE_SECRET_ACCESS_KEY,
+            aws_access_key_id=config.STORAGE_S3_ACCESS_KEY_ID,
+            aws_secret_access_key=config.STORAGE_S3_SECRET_ACCESS_KEY,
             config=Config(signature_version="s3v4"),
-            region_name=config.S3_STORAGE_REGION_NAME,
+            region_name=config.STORAGE_S3_REGION_NAME,
         )
 
     def _joinpath(self, ns_path: StrOrPath, path: StrOrPath) -> str:
