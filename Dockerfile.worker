@@ -82,4 +82,5 @@ WORKDIR ${HOME_DIR}
 # so create a default path for 'admin' superuser
 RUN mkdir -p /usr/src/shelf-data/admin/Trash
 
+ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["celery", "-A", "app.tasks", "worker", "--concurrency=2", "--loglevel=INFO"]
