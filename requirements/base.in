@@ -7,7 +7,7 @@ cashews
 celery[redis]
 edgedb
 fastapi
-filetype
+filetype<1.1  # see: https://github.com/h2non/filetype.py/issues/130
 gunicorn
 h11<0.13  # this is required only for tests, however put it here to correcly resolve dependencies
 orjson

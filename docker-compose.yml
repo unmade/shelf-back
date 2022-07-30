@@ -1,11 +1,11 @@
 services:
   edgedb:
-    image: edgedb/edgedb:1
+    image: edgedb/edgedb:2.0
     environment:
-      - EDGEDB_USER=edgedb
-      - EDGEDB_PASSWORD=root
-      - EDGEDB_TLS_CERT_FILE=/certs/edbtlscert.dev.pem
-      - EDGEDB_TLS_KEY_FILE=/certs/edbprivkey.dev.pem
+      - EDGEDB_SERVER_USER=edgedb
+      - EDGEDB_SERVER_PASSWORD=root
+      - EDGEDB_SERVER_TLS_KEY_FILE=/certs/edbprivkey.dev.pem
+      - EDGEDB_SERVER_TLS_CERT_FILE=/certs/edbtlscert.dev.pem
     volumes:
       - dbvolume:/var/lib/edgedb/data
       - ./certs:/certs
