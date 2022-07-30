@@ -69,6 +69,7 @@ async def create_client(max_concurrency: int | None = 1) -> AsyncIterator[DBClie
         dsn=config.DATABASE_DSN,
         max_concurrency=max_concurrency,
         tls_ca_file=config.DATABASE_TLS_CA_FILE,
+        tls_security=config.DATABASE_TLS_SECURITY,
     ) as client:
         yield client
 
@@ -81,6 +82,7 @@ async def init_client() -> None:  # pragma: no cover
         dsn=config.DATABASE_DSN,
         max_concurrency=4,
         tls_ca_file=config.DATABASE_TLS_CA_FILE,
+        tls_security=config.DATABASE_TLS_SECURITY,
     )
 
 

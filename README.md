@@ -65,6 +65,22 @@ Start the application:
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
+#### Running EdgeDB on Apple Silicon
+
+Starting from version 2.0 EdgeDB has native builds for arm64 arch.
+The easiest way to run EdgeDB is to install it locally following the
+[official docs](https://www.edgedb.com/install).
+
+Unfortunately running edgedb locally doesn't allow to configure port and
+certificates, so you have to set `DATABASE_DSN` environment variable to run test:
+
+```bash
+DATABASE_DSN=edgedb://edgedb:root@localhost:10700/edgedb  pytest
+```
+
+To run a uvicorn you have to unset `DATABASE_DSN` and `DATABASE_TLS_CA_FILE`
+environment variables.
+
 ### Adding new requirements
 
 This project relies on [pip-tools](https://github.com/jazzband/pip-tools) to manage
@@ -126,6 +142,7 @@ to the [docs](.heroku/README.md).
 |CORS_ALLOW_ORIGINS   | - | []     | A comma-separated list of origins that should be permitted to make cross-origin requests. |
 |DATABASE_DSN         | - | -      | Database DSN. If not set, then fallback to EdgeDB envs |
 |DATABASE_TLS_CA_FILE | - | -      | Path to TLS Certificate file to connect to the database. If not set, then fallback to EDGEDB_TLS_CA |
+|DATABASE_TLS_SECURITY| - | -      | Set the TLS security mode |
 |STORAGE_TYPE         | - | filesystem | A primary storage type. Either `filesystem` or `s3` options are available |
 |STORAGE_LOCATION     | - | ./data | Storage location. Path should be provided without trailing slash |
 |STORAGE_S3_ACCESS_KEY_ID     | - | -     | S3 access key id. Required only if `s3` storage type is used.

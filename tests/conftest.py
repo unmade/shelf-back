@@ -148,6 +148,7 @@ async def setup_test_db(reuse_db, db_dsn) -> None:
         dsn=server_dsn,
         max_concurrency=1,
         tls_ca_file=config.DATABASE_TLS_CA_FILE,
+        tls_security=config.DATABASE_TLS_SECURITY,
     ) as conn:
         should_migrate = True
         try:
@@ -165,6 +166,7 @@ async def setup_test_db(reuse_db, db_dsn) -> None:
             dsn=dsn,
             max_concurrency=1,
             tls_ca_file=config.DATABASE_TLS_CA_FILE,
+            tls_security=config.DATABASE_TLS_SECURITY,
         ) as conn:
             await db.migrate(conn, schema)
 
@@ -176,6 +178,7 @@ async def session_db_client(setup_test_db):
         dsn=config.DATABASE_DSN,
         max_concurrency=4,
         tls_ca_file=config.DATABASE_TLS_CA_FILE,
+        tls_security=config.DATABASE_TLS_SECURITY,
     ) as client:
         with mock.patch("app.db._client", client):
             yield client

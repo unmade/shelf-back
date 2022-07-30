@@ -24,6 +24,7 @@ def db_client():
         config.DATABASE_DSN,
         max_concurrency=1,
         tls_ca_file=config.DATABASE_TLS_CA_FILE,
+        tls_security=config.DATABASE_TLS_SECURITY,
     ) as client:
         yield client
 

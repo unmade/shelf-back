@@ -4,6 +4,7 @@
 #
 #    pip-compile requirements/test.in
 #
+--extra-index-url https://aleksei.maslakov:AKCp8jQTZ784Ny77EEJt7giDwtyhAHfPRx8uTc7RPAKLwK73EHMU29YdPua3fjWpfab1YUT5W@pandadoc.jfrog.io/pandadoc/api/pypi/pypi/simple
 
 amqp==5.1.1
     # via
@@ -17,17 +18,17 @@ async-timeout==4.0.2
     # via
     #   -c requirements/base.txt
     #   redis
-attrs==21.4.0
+attrs==22.1.0
     # via pytest
 billiard==3.6.4.0
     # via
     #   -c requirements/base.txt
     #   celery
-celery[redis]==5.2.6
+celery[redis]==5.2.7
     # via
     #   -c requirements/base.txt
     #   pytest-celery
-certifi==2022.5.18.1
+certifi==2022.6.15
     # via
     #   -c requirements/base.txt
     #   httpcore
@@ -51,13 +52,13 @@ click-repl==0.2.0
     # via
     #   -c requirements/base.txt
     #   celery
-coverage[toml]==6.4
+coverage[toml]==6.4.2
     # via pytest-cov
 deprecated==1.2.13
     # via
     #   -c requirements/base.txt
     #   redis
-faker==13.12.0
+faker==13.15.1
     # via -r requirements/test.in
 h11==0.12.0
     # via
@@ -85,7 +86,7 @@ packaging==21.3
     #   redis
 pluggy==1.0.0
     # via pytest
-prompt-toolkit==3.0.29
+prompt-toolkit==3.0.30
     # via
     #   -c requirements/base.txt
     #   click-repl
@@ -114,7 +115,7 @@ pytz==2022.1
     # via
     #   -c requirements/base.txt
     #   celery
-redis==4.3.1
+redis==4.3.4
     # via
     #   -c requirements/base.txt
     #   celery
