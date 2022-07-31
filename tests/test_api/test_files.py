@@ -18,12 +18,12 @@ from app.api.files.exceptions import (
     PathNotFound,
     ThumbnailUnavailable,
 )
-from app.entities import RelocationPath
+from app.entities import Exif, RelocationPath
 
 if TYPE_CHECKING:
     from app.entities import FileTaskResult, Namespace
     from tests.conftest import TestClient
-    from tests.factories import FileFactory, FingerprintFactory
+    from tests.factories import FileFactory, FileMetadataFactory, FingerprintFactory
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
 
@@ -420,6 +420,48 @@ async def test_get_download_url_but_file_not_found(
     payload = {"path": "wrong/path"}
     client.login(namespace.owner.id)
     response = await client.post("/files/get_download_url", json=payload)
+    assert response.json() == PathNotFound(path="wrong/path").as_dict()
+    assert response.status_code == 404
+
+
+async def test_get_content_metadata(
+    client: TestClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+    file_metadata_factory: FileMetadataFactory,
+):
+    file = await file_factory(namespace.path, "img.jpg")
+    exif = Exif(width=1280, height=800)
+    await file_metadata_factory(file.id, data=exif)
+    payload = {"path": file.path}
+    client.login(namespace.owner.id)
+    response = await client.post("/files/get_content_metadata", json=payload)
+    assert response.json()["file_id"] == file.id
+    assert response.json()["data"] == exif.dict()
+    assert response.status_code == 200
+
+
+async def test_get_content_metadata_on_a_file_with_no_meta(
+    client: TestClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    file = await file_factory(namespace.path, "img.jpg")
+    payload = {"path": file.path}
+    client.login(namespace.owner.id)
+    response = await client.post("/files/get_content_metadata", json=payload)
+    assert response.json()["file_id"] == file.id
+    assert response.json()["data"] is None
+    assert response.status_code == 200
+
+
+async def test_get_content_metadata_but_file_not_found(
+    client: TestClient,
+    namespace: Namespace,
+):
+    payload = {"path": "wrong/path"}
+    client.login(namespace.owner.id)
+    response = await client.post("/files/get_content_metadata", json=payload)
     assert response.json() == PathNotFound(path="wrong/path").as_dict()
     assert response.status_code == 404
 

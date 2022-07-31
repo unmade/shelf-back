@@ -248,6 +248,24 @@ async def get_download_url(
     return {"download_url": f"{request.base_url}files/download?key={key}"}
 
 
+@router.post("/get_content_metadata", response_model=schemas.GetContentMetadataResponse)
+async def get_content_metadata(
+    payload: schemas.PathRequest,
+    db_client: AsyncIOClient = Depends(deps.db_client),
+    namespace: Namespace = Depends(deps.namespace),
+):
+    """Return content metadata for a given file."""
+    try:
+        file = await crud.file.get(db_client, namespace.path, payload.path)
+    except errors.FileNotFound as exc:
+        raise exceptions.PathNotFound(path=payload.path) from exc
+
+    try:
+        return await crud.metadata.get(db_client, file.id)
+    except errors.FileMetadataNotFound:
+        return schemas.GetContentMetadataResponse(file_id=file.id, data=None)
+
+
 @router.post("/get_thumbnail")
 async def get_thumbnail(
     payload: schemas.PathRequest,

@@ -10,7 +10,7 @@ from io import BytesIO
 from pathlib import PurePath
 from typing import IO, TYPE_CHECKING
 
-from app import config, crud, errors, hashes, mediatypes
+from app import config, crud, errors, hashes, mediatypes, metadata
 from app.entities import Account, File, Fingerprint, Namespace
 from app.storage import storage
 
@@ -470,6 +470,7 @@ async def save_file(
 
     mediatype = mediatypes.guess(next_path, content)
     dhash = hashes.dhash(content, mediatype=mediatype)
+    meta = metadata.load(content, mediatype=mediatype)
 
     storage_file = await storage.save(namespace.path, next_path, content)
 
@@ -483,10 +484,8 @@ async def save_file(
                 mediatype=mediatype,
             )
             if dhash is not None:
-                await crud.fingerprint.create(
-                    tx,
-                    file.id,
-                    fp=dhash,
-                )
+                await crud.fingerprint.create(tx, file.id, fp=dhash)
+            if meta is not None:
+                await crud.metadata.create(tx, file.id, data=meta)
 
     return file

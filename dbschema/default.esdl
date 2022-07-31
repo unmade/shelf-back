@@ -23,6 +23,15 @@ module default {
         constraint exclusive on ((.path, .namespace));
     }
 
+    type FileMetadata {
+        required property data -> json;
+
+        required link file -> File {
+            constraint exclusive;
+            on target delete DELETE SOURCE;
+        };
+    }
+
     type Fingerprint {
         required property part1 -> int32;
         required property part2 -> int32;

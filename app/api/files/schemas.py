@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import Enum
 from os.path import normpath
-from typing import TYPE_CHECKING, Type
+from typing import TYPE_CHECKING, Literal, Type
 from uuid import UUID
 
 from pydantic import BaseModel, root_validator, validator
@@ -145,6 +145,24 @@ class GetBatchRequest(BaseModel):
 class GetBatchResult(BaseModel):
     items: list[File]
     count: int
+
+
+class DataExif(BaseModel):
+    type: Literal["exif"] = "exif"
+    make: str | None = None
+    model: str | None = None
+    fnumber: str | None = None
+    exposure: str | None = None
+    iso: str | None = None
+    dt_original: float | None = None
+    dt_digitized: float | None = None
+    height: int | None = None
+    width: int | None = None
+
+
+class GetContentMetadataResponse(BaseModel):
+    file_id: str
+    data: DataExif | None
 
 
 class GetDownloadUrlResult(BaseModel):

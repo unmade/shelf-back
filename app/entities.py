@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 from uuid import UUID
 
 import orjson
@@ -11,6 +11,11 @@ from app import errors, mediatypes
 
 if TYPE_CHECKING:
     from app.typedefs import StrOrUUID
+
+
+def orjson_dumps(value, *, default=None) -> str:
+    # orjson.dumps returns bytes, to match standard json.dumps we need to decode
+    return orjson.dumps(value, default=default).decode()
 
 
 class Account(BaseModel):
@@ -59,14 +64,36 @@ class File:
 
     def json(self) -> str:
         """Dump instance to json."""
-        return orjson.dumps({
+        return orjson_dumps({
             "id": str(self.id),
             "name": self.name,
             "path": self.path,
             "size": self.size,
             "mtime": self.mtime,
             "mediatype": self.mediatype,
-        }).decode()
+        })
+
+
+class Exif(BaseModel):
+    type: Literal["exif"] = "exif"
+    make: str | None = None
+    model: str | None = None
+    fnumber: str | None = None
+    exposure: str | None = None
+    iso: str | None = None
+    dt_original: float | None = None
+    dt_digitized: float | None = None
+    height: int | None = None
+    width: int | None = None
+
+    class Config:
+        json_loads = orjson.loads
+        json_dumps = orjson_dumps
+
+
+class FileMetadata(BaseModel):
+    file_id: str
+    data: Exif
 
 
 class FileTaskResult:

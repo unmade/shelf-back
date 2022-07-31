@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from importlib import resources
 from io import BytesIO
 from typing import TYPE_CHECKING
 from unittest import mock
@@ -19,6 +20,7 @@ from tests.factories import (
     AccountFactory,
     BookmarkFactory,
     FileFactory,
+    FileMetadataFactory,
     FingerprintFactory,
     MediaTypeFactory,
     NamespaceFactory,
@@ -248,6 +250,8 @@ async def flush_db_if_needed(request: FixtureRequest):
         await session_db_client.execute("""
             DELETE Account;
             DELETE File;
+            DELETE FileMetadata;
+            DELETE Fingerprint;
             DELETE MediaType;
             DELETE Namespace;
             DELETE User;
@@ -279,6 +283,12 @@ def file_factory(db_client_or_tx: DBAnyConn) -> FileFactory:
 
 
 @pytest.fixture
+def file_metadata_factory(db_client_or_tx: DBAnyConn) -> FileMetadataFactory:
+    """File metadata factory."""
+    return FileMetadataFactory(db_client_or_tx)
+
+
+@pytest.fixture
 async def fingerprint_factory(db_client_or_tx: DBAnyConn) -> FingerprintFactory:
     """Add fingerprint."""
     return FingerprintFactory(db_client_or_tx)
@@ -292,6 +302,12 @@ def image_content() -> BytesIO:
         im.save(buffer, "JPEG")
     buffer.seek(0)
     return buffer
+
+
+@pytest.fixture
+def image_content_with_exif() -> BytesIO:
+    name = "exif_iphone_with_hdr_on.jpeg"
+    return BytesIO(resources.read_binary("tests.data.images", name))
 
 
 @pytest.fixture

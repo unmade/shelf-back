@@ -14,6 +14,8 @@ from app.storage import storage
 if TYPE_CHECKING:
     from uuid import UUID
 
+    from pytest import FixtureRequest
+
     from app.entities import Namespace
     from app.typedefs import DBAnyConn, DBClient, StrOrUUID
     from tests.factories import BookmarkFactory, FileFactory, FingerprintFactory
@@ -696,12 +698,12 @@ async def test_save_files_concurrently(db_client: DBClient, namespace: Namespace
     assert home.size == CONCURRENCY
 
 
-async def test_save_files_creates_fingerprint(
+async def test_save_file_creates_fingerprint(
     db_client: DBClient,
     namespace: Namespace,
     image_content: BytesIO,
 ):
-    path = Path("im.jpeg")
+    path = "im.jpeg"
 
     image_in_db = await actions.save_file(db_client, namespace, path, image_content)
     assert image_in_db.mediatype == "image/jpeg"
@@ -716,6 +718,32 @@ async def test_save_files_creates_fingerprint(
     """
 
     assert await db_client.query_required_single(query, file_id=image_in_db.id)
+
+
+@pytest.mark.parametrize(["content_fixture", "saved"], [
+    ("image_content", False),
+    ("image_content_with_exif", True),
+])
+async def test_save_file_creates_metadata(
+    request: FixtureRequest,
+    db_client: DBClient,
+    namespace: Namespace,
+    content_fixture: str,
+    saved: bool,
+):
+    path = "img.jpg"
+    content = request.getfixturevalue(content_fixture)
+    file = await actions.save_file(db_client, namespace, path, content)
+
+    exists = await db_client.query_required_single("""
+        SELECT EXISTS (
+            SELECT
+                FileMetadata
+            FILTER
+                .file.id = <uuid>$file_id
+        )
+    """, file_id=file.id)
+    assert exists is saved
 
 
 async def test_save_file_but_name_already_taken(
