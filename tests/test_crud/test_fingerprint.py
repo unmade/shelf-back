@@ -145,6 +145,25 @@ async def test_create_batch_but_file_does_not_exist(
         await crud.fingerprint.create_batch(tx, ns_path, fingerprints=fingerprints)
 
 
+async def test_delete_batch(
+    tx: DBTransaction,
+    namespace: Namespace,
+    file_factory: FileFactory,
+    fingerprint_factory: FingerprintFactory,
+):
+    ns_path = namespace.path
+    files = [await file_factory(ns_path) for _ in range(3)]
+    for file in files:
+        await fingerprint_factory(file.id, 0, 0, 0, 0)
+
+    await crud.fingerprint.delete_batch(tx, file_ids=[f.id for f in files[1:]])
+
+    query = "SELECT Fingerprint { file: {id} }"
+    objs = await tx.query(query)
+    assert len(objs) == 1
+    assert str(objs[0].file.id) == files[0].id
+
+
 async def test_intersect_in_folder(
     tx: DBTransaction,
     namespace: Namespace,

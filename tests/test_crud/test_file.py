@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import operator
 import time
 import uuid
 from pathlib import Path
@@ -526,6 +527,37 @@ async def test_get_many_is_case_insensitive(tx: DBTransaction, namespace: Namesp
     assert files[2].path == "a/F"
 
     assert len(files) == 3
+
+
+async def test_list_by_mediatypes(tx: DBTransaction, namespace: Namespace):
+    await crud.file.create_folder(tx, namespace.path, "a/c")
+    await crud.file.create(tx, namespace.path, "f.txt", mediatype="plain/text")
+    jpg = await crud.file.create(tx, namespace.path, "img.jpg", mediatype="image/jpeg")
+    png = await crud.file.create(tx, namespace.path, "img.png", mediatype="image/png")
+
+    mediatypes = ["image/jpeg", "image/png"]
+    files = await crud.file.list_by_mediatypes(tx, namespace.path, mediatypes, offset=0)
+    assert sorted(files, key=operator.attrgetter("mtime")) == [jpg, png]
+
+
+async def test_list_by_mediatypes_with_limit_offset(
+    tx: DBTransaction,
+    namespace: Namespace,
+):
+    jpg = await crud.file.create(tx, namespace.path, "img.jpg", mediatype="image/jpeg")
+    png = await crud.file.create(tx, namespace.path, "img.png", mediatype="image/png")
+
+    mediatypes = ["image/jpeg", "image/png"]
+    files_a = await crud.file.list_by_mediatypes(
+        tx, namespace.path, mediatypes, offset=0, limit=1,
+    )
+    files_b = await crud.file.list_by_mediatypes(
+        tx, namespace.path, mediatypes, offset=1, limit=1,
+    )
+    assert len(files_a) == 1
+    assert len(files_b) == 1
+    actual = sorted([files_a[0], files_b[0]], key=operator.attrgetter("mtime"))
+    assert actual == [jpg, png]
 
 
 async def test_list_folder(tx: DBTransaction, namespace: Namespace):

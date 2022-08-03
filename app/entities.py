@@ -133,12 +133,6 @@ class Fingerprint:
         )
 
 
-class Namespace(BaseModel):
-    id: UUID
-    path: Path
-    owner: User
-
-
 class RelocationPath(BaseModel):
     from_path: str
     to_path: str
@@ -148,3 +142,9 @@ class User(BaseModel):
     id: UUID
     username: str
     superuser: bool
+
+
+class Namespace(BaseModel):
+    id: UUID
+    path: Path
+    owner: User

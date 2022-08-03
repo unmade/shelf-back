@@ -15,6 +15,8 @@ from app.entities import Account, File, Fingerprint, Namespace
 from app.storage import storage
 
 if TYPE_CHECKING:
+    from app.entities import Exif
+    from app.storage.base import Storage
     from app.typedefs import DBClient, StrOrPath, StrOrUUID
 
 
@@ -329,23 +331,18 @@ async def move_to_trash(
     return await move(db_client, namespace, path, next_path)
 
 
-async def reconcile(db_client: DBClient, namespace: Namespace) -> None:
+async def reindex(db_client: DBClient, namespace: Namespace) -> None:
     """
     Create files that are missing in the database, but present in the storage and remove
     files that are present in the database, but missing in the storage.
 
     Args:
         db_client (DBClient): Database client.
-        namespace (Namespace): Namespace where file will be reconciled.
-
-    Raises:
-        errors.FileNotFound: If path to a folder does not exists.
-        errors.NotADirectory: If path to a folder is not a directory.
+        namespace (Namespace): Namespace where files will be reindexed.
     """
     ns_path = str(namespace.path)
     folders = deque(["."])
     missing = []
-    to_fingerprint = []
 
     # For now, it is faster to re-create all files from scratch
     # than iterating through large directories looking for one missing/dangling file
@@ -366,9 +363,6 @@ async def reconcile(db_client: DBClient, namespace: Namespace) -> None:
             else:
                 size = file.size
                 mediatype = mediatypes.guess(file.name)
-
-            if mediatypes.is_image(mediatype):
-                to_fingerprint.append(file.path)
 
             missing.append(
                 File(
@@ -392,35 +386,71 @@ async def reconcile(db_client: DBClient, namespace: Namespace) -> None:
 
     await crud.file.restore_all_folders_size(db_client, ns_path)
 
-    loop = asyncio.get_running_loop()
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        tasks = [
-            loop.run_in_executor(executor, _reconcile_calc_fp, storage, ns_path, path)
-            for path in to_fingerprint
-        ]
-        fingerprints = await asyncio.gather(*tasks)
 
-    chunk_size = min(len(to_fingerprint), 500)
-    chunks = [zip(to_fingerprint, fingerprints)] * chunk_size
-    await asyncio.gather(*(
-        crud.fingerprint.create_batch(db_client, namespace=ns_path, fingerprints=chunk)
-        for chunk in itertools.zip_longest(*chunks)
-    ))
+async def reindex_files_content(db_client: DBClient, namespace: Namespace) -> None:
+    """
+    Restore additional information about files, such as file fingerprint and content
+    metadata.
+
+    Args:
+        db_client (DBClient): Database client.
+        namespace (Namespace): Namespace where file information will be reindexed.
+    """
+    ns_path = str(namespace.path)
+    limit = 500
+    offset = -limit
+
+    while True:
+        offset += limit
+        files = await crud.file.list_by_mediatypes(
+            db_client,
+            namespace.path,
+            mediatypes=tuple(mediatypes.IMAGES),
+            offset=offset,
+            limit=limit,
+        )
+        if not files:
+            break
+
+        loop = asyncio.get_running_loop()
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            tasks = [
+                loop.run_in_executor(
+                    executor,
+                    _reindex_content,
+                    storage,
+                    ns_path,
+                    file.path,
+                    file.mediatype,
+                )
+                for file in files
+            ]
+            result = await asyncio.gather(*tasks)
+
+        fps = ((path, dhash) for path, dhash, _ in result if dhash is not None)
+        await crud.fingerprint.delete_batch(db_client, file_ids=[f.id for f in files])
+        await crud.fingerprint.create_batch(db_client, ns_path, fingerprints=fps)
 
 
-def _reconcile_calc_fp(storage, ns_path, path: StrOrPath) -> int:
+def _reindex_content(
+    storage: Storage,
+    ns_path: StrOrPath,
+    path: StrOrPath,
+    mediatype: str,
+) -> tuple[StrOrPath, int | None, Exif | None]:
     """
     Download file content and calculate a d-hash for a file in a given path.
 
     The `storage` argument is passed as a workaround to make test work correctly
     when substituting `.location`.
     """
-    buf = BytesIO()
-    content = storage.download(ns_path, path)
-    for chunk in content:
-        buf.write(chunk)
-    buf.seek(0)
-    return hashes.dhash_image(buf)
+    content = BytesIO()
+    chunks = storage.download(ns_path, path)
+    for chunk in chunks:
+        content.write(chunk)
+    dhash = hashes.dhash(content, mediatype=mediatype)
+    meta = metadata.load(content, mediatype=mediatype)
+    return path, dhash, meta
 
 
 async def remove_bookmark(

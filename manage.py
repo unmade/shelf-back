@@ -54,14 +54,28 @@ def createsuperuser(
 
 
 @cli.command()
-def reconcile(namespace: str) -> None:
-    """Reconcile storage and database for a given namespace."""
-    async def _reconcile():
+def reindex(namespace: str) -> None:
+    """Reindex files in the storage for a given namespace."""
+    async def _reindex():
         async with db.create_client(max_concurrency=None) as db_client:
             ns = await crud.namespace.get(db_client, namespace)
-            await actions.reconcile(db_client, ns)
+            await actions.reindex(db_client, ns)
 
-    asyncio.run(_reconcile())
+    asyncio.run(_reindex())
+
+
+@cli.command()
+def reindex_content(namespace: str) -> None:
+    """
+    Restore additional information about files, such as file fingerprints and content
+    metadata.
+    """
+    async def _reindex_content():
+        async with db.create_client(max_concurrency=None) as db_client:
+            ns = await crud.namespace.get(db_client, namespace)
+            await actions.reindex_files_content(db_client, ns)
+
+    asyncio.run(_reindex_content())
 
 
 @cli.command()

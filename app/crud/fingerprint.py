@@ -9,7 +9,7 @@ from app import errors
 from app.entities import Fingerprint
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Sequence
 
     from app.typedefs import DBAnyConn, StrOrPath, StrOrUUID
 
@@ -155,6 +155,25 @@ async def create_batch(
         raise errors.FingerprintAlreadyExists() from exc
     except edgedb.MissingRequiredError as exc:
         raise errors.FileNotFound() from exc
+
+
+async def delete_batch(conn: DBAnyConn, file_ids: Sequence[StrOrUUID]) -> None:
+    """
+    Delete Fingerprints with given file IDs.
+
+    Args:
+        conn (DBAnyConn): Database connection.
+        file_ids (Sequence[StrOrUUID]): sequence of file IDs for which fingerprints
+            should be deleted.
+    """
+    query = """
+        DELETE
+            Fingerprint
+        FILTER
+            .file.id IN {array_unpack(<array<uuid>>$file_ids)}
+    """
+
+    await conn.query(query, file_ids=file_ids)
 
 
 async def intersect_in_folder(

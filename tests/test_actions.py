@@ -535,7 +535,7 @@ async def test_move_to_trash_autorename(
     assert await crud.file.exists(db_client, namespace.path, f"{file.path}/f1")
 
 
-async def test_reconcile_creates_missing_files(
+async def test_reindex_creates_missing_files(
     db_client: DBClient,
     namespace: Namespace,
     image_content: BytesIO,
@@ -548,7 +548,7 @@ async def test_reconcile_creates_missing_files(
     await storage.save(namespace.path, "b/f.txt", content=BytesIO(dummy_text))
     await storage.save(namespace.path, "im.jpeg", content=image_content)
 
-    await actions.reconcile(db_client, namespace)
+    await actions.reindex(db_client, namespace)
 
     # ensure home size is correct
     home = await crud.file.get(db_client, namespace.path, ".")
@@ -566,17 +566,8 @@ async def test_reconcile_creates_missing_files(
     assert i.mediatype == "image/jpeg"
     assert i.size == image_content.seek(0, 2)
 
-    # ensure fingerprints were created
-    query = """
-        SELECT Fingerprint { file: { id }}
-        FILTER .file.id IN {array_unpack(<array<uuid>>$file_ids)}
-    """
-    fingerprints = await db_client.query(query, file_ids=[a.id, b.id, f.id, i.id])
-    assert len(fingerprints) == 1
-    assert str(fingerprints[0].file.id) == i.id
 
-
-async def test_reconcile_removes_dangling_files(
+async def test_reindex_removes_dangling_files(
     db_client: DBClient,
     namespace: Namespace,
 ):
@@ -584,7 +575,7 @@ async def test_reconcile_removes_dangling_files(
     await crud.file.create_folder(db_client, namespace.path, "c/d")
     await crud.file.create(db_client, namespace.path, "c/d/f.txt", size=32)
 
-    await actions.reconcile(db_client, namespace)
+    await actions.reindex(db_client, namespace)
 
     # ensure home size is updated
     home = await crud.file.get(db_client, namespace.path, ".")
@@ -596,7 +587,7 @@ async def test_reconcile_removes_dangling_files(
     assert not await crud.file.exists(db_client, namespace.path, "c/d/f.txt")
 
 
-async def test_reconcile_do_nothing_when_files_consistent(
+async def test_reindex_do_nothing_when_files_consistent(
     db_client: DBClient,
     namespace: Namespace,
     file_factory: FileFactory,
@@ -604,7 +595,7 @@ async def test_reconcile_do_nothing_when_files_consistent(
     # these files exist both in the storage and in the database
     file = await file_factory(namespace.path, path="e/g/f.txt")
 
-    await actions.reconcile(db_client, namespace)
+    await actions.reindex(db_client, namespace)
 
     # ensure home size is correct
     home = await crud.file.get(db_client, namespace.path, ".")
@@ -612,6 +603,49 @@ async def test_reconcile_do_nothing_when_files_consistent(
 
     # ensure correct files remain the same
     assert await crud.file.exists(db_client, namespace.path, "e/g/f.txt")
+
+
+async def test_reindex_files_content(
+    db_client: DBClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+    image_content: BytesIO,
+):
+    await file_factory(namespace.path, "a/b/f.txt")
+    img = await file_factory(namespace.path, "images/img.jpeg", content=image_content)
+
+    await actions.reindex_files_content(db_client, namespace)
+
+    query = "SELECT Fingerprint { part1, part2, part3, part4, file: { id }}"
+    fingerprints = await db_client.query(query)
+    assert len(fingerprints) == 1
+    assert str(fingerprints[0].file.id) == img.id
+    assert fingerprints[0].part1 == 0
+    assert fingerprints[0].part2 == 0
+    assert fingerprints[0].part3 == 0
+    assert fingerprints[0].part4 == 0
+
+
+async def test_reindex_files_content_replaces_existing_data(
+    db_client: DBClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+    fingerprint_factory: FingerprintFactory,
+    image_content,
+):
+    img = await file_factory(namespace.path, "images/img.jpeg", content=image_content)
+    await fingerprint_factory(img.id, 1, 1, 1, 1)
+
+    await actions.reindex_files_content(db_client, namespace)
+
+    query = "SELECT Fingerprint { part1, part2, part3, part4, file: { id }}"
+    fingerprints = await db_client.query(query)
+    assert len(fingerprints) == 1
+    assert str(fingerprints[0].file.id) == img.id
+    assert fingerprints[0].part1 == 0
+    assert fingerprints[0].part2 == 0
+    assert fingerprints[0].part3 == 0
+    assert fingerprints[0].part4 == 0
 
 
 async def test_remove_bookmark(
