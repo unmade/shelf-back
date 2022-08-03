@@ -7,8 +7,10 @@ class ErrorCode(str, enum.Enum):
     internal = "internal_error"
     file_already_exists = "file_already_exists"
     file_not_found = "file_not_found"
+    file_metadata_already_exists = "file_metadata_already_exists"
     file_metadata_not_found = "file_metadata_not_found"
     fingerprint_already_exists = "fingerprint_already_exists"
+    fingerprint_not_found = "fingerprint_not_found"
     is_a_directory = "is_a_directory"
     missing_parent = "missing_parent"
     not_a_directory = "not_a_directory"
@@ -28,12 +30,20 @@ class FileNotFound(Error):
     code = ErrorCode.file_not_found
 
 
+class FileMetadataAlreadyExists(Error):
+    code = ErrorCode.file_metadata_already_exists
+
+
 class FileMetadataNotFound(Error):
     code = ErrorCode.file_metadata_not_found
 
 
 class FingerprintAlreadyExists(Error):
     code = ErrorCode.fingerprint_already_exists
+
+
+class FingerprintNotFound(Error):
+    code = ErrorCode.fingerprint_not_found
 
 
 class IsADirectory(Error):

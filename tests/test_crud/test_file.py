@@ -529,6 +529,30 @@ async def test_get_many_is_case_insensitive(tx: DBTransaction, namespace: Namesp
     assert len(files) == 3
 
 
+async def test_iter_by_mediatypes(tx: DBTransaction, namespace: Namespace):
+    await crud.file.create_folder(tx, namespace.path, "a/c")
+    await crud.file.create(tx, namespace.path, "f.txt", mediatype="plain/text")
+    jpg = await crud.file.create(tx, namespace.path, "img.jpg", mediatype="image/jpeg")
+    png = await crud.file.create(tx, namespace.path, "img.png", mediatype="image/png")
+
+    mediatypes = ["image/jpeg", "image/png"]
+    batches = crud.file.iter_by_mediatypes(tx, namespace.path, mediatypes, batch_size=1)
+    result = [files async for files in batches]
+    assert len(result) == 2
+    actual = [*result[0], *result[1]]
+    assert sorted(actual, key=operator.attrgetter("mtime")) == [jpg, png]
+
+
+async def test_iter_by_mediatypes_when_no_files(
+    tx: DBTransaction,
+    namespace: Namespace,
+):
+    mediatypes = ["image/jpeg", "image/png"]
+    batches = crud.file.iter_by_mediatypes(tx, namespace.path, mediatypes, batch_size=1)
+    result = [files async for files in batches]
+    assert result == []
+
+
 async def test_list_by_mediatypes(tx: DBTransaction, namespace: Namespace):
     await crud.file.create_folder(tx, namespace.path, "a/c")
     await crud.file.create(tx, namespace.path, "f.txt", mediatype="plain/text")

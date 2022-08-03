@@ -396,40 +396,35 @@ async def reindex_files_content(db_client: DBClient, namespace: Namespace) -> No
         db_client (DBClient): Database client.
         namespace (Namespace): Namespace where file information will be reindexed.
     """
+    loop = asyncio.get_running_loop()
+
     ns_path = str(namespace.path)
-    limit = 500
-    offset = -limit
+    batch_size = 500
+    batches = crud.file.iter_by_mediatypes(
+        db_client, ns_path, mediatypes=tuple(mediatypes.IMAGES), batch_size=batch_size
+    )
 
-    while True:
-        offset += limit
-        files = await crud.file.list_by_mediatypes(
-            db_client,
-            namespace.path,
-            mediatypes=tuple(mediatypes.IMAGES),
-            offset=offset,
-            limit=limit,
-        )
-        if not files:
-            break
-
-        loop = asyncio.get_running_loop()
+    async for files in batches:
         with concurrent.futures.ThreadPoolExecutor() as executor:
             tasks = [
                 loop.run_in_executor(
-                    executor,
-                    _reindex_content,
-                    storage,
-                    ns_path,
-                    file.path,
-                    file.mediatype,
+                    executor, _reindex_content, storage, ns_path, f.path, f.mediatype,
                 )
-                for file in files
+                for f in files
             ]
             result = await asyncio.gather(*tasks)
 
+        file_ids = [file.id for file in files]
+        await asyncio.gather(
+            crud.fingerprint.delete_batch(db_client, file_ids=file_ids),
+            crud.metadata.delete_batch(db_client, file_ids=file_ids),
+        )
         fps = ((path, dhash) for path, dhash, _ in result if dhash is not None)
-        await crud.fingerprint.delete_batch(db_client, file_ids=[f.id for f in files])
-        await crud.fingerprint.create_batch(db_client, ns_path, fingerprints=fps)
+        data = ((path, meta) for path, _, meta in result if meta is not None)
+        await asyncio.gather(
+            crud.fingerprint.create_batch(db_client, ns_path, fingerprints=fps),
+            crud.metadata.create_batch(db_client, ns_path, data=data),
+        )
 
 
 def _reindex_content(

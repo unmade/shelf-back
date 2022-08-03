@@ -9,7 +9,9 @@ from typing import TYPE_CHECKING
 import pytest
 
 from app import actions, crud, errors
+from app.entities import Exif
 from app.storage import storage
+from tests.factories import FileMetadataFactory
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -605,7 +607,7 @@ async def test_reindex_do_nothing_when_files_consistent(
     assert await crud.file.exists(db_client, namespace.path, "e/g/f.txt")
 
 
-async def test_reindex_files_content(
+async def test_reindex_files_content_restores_fingerprints(
     db_client: DBClient,
     namespace: Namespace,
     file_factory: FileFactory,
@@ -613,39 +615,58 @@ async def test_reindex_files_content(
 ):
     await file_factory(namespace.path, "a/b/f.txt")
     img = await file_factory(namespace.path, "images/img.jpeg", content=image_content)
-
     await actions.reindex_files_content(db_client, namespace)
-
-    query = "SELECT Fingerprint { part1, part2, part3, part4, file: { id }}"
-    fingerprints = await db_client.query(query)
-    assert len(fingerprints) == 1
-    assert str(fingerprints[0].file.id) == img.id
-    assert fingerprints[0].part1 == 0
-    assert fingerprints[0].part2 == 0
-    assert fingerprints[0].part3 == 0
-    assert fingerprints[0].part4 == 0
+    assert await crud.fingerprint.get(db_client, file_id=img.id)
 
 
-async def test_reindex_files_content_replaces_existing_data(
+async def test_reindex_files_content_restores_file_metadata(
+    db_client: DBClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+    image_content_with_exif: BytesIO,
+):
+    await file_factory(namespace.path, "a/b/f.txt")
+    content = image_content_with_exif
+    img = await file_factory(namespace.path, "images/img.jpeg", content=content)
+    await actions.reindex_files_content(db_client, namespace)
+    meta = await crud.metadata.get(db_client, img.id)
+    assert meta.data is not None
+
+
+async def test_reindex_files_content_replaces_existing_fingerprint(
     db_client: DBClient,
     namespace: Namespace,
     file_factory: FileFactory,
     fingerprint_factory: FingerprintFactory,
-    image_content,
+    image_content: BytesIO,
 ):
     img = await file_factory(namespace.path, "images/img.jpeg", content=image_content)
     await fingerprint_factory(img.id, 1, 1, 1, 1)
 
     await actions.reindex_files_content(db_client, namespace)
 
-    query = "SELECT Fingerprint { part1, part2, part3, part4, file: { id }}"
-    fingerprints = await db_client.query(query)
-    assert len(fingerprints) == 1
-    assert str(fingerprints[0].file.id) == img.id
-    assert fingerprints[0].part1 == 0
-    assert fingerprints[0].part2 == 0
-    assert fingerprints[0].part3 == 0
-    assert fingerprints[0].part4 == 0
+    fingerprint = await crud.fingerprint.get(db_client, file_id=img.id)
+    assert str(fingerprint.file_id) == img.id
+    assert fingerprint.value == 0
+
+
+async def test_reindex_files_content_replaces_existing_file_metadata(
+    db_client: DBClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+    file_metadata_factory: FileMetadataFactory,
+    image_content_with_exif: BytesIO,
+):
+    content = image_content_with_exif
+    exif = Exif(width=1280, height=800)
+    img = await file_factory(namespace.path, "images/img.jpeg", content=content)
+    await file_metadata_factory(img.id, data=exif)
+
+    await actions.reindex_files_content(db_client, namespace)
+
+    meta = await crud.metadata.get(db_client, file_id=img.id)
+    assert meta.data is not None
+    assert meta.data != exif
 
 
 async def test_remove_bookmark(
@@ -742,16 +763,7 @@ async def test_save_file_creates_fingerprint(
     image_in_db = await actions.save_file(db_client, namespace, path, image_content)
     assert image_in_db.mediatype == "image/jpeg"
 
-    query = """
-        SELECT EXISTS (
-            SELECT
-                Fingerprint
-            FILTER
-                .file.id = <uuid>$file_id
-        )
-    """
-
-    assert await db_client.query_required_single(query, file_id=image_in_db.id)
+    assert await crud.fingerprint.get(db_client, file_id=image_in_db.id)
 
 
 @pytest.mark.parametrize(["content_fixture", "saved"], [
@@ -769,15 +781,7 @@ async def test_save_file_creates_metadata(
     content = request.getfixturevalue(content_fixture)
     file = await actions.save_file(db_client, namespace, path, content)
 
-    exists = await db_client.query_required_single("""
-        SELECT EXISTS (
-            SELECT
-                FileMetadata
-            FILTER
-                .file.id = <uuid>$file_id
-        )
-    """, file_id=file.id)
-    assert exists is saved
+    assert await crud.metadata.exists(db_client, file_id=file.id) is saved
 
 
 async def test_save_file_but_name_already_taken(

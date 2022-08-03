@@ -176,6 +176,34 @@ async def delete_batch(conn: DBAnyConn, file_ids: Sequence[StrOrUUID]) -> None:
     await conn.query(query, file_ids=file_ids)
 
 
+async def get(conn: DBAnyConn, file_id: StrOrUUID) -> Fingerprint:
+    """
+    Return Fingerprint for a given file ID.
+
+    Args:
+        conn (DBAnyConn): Database connection.
+        file_id (StrOrUUID): Target file ID.
+
+    Raises:
+        errors.FingerprintNotFound: If fingerprint for a given file ID does not exists.
+
+    Returns:
+        Fingerprint: Fingerprint for a given file ID.
+    """
+    query = """
+        SELECT
+            Fingerprint { part1, part2, part3, part4, file: { id } }
+        FILTER
+            .file.id = <uuid>$file_id
+        LIMIT 1
+    """
+
+    try:
+        return from_db(await conn.query_required_single(query, file_id=file_id))
+    except edgedb.NoDataError as exc:
+        raise errors.FingerprintNotFound() from exc
+
+
 async def intersect_in_folder(
     conn: DBAnyConn,
     namespace: StrOrPath,

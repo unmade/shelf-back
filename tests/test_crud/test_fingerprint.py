@@ -90,9 +90,8 @@ async def test_create_batch(
 
     result = await tx.query("""
         SELECT Fingerprint { part1, part2, part3, part4, file: { id } }
-        FILTER .file.id IN {array_unpack(<array<uuid>>$file_ids)}
         ORDER BY .file.path ASC
-    """, file_ids=[file_a.id, file_b.id])
+    """)
 
     assert str(result[0].file.id) == file_a.id
     assert result[0].part1 == 36
@@ -162,6 +161,24 @@ async def test_delete_batch(
     objs = await tx.query(query)
     assert len(objs) == 1
     assert str(objs[0].file.id) == files[0].id
+
+
+async def test_get(
+    tx: DBTransaction,
+    namespace: Namespace,
+    file_factory: FileFactory,
+    fingerprint_factory: FingerprintFactory,
+):
+    ns_path = namespace.path
+    file = await file_factory(ns_path)
+    expected = await fingerprint_factory(file.id, 0, 0, 0, 0)
+    actual = await crud.fingerprint.get(tx, file_id=file.id)
+    assert actual == expected
+
+
+async def test_get_but_fingerprint_does_not_exists(tx: DBTransaction):
+    with pytest.raises(errors.FingerprintNotFound):
+        await crud.fingerprint.get(tx, file_id=uuid.uuid4())
 
 
 async def test_intersect_in_folder(

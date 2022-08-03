@@ -60,12 +60,10 @@ def _dhash_image_prepare_data(
     Returns:
         Sequence[int]: Downscaled greyscale image data.
     """
-    content.seek(0)
-
     with Image.open(content) as im:
         return (  # type: ignore
             im
             .convert("L")
-            .resize((width, height), Image.HAMMING)
+            .resize((width, height), Image.Resampling.HAMMING)
             .getdata()
         )

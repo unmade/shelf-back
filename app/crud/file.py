@@ -5,7 +5,7 @@ import time
 from os.path import join as joinpath
 from os.path import normpath
 from pathlib import PurePath
-from typing import TYPE_CHECKING, Any, Iterable, Iterator, cast
+from typing import TYPE_CHECKING, Any, AsyncIterator, Iterable, Iterator, cast
 
 import edgedb
 
@@ -537,6 +537,41 @@ async def get_many(
     )
 
     return [from_db(f) for f in files]
+
+
+async def iter_by_mediatypes(
+    conn: DBAnyConn,
+    namespace: StrOrPath,
+    mediatypes: Sequence[str],
+    *,
+    batch_size: int = 25,
+) -> AsyncIterator[list[File]]:
+    """
+    Iterate through files with a given mediatypes in batches.
+
+    Args:
+        conn (DBAnyConn): Database connection.
+        namespace (StrOrPath): Target namespace where files should be listed.
+        mediatypes (Iterable[str]): List of mediatypes that files should match.
+        size (int, optional): Batch size. Defaults to 25.
+
+    Returns:
+        AsyncIterator[list[File]]: None.
+
+    Yields:
+        Iterator[AsyncIterator[list[File]]]: Batch with files with a given mediatypes.
+    """
+    limit = batch_size
+    offset = -limit
+
+    while True:
+        offset += limit
+        files = await list_by_mediatypes(
+            conn, namespace, mediatypes, offset=offset, limit=limit
+        )
+        if not files:
+            return
+        yield files
 
 
 async def list_by_mediatypes(
