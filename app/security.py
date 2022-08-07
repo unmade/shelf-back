@@ -14,6 +14,7 @@ __all__ = [
     "TokenPayload",
     "create_access_token",
     "decode_token",
+    "is_strong_password",
     "make_password",
     "verify_password",
 ]
@@ -73,6 +74,24 @@ def decode_token(token: str) -> TokenPayload:
         return TokenPayload(**payload)
     except (jwt.JWTError, ValidationError):
         raise InvalidToken()
+
+
+def is_strong_password(password: str) -> bool:
+    """
+    Check if password is strong enough.
+
+    Args:
+        password (str): Plain-text password.
+
+    Returns:
+        bool: True if password is strong, False otherwise.
+    """
+    return (
+        len(password) >= 8
+        and any(c.isdigit() for c in password)
+        and any(c.isupper() for c in password)
+        and any(c.islower() for c in password)
+    )
 
 
 def make_password(password: str) -> str:
