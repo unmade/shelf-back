@@ -734,7 +734,7 @@ async def test_save_file_updates_parents_size(
 
 
 async def test_save_files_concurrently(db_client: DBClient, namespace: Namespace):
-    CONCURRENCY = 5
+    CONCURRENCY = 50
     parent = Path("a/b/c")
     paths = [parent / str(name) for name in range(CONCURRENCY)]
     files = [BytesIO(b"1") for _ in range(CONCURRENCY)]

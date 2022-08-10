@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import contextlib
 import itertools
 import os.path
 from collections import defaultdict, deque
@@ -9,6 +10,8 @@ from datetime import datetime
 from io import BytesIO
 from pathlib import PurePath
 from typing import IO, TYPE_CHECKING
+
+from edgedb import RetryOptions
 
 from app import config, crud, errors, hashes, mediatypes, metadata
 from app.entities import Account, File, Fingerprint, Namespace
@@ -489,7 +492,8 @@ async def save_file(
     parent = os.path.normpath(os.path.dirname(path))
 
     if not await crud.file.exists(db_client, namespace.path, parent):
-        await create_folder(db_client, namespace, parent)
+        with contextlib.suppress(errors.FileAlreadyExists):
+            await create_folder(db_client, namespace, parent)
 
     next_path = await crud.file.next_path(db_client, namespace.path, path)
 
@@ -499,6 +503,7 @@ async def save_file(
 
     storage_file = await storage.save(namespace.path, next_path, content)
 
+    db_client = db_client.with_retry_options(RetryOptions(10))
     async for tx in db_client.transaction():  # pragma: no branch
         async with tx:
             file = await crud.file.create(
