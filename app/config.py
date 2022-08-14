@@ -13,6 +13,13 @@ def _get_bool(key: str) -> bool:
     return False
 
 
+def _get_int_or_none(key: str) -> int | None:
+    value = os.getenv(key)
+    if value is not None:
+        return int(value)
+    return value
+
+
 def _get_list(key: str, default: list[str] | None = None) -> list[str]:
     value = os.getenv(key)
     if value is not None:
@@ -66,6 +73,7 @@ DATABASE_TLS_SECURITY = os.getenv("DATABASE_TLS_SECURITY")
 
 STORAGE_TYPE = StorageType(os.getenv("STORAGE_TYPE", "filesystem"))
 STORAGE_LOCATION = os.environ["STORAGE_LOCATION"]
+STORAGE_QUOTA = _get_int_or_none("STORAGE_QUOTA_PER_ACCOUNT_IN_BYTES")
 
 STORAGE_S3_ACCESS_KEY_ID = os.getenv("STORAGE_S3_ACCESS_KEY_ID")
 STORAGE_S3_SECRET_ACCESS_KEY = os.getenv("STORAGE_S3_SECRET_ACCESS_KEY")

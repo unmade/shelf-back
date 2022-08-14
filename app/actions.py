@@ -51,6 +51,7 @@ async def create_account(
     first_name: str = "",
     last_name: str = "",
     superuser: bool = False,
+    storage_quota: int | None = None,
 ) -> Account:
     """
     Create a new user, namespace, home and trash folders.
@@ -64,6 +65,8 @@ async def create_account(
         last_name (str, optional): Last name. Defaults to "".
         superuser (bool, optional): Whether user is super user or not. Defaults to
             False.
+        storage_quota (int | None, optional): Storage quota for the account. Use None
+            for the unlimited quota. Defaults to None.
 
     Raises:
         UserAlreadyExists: If user with this username or email already exists.
@@ -81,7 +84,12 @@ async def create_account(
             await crud.file.create_home_folder(tx, namespace.path)
             await crud.file.create_folder(tx, namespace.path, config.TRASH_FOLDER_NAME)
             account = await crud.account.create(
-                tx, username, email=email, first_name=first_name, last_name=last_name
+                tx,
+                username,
+                email=email,
+                first_name=first_name,
+                last_name=last_name,
+                storage_quota=storage_quota,
             )
     return account
 

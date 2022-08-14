@@ -17,4 +17,5 @@ pytest
 sentry-sdk
 typer
 types-orjson
+types-python-dateutil
 uvloop

@@ -4,8 +4,6 @@
 #
 #    pip-compile requirements/test.in
 #
-***REMOVED***
-
 amqp==5.1.1
     # via
     #   -c requirements/base.txt
@@ -52,13 +50,13 @@ click-repl==0.2.0
     # via
     #   -c requirements/base.txt
     #   celery
-coverage[toml]==6.4.2
+coverage[toml]==6.4.3
     # via pytest-cov
 deprecated==1.2.13
     # via
     #   -c requirements/base.txt
     #   redis
-faker==13.15.1
+faker==14.0.0
     # via -r requirements/test.in
 h11==0.12.0
     # via
@@ -111,7 +109,7 @@ python-dateutil==2.8.2
     # via
     #   -c requirements/base.txt
     #   faker
-pytz==2022.1
+pytz==2022.2.1
     # via
     #   -c requirements/base.txt
     #   celery

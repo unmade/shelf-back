@@ -96,6 +96,13 @@ async def test_get_current(client: TestClient, account: Account):
     assert response.status_code == 200
 
 
+async def test_get_space_usage(client: TestClient, account: Account):
+    response = await client.login(account.user.id).get("/accounts/get_space_usage")
+    assert response.json()["used"] == 0
+    assert response.json()["quota"] is None
+    assert response.status_code == 200
+
+
 async def test_list_all(
     client: TestClient,
     superuser: User,

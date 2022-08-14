@@ -11,7 +11,12 @@ from app.api.paginator import Page, PageParam, PageSizeParam, get_offset
 from app.entities import User
 
 from .exceptions import UserAlreadyExists
-from .schemas import Account, CreateAccountRequest, UpdateAccountRequest
+from .schemas import (
+    Account,
+    AccountSpaceUsage,
+    CreateAccountRequest,
+    UpdateAccountRequest,
+)
 
 router = APIRouter()
 
@@ -49,6 +54,16 @@ async def get_current(
     return Account.from_entity(
         await crud.account.get(db_client, user_id)
     )
+
+
+@router.get("/get_space_usage", response_model=AccountSpaceUsage)
+async def get_space_usage(
+    db_client: AsyncIOClient = Depends(deps.db_client),
+    user_id: str = Depends(deps.current_user_id),
+):
+    """Get the space usage information for the current account."""
+    used, quota = await crud.account.get_space_usage(db_client, user_id)
+    return AccountSpaceUsage(used=used, quota=quota)
 
 
 @router.get("/list_all", response_model=Page[Account])

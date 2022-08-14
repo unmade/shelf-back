@@ -4,7 +4,7 @@ from edgedb import AsyncIOClient
 from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 
-from app import actions, crud, errors, security
+from app import actions, config, crud, errors, security
 from app.api import deps
 
 from . import exceptions
@@ -45,6 +45,7 @@ async def sign_up(
             payload.username,
             payload.password,
             email=payload.email,
+            storage_quota=config.STORAGE_QUOTA,
         )
     except errors.UserAlreadyExists as exc:
         raise exceptions.UserAlreadyExists(str(exc)) from exc

@@ -68,7 +68,8 @@ async def test_add_bookmark_but_user_does_not_exists(
             "password": "psswd",
             "email": None,
             "first_name": "",
-            "last_name": ""
+            "last_name": "",
+            "storage_quota": None,
         },
     ),
     (
@@ -77,14 +78,16 @@ async def test_add_bookmark_but_user_does_not_exists(
             "password": "psswd",
             "email": "johndoe@example.com",
             "first_name": "John",
-            "last_name": "Doe"
+            "last_name": "Doe",
+            "storage_quota": 1024,
         },
         {
             "username": "johndoe",
             "password": "psswd",
             "email": "johndoe@example.com",
             "first_name": "John",
-            "last_name": "Doe"
+            "last_name": "Doe",
+            "storage_quota": 1024,
         },
     ),
 ])
@@ -99,6 +102,7 @@ async def test_create_account(db_client: DBClient, given, expected):
             email,
             first_name,
             last_name,
+            storage_quota,
             user: {
                 username,
                 password,

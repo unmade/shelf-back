@@ -5,6 +5,9 @@ module default {
         };
         required property first_name -> str;
         required property last_name -> str;
+        required property created_at -> datetime;
+
+        property storage_quota -> int64;
 
         required single link user -> User {
             on target delete DELETE SOURCE;

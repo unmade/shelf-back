@@ -1,4 +1,4 @@
-CREATE MIGRATION m1p4m22fjnytfhvnxksltcrdy76g73rhyovlgl6kthrmne3av25hja
+CREATE MIGRATION m1xyxi3so4hlsrouk5vrs75g425ym4ltum2rt7xjfl7w3obbhujwwa
     ONTO initial
 {
   CREATE TYPE default::MediaType {
@@ -7,11 +7,13 @@ CREATE MIGRATION m1p4m22fjnytfhvnxksltcrdy76g73rhyovlgl6kthrmne3av25hja
       };
   };
   CREATE TYPE default::Account {
+      CREATE REQUIRED PROPERTY created_at -> std::datetime;
       CREATE PROPERTY email -> std::str {
           CREATE CONSTRAINT std::exclusive;
       };
       CREATE REQUIRED PROPERTY first_name -> std::str;
       CREATE REQUIRED PROPERTY last_name -> std::str;
+      CREATE PROPERTY storage_quota -> std::int64;
   };
   CREATE TYPE default::User {
       CREATE REQUIRED PROPERTY password -> std::str;

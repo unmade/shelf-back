@@ -4,12 +4,14 @@ from typing import TYPE_CHECKING, TypedDict, cast, get_type_hints
 
 import edgedb
 
-from app import db, errors
+from app import db, errors, timezone
 from app.entities import Account
 
 from . import user
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from app.typedefs import DBAnyConn, StrOrUUID
 
 
@@ -48,7 +50,9 @@ async def create(
     *,
     email: str | None = None,
     first_name: str = "",
-    last_name: str = ""
+    last_name: str = "",
+    storage_quota: int | None = None,
+    created_at: datetime | None = None,
 ) -> Account:
     """
     Create new account for a user.
@@ -59,6 +63,9 @@ async def create(
         email (str | None, optional): Email. Defaults to None.
         first_name (str, optional): First name. Defaults to "".
         last_name (str, optional): Last name. Defaults to "".
+        storage_quota (int | None, optional): Storage quota. Defaults to None.
+        created_at (datetime | None, optional): Timezone-aware datetime of when this
+            account is created. If None, then the current datetime is used.
 
     Raises:
         errors.UserAlreadyExists: If email is already taken.
@@ -72,6 +79,8 @@ async def create(
                 email := <OPTIONAL str>$email,
                 first_name := <str>$first_name,
                 last_name := <str>$last_name,
+                storage_quota := <OPTIONAL int64>$storage_quota,
+                created_at := <datetime>$created_at,
                 user := (
                     SELECT
                         User
@@ -88,7 +97,9 @@ async def create(
             username=username,
             email=email,
             first_name=first_name,
-            last_name=last_name
+            last_name=last_name,
+            storage_quota=storage_quota,
+            created_at=created_at or timezone.now(),
         )
     except edgedb.ConstraintViolationError as exc:
         raise errors.UserAlreadyExists(f"Email '{email}' is taken") from exc
@@ -124,6 +135,42 @@ async def get(conn: DBAnyConn, user_id: StrOrUUID) -> Account:
         raise errors.UserNotFound(f"No account for user with id: {user_id}") from exc
 
     return from_db(account)
+
+
+async def get_space_usage(conn: DBAnyConn, user_id: StrOrUUID) -> tuple[int, int]:
+    query = """
+        WITH
+            namespaces := (
+                SELECT
+                    Namespace
+                FILTER
+                    .owner.id = <uuid>$user_id
+            ),
+            used := (
+                SELECT sum((
+                    SELECT
+                        File { size }
+                    FILTER
+                        .namespace IN namespaces
+                        AND
+                        .path = '.'
+                ).size)
+            ),
+            quota := (
+                SELECT
+                    Account { storage_quota }
+                FILTER
+                    .user.id = <uuid>$user_id
+                LIMIT 1
+            ).storage_quota,
+        SELECT {
+            used := used,
+            quota := quota
+        }
+    """
+
+    result = await conn.query_required_single(query, user_id=user_id)
+    return result.used, result.quota
 
 
 async def list_all(conn: DBAnyConn, *, offset: int, limit: int = 25) -> list[Account]:

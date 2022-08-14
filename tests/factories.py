@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from faker import Faker
 
-from app import config, crud, mediatypes, security
+from app import config, crud, mediatypes, security, timezone
 from app.entities import Account, Exif, File, FileMetadata, Fingerprint, Namespace, User
 from app.storage import storage
 
@@ -28,7 +28,8 @@ class AccountFactory:
         email: str | None = None,
         first_name: str = "",
         last_name: str = "",
-        user: User | None = None
+        storage_quota: int | None = None,
+        user: User | None = None,
     ) -> Account:
         if user is None:
             user = await UserFactory(self._db_conn)()
@@ -39,12 +40,14 @@ class AccountFactory:
                     email := <OPTIONAL str>$email,
                     first_name := <str>$first_name,
                     last_name := <str>$last_name,
+                    storage_quota := <OPTIONAL int64>$storage_quota,
+                    created_at := <datetime>$created_at,
                     user := (
                         SELECT
                             User
                         FILTER
                             .id = <uuid>$user_id
-                    )
+                    ),
                 }
             ) { id, email, first_name, last_name, user: { username, superuser } }
         """
@@ -56,6 +59,8 @@ class AccountFactory:
                 user_id=user.id,
                 first_name=first_name,
                 last_name=last_name,
+                storage_quota=storage_quota,
+                created_at=timezone.now(),
             )
         )
 

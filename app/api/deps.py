@@ -17,7 +17,7 @@ __all__ = [
     "superuser",
 ]
 
-reusable_oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/tokens", auto_error=False)
+reusable_oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/sign_in", auto_error=False)
 
 # This is just an alias to be consistent and import all deps from one place
 db_client = db.client

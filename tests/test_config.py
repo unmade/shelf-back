@@ -26,6 +26,19 @@ def test_get_bool(given: str | None, expected: bool):
 
 
 @pytest.mark.parametrize(
+    ["given", "expected"],
+    [
+        ("10", 10),
+        (None, None),
+    ],
+)
+def test_get_int_or_none(given: str | None, expected: bool):
+    with mock.patch("os.getenv", return_value=given):
+        value = config._get_int_or_none("DEBUG")
+    assert value == expected
+
+
+@pytest.mark.parametrize(
     ["given", "default", "expected"],
     [
         (None, None, []),
