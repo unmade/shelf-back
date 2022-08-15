@@ -87,6 +87,13 @@ class PathNotFound(FilesError):
         return self.message.format(path=path)
 
 
+class StorageQuotaExceeded(APIError):
+    status_code = 400
+    code = "STORAGE_QUOTA_EXCEEDED"
+    code_verbose = "Storage Quota Exceeded"
+    default_message = "Storage is full - consider removing files you don't need"
+
+
 class ThumbnailUnavailable(FilesError):
     status_code = 400
     code = "THUMBNAIL_UNAVAILABLE"

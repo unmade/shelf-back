@@ -11,7 +11,6 @@ import pytest
 from app import actions, crud, errors
 from app.entities import Exif
 from app.storage import storage
-from tests.factories import FileMetadataFactory
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -20,7 +19,13 @@ if TYPE_CHECKING:
 
     from app.entities import Namespace
     from app.typedefs import DBAnyConn, DBClient, StrOrUUID
-    from tests.factories import BookmarkFactory, FileFactory, FingerprintFactory
+    from tests.factories import (
+        AccountFactory,
+        BookmarkFactory,
+        FileFactory,
+        FileMetadataFactory,
+        FingerprintFactory,
+    )
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
 
@@ -812,3 +817,17 @@ async def test_save_file_but_path_is_a_file(
 
     with pytest.raises(errors.NotADirectory):
         await actions.save_file(db_client, namespace, f"{path}/dummy", file)
+
+
+async def test_save_file_but_quota_exceeded(
+    db_client: DBClient,
+    namespace: Namespace,
+    account_factory: AccountFactory,
+    file_factory: FileFactory,
+):
+    text = b"Dummy file"
+    content = BytesIO(bytes(text))
+    await account_factory(user=namespace.owner, storage_quota=len(text) * 2 - 1)
+    await file_factory(namespace.path, content=content)
+    with pytest.raises(errors.StorageQuotaExceeded):
+        await actions.save_file(db_client, namespace, "f.txt", content)

@@ -16,6 +16,7 @@ from app.api.files.exceptions import (
     MalformedPath,
     NotADirectory,
     PathNotFound,
+    StorageQuotaExceeded,
     ThumbnailUnavailable,
 )
 from app.entities import Exif, RelocationPath
@@ -23,7 +24,12 @@ from app.entities import Exif, RelocationPath
 if TYPE_CHECKING:
     from app.entities import FileTaskResult, Namespace
     from tests.conftest import TestClient
-    from tests.factories import FileFactory, FileMetadataFactory, FingerprintFactory
+    from tests.factories import (
+        AccountFactory,
+        FileFactory,
+        FileMetadataFactory,
+        FingerprintFactory,
+    )
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
 
@@ -863,4 +869,24 @@ async def test_upload_but_path_is_a_file(
     client.login(namespace.owner.id)
     response = await client.post("/files/upload", files=payload)  # type: ignore
     assert response.json() == NotADirectory(path=f"{file.path}/dummy").as_dict()
+    assert response.status_code == 400
+
+
+async def test_upload_but_storage_quota_is_exceeded(
+    client: TestClient,
+    namespace: Namespace,
+    account_factory: AccountFactory,
+    file_factory: FileFactory,
+):
+    text = b"Dummy file"
+    content = BytesIO(text)
+    await account_factory(user=namespace.owner, storage_quota=len(text) * 2 - 1)
+    await file_factory(namespace.path, content=content)
+    payload = {
+        "file": content,
+        "path": (None, b"folder/file.txt"),
+    }
+    client.login(namespace.owner.id)
+    response = await client.post("/files/upload", files=payload)  # type: ignore
+    assert response.json() == StorageQuotaExceeded().as_dict()
     assert response.status_code == 400

@@ -14,6 +14,7 @@ class ErrorCode(str, enum.Enum):
     is_a_directory = "is_a_directory"
     missing_parent = "missing_parent"
     not_a_directory = "not_a_directory"
+    storage_quota_exceeded = "storage_quota_exceeded"
 
 
 class Error(Exception):
@@ -60,6 +61,10 @@ class NamespaceNotFound(Exception):
 
 class NotADirectory(Error):
     code = ErrorCode.not_a_directory
+
+
+class StorageQuotaExceeded(Error):
+    code = ErrorCode.storage_quota_exceeded
 
 
 class ThumbnailUnavailable(Exception):

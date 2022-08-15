@@ -493,19 +493,24 @@ async def save_file(
 
     Raises:
         NotADirectory: If one of the path parents is not a folder.
+        StorageQuotaExceeded: If storage quota exceeded.
 
     Returns:
         File: Saved file.
     """
-    parent = os.path.normpath(os.path.dirname(path))
+    used, quota = await crud.account.get_space_usage(db_client, namespace.owner.id)
+    size = content.seek(0, 2)
+    if quota is not None and (used + size) > quota:
+        raise errors.StorageQuotaExceeded()
 
+    parent = os.path.normpath(os.path.dirname(path))
     if not await crud.file.exists(db_client, namespace.path, parent):
         with contextlib.suppress(errors.FileAlreadyExists):
             await create_folder(db_client, namespace, parent)
 
     next_path = await crud.file.next_path(db_client, namespace.path, path)
-
     mediatype = mediatypes.guess(next_path, content)
+
     dhash = hashes.dhash(content, mediatype=mediatype)
     meta = metadata.load(content, mediatype=mediatype)
 

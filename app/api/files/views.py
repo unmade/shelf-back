@@ -432,6 +432,8 @@ async def upload_file(
         upload = await actions.save_file(db_client, namespace, path, file.file)
     except errors.NotADirectory as exc:
         raise exceptions.NotADirectory(path=path) from exc
+    except errors.StorageQuotaExceeded as exc:
+        raise exceptions.StorageQuotaExceeded() from exc
 
     updates = await crud.file.get_many(db_client, namespace.path, parents)
 
