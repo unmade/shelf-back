@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from app import actions, crud, errors
+from app import actions, crud, errors, mediatypes
 from app.entities import Exif
 from app.storage import storage
 
@@ -831,3 +831,16 @@ async def test_save_file_but_quota_exceeded(
     await file_factory(namespace.path, content=content)
     with pytest.raises(errors.StorageQuotaExceeded):
         await actions.save_file(db_client, namespace, "f.txt", content)
+
+
+async def test_save_file_with_text_content_but_image_like_extension(
+    db_client: DBClient,
+    namespace: Namespace,
+):
+    path = "img.jpg"
+    content = BytesIO(b"I'm not an image")
+    file = await actions.save_file(db_client, namespace, path, content)
+    assert file.mediatype == mediatypes.OCTET_STREAM
+    assert await crud.metadata.exists(db_client, file_id=file.id) is False
+    with pytest.raises(errors.FingerprintNotFound):
+        assert await crud.fingerprint.get(db_client, file_id=file.id) is None

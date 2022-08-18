@@ -41,30 +41,50 @@ IMAGES = {
 }
 
 
-def guess(name: StrOrPath, file: bytes | IO[bytes] | None = None) -> str:
+# from filetype.types import TYPES
+
+
+def _get_strict_mediatypes() -> set[str]:
+    return {
+        tp.MIME
+        for tp in filetype.TYPES
+    }
+
+
+_STRICT_MEDIATYPES = _get_strict_mediatypes()
+
+
+def guess(
+    name: StrOrPath,
+    content: bytes | IO[bytes] | None = None,
+    unsafe: bool = False,
+) -> str:
     """
     Guess file media type.
 
-    If optional ``file`` argument is provided, then try to guess media type by checking
-    the magic number signature, otherwise fallback to the filename extension.
+    If optional ``content`` argument is provided, then try to guess media type by
+    checking the magic number signature, otherwise fallback to the filename extension.
 
     Args:
         name (StrOrPath): Filename or path.
-        file (bytes | IO[bytes | None, optional): File-obj. Defaults to None.
+        content (bytes | IO[bytes | None, optional): File-obj. Defaults to None.
+        unsafe (bool, optional): Whether to allow fallback to filename extension for
+            types that can be identified by magic number signature. Defaults to False.
 
     Returns:
         str: Guessed media type. For unknown files returns 'application/octet-stream'.
     """
-    if mime := filetype.guess_mime(file):
+    if mime := filetype.guess_mime(content):
         return cast(str, mime)
 
-    if mime := mimetypes.guess_type(name, strict=False):
-        if isinstance(mime, str):
-            return mime
-        if mime[0] is not None:
-            return mime[0]
+    mime, _ = mimetypes.guess_type(name, strict=False)
+    if not unsafe and mime in _STRICT_MEDIATYPES:
+        return OCTET_STREAM
 
-    return OCTET_STREAM
+    if mime is None:
+        return OCTET_STREAM
+
+    return cast(str, mime)
 
 
 def is_image(mediatype: str) -> bool:

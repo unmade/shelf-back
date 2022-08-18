@@ -373,7 +373,7 @@ async def reindex(db_client: DBClient, namespace: Namespace) -> None:
                 mediatype = mediatypes.FOLDER
             else:
                 size = file.size
-                mediatype = mediatypes.guess(file.name)
+                mediatype = mediatypes.guess(file.name, unsafe=True)
 
             missing.append(
                 File(
