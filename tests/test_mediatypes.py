@@ -1,10 +1,14 @@
+from __future__ import annotations
+
+from io import BytesIO
+
 import pytest
 
 from app import mediatypes
 
 
 def test_guess_based_on_file_content() -> None:
-    jpeg_header = b'\xff\xd8\xff\xe0\x00\x10'
+    jpeg_header = BytesIO(b'\xff\xd8\xff\xe0\x00\x10')
     assert mediatypes.guess("image", content=jpeg_header) == "image/jpeg"
 
 
@@ -13,7 +17,8 @@ def test_guess_based_on_filename() -> None:
 
 
 def test_guess_based_on_file_content_with_fallback_to_filename() -> None:
-    assert mediatypes.guess("f.txt", content=b"dummy") == "text/plain"
+    content = BytesIO(b"dummy")
+    assert mediatypes.guess("f.txt", content=content) == "text/plain"
 
 
 @pytest.mark.parametrize(["unsafe", "expected"], [

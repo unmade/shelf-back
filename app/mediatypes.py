@@ -56,7 +56,7 @@ _STRICT_MEDIATYPES = _get_strict_mediatypes()
 
 def guess(
     name: StrOrPath,
-    content: bytes | IO[bytes] | None = None,
+    content: IO[bytes] | None = None,
     unsafe: bool = False,
 ) -> str:
     """
@@ -67,13 +67,16 @@ def guess(
 
     Args:
         name (StrOrPath): Filename or path.
-        content (bytes | IO[bytes | None, optional): File-obj. Defaults to None.
+        content (IO[bytes | None, optional): File-obj. Defaults to None.
         unsafe (bool, optional): Whether to allow fallback to filename extension for
             types that can be identified by magic number signature. Defaults to False.
 
     Returns:
         str: Guessed media type. For unknown files returns 'application/octet-stream'.
     """
+    if content is not None:
+        content.seek(0)
+
     if mime := filetype.guess_mime(content):
         return cast(str, mime)
 

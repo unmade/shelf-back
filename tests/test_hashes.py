@@ -13,6 +13,11 @@ def test_dhash_for_image():
         assert hashes.dhash(im, mediatype="image/jpeg")
 
 
+def test_dhash_but_image_is_broken():
+    content = BytesIO(b"Dummy content")
+    assert hashes.dhash(content, mediatype="image/jpeg") is None
+
+
 def test_dhash_but_mediatype_is_unsupported():
     assert hashes.dhash(BytesIO(b"Hello, world"), mediatype="plain/text") is None
 
@@ -31,3 +36,9 @@ def test_dhash_image(name_a, name_b, delta):
         hash_b = hashes.dhash_image(image_b)
 
     assert (hash_a ^ hash_b).bit_count() == delta
+
+
+def test_dhash_image_but_content_is_broken():
+    content = BytesIO(b"Dummy content")
+    with pytest.raises(hashes.UnhashableContent):
+        hashes.dhash_image(content)

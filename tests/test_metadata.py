@@ -56,3 +56,8 @@ def test_getexif_when_exif_is_partial() -> None:
 
 def test_getexif_when_there_is_no_exif(image_content: BytesIO):
     assert metadata._getexif(image_content) is None
+
+
+def test_getexif_when_content_is_broken():
+    content = BytesIO(b"Dummy content")
+    assert metadata._getexif(content) is None

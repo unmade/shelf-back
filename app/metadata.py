@@ -4,7 +4,7 @@ from datetime import datetime
 from fractions import Fraction
 from typing import IO, TYPE_CHECKING
 
-from PIL import ExifTags, Image
+from PIL import ExifTags, Image, UnidentifiedImageError
 
 from app import mediatypes
 from app.entities import Exif
@@ -40,8 +40,11 @@ def _getexif(content: IO[bytes]) -> Exif | None:
     Returns:
         Exif | None: None if there is no EXIF in the content, otherwise Exif.
     """
-    with Image.open(content) as im:
-        raw_exif = im._getexif()
+    try:
+        with Image.open(content) as im:
+            raw_exif = im._getexif()
+    except UnidentifiedImageError:
+        return None
 
     if not raw_exif:
         return None

@@ -2,12 +2,16 @@ from __future__ import annotations
 
 from typing import IO, TYPE_CHECKING
 
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 
 from app import mediatypes
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+
+class UnhashableContent(Exception):
+    """Difference hash cannot be calculated for a given content."""
 
 
 def dhash(content: IO[bytes], mediatype: str) -> int | None:
@@ -17,8 +21,11 @@ def dhash(content: IO[bytes], mediatype: str) -> int | None:
     Returns:
         int, optional: None if mediatype is unsupported, otherwise - a difference hash.
     """
-    if mediatypes.is_image(mediatype):
-        return dhash_image(content)
+    try:
+        if mediatypes.is_image(mediatype):
+            return dhash_image(content)
+    except UnhashableContent:
+        return None
     return None
 
 
@@ -60,10 +67,13 @@ def _dhash_image_prepare_data(
     Returns:
         Sequence[int]: Downscaled greyscale image data.
     """
-    with Image.open(content) as im:
-        return (  # type: ignore
-            im
-            .convert("L")
-            .resize((width, height), Image.Resampling.HAMMING)
-            .getdata()
-        )
+    try:
+        with Image.open(content) as im:
+            return (  # type: ignore
+                im
+                .convert("L")
+                .resize((width, height), Image.Resampling.HAMMING)
+                .getdata()
+            )
+    except UnidentifiedImageError as exc:
+        raise UnhashableContent() from exc
