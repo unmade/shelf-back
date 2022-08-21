@@ -78,6 +78,12 @@ class File(BaseModel):
         return mediatypes.is_image(values["mediatype"])
 
 
+class PathParam(BaseModel):
+    __root__: str
+
+    _normalize_path = validator("__root__", allow_reuse=True)(_normalize)
+
+
 class PathRequest(BaseModel):
     path: str
 

@@ -832,16 +832,26 @@ async def test_move_to_trash_batch(
     assert results[0].file.path.startswith("Trash/")
 
 
-async def test_upload(client: TestClient, namespace: Namespace):
+@pytest.mark.parametrize(["path", "expected_path", "updates_count"], [
+    (b"folder/file.txt", "folder/file.txt", 2),
+    (b"./f.txt", "f.txt", 1),
+])
+async def test_upload(
+    client: TestClient,
+    namespace: Namespace,
+    path: str,
+    expected_path: str,
+    updates_count: int,
+):
     payload = {
         "file": BytesIO(b"Dummy file"),
-        "path": (None, b"folder/file.txt"),
+        "path": (None, path),
     }
     client.login(namespace.owner.id)
     response = await client.post("/files/upload", files=payload)  # type: ignore
     assert response.status_code == 200
-    assert response.json()["file"]["path"] == "folder/file.txt"
-    assert len(response.json()["updates"]) == 2
+    assert response.json()["file"]["path"] == expected_path
+    assert len(response.json()["updates"]) == updates_count
 
 
 async def test_upload_but_to_a_special_path(client: TestClient, namespace: Namespace):

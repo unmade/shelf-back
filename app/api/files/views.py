@@ -418,20 +418,23 @@ def move_to_trash_batch(
 @router.post("/upload", response_model=schemas.UploadResult)
 async def upload_file(
     file: UploadFile = FileParam(...),
-    path: str = Form(...),
+    path: schemas.PathParam = Form(...),
     db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
 ):
-    """Upload file to a specified path."""
-    if path == config.TRASH_FOLDER_NAME:
+    """Upload file to the specified path."""
+    filepath = path.__root__
+    del path
+
+    if filepath == config.TRASH_FOLDER_NAME:
         raise exceptions.MalformedPath("Uploads to the Trash are not allowed")
 
-    parents = Path(path).parents
+    parents = Path(filepath).parents
 
     try:
-        upload = await actions.save_file(db_client, namespace, path, file.file)
+        upload = await actions.save_file(db_client, namespace, filepath, file.file)
     except errors.NotADirectory as exc:
-        raise exceptions.NotADirectory(path=path) from exc
+        raise exceptions.NotADirectory(path=filepath) from exc
     except errors.StorageQuotaExceeded as exc:
         raise exceptions.StorageQuotaExceeded() from exc
 
