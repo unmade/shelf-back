@@ -4,6 +4,8 @@ from datetime import datetime
 from importlib import resources
 from io import BytesIO
 
+import pytest
+
 from app import metadata
 from app.entities import Exif
 
@@ -16,42 +18,59 @@ def test_load_metadata_but_mediatype_is_not_supported():
     assert metadata.load(BytesIO(b"Hello, world"), mediatype="plain/text") is None
 
 
-def test_getexif_when_exif_is_normal() -> None:
-    name = "exif_iphone_with_hdr_on.jpeg"
+@pytest.mark.parametrize(["name", "expected"], [
+    (
+        "exif_iphone_with_hdr_on.jpeg",
+        Exif(
+            type="exif",
+            make="Apple",
+            model="iPhone 6",
+            fnumber="2.2",
+            exposure="1/40",
+            iso="32",
+            dt_original=datetime(2015, 4, 10, 20, 12, 23).timestamp(),
+            dt_digitized=datetime(2015, 4, 10, 20, 12, 23).timestamp(),
+            height=1,
+            width=1,
+        ),
+    ),
+    (
+        "exif_partial.png",
+        Exif(
+            type="exif",
+            make=None,
+            model=None,
+            fnumber=None,
+            exposure=None,
+            iso=None,
+            dt_original=None,
+            dt_digitized=None,
+            height=1,
+            width=1,
+        ),
+    ),
+    (
+        "exif_nullterminated.jpg",
+        Exif(
+            type="exif",
+            make="Phase One A/S",
+            model="IQ3 100MP",
+            fnumber="16.0",
+            exposure="5",
+            iso="50",
+            dt_original=datetime(2017, 12, 29, 11, 2, 22).timestamp(),
+            dt_digitized=datetime(2017, 12, 29, 11, 2, 22).timestamp(),
+            height=1,
+            width=1,
+        ),
+    ),
+
+])
+def test_getexif(name: str, expected: Exif):
     with resources.open_binary("tests.data.images", name) as content:
-        exif = metadata._getexif(content)
+        actual = metadata._getexif(content)
 
-    assert exif == Exif(
-        type="exif",
-        make="Apple",
-        model="iPhone 6",
-        fnumber="2.2",
-        exposure="1/40",
-        iso="32",
-        dt_original=datetime(2015, 4, 10, 20, 12, 23).timestamp(),
-        dt_digitized=datetime(2015, 4, 10, 20, 12, 23).timestamp(),
-        height=1,
-        width=1,
-    )
-
-
-def test_getexif_when_exif_is_partial() -> None:
-    name = "exif_partial.png"
-    with resources.open_binary("tests.data.images", name) as content:
-        exif = metadata._getexif(content)
-
-    assert exif == Exif(
-        type="exif",
-        make=None,
-        model=None,
-        fnumber=None,
-        exposure=None,
-        iso=None,
-        dt_original=None,
-        dt_digitized=None,
-        height=1,
-        width=1,
-    )
+    assert actual == expected
 
 
 def test_getexif_when_there_is_no_exif(image_content: BytesIO):

@@ -57,8 +57,8 @@ def _getexif(content: IO[bytes]) -> Exif | None:
 
     return Exif(
         type="exif",
-        make=exif.get("Make"),
-        model=exif.get("Model"),
+        make=_get_str_or_none(exif.get("Make")),
+        model=_get_str_or_none(exif.get("Model")),
         fnumber=_get_str_or_none(exif.get("FNumber")),
         exposure=_get_exposure(exif.get("ExposureTime")),
         iso=_get_str_or_none(exif.get("ISOSpeedRatings")),
@@ -72,13 +72,13 @@ def _getexif(content: IO[bytes]) -> Exif | None:
 def _get_str_or_none(value) -> str | None:
     if not value:
         return None
-    return str(value)
+    return str(value).strip("\x00")
 
 
 def _get_timestamp(value: str | None) -> float | None:
     if not value:
         return None
-    return datetime.strptime(value, "%Y:%m:%d %H:%M:%S").timestamp()
+    return datetime.strptime(value.strip("\x00"), "%Y:%m:%d %H:%M:%S").timestamp()
 
 
 def _get_exposure(value: IFDRational | None) -> str | None:
