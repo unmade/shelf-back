@@ -50,13 +50,13 @@ click-repl==0.2.0
     # via
     #   -c requirements/base.txt
     #   celery
-coverage[toml]==6.4.3
+coverage[toml]==6.4.4
     # via pytest-cov
 deprecated==1.2.13
     # via
     #   -c requirements/base.txt
     #   redis
-faker==14.0.0
+faker==14.2.0
     # via -r requirements/test.in
 h11==0.12.0
     # via
@@ -84,7 +84,7 @@ packaging==21.3
     #   redis
 pluggy==1.0.0
     # via pytest
-prompt-toolkit==3.0.30
+prompt-toolkit==3.0.31
     # via
     #   -c requirements/base.txt
     #   click-repl
@@ -94,7 +94,7 @@ pyparsing==3.0.9
     # via
     #   -c requirements/base.txt
     #   packaging
-pytest==7.1.2
+pytest==7.1.3
     # via
     #   -r requirements/test.in
     #   pytest-asyncio
@@ -124,7 +124,7 @@ six==1.16.0
     #   -c requirements/base.txt
     #   click-repl
     #   python-dateutil
-sniffio==1.2.0
+sniffio==1.3.0
     # via
     #   -c requirements/base.txt
     #   anyio

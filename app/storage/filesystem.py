@@ -1,20 +1,21 @@
 from __future__ import annotations
 
+import datetime
 import glob
 import os
 import os.path
 import shutil
 from io import BytesIO
-from typing import IO, TYPE_CHECKING, Iterator
+from typing import IO, TYPE_CHECKING, Iterator, cast
 
-import zipfly
+import stream_zip
 from asgiref.sync import sync_to_async
 from PIL import Image, UnidentifiedImageError
 from PIL.ImageOps import exif_transpose
 
 from app import errors
 
-from .base import Storage, StorageFile
+from .base import Storage, StorageFile, StreamZipFile
 
 if TYPE_CHECKING:
     from app.typedefs import StrOrPath
@@ -79,19 +80,36 @@ class FileSystemStorage(Storage):
 
     def download(self, ns_path: StrOrPath, path: StrOrPath) -> Iterator[bytes]:
         fullpath = self._joinpath(self.location, ns_path, path)
-        pathnames = glob.iglob(self._joinpath(fullpath, "**/*"), recursive=True)
-        if os.path.isdir(fullpath):
-            paths = [
-                {
-                    "fs": pathname,
-                    "n": os.path.relpath(pathname, fullpath),
-                }
-                for pathname in pathnames
-                if os.path.isfile(pathname)
-            ]
-            return zipfly.ZipFly(paths=paths).generator()  # type: ignore
-
+        file = self._from_path(ns_path, fullpath)
+        if file.is_dir():
+            raise errors.FileNotFound()
         return self._readchunks(fullpath)
+
+    def downloaddir(self, ns_path: StrOrPath, path: StrOrPath) -> Iterator[bytes]:
+        return cast(
+            Iterator[bytes],
+            stream_zip.stream_zip(self._downloaddir_iter(ns_path, path))
+        )
+
+    def _downloaddir_iter(
+        self,
+        ns_path: StrOrPath,
+        path: StrOrPath,
+    ) -> Iterator[StreamZipFile]:
+        fullpath = self._joinpath(self.location, ns_path, path)
+        pathnames = glob.iglob(self._joinpath(fullpath, "**/*"), recursive=True)
+        for pathname in pathnames:
+            file = self._from_path(ns_path, pathname)
+            if file.is_dir():
+                continue
+            with open(pathname, "rb") as content:
+                yield StreamZipFile(
+                    path=os.path.relpath(file.path, path),
+                    modified_at=datetime.datetime.fromtimestamp(file.mtime),
+                    perms=0o600,
+                    compression=stream_zip.ZIP_32,
+                    content=content,
+                )
 
     @sync_to_async
     def exists(self, ns_path: StrOrPath, path: StrOrPath) -> bool:

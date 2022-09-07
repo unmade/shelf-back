@@ -105,13 +105,15 @@ async def download(
             "Content-Disposition": f'attachment; filename="{filename}.zip"',
             "Content-Type": "attachment/zip",
         }
+        storage_download = storage.downloaddir
     else:
         headers = {
             "Content-Disposition": f'attachment; filename="{filename}"',
             "Content-Length": str(file.size),
             "Content-Type": file.mediatype,
         }
-    return StreamingResponse(storage.download(ns_path, path), headers=headers)
+        storage_download = storage.download
+    return StreamingResponse(storage_download(ns_path, path), headers=headers)
 
 
 @router.post("/download")
@@ -136,14 +138,16 @@ async def download_xhr(
             "Content-Disposition": f'attachment; filename="{filename}.zip"',
             "Content-Type": "attachment/zip",
         }
+        storage_download = storage.downloaddir
     else:
         headers = {
             "Content-Disposition": f'attachment; filename="{filename}"',
             "Content-Length": str(file.size),
             "Content-Type": file.mediatype,
         }
+        storage_download = storage.download
 
-    attachment = storage.download(namespace.path, payload.path)
+    attachment = storage_download(namespace.path, payload.path)
     if file.is_folder() or file.size > config.APP_MAX_DOWNLOAD_WITHOUT_STREAMING:
         return StreamingResponse(attachment, headers=headers)
 

@@ -4,9 +4,10 @@ import datetime
 import os
 import os.path
 from io import BytesIO
-from typing import IO, TYPE_CHECKING, Iterator
+from typing import IO, TYPE_CHECKING, Iterator, cast
 
 import boto3
+import stream_zip
 from asgiref.sync import sync_to_async
 from botocore.client import Config
 from botocore.exceptions import ClientError
@@ -15,7 +16,7 @@ from PIL.ImageOps import exif_transpose
 
 from app import config, errors
 
-from .base import Storage, StorageFile
+from .base import Storage, StorageFile, StreamZipFile
 
 if TYPE_CHECKING:
     from app.typedefs import StrOrPath
@@ -74,6 +75,35 @@ class S3Storage(Storage):
             raise
 
         return self._readchunks(obj["Body"])
+
+    def downloaddir(self, ns_path: StrOrPath, path: StrOrPath) -> Iterator[bytes]:
+        return cast(
+            Iterator[bytes],
+            stream_zip.stream_zip(self._downloaddir_iter(ns_path, path))
+        )
+
+    def _downloaddir_iter(
+        self,
+        ns_path: StrOrPath,
+        path: StrOrPath,
+    ) -> Iterator[StreamZipFile]:
+        ns_path = str(ns_path)
+        fullpath = self._joinpath(ns_path, path)
+        prefix = f"{fullpath}/"
+
+        paginator = self.s3.meta.client.get_paginator("list_objects")
+        pages = paginator.paginate(Bucket=self.bucket_name, Prefix=prefix)
+        for page in pages:
+            for entry in page.get("Contents", ()):
+                if entry["Key"] != prefix:
+                    obj = self.s3.Object(self.bucket_name, entry["Key"]).get()
+                    yield StreamZipFile(
+                        path=os.path.relpath(entry["Key"], fullpath),
+                        modified_at=entry["LastModified"],
+                        perms=0o600,
+                        compression=stream_zip.ZIP_32,
+                        content=obj["Body"],
+                    )
 
     @sync_to_async
     def exists(self, ns_path: StrOrPath, path: StrOrPath) -> bool:

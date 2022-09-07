@@ -35,6 +35,8 @@ def file_factory(tmp_path: Path):
     ) -> Path:
         fullpath = tmp_path / path
         fullpath.parent.mkdir(parents=True, exist_ok=True)
+        if str(path)[-1] == "/":
+            return fullpath
         with open(fullpath, 'wb') as buffer:
             shutil.copyfileobj(content, buffer)
 
@@ -84,7 +86,7 @@ async def test_deletedir_but_dir_does_not_exist(fs_storage: FileSystemStorage):
     await fs_storage.delete("user", "a")
 
 
-async def test_download_file(file_factory, fs_storage: FileSystemStorage):
+async def test_download(file_factory, fs_storage: FileSystemStorage):
     await file_factory("user/f.txt")
     buffer = BytesIO()
     for chunk in fs_storage.download("user", "f.txt"):
@@ -93,21 +95,39 @@ async def test_download_file(file_factory, fs_storage: FileSystemStorage):
     assert buffer.read() == b"I'm Dummy File!"
 
 
-async def test_download_folder(file_factory, fs_storage: FileSystemStorage):
+async def test_download_but_it_is_a_dir(file_factory, fs_storage: FileSystemStorage):
+    await file_factory("user/a/f.txt")
+    with pytest.raises(errors.FileNotFound):
+        fs_storage.download("user", "a")
+
+
+async def test_downloaddir(file_factory, fs_storage: FileSystemStorage):
     await file_factory("user/a/x.txt", content=BytesIO(b"Hello"))
     await file_factory("user/a/y.txt", content=BytesIO(b"World"))
+    await file_factory("user/a/c/f.txt", content=BytesIO(b"!"))
+    await file_factory("user/b/z.txt")
 
-    await file_factory("user/a/b/z.txt", content=BytesIO(b"!"))
     buffer = BytesIO()
-    for chunk in fs_storage.download("user", "a"):
+    for chunk in fs_storage.downloaddir("user", "a"):
         buffer.write(chunk)
     buffer.seek(0)
 
     with ZipFile(buffer, "r") as archive:
-        assert sorted(archive.namelist()) == sorted(["x.txt", "y.txt", "b/z.txt"])
+        assert set(archive.namelist()) == set(["x.txt", "y.txt", "c/f.txt"])
         assert archive.read("x.txt") == b"Hello"
         assert archive.read("y.txt") == b"World"
-        assert archive.read("b/z.txt") == b"!"
+        assert archive.read("c/f.txt") == b"!"
+
+
+async def test_downloaddir_on_empty_dir(file_factory, fs_storage: FileSystemStorage):
+    await file_factory("user/empty_dir/", content=b"")
+    buffer = BytesIO()
+    for chunk in fs_storage.downloaddir("user", "empty_dir"):
+        buffer.write(chunk)
+    buffer.seek(0)
+
+    with ZipFile(buffer, "r") as archive:
+        assert archive.namelist() == []
 
 
 async def test_exists(file_factory, fs_storage: FileSystemStorage):

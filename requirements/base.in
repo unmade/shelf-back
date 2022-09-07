@@ -17,8 +17,8 @@ pydantic[email]
 python-dateutil
 python-jose[cryptography]
 python-multipart
-sentry-sdk
+sentry-sdk==1.9.4  # version 1.9.8 leads to maximum recursion depth
+stream-zip
 typer
 uvicorn[standard]
 uvloop
-zipfly

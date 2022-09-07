@@ -1,10 +1,22 @@
 from __future__ import annotations
 
 import abc
-from typing import IO, TYPE_CHECKING, Iterator
+import datetime
+from io import IOBase
+from typing import IO, TYPE_CHECKING, Iterator, NamedTuple
+
+from stream_zip import NO_COMPRESSION_32, NO_COMPRESSION_64, ZIP_32, ZIP_64
 
 if TYPE_CHECKING:
     from app.typedefs import StrOrPath
+
+
+class StreamZipFile(NamedTuple):
+    path: str
+    modified_at: datetime.datetime
+    perms: int
+    compression: NO_COMPRESSION_32 | NO_COMPRESSION_64 | ZIP_32 | ZIP_64
+    content: IOBase
 
 
 class StorageFile:
@@ -77,8 +89,23 @@ class Storage:
     @abc.abstractmethod
     def download(self, ns_path: StrOrPath, path: StrOrPath) -> Iterator[bytes]:
         """
-        Return an iterator over a file content. If a file is a folder, then it will be
-        be a zip archive.
+        Return an iterator over a file content.
+
+        Args:
+            ns_path (StrOrPath): Namespace path.
+            path (StrOrPath): File pathname relative to namespace.
+
+        Raises:
+            FileNotFound: If path not found or path is a directory.
+
+        Yields:
+            Iterator[bytes]: Iterator to a file content.
+        """
+
+    @abc.abstractmethod
+    def downloaddir(self, ns_path: StrOrPath, path: StrOrPath) -> Iterator[bytes]:
+        """
+        Return an iterator over a zipped folder content.
 
         Args:
             ns_path (StrOrPath): Namespace path.
