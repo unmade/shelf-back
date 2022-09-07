@@ -245,7 +245,8 @@ async def get_download_url(
     key = secrets.token_urlsafe()
     await cache.set(key=key, value=f"{namespace.path}:{file.path}", expire=60)
 
-    return {"download_url": f"{request.base_url}files/download?key={key}"}
+    download_url = request.url_for("download")
+    return {"download_url": f"{download_url}?key={key}"}
 
 
 @router.post("/get_content_metadata", response_model=schemas.GetContentMetadataResponse)

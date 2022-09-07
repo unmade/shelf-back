@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import secrets
+import urllib.parse
 from io import BytesIO
 from typing import TYPE_CHECKING
 
@@ -414,8 +415,10 @@ async def test_get_download_url(
     download_url = response.json()["download_url"]
     assert download_url.startswith(str(client.base_url))
     assert response.status_code == 200
-    key = download_url[download_url.index("=") + 1:]
-    value = await cache.get(key)
+    parts = urllib.parse.urlsplit(download_url)
+    qs = urllib.parse.parse_qs(parts.query)
+    assert len(qs["key"]) == 1
+    value = await cache.get(qs["key"][0])
     assert value == f"{namespace.path}:{file.path}"
 
 
