@@ -72,7 +72,7 @@ def _dhash_image_prepare_data(
             return (  # type: ignore
                 im
                 .convert("L")
-                .resize((width, height), Image.Resampling.HAMMING)
+                .resize((width, height), Image.HAMMING)
                 .getdata()
             )
     except UnidentifiedImageError as exc:
