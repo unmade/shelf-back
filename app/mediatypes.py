@@ -90,6 +90,11 @@ def guess(
     return cast(str, mime)
 
 
+def has_thumbnail(mediatype: str) -> bool:
+    """True if thumbnail available for given mediatype, otherwise False."""
+    return mediatype in IMAGES
+
+
 def is_image(mediatype: str) -> bool:
     """True if mediatype corresponds to an image file, otherwise False."""
     return mediatype in IMAGES

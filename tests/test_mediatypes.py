@@ -33,6 +33,14 @@ def test_guess_but_filename_does_not_have_suffix() -> None:
     assert mediatypes.guess("f") == mediatypes.OCTET_STREAM
 
 
+@pytest.mark.parametrize(["mediatype", "available"], [
+    ("image/jpeg", True),
+    ("plain/text", False),
+])
+def test_has_thumbnail(mediatype: str, available: bool):
+    assert mediatypes.has_thumbnail(mediatype) is available
+
+
 @pytest.mark.parametrize(["mediatype", "image"], [
     ("image/jpeg", True),
     ("image/png", True),

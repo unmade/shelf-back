@@ -187,6 +187,24 @@ class FingerprintFactory:
         )
 
 
+class FolderFactory:
+    __slots__ = ["_db_conn"]
+
+    def __init__(self, db_conn: DBAnyConn) -> None:
+        self._db_conn = db_conn
+
+    async def __call__(
+        self,
+        ns_path: StrOrPath,
+        path: StrOrPath = None,
+    ) -> File:
+        path = path or fake.unique.word()
+
+        await storage.makedirs(ns_path, path)
+        await crud.file.create_folder(self._db_conn, ns_path, path)
+        return await crud.file.get(self._db_conn, ns_path, path)
+
+
 class MediaTypeFactory:
     __slots__ = ["_db_conn"]
 

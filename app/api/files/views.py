@@ -4,9 +4,10 @@ import itertools
 import secrets
 from io import BytesIO
 from pathlib import Path
+from typing import IO
+from uuid import UUID
 
 import celery.states
-from cashews import cache
 from edgedb import AsyncIOClient
 from fastapi import APIRouter, Depends
 from fastapi import File as FileParam
@@ -15,6 +16,7 @@ from fastapi.responses import ORJSONResponse, Response, StreamingResponse
 
 from app import actions, config, crud, errors, tasks
 from app.api import deps
+from app.cache import cache, local_cache
 from app.entities import Namespace, User
 from app.storage import storage
 
@@ -25,6 +27,7 @@ router = APIRouter()
 
 @router.post("/create_folder", response_model=schemas.File)
 async def create_folder(
+    request: Request,
     payload: schemas.PathRequest,
     db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
@@ -43,7 +46,7 @@ async def create_folder(
     except errors.NotADirectory as exc:
         raise exceptions.NotADirectory(path=payload.path) from exc
 
-    return schemas.File.from_entity(folder)
+    return schemas.File.from_entity(folder, request=request)
 
 
 @router.post("/delete_immediately_batch", response_model=schemas.AsyncTaskID)
@@ -62,6 +65,7 @@ def delete_immediately_batch(
     response_model=schemas.DeleteImmediatelyBatchCheckResponse,
 )
 def delete_immediately_check(
+    request: Request,
     payload: schemas.AsyncTaskID,
     _: User = Depends(deps.current_user),
 ):
@@ -71,7 +75,7 @@ def delete_immediately_check(
         return response_model(
             status=schemas.AsyncTaskStatus.completed,
             result=[
-                schemas.AsyncTaskResult.from_entity(result)
+                schemas.AsyncTaskResult.from_entity(result, request=request)
                 for result in task.result
             ],
         )
@@ -183,6 +187,7 @@ def empty_trash_check(
 
 @router.post("/find_duplicates", response_model=schemas.FindDuplicatesResponse)
 async def find_duplicates(
+    request: Request,
     payload: schemas.FindDuplicatesRequest,
     db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
@@ -207,7 +212,7 @@ async def find_duplicates(
         "path": payload.path,
         "items": [
             [
-                schemas.File.from_entity(files[fp.file_id]).dict()
+                schemas.File.from_entity(files[fp.file_id], request=request).dict()
                 for fp in group
             ]
             for group in groups
@@ -218,6 +223,7 @@ async def find_duplicates(
 
 @router.post("/get_batch", response_model=schemas.GetBatchResult)
 async def get_batch(
+    request: Request,
     payload: schemas.GetBatchRequest,
     db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
@@ -228,7 +234,10 @@ async def get_batch(
     # by returning response class directly we avoid pydantic checks
     # that way we speed up on a large volume of data
     return ORJSONResponse(content={
-        "items": [schemas.File.from_entity(file).dict() for file in files],
+        "items": [
+            schemas.File.from_entity(file, request=request).dict()
+            for file in files
+        ],
         "count": len(files),
     })
 
@@ -272,14 +281,13 @@ async def get_content_metadata(
 
 
 @router.post("/get_thumbnail")
-async def get_thumbnail(
+async def get_thumbnail_deprecated(
     payload: schemas.PathRequest,
     size: schemas.ThumbnailSize = schemas.ThumbnailSize.xs,
     db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
 ):
     """Generate thumbnail for an image file."""
-    namespace = namespace
     path = payload.path
 
     try:
@@ -302,8 +310,56 @@ async def get_thumbnail(
     return StreamingResponse(thumbnail, headers=headers, media_type=file.mediatype)
 
 
+@router.get("/get_thumbnail/{file_id}", name="get_thumbnail")
+async def get_thumbnail(
+    file_id: UUID,
+    size: schemas.ThumbnailSize = schemas.ThumbnailSize.xs,
+    db_client: AsyncIOClient = Depends(deps.db_client),
+    namespace: Namespace = Depends(deps.namespace),
+):
+    ns_path = namespace.path
+    key = f"{file_id}:{size}"
+
+    if data := await local_cache.get(key, default=None):
+        filename, mediatype, disksize, thumb = data
+        thumbnail: IO[bytes] = BytesIO(thumb)
+    else:
+        try:
+            file = await crud.file.get_by_id(db_client, file_id=file_id)
+        except errors.FileNotFound as exc:
+            raise exceptions.PathNotFound(path=str(file_id)) from exc
+
+        try:
+            disksize, thumbnail = await storage.thumbnail(
+                ns_path, file.path, size=size.asint(),
+            )
+        except errors.FileNotFound as exc:
+            raise exceptions.PathNotFound(path=file.path) from exc
+        except errors.IsADirectory as exc:
+            raise exceptions.IsADirectory(path=file.path) from exc
+        except errors.ThumbnailUnavailable as exc:
+            raise exceptions.ThumbnailUnavailable(path=file.path) from exc
+
+        filename = file.name.encode("utf-8").decode("latin-1")
+        mediatype = file.mediatype
+
+        value = file.name, mediatype, disksize, thumbnail.read()
+        await local_cache.set(key, value=value, expire="24h")
+        thumbnail.seek(0)
+
+    headers = {
+        "Content-Disposition": f'inline; filename="{filename}"',
+        "Content-Length": str(disksize),
+        "Content-Type": mediatype,
+        "Cache-Control": "private, max-age=31536000, no-transform",
+    }
+
+    return Response(thumbnail.read(), headers=headers)
+
+
 @router.post("/list_folder", response_model=schemas.ListFolderResult)
 async def list_folder(
+    request: Request,
     payload: schemas.PathRequest,
     db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
@@ -324,13 +380,17 @@ async def list_folder(
     # that way we speed up on a large volume of data
     return ORJSONResponse(content={
         "path": payload.path,
-        "items": [schemas.File.from_entity(file).dict() for file in files],
+        "items": [
+            schemas.File.from_entity(file, request=request).dict()
+            for file in files
+        ],
         "count": len(files),
     })
 
 
 @router.post("/move", response_model=schemas.File)
 async def move(
+    request: Request,
     payload: schemas.MoveRequest,
     db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
@@ -358,7 +418,7 @@ async def move(
         message = "Some parents don't exist in the destination path"
         raise exceptions.MalformedPath(message) from exc
 
-    return schemas.File.from_entity(file)
+    return schemas.File.from_entity(file, request=request)
 
 
 @router.post("/move_batch", response_model=schemas.AsyncTaskID)
@@ -373,6 +433,7 @@ def move_batch(
 
 @router.post("/move_batch/check", response_model=schemas.MoveBatchCheckResponse)
 def move_batch_check(
+    request: Request,
     payload: schemas.AsyncTaskID,
     _: User = Depends(deps.current_user),
 ):
@@ -383,7 +444,7 @@ def move_batch_check(
         return response_model(
             status=schemas.AsyncTaskStatus.completed,
             result=[
-                schemas.AsyncTaskResult.from_entity(result)
+                schemas.AsyncTaskResult.from_entity(result, request=request)
                 for result in task.result
             ],
         )
@@ -392,6 +453,7 @@ def move_batch_check(
 
 @router.post("/move_to_trash", response_model=schemas.File)
 async def move_to_trash(
+    request: Request,
     payload: schemas.MoveToTrashRequest,
     db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
@@ -402,7 +464,7 @@ async def move_to_trash(
     except errors.FileNotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
 
-    return schemas.File.from_entity(file)
+    return schemas.File.from_entity(file, request=request)
 
 
 @router.post("/move_to_trash_batch", response_model=schemas.AsyncTaskID)
@@ -422,6 +484,7 @@ def move_to_trash_batch(
 
 @router.post("/upload", response_model=schemas.UploadResult)
 async def upload_file(
+    request: Request,
     file: UploadFile = FileParam(...),
     path: schemas.PathParam = Form(...),
     db_client: AsyncIOClient = Depends(deps.db_client),
@@ -446,6 +509,6 @@ async def upload_file(
     updates = await crud.file.get_many(db_client, namespace.path, parents)
 
     return schemas.UploadResult.construct(
-        file=schemas.File.from_entity(upload),
-        updates=[schemas.File.from_entity(f) for f in updates]
+        file=schemas.File.from_entity(upload, request=request),
+        updates=[schemas.File.from_entity(item, request=request) for item in updates]
     )

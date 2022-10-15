@@ -237,7 +237,7 @@ async def get_thumbnail(
     Generate in-memory thumbnail with preserved aspect ratio.
 
     Args:
-        db_client (DBClient):Database client.
+        db_client (DBClient): Database client.
         namespace (Namespace): Namespace where a file is located.
         path (StrOrPath): Path to a file.
         size (int): Thumbnail dimension.

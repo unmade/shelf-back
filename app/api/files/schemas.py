@@ -13,6 +13,8 @@ from app.config import TRASH_FOLDER_NAME
 from .exceptions import FileAlreadyDeleted, MalformedPath
 
 if TYPE_CHECKING:
+    from fastapi import Request
+
     from app import entities
 
 
@@ -22,6 +24,7 @@ class ThumbnailSize(str, Enum):
     md = "md"
     lg = "lg"
     xl = "xl"
+    xxl = "xxl"
 
     def asint(self) -> int:
         """Return integer representation of a size."""
@@ -31,9 +34,10 @@ class ThumbnailSize(str, Enum):
 _THUMBNAIL_SIZES = {
     ThumbnailSize.xs: 64,
     ThumbnailSize.sm: 128,
-    ThumbnailSize.md: 258,
+    ThumbnailSize.md: 256,
     ThumbnailSize.lg: 512,
     ThumbnailSize.xl: 1024,
+    ThumbnailSize.xxl: 2048,
 }
 
 
@@ -55,9 +59,10 @@ class File(BaseModel):
     mediatype: str
     hidden: bool = False
     has_thumbnail: bool = False
+    thumbnail_url: str | None
 
     @classmethod
-    def from_entity(cls: Type[File], file: entities.File) -> File:
+    def from_entity(cls: Type[File], file: entities.File, request: Request) -> File:
         return cls.construct(
             id=file.id,  # type: ignore
             name=file.name,
@@ -66,16 +71,15 @@ class File(BaseModel):
             mtime=file.mtime,
             mediatype=file.mediatype,
             hidden=file.is_hidden(),
-            has_thumbnail=mediatypes.is_image(file.mediatype),
+            has_thumbnail=mediatypes.has_thumbnail(file.mediatype),
+            thumbnail_url=cls._make_thumbnail_url(request, file),
         )
 
-    @validator("hidden", always=True)
-    def is_hidden(cls, value, values, config, field):
-        return values["name"].startswith(".") or values["name"] == TRASH_FOLDER_NAME
-
-    @validator("has_thumbnail", always=True)
-    def set_has_thumbnail(cls, value, values, config, field):
-        return mediatypes.is_image(values["mediatype"])
+    @staticmethod
+    def _make_thumbnail_url(request: Request, file: entities.File) -> str | None:
+        if mediatypes.has_thumbnail(file.mediatype):
+            return request.url_for("get_thumbnail", file_id=file.id)
+        return None
 
 
 class PathParam(BaseModel):
@@ -104,9 +108,13 @@ class AsyncTaskResult(BaseModel):
     err_code: errors.ErrorCode | None
 
     @classmethod
-    def from_entity(cls, entity: entities.FileTaskResult) -> AsyncTaskResult:
+    def from_entity(
+        cls,
+        entity: entities.FileTaskResult,
+        request: Request,
+    ) -> AsyncTaskResult:
         return cls.construct(
-            file=File.from_entity(entity.file) if entity.file else None,
+            file=File.from_entity(entity.file, request) if entity.file else None,
             err_code=entity.err_code if entity.err_code else None,
         )
 

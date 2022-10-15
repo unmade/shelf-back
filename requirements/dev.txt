@@ -12,7 +12,7 @@ backcall==0.2.0
     # via ipython
 decorator==5.1.1
     # via ipython
-executing==1.0.0
+executing==1.1.1
     # via stack-data
 ipython==8.5.0
     # via -r requirements/dev.in
@@ -42,9 +42,9 @@ six==1.16.0
     #   -c requirements/base.txt
     #   -c requirements/test.txt
     #   asttokens
-stack-data==0.5.0
+stack-data==0.5.1
     # via ipython
-traitlets==5.3.0
+traitlets==5.4.0
     # via
     #   ipython
     #   matplotlib-inline

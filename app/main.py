@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sentry_sdk
-from cashews import cache
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
@@ -48,5 +47,4 @@ def create_app() -> FastAPI:
     return app
 
 
-cache.setup(config.CACHE_BACKEND_DSN)
 app = create_app()

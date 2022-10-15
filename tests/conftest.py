@@ -22,6 +22,7 @@ from tests.factories import (
     FileFactory,
     FileMetadataFactory,
     FingerprintFactory,
+    FolderFactory,
     MediaTypeFactory,
     NamespaceFactory,
     UserFactory,
@@ -292,6 +293,12 @@ def file_metadata_factory(db_client_or_tx: DBAnyConn) -> FileMetadataFactory:
 async def fingerprint_factory(db_client_or_tx: DBAnyConn) -> FingerprintFactory:
     """Add fingerprint."""
     return FingerprintFactory(db_client_or_tx)
+
+
+@pytest.fixture
+async def folder_factory(db_client_or_tx: DBAnyConn) -> FolderFactory:
+    """Create folder in the database and in the storage."""
+    return FolderFactory(db_client_or_tx)
 
 
 @pytest.fixture

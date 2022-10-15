@@ -18,11 +18,11 @@ attrs==22.1.0
     # via
     #   -c requirements/test.txt
     #   pytest
-boto3-stubs[s3]==1.24.67
+boto3-stubs[s3]==1.24.91
     # via -r requirements/lint.in
-botocore-stubs==1.27.67
+botocore-stubs==1.27.91
     # via boto3-stubs
-certifi==2022.6.15
+certifi==2022.9.24
     # via
     #   -c requirements/base.txt
     #   -c requirements/test.txt
@@ -46,11 +46,11 @@ edgedb==0.24.0
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
-email-validator==1.2.1
+email-validator==1.3.0
     # via
     #   -c requirements/base.txt
     #   pydantic
-fastapi==0.82.0
+fastapi==0.85.1
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
@@ -69,9 +69,9 @@ httpx==0.23.0
     # via
     #   -c requirements/test.txt
     #   -r requirements/lint.in
-identify==2.5.5
+identify==2.5.6
     # via pre-commit
-idna==3.3
+idna==3.4
     # via
     #   -c requirements/base.txt
     #   -c requirements/test.txt
@@ -82,9 +82,9 @@ iniconfig==1.1.1
     # via
     #   -c requirements/test.txt
     #   pytest
-mypy==0.971
+mypy==0.982
     # via -r requirements/lint.in
-mypy-boto3-s3==1.24.36.post1
+mypy-boto3-s3==1.24.76
     # via boto3-stubs
 mypy-extensions==0.4.3
     # via mypy
@@ -140,7 +140,7 @@ sniffio==1.3.0
     #   anyio
     #   httpcore
     #   httpx
-starlette==0.19.1
+starlette==0.20.4
     # via
     #   -c requirements/base.txt
     #   fastapi
@@ -155,7 +155,7 @@ typer==0.6.1
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
-types-awscrt==0.14.5
+types-awscrt==0.14.7
     # via botocore-stubs
 types-orjson==3.6.2
     # via -r requirements/lint.in
@@ -163,7 +163,7 @@ types-python-dateutil==2.8.19
     # via -r requirements/lint.in
 types-s3transfer==0.6.0.post4
     # via boto3-stubs
-typing-extensions==4.3.0
+typing-extensions==4.4.0
     # via
     #   -c requirements/base.txt
     #   boto3-stubs
@@ -175,11 +175,11 @@ urllib3==1.26.12
     # via
     #   -c requirements/base.txt
     #   sentry-sdk
-uvloop==0.16.0
+uvloop==0.17.0
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
-virtualenv==20.16.4
+virtualenv==20.16.5
     # via pre-commit
 
 # The following packages are considered to be unsafe in a requirements file:

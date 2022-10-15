@@ -26,7 +26,7 @@ celery[redis]==5.2.7
     # via
     #   -c requirements/base.txt
     #   pytest-celery
-certifi==2022.6.15
+certifi==2022.9.24
     # via
     #   -c requirements/base.txt
     #   httpcore
@@ -50,13 +50,13 @@ click-repl==0.2.0
     # via
     #   -c requirements/base.txt
     #   celery
-coverage[toml]==6.4.4
+coverage[toml]==6.5.0
     # via pytest-cov
 deprecated==1.2.13
     # via
     #   -c requirements/base.txt
     #   redis
-faker==14.2.0
+faker==15.1.1
     # via -r requirements/test.in
 h11==0.12.0
     # via
@@ -66,7 +66,7 @@ httpcore==0.15.0
     # via httpx
 httpx==0.23.0
     # via -r requirements/test.in
-idna==3.3
+idna==3.4
     # via
     #   -c requirements/base.txt
     #   anyio
@@ -103,13 +103,13 @@ pytest-asyncio==0.16.0
     # via -r requirements/test.in
 pytest-celery==0.0.0
     # via -r requirements/test.in
-pytest-cov==3.0.0
+pytest-cov==4.0.0
     # via -r requirements/test.in
 python-dateutil==2.8.2
     # via
     #   -c requirements/base.txt
     #   faker
-pytz==2022.2.1
+pytz==2022.4
     # via
     #   -c requirements/base.txt
     #   celery

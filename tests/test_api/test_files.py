@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import secrets
 import urllib.parse
+import uuid
 from io import BytesIO
 from typing import TYPE_CHECKING
 
 import pytest
-from cashews import cache
 
 from app import config, tasks
 from app.api.files.exceptions import (
@@ -20,6 +20,7 @@ from app.api.files.exceptions import (
     StorageQuotaExceeded,
     ThumbnailUnavailable,
 )
+from app.cache import cache, local_cache
 from app.entities import Exif, RelocationPath
 
 if TYPE_CHECKING:
@@ -30,6 +31,7 @@ if TYPE_CHECKING:
         FileFactory,
         FileMetadataFactory,
         FingerprintFactory,
+        FolderFactory,
     )
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
@@ -476,7 +478,7 @@ async def test_get_content_metadata_but_file_not_found(
 
 
 @pytest.mark.parametrize("name", ["im.jpeg", "изо.jpeg"])
-async def test_get_thumbnail(
+async def test_get_thumbnail_deprecated(
     client: TestClient,
     namespace: Namespace,
     image_content: BytesIO,
@@ -493,7 +495,7 @@ async def test_get_thumbnail(
     assert response.content
 
 
-async def test_get_thumbnail_but_path_not_found(
+async def test_get_thumbnail_deprecated_but_path_not_found(
     client: TestClient,
     namespace: Namespace,
 ):
@@ -503,7 +505,7 @@ async def test_get_thumbnail_but_path_not_found(
     assert response.json() == PathNotFound(path="im.jpeg").as_dict()
 
 
-async def test_get_thumbnail_but_path_is_a_folder(
+async def test_get_thumbnail_deprecated_but_path_is_a_folder(
     client: TestClient,
     namespace: Namespace,
 ):
@@ -513,7 +515,7 @@ async def test_get_thumbnail_but_path_is_a_folder(
     assert response.json() == IsADirectory(path=".").as_dict()
 
 
-async def test_get_thumbnail_but_file_is_not_thumbnailable(
+async def test_get_thumbnail_deprecated_but_file_is_not_thumbnailable(
     client: TestClient,
     namespace: Namespace,
     file_factory: FileFactory,
@@ -522,6 +524,91 @@ async def test_get_thumbnail_but_file_is_not_thumbnailable(
     client.login(namespace.owner.id)
     payload = {"path": file.path}
     response = await client.post("/files/get_thumbnail?size=sm", json=payload)
+    assert response.json() == ThumbnailUnavailable(path=file.path).as_dict()
+
+
+@pytest.mark.parametrize("name", ["im.jpeg", "изо.jpeg"])
+async def test_get_thumbnail(
+    client: TestClient,
+    namespace: Namespace,
+    image_content: BytesIO,
+    file_factory: FileFactory,
+    name: str,
+):
+    file = await file_factory(namespace.path, path=name, content=image_content)
+    client.login(namespace.owner.id)
+    response = await client.get(f"/files/get_thumbnail/{file.id}?size=xs")
+    assert response.headers["Content-Disposition"] == f'inline; filename="{file.name}"'
+    assert int(response.headers["Content-Length"]) < file.size
+    assert response.headers["Content-Type"] == "image/jpeg"
+    assert response.content
+
+
+async def test_get_thumbnail_sets_cache(
+    client: TestClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+    image_content: BytesIO,
+):
+    file = await file_factory(namespace.path, content=image_content)
+    key = f"{file.id}:xs"
+    thumb = await local_cache.get(key, default=None)
+    assert thumb is None
+    client.login(namespace.owner.id)
+    await client.get(f"/files/get_thumbnail/{file.id}?size=xs")
+    thumb = await local_cache.get(key, default=None)
+    assert thumb is not None
+
+
+async def test_get_thumbnail_uses_cache(
+    client: TestClient,
+    namespace: Namespace,
+    image_content: BytesIO,
+):
+    file_id = str(uuid.uuid4())
+    filename, mediatype, disksize = "im.jpeg", "image/jpeg", 1024
+
+    key = f"{file_id}:xs"
+    value = filename, mediatype, disksize, image_content.read()
+    await local_cache.set(key, value=value, expire=5)
+    client.login(namespace.owner.id)
+    response = await client.get(f"/files/get_thumbnail/{file_id}?size=xs")
+    assert response.headers["Content-Disposition"] == f'inline; filename="{filename}"'
+    assert int(response.headers["Content-Length"]) == disksize
+    assert response.headers["Content-Type"] == "image/jpeg"
+    image_content.seek(0)
+    assert response.content == image_content.read()
+
+
+async def test_get_thumbnail_but_path_not_found(
+    client: TestClient,
+    namespace: Namespace,
+):
+    file_id = str(uuid.uuid4())
+    client.login(namespace.owner.id)
+    response = await client.get(f"/files/get_thumbnail/{file_id}?size=sm")
+    assert response.json() == PathNotFound(path=file_id).as_dict()
+
+
+async def test_get_thumbnail_but_path_is_a_folder(
+    client: TestClient,
+    namespace: Namespace,
+    folder_factory: FolderFactory,
+):
+    folder = await folder_factory(namespace.path)
+    client.login(namespace.owner.id)
+    response = await client.get(f"/files/get_thumbnail/{folder.id}?size=sm")
+    assert response.json() == IsADirectory(path=folder.path).as_dict()
+
+
+async def test_get_thumbnail_but_file_is_not_thumbnailable(
+    client: TestClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    file = await file_factory(namespace.path)
+    client.login(namespace.owner.id)
+    response = await client.get(f"/files/get_thumbnail/{file.id}?size=sm")
     assert response.json() == ThumbnailUnavailable(path=file.path).as_dict()
 
 
