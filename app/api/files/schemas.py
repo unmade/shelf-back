@@ -24,11 +24,12 @@ class ThumbnailSize(str, Enum):
     md = "md"
     lg = "lg"
     xl = "xl"
-    xxl = "xxl"
+    xxl = "2xl"
+    xxxl = "3xl"
 
     def asint(self) -> int:
         """Return integer representation of a size."""
-        return _THUMBNAIL_SIZES[self.name]  # type: ignore
+        return _THUMBNAIL_SIZES[self.value]  # type: ignore
 
 
 _THUMBNAIL_SIZES = {
@@ -38,6 +39,7 @@ _THUMBNAIL_SIZES = {
     ThumbnailSize.lg: 512,
     ThumbnailSize.xl: 1024,
     ThumbnailSize.xxl: 2048,
+    ThumbnailSize.xxxl: 4096,
 }
 
 
@@ -58,7 +60,6 @@ class File(BaseModel):
     mtime: float
     mediatype: str
     hidden: bool = False
-    has_thumbnail: bool = False
     thumbnail_url: str | None
 
     @classmethod
@@ -71,7 +72,6 @@ class File(BaseModel):
             mtime=file.mtime,
             mediatype=file.mediatype,
             hidden=file.is_hidden(),
-            has_thumbnail=mediatypes.has_thumbnail(file.mediatype),
             thumbnail_url=cls._make_thumbnail_url(request, file),
         )
 

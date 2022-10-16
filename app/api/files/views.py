@@ -280,44 +280,13 @@ async def get_content_metadata(
         return schemas.GetContentMetadataResponse(file_id=file.id, data=None)
 
 
-@router.post("/get_thumbnail")
-async def get_thumbnail_deprecated(
-    payload: schemas.PathRequest,
-    size: schemas.ThumbnailSize = schemas.ThumbnailSize.xs,
-    db_client: AsyncIOClient = Depends(deps.db_client),
-    namespace: Namespace = Depends(deps.namespace),
-):
-    """Generate thumbnail for an image file."""
-    path = payload.path
-
-    try:
-        file, disksize, thumbnail = (
-            await actions.get_thumbnail(db_client, namespace, path, size=size.asint())
-        )
-    except errors.FileNotFound as exc:
-        raise exceptions.PathNotFound(path=path) from exc
-    except errors.IsADirectory as exc:
-        raise exceptions.IsADirectory(path=path) from exc
-    except errors.ThumbnailUnavailable as exc:
-        raise exceptions.ThumbnailUnavailable(path=path) from exc
-
-    filename = file.name.encode("utf-8").decode("latin-1")
-    headers = {
-        "Content-Disposition": f'inline; filename="{filename}"',
-        "Content-Length": str(disksize),
-        "Content-Type": file.mediatype,
-    }
-    return StreamingResponse(thumbnail, headers=headers, media_type=file.mediatype)
-
-
-@router.get("/get_thumbnail/{file_id}", name="get_thumbnail")
+@router.get("/get_thumbnail/{file_id}")
 async def get_thumbnail(
     file_id: UUID,
     size: schemas.ThumbnailSize = schemas.ThumbnailSize.xs,
     db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
 ):
-    ns_path = namespace.path
     key = f"{file_id}:{size}"
 
     if data := await local_cache.get(key, default=None):
@@ -325,25 +294,20 @@ async def get_thumbnail(
         thumbnail: IO[bytes] = BytesIO(thumb)
     else:
         try:
-            file = await crud.file.get_by_id(db_client, file_id=file_id)
-        except errors.FileNotFound as exc:
-            raise exceptions.PathNotFound(path=str(file_id)) from exc
-
-        try:
-            disksize, thumbnail = await storage.thumbnail(
-                ns_path, file.path, size=size.asint(),
+            file, disksize, thumbnail = await actions.get_thumbnail(
+                db_client, namespace, file_id, size=size.asint(),
             )
         except errors.FileNotFound as exc:
-            raise exceptions.PathNotFound(path=file.path) from exc
+            raise exceptions.PathNotFound(path=str(file_id)) from exc
         except errors.IsADirectory as exc:
-            raise exceptions.IsADirectory(path=file.path) from exc
+            raise exceptions.IsADirectory(path=str(file_id)) from exc
         except errors.ThumbnailUnavailable as exc:
-            raise exceptions.ThumbnailUnavailable(path=file.path) from exc
+            raise exceptions.ThumbnailUnavailable(path=str(file_id)) from exc
 
         filename = file.name.encode("utf-8").decode("latin-1")
         mediatype = file.mediatype
 
-        value = file.name, mediatype, disksize, thumbnail.read()
+        value = filename, mediatype, disksize, thumbnail.read()
         await local_cache.set(key, value=value, expire="24h")
         thumbnail.seek(0)
 

@@ -478,56 +478,6 @@ async def test_get_content_metadata_but_file_not_found(
 
 
 @pytest.mark.parametrize("name", ["im.jpeg", "изо.jpeg"])
-async def test_get_thumbnail_deprecated(
-    client: TestClient,
-    namespace: Namespace,
-    image_content: BytesIO,
-    file_factory: FileFactory,
-    name: str,
-):
-    file = await file_factory(namespace.path, path=name, content=image_content)
-    payload = {"path": file.path}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/get_thumbnail?size=xs", json=payload)
-    assert response.headers["Content-Disposition"] == f'inline; filename="{file.name}"'
-    assert int(response.headers["Content-Length"]) < file.size
-    assert response.headers["Content-Type"] == "image/jpeg"
-    assert response.content
-
-
-async def test_get_thumbnail_deprecated_but_path_not_found(
-    client: TestClient,
-    namespace: Namespace,
-):
-    client.login(namespace.owner.id)
-    payload = {"path": "im.jpeg"}
-    response = await client.post("/files/get_thumbnail?size=sm", json=payload)
-    assert response.json() == PathNotFound(path="im.jpeg").as_dict()
-
-
-async def test_get_thumbnail_deprecated_but_path_is_a_folder(
-    client: TestClient,
-    namespace: Namespace,
-):
-    client.login(namespace.owner.id)
-    payload = {"path": "."}
-    response = await client.post("/files/get_thumbnail?size=sm", json=payload)
-    assert response.json() == IsADirectory(path=".").as_dict()
-
-
-async def test_get_thumbnail_deprecated_but_file_is_not_thumbnailable(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    file = await file_factory(namespace.path)
-    client.login(namespace.owner.id)
-    payload = {"path": file.path}
-    response = await client.post("/files/get_thumbnail?size=sm", json=payload)
-    assert response.json() == ThumbnailUnavailable(path=file.path).as_dict()
-
-
-@pytest.mark.parametrize("name", ["im.jpeg", "изо.jpeg"])
 async def test_get_thumbnail(
     client: TestClient,
     namespace: Namespace,
@@ -598,7 +548,7 @@ async def test_get_thumbnail_but_path_is_a_folder(
     folder = await folder_factory(namespace.path)
     client.login(namespace.owner.id)
     response = await client.get(f"/files/get_thumbnail/{folder.id}?size=sm")
-    assert response.json() == IsADirectory(path=folder.path).as_dict()
+    assert response.json() == IsADirectory(path=folder.id).as_dict()
 
 
 async def test_get_thumbnail_but_file_is_not_thumbnailable(
@@ -609,14 +559,17 @@ async def test_get_thumbnail_but_file_is_not_thumbnailable(
     file = await file_factory(namespace.path)
     client.login(namespace.owner.id)
     response = await client.get(f"/files/get_thumbnail/{file.id}?size=sm")
-    assert response.json() == ThumbnailUnavailable(path=file.path).as_dict()
+    assert response.json() == ThumbnailUnavailable(path=file.id).as_dict()
 
 
 async def test_list_folder(
     client: TestClient,
     namespace: Namespace,
     file_factory: FileFactory,
+    image_content: BytesIO,
 ):
+    img = await file_factory(namespace.path, path="im.jpeg", content=image_content)
+    thumbnail_url = f"{client.base_url}/files/get_thumbnail/{img.id}"
     await file_factory(namespace.path, path="file.txt")
     await file_factory(namespace.path, path="folder/file.txt")
     payload = {"path": "."}
@@ -624,9 +577,13 @@ async def test_list_folder(
     response = await client.post("/files/list_folder", json=payload)
     assert response.status_code == 200
     assert response.json()["path"] == "."
-    assert response.json()["count"] == 2
+    assert response.json()["count"] == 3
     assert response.json()["items"][0]["name"] == "folder"
+    assert response.json()["items"][0]["thumbnail_url"] is None
     assert response.json()["items"][1]["name"] == "file.txt"
+    assert response.json()["items"][1]["thumbnail_url"] is None
+    assert response.json()["items"][2]["name"] == "im.jpeg"
+    assert response.json()["items"][2]["thumbnail_url"] == thumbnail_url
 
 
 async def test_list_folder_but_path_does_not_exists(
@@ -698,6 +655,20 @@ async def test_move_but_to_a_special_path(
     client.login(namespace.owner.id)
     response = await client.post("/files/move", json=payload)
     message = "Can't move Home or Trash folder"
+    assert response.json() == MalformedPath(message).as_dict()
+    assert response.status_code == 400
+
+
+async def test_move_but_it_is_inside_trash_folder(
+    client: TestClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    file = await file_factory(namespace.path, path="Trash/f.txt")
+    payload = {"from_path": file.path, "to_path": "Trash/f (1).txt"}
+    client.login(namespace.owner.id)
+    response = await client.post("/files/move", json=payload)
+    message = "Can't move files inside Trash"
     assert response.json() == MalformedPath(message).as_dict()
     assert response.status_code == 400
 
