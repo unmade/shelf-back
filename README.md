@@ -139,6 +139,7 @@ to the [docs](.heroku/README.md).
 |CACHE_BACKEND_DSN    | - | mem:// | Cache backend DSN. See options [here](https://github.com/Krukov/cashews) |
 |CELERY_BACKEND_DSN   | + | -      | Celery broker DSN |
 |CELERY_BROKER_DSN    | + | -      | Celery result backend DSN  |
+|CLIENT_CACHE_MAX_SIZE| - | -      | Client cache size limit in bytes |
 |CORS_ALLOW_ORIGINS   | - | []     | A comma-separated list of origins that should be permitted to make cross-origin requests |
 |DATABASE_DSN         | - | -      | Database DSN. If not set, then fallback to EdgeDB envs |
 |DATABASE_TLS_CA_FILE | - | -      | Path to TLS Certificate file to connect to the database. If not set, then fallback to EDGEDB_TLS_CA |

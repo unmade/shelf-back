@@ -5,5 +5,5 @@ from app import config
 cache = Cache(name="default")
 cache.setup(config.CACHE_BACKEND_DSN)
 
-local_cache = Cache(name="local")
-local_cache.setup("disk://")
+disk_cache = Cache(name="disk")
+disk_cache.setup("disk://", size_limit=config.CLIENT_CACHE_MAX_SIZE)

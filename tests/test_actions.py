@@ -347,7 +347,7 @@ async def test_get_thumbnail(
     )
     assert filecache == file
     assert disksize < file.size
-    assert isinstance(thumbnail, BytesIO)
+    assert isinstance(thumbnail, bytes)
 
 
 async def test_get_thumbnail_but_file_not_found(

@@ -4,7 +4,6 @@ import itertools
 import secrets
 from io import BytesIO
 from pathlib import Path
-from typing import IO
 from uuid import UUID
 
 import celery.states
@@ -16,7 +15,7 @@ from fastapi.responses import ORJSONResponse, Response, StreamingResponse
 
 from app import actions, config, crud, errors, tasks
 from app.api import deps
-from app.cache import cache, local_cache
+from app.cache import cache, disk_cache
 from app.entities import Namespace, User
 from app.storage import storage
 
@@ -283,33 +282,36 @@ async def get_content_metadata(
 @router.get("/get_thumbnail/{file_id}")
 async def get_thumbnail(
     file_id: UUID,
-    size: schemas.ThumbnailSize = schemas.ThumbnailSize.xs,
+    size: schemas.ThumbnailSize,
+    mtime: float,
     db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
 ):
-    key = f"{file_id}:{size}"
+    """Get thumbnail for an image file."""
+    return await _get_thumbnail(db_client, namespace, file_id, size.asint(), mtime)
 
-    if data := await local_cache.get(key, default=None):
-        filename, mediatype, disksize, thumb = data
-        thumbnail: IO[bytes] = BytesIO(thumb)
-    else:
-        try:
-            file, disksize, thumbnail = await actions.get_thumbnail(
-                db_client, namespace, file_id, size=size.asint(),
-            )
-        except errors.FileNotFound as exc:
-            raise exceptions.PathNotFound(path=str(file_id)) from exc
-        except errors.IsADirectory as exc:
-            raise exceptions.IsADirectory(path=str(file_id)) from exc
-        except errors.ThumbnailUnavailable as exc:
-            raise exceptions.ThumbnailUnavailable(path=str(file_id)) from exc
 
-        filename = file.name.encode("utf-8").decode("latin-1")
-        mediatype = file.mediatype
+@disk_cache(ttl="24h", key="{file_id}:{size}:{mtime}")
+async def _get_thumbnail(
+    db_client: AsyncIOClient,
+    namespace: Namespace,
+    file_id: UUID,
+    size: int,
+    mtime: float,
+):
+    try:
+        file, disksize, thumbnail = await actions.get_thumbnail(
+            db_client, namespace, file_id, size=size,
+        )
+    except errors.FileNotFound as exc:
+        raise exceptions.PathNotFound(path=str(file_id)) from exc
+    except errors.IsADirectory as exc:
+        raise exceptions.IsADirectory(path=str(file_id)) from exc
+    except errors.ThumbnailUnavailable as exc:
+        raise exceptions.ThumbnailUnavailable(path=str(file_id)) from exc
 
-        value = filename, mediatype, disksize, thumbnail.read()
-        await local_cache.set(key, value=value, expire="24h")
-        thumbnail.seek(0)
+    filename = file.name.encode("utf-8").decode("latin-1")
+    mediatype = file.mediatype
 
     headers = {
         "Content-Disposition": f'inline; filename="{filename}"',
@@ -318,7 +320,7 @@ async def get_thumbnail(
         "Cache-Control": "private, max-age=31536000, no-transform",
     }
 
-    return Response(thumbnail.read(), headers=headers)
+    return Response(thumbnail, headers=headers)
 
 
 @router.post("/list_folder", response_model=schemas.ListFolderResult)

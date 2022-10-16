@@ -3,10 +3,12 @@ from __future__ import annotations
 import secrets
 import urllib.parse
 import uuid
+from datetime import datetime
 from io import BytesIO
 from typing import TYPE_CHECKING
 
 import pytest
+from fastapi import Response
 
 from app import config, tasks
 from app.api.files.exceptions import (
@@ -20,7 +22,8 @@ from app.api.files.exceptions import (
     StorageQuotaExceeded,
     ThumbnailUnavailable,
 )
-from app.cache import cache, local_cache
+from app.api.files.schemas import ThumbnailSize
+from app.cache import cache, disk_cache
 from app.entities import Exif, RelocationPath
 
 if TYPE_CHECKING:
@@ -486,48 +489,61 @@ async def test_get_thumbnail(
     name: str,
 ):
     file = await file_factory(namespace.path, path=name, content=image_content)
+    mtime = file.mtime
     client.login(namespace.owner.id)
-    response = await client.get(f"/files/get_thumbnail/{file.id}?size=xs")
-    assert response.headers["Content-Disposition"] == f'inline; filename="{file.name}"'
-    assert int(response.headers["Content-Length"]) < file.size
-    assert response.headers["Content-Type"] == "image/jpeg"
+    response = await client.get(f"/files/get_thumbnail/{file.id}?size=xs&mtime={mtime}")
     assert response.content
+    headers = response.headers
+    assert headers["Content-Disposition"] == f'inline; filename="{file.name}"'
+    assert int(headers["Content-Length"]) < file.size
+    assert headers["Content-Type"] == "image/jpeg"
+    assert headers["Cache-Control"] == "private, max-age=31536000, no-transform"
 
 
-async def test_get_thumbnail_sets_cache(
+async def test_get_thumbnail_sets_disk_cache_on_cache_miss(
     client: TestClient,
     namespace: Namespace,
     file_factory: FileFactory,
     image_content: BytesIO,
 ):
     file = await file_factory(namespace.path, content=image_content)
-    key = f"{file.id}:xs"
-    thumb = await local_cache.get(key, default=None)
+    key = f"{file.id}:{ThumbnailSize.xs.asint()}:{file.mtime}"
+    thumb = await disk_cache.get(key, default=None)
     assert thumb is None
     client.login(namespace.owner.id)
-    await client.get(f"/files/get_thumbnail/{file.id}?size=xs")
-    thumb = await local_cache.get(key, default=None)
+    await client.get(f"/files/get_thumbnail/{file.id}?size=xs&mtime={file.mtime}")
+    thumb = await disk_cache.get(key, default=None)
     assert thumb is not None
 
 
-async def test_get_thumbnail_uses_cache(
+async def test_get_thumbnail_hits_disk_cache(
     client: TestClient,
     namespace: Namespace,
     image_content: BytesIO,
 ):
     file_id = str(uuid.uuid4())
+    mtime = datetime.now().timestamp()
     filename, mediatype, disksize = "im.jpeg", "image/jpeg", 1024
 
-    key = f"{file_id}:xs"
-    value = filename, mediatype, disksize, image_content.read()
-    await local_cache.set(key, value=value, expire=5)
+    headers = {
+        "Content-Disposition": f'inline; filename="{filename}"',
+        "Content-Length": str(disksize),
+        "Content-Type": mediatype,
+        "Cache-Control": "private, max-age=31536000, no-transform",
+    }
+    content = image_content.read()
+
+    key = f"{file_id}:{ThumbnailSize.xs.asint()}:{mtime}"
+    value = Response(content, headers=headers)
+
+    await disk_cache.set(key, value=value, expire=60)
     client.login(namespace.owner.id)
-    response = await client.get(f"/files/get_thumbnail/{file_id}?size=xs")
-    assert response.headers["Content-Disposition"] == f'inline; filename="{filename}"'
-    assert int(response.headers["Content-Length"]) == disksize
-    assert response.headers["Content-Type"] == "image/jpeg"
-    image_content.seek(0)
-    assert response.content == image_content.read()
+    response = await client.get(f"/files/get_thumbnail/{file_id}?size=xs&mtime={mtime}")
+    assert response.content == content
+    assert response.headers["Content-Disposition"] == headers["Content-Disposition"]
+    assert response.headers["Content-Length"] == headers["Content-Length"]
+    assert response.headers["Content-Type"] == headers["Content-Type"]
+    assert response.headers["Cache-Control"] == headers["Cache-Control"]
 
 
 async def test_get_thumbnail_but_path_not_found(
@@ -536,7 +552,7 @@ async def test_get_thumbnail_but_path_not_found(
 ):
     file_id = str(uuid.uuid4())
     client.login(namespace.owner.id)
-    response = await client.get(f"/files/get_thumbnail/{file_id}?size=sm")
+    response = await client.get(f"/files/get_thumbnail/{file_id}?size=sm&mtime=100")
     assert response.json() == PathNotFound(path=file_id).as_dict()
 
 
@@ -547,7 +563,7 @@ async def test_get_thumbnail_but_path_is_a_folder(
 ):
     folder = await folder_factory(namespace.path)
     client.login(namespace.owner.id)
-    response = await client.get(f"/files/get_thumbnail/{folder.id}?size=sm")
+    response = await client.get(f"/files/get_thumbnail/{folder.id}?size=sm&mtime=100")
     assert response.json() == IsADirectory(path=folder.id).as_dict()
 
 
@@ -558,7 +574,7 @@ async def test_get_thumbnail_but_file_is_not_thumbnailable(
 ):
     file = await file_factory(namespace.path)
     client.login(namespace.owner.id)
-    response = await client.get(f"/files/get_thumbnail/{file.id}?size=sm")
+    response = await client.get(f"/files/get_thumbnail/{file.id}?size=sm&mtime=100")
     assert response.json() == ThumbnailUnavailable(path=file.id).as_dict()
 
 

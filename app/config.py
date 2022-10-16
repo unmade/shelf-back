@@ -5,6 +5,9 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+_MB = 2**20
+_GB = 2**30
+
 
 def _get_bool(key: str) -> bool:
     value = os.getenv(key)
@@ -52,7 +55,7 @@ APP_DEBUG = _get_bool("APP_DEBUG")
 APP_MAX_DOWNLOAD_WITHOUT_STREAMING = int(
     os.getenv(
         "APP_MAX_DOWNLOAD_WITHOUT_STREAMING_IN_BYTES",
-        10_485_760,  # Defaults to 10 MB
+        10 * _MB,
     )
 )
 APP_SECRET_KEY = os.environ["APP_SECRET_KEY"]
@@ -64,6 +67,8 @@ CACHE_BACKEND_DSN = os.getenv("CACHE_BACKEND_DSN", "mem://")
 
 CELERY_BACKEND_DSN = os.environ["CELERY_BACKEND_DSN"]
 CELERY_BROKER_DSN = os.environ["CELERY_BROKER_DSN"]
+
+CLIENT_CACHE_MAX_SIZE = os.getenv("CLIENT_CACHE_MAX_SIZE_IN_BYTES", _GB)
 
 CORS_ALLOW_ORIGINS = _get_list("CORS_ALLOW_ORIGINS")
 
