@@ -228,18 +228,13 @@ class FileSystemStorage(Storage):
             raise errors.FileNotFound() from exc
 
     @sync_to_async
-    def thumbnail(
-        self,
-        ns_path: StrOrPath,
-        path: StrOrPath,
-        size: int,
-    ) -> tuple[int, IO[bytes]]:
+    def thumbnail(self, ns_path: StrOrPath, path: StrOrPath, size: int) -> bytes:
         fullpath = self._joinpath(self.location, ns_path, path)
         buffer = BytesIO()
         try:
             with Image.open(fullpath) as im:
                 im.thumbnail((size, size))
-                exif_transpose(im).save(buffer, im.format)
+                exif_transpose(im).save(buffer, im.format, compress_level=4)
         except FileNotFoundError as exc:
             raise errors.FileNotFound() from exc
         except IsADirectoryError as exc:
@@ -248,7 +243,5 @@ class FileSystemStorage(Storage):
             msg = f"Can't generate thumbnail for a file: '{path}'"
             raise errors.ThumbnailUnavailable(msg) from exc
 
-        size = buffer.seek(0, 2)
         buffer.seek(0)
-
-        return size, buffer
+        return buffer.read()

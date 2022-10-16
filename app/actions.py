@@ -232,7 +232,7 @@ async def find_duplicates(
 
 async def get_thumbnail(
     db_client: DBClient, namespace: Namespace, file_id: StrOrUUID, *, size: int,
-) -> tuple[File, int, bytes]:
+) -> tuple[File, bytes]:
     """
     Generate in-memory thumbnail with preserved aspect ratio.
 
@@ -248,12 +248,12 @@ async def get_thumbnail(
         ThumbnailUnavailable: If file is not an image.
 
     Returns:
-        tuple[File, int, bytes]: Tuple of file, thumbnail disk size and thumbnail.
+        tuple[File, bytes]: Tuple of file and thumbnail content.
     """
     ns_path = namespace.path
     file = await crud.file.get_by_id(db_client, file_id=file_id)
-    disksize, thumbnail = await storage.thumbnail(ns_path, file.path, size=size)
-    return file, disksize, thumbnail.read()
+    thumbnail = await storage.thumbnail(ns_path, file.path, size=size)
+    return file, thumbnail
 
 
 async def move(

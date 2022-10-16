@@ -348,9 +348,8 @@ async def test_thumbnail(
     file_factory, image_content, fs_storage: FileSystemStorage
 ):
     await file_factory("user/im.jpg", content=image_content)
-    size, content = await fs_storage.thumbnail("user", "im.jpg", size=128)
-    assert size == 883
-    assert size == len(content.read())
+    content = await fs_storage.thumbnail("user", "im.jpg", size=128)
+    assert len(content) == 883
 
 
 async def test_thumbnail_but_path_is_a_directory(

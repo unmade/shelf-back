@@ -264,12 +264,7 @@ class Storage:
         """
 
     @abc.abstractmethod
-    async def thumbnail(
-        self,
-        ns_path: StrOrPath,
-        path: StrOrPath,
-        size: int,
-    ) -> tuple[int, IO[bytes]]:
+    async def thumbnail(self, ns_path: StrOrPath, path: StrOrPath, size: int) -> bytes:
         """
         Generate thumbnail with a specified size for the given path.
 
@@ -285,5 +280,5 @@ class Storage:
                 is not an image.
 
         Returns:
-            tuple[int, IO[bytes]]: Size, in bytes and a thumbnail.
+            bytes: Thumbnail content.
         """

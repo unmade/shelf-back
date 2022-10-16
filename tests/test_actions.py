@@ -342,11 +342,11 @@ async def test_get_thumbnail(
 ):
     file = await file_factory(namespace.path, content=image_content)
 
-    filecache, disksize, thumbnail = (
+    filecache, thumbnail = (
         await actions.get_thumbnail(db_client, namespace, file.id, size=64)
     )
     assert filecache == file
-    assert disksize < file.size
+    assert len(thumbnail) < file.size
     assert isinstance(thumbnail, bytes)
 
 

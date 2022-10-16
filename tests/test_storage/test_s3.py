@@ -440,9 +440,8 @@ async def test_size_but_client_raises_error(s3_storage: S3Storage):
 
 async def test_thumbnail(file_factory, image_content, s3_storage: S3Storage):
     await file_factory("user/im.jpg", content=image_content)
-    size, content = await s3_storage.thumbnail("user", "im.jpg", size=128)
-    assert size == 883
-    assert size == len(content.read())
+    content = await s3_storage.thumbnail("user", "im.jpg", size=128)
+    assert len(content) == 883
 
 
 async def test_thumbnail_but_file_is_not_an_image(file_factory, s3_storage: S3Storage):

@@ -249,12 +249,7 @@ class S3Storage(Storage):
         return obj.content_length
 
     @sync_to_async
-    def thumbnail(
-        self,
-        ns_path: StrOrPath,
-        path: StrOrPath,
-        size: int,
-    ) -> tuple[int, IO[bytes]]:
+    def thumbnail(self, ns_path: StrOrPath, path: StrOrPath, size: int) -> bytes:
         key = self._joinpath(ns_path, path)
         content = BytesIO()
 
@@ -274,7 +269,5 @@ class S3Storage(Storage):
             msg = f"Can't generate a thumbnail for a file: '{path}'"
             raise errors.ThumbnailUnavailable(msg) from exc
 
-        size = buffer.seek(0, 2)
         buffer.seek(0)
-
-        return size, buffer
+        return buffer.read()

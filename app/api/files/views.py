@@ -300,7 +300,7 @@ async def _get_thumbnail(
     mtime: float,
 ):
     try:
-        file, disksize, thumbnail = await actions.get_thumbnail(
+        file, thumbnail = await actions.get_thumbnail(
             db_client, namespace, file_id, size=size,
         )
     except errors.FileNotFound as exc:
@@ -315,7 +315,7 @@ async def _get_thumbnail(
 
     headers = {
         "Content-Disposition": f'inline; filename="{filename}"',
-        "Content-Length": str(disksize),
+        "Content-Length": str(len(thumbnail)),
         "Content-Type": mediatype,
         "Cache-Control": "private, max-age=31536000, no-transform",
     }
