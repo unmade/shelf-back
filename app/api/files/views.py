@@ -13,7 +13,7 @@ from fastapi import File as FileParam
 from fastapi import Form, Query, Request, UploadFile
 from fastapi.responses import ORJSONResponse, Response, StreamingResponse
 
-from app import actions, config, crud, errors, tasks
+from app import actions, config, crud, errors, mediatypes, tasks
 from app.api import deps
 from app.cache import cache, disk_cache
 from app.entities import Namespace, User
@@ -311,12 +311,11 @@ async def _get_thumbnail(
         raise exceptions.ThumbnailUnavailable(path=str(file_id)) from exc
 
     filename = file.name.encode("utf-8").decode("latin-1")
-    mediatype = file.mediatype
 
     headers = {
         "Content-Disposition": f'inline; filename="{filename}"',
         "Content-Length": str(len(thumbnail)),
-        "Content-Type": mediatype,
+        "Content-Type": mediatypes.IMAGE_WEBP,
         "Cache-Control": "private, max-age=31536000, no-transform",
     }
 

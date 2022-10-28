@@ -345,15 +345,15 @@ async def test_size_but_file_does_not_exist(fs_storage: FileSystemStorage):
 
 
 async def test_thumbnail(
-    file_factory, image_content, fs_storage: FileSystemStorage
+    file_factory, image_content: IO[bytes], fs_storage: FileSystemStorage
 ):
     await file_factory("user/im.jpg", content=image_content)
     content = await fs_storage.thumbnail("user", "im.jpg", size=128)
-    assert len(content) == 883
+    assert len(content) == 112
 
 
 async def test_thumbnail_but_path_is_a_directory(
-    file_factory, image_content, fs_storage: FileSystemStorage
+    file_factory, image_content: IO[bytes], fs_storage: FileSystemStorage
 ):
     await file_factory("user/a/im.jpg", content=image_content)
 

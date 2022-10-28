@@ -8,9 +8,6 @@ import filetype
 if TYPE_CHECKING:
     from app.typedefs import StrOrPath
 
-FOLDER = "application/directory"
-OCTET_STREAM = "application/octet-stream"
-
 mimetypes.init()
 
 mimetypes.add_type("application/sql", ".sql")
@@ -33,25 +30,19 @@ mimetypes.add_type("text/x-rust", ".rs")
 mimetypes.add_type("text/x-toml", ".toml")
 mimetypes.add_type("text/x-vim", ".vim")
 
-IMAGES = {
-    "image/jpeg",
-    "image/png",
-    "image/x-icon",
-    "image/webp",
+FOLDER = "application/directory"
+
+IMAGE_JPEG = "image/jpeg"
+IMAGE_ICON = "image/x-icon"
+IMAGE_PNG = "image/png"
+IMAGE_WEBP = "image/webp"
+
+OCTET_STREAM = "application/octet-stream"
+
+_STRICT_MEDIATYPES = {
+    tp.MIME
+    for tp in filetype.TYPES
 }
-
-
-# from filetype.types import TYPES
-
-
-def _get_strict_mediatypes() -> set[str]:
-    return {
-        tp.MIME
-        for tp in filetype.TYPES
-    }
-
-
-_STRICT_MEDIATYPES = _get_strict_mediatypes()
 
 
 def guess(
@@ -88,13 +79,3 @@ def guess(
         return OCTET_STREAM
 
     return cast(str, mime)
-
-
-def has_thumbnail(mediatype: str) -> bool:
-    """True if thumbnail available for given mediatype, otherwise False."""
-    return mediatype in IMAGES
-
-
-def is_image(mediatype: str) -> bool:
-    """True if mediatype corresponds to an image file, otherwise False."""
-    return mediatype in IMAGES

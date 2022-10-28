@@ -55,7 +55,7 @@ APP_DEBUG = _get_bool("APP_DEBUG")
 APP_MAX_DOWNLOAD_WITHOUT_STREAMING = int(
     os.getenv(
         "APP_MAX_DOWNLOAD_WITHOUT_STREAMING_IN_BYTES",
-        10 * _MB,
+        5 * _MB,
     )
 )
 APP_SECRET_KEY = os.environ["APP_SECRET_KEY"]

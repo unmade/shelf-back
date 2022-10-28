@@ -31,21 +31,3 @@ def test_guess_unsafe(unsafe: bool, expected: str):
 
 def test_guess_but_filename_does_not_have_suffix() -> None:
     assert mediatypes.guess("f") == mediatypes.OCTET_STREAM
-
-
-@pytest.mark.parametrize(["mediatype", "available"], [
-    ("image/jpeg", True),
-    ("plain/text", False),
-])
-def test_has_thumbnail(mediatype: str, available: bool):
-    assert mediatypes.has_thumbnail(mediatype) is available
-
-
-@pytest.mark.parametrize(["mediatype", "image"], [
-    ("image/jpeg", True),
-    ("image/png", True),
-    ("image/x-icon", True),
-    ("image/svg", False),
-])
-def test_is_image(mediatype: str, image: bool):
-    assert mediatypes.is_image(mediatype) is image

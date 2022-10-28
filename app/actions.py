@@ -412,8 +412,9 @@ async def reindex_files_content(db_client: DBClient, namespace: Namespace) -> No
 
     ns_path = str(namespace.path)
     batch_size = 500
+    types = tuple(hashes.SUPPORTED_TYPES | metadata.SUPPORTED_TYPES)
     batches = crud.file.iter_by_mediatypes(
-        db_client, ns_path, mediatypes=tuple(mediatypes.IMAGES), batch_size=batch_size
+        db_client, ns_path, mediatypes=types, batch_size=batch_size
     )
 
     async for files in batches:

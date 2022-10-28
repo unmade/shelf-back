@@ -11,10 +11,8 @@ import stream_zip
 from asgiref.sync import sync_to_async
 from botocore.client import Config
 from botocore.exceptions import ClientError
-from PIL import Image, UnidentifiedImageError
-from PIL.ImageOps import exif_transpose
 
-from app import config, errors
+from app import config, errors, thumbnails
 
 from .base import Storage, StorageFile, StreamZipFile
 
@@ -260,14 +258,8 @@ class S3Storage(Storage):
                 raise errors.FileNotFound() from exc
             raise
 
-        buffer = BytesIO()
         try:
-            with Image.open(content) as im:
-                im.thumbnail((size, size))
-                exif_transpose(im).save(buffer, im.format)
-        except UnidentifiedImageError as exc:
+            return thumbnails.thumbnail(content, size=size)
+        except errors.ThumbnailUnavailable as exc:
             msg = f"Can't generate a thumbnail for a file: '{path}'"
             raise errors.ThumbnailUnavailable(msg) from exc
-
-        buffer.seek(0)
-        return buffer.read()

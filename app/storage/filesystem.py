@@ -5,15 +5,12 @@ import glob
 import os
 import os.path
 import shutil
-from io import BytesIO
 from typing import IO, TYPE_CHECKING, Iterator, cast
 
 import stream_zip
 from asgiref.sync import sync_to_async
-from PIL import Image, UnidentifiedImageError
-from PIL.ImageOps import exif_transpose
 
-from app import errors
+from app import errors, thumbnails
 
 from .base import Storage, StorageFile, StreamZipFile
 
@@ -230,18 +227,13 @@ class FileSystemStorage(Storage):
     @sync_to_async
     def thumbnail(self, ns_path: StrOrPath, path: StrOrPath, size: int) -> bytes:
         fullpath = self._joinpath(self.location, ns_path, path)
-        buffer = BytesIO()
         try:
-            with Image.open(fullpath) as im:
-                im.thumbnail((size, size))
-                exif_transpose(im).save(buffer, im.format, compress_level=4)
+            with open(fullpath, 'rb') as content:
+                return thumbnails.thumbnail(content, size=size)
         except FileNotFoundError as exc:
             raise errors.FileNotFound() from exc
         except IsADirectoryError as exc:
             raise errors.IsADirectory(f"Path '{path}' is a directory") from exc
-        except UnidentifiedImageError as exc:
+        except errors.ThumbnailUnavailable as exc:
             msg = f"Can't generate thumbnail for a file: '{path}'"
             raise errors.ThumbnailUnavailable(msg) from exc
-
-        buffer.seek(0)
-        return buffer.read()

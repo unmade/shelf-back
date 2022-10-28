@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import operator
 from io import BytesIO
-from typing import TYPE_CHECKING
+from typing import IO, TYPE_CHECKING
 from zipfile import ZipFile
 
 import pytest
@@ -438,10 +438,10 @@ async def test_size_but_client_raises_error(s3_storage: S3Storage):
             await s3_storage.size("user", "f.txt")
 
 
-async def test_thumbnail(file_factory, image_content, s3_storage: S3Storage):
+async def test_thumbnail(file_factory, image_content: IO[bytes], s3_storage: S3Storage):
     await file_factory("user/im.jpg", content=image_content)
     content = await s3_storage.thumbnail("user", "im.jpg", size=128)
-    assert len(content) == 883
+    assert len(content) == 112
 
 
 async def test_thumbnail_but_file_is_not_an_image(file_factory, s3_storage: S3Storage):

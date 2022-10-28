@@ -496,7 +496,7 @@ async def test_get_thumbnail(
     headers = response.headers
     assert headers["Content-Disposition"] == f'inline; filename="{file.name}"'
     assert int(headers["Content-Length"]) < file.size
-    assert headers["Content-Type"] == "image/jpeg"
+    assert headers["Content-Type"] == "image/webp"
     assert headers["Cache-Control"] == "private, max-age=31536000, no-transform"
 
 
@@ -523,12 +523,12 @@ async def test_get_thumbnail_hits_disk_cache(
 ):
     file_id = str(uuid.uuid4())
     mtime = datetime.now().timestamp()
-    filename, mediatype, disksize = "im.jpeg", "image/jpeg", 1024
+    filename, disksize = "im.jpeg", 1024
 
     headers = {
         "Content-Disposition": f'inline; filename="{filename}"',
         "Content-Length": str(disksize),
-        "Content-Type": mediatype,
+        "Content-Type": "image/webp",
         "Cache-Control": "private, max-age=31536000, no-transform",
     }
     content = image_content.read()

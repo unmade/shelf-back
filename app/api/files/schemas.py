@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, root_validator, validator
 
-from app import errors, mediatypes
+from app import errors, thumbnails
 from app.config import TRASH_FOLDER_NAME
 
 from .exceptions import FileAlreadyDeleted, MalformedPath
@@ -77,7 +77,7 @@ class File(BaseModel):
 
     @staticmethod
     def _make_thumbnail_url(request: Request, file: entities.File) -> str | None:
-        if mediatypes.has_thumbnail(file.mediatype):
+        if thumbnails.is_supported(file.mediatype):
             return request.url_for("get_thumbnail", file_id=file.id)
         return None
 

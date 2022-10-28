@@ -9,6 +9,14 @@ from app import mediatypes
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+_SUPPORTED_IMAGES = {
+    mediatypes.IMAGE_JPEG,
+    mediatypes.IMAGE_PNG,
+    mediatypes.IMAGE_WEBP,
+}
+
+SUPPORTED_TYPES = _SUPPORTED_IMAGES
+
 
 class UnhashableContent(Exception):
     """Difference hash cannot be calculated for a given content."""
@@ -22,7 +30,7 @@ def dhash(content: IO[bytes], mediatype: str) -> int | None:
         int, optional: None if mediatype is unsupported, otherwise - a difference hash.
     """
     try:
-        if mediatypes.is_image(mediatype):
+        if mediatype in _SUPPORTED_IMAGES:
             return dhash_image(content)
     except UnhashableContent:
         return None

@@ -12,6 +12,14 @@ from app.entities import Exif
 if TYPE_CHECKING:
     from PIL.TiffImagePlugin import IFDRational
 
+_SUPPORTED_IMAGES = {
+    mediatypes.IMAGE_JPEG,
+    mediatypes.IMAGE_PNG,
+    mediatypes.IMAGE_WEBP,
+}
+
+SUPPORTED_TYPES = _SUPPORTED_IMAGES
+
 
 def load(content: IO[bytes], mediatype: str) -> Exif | None:
     """
@@ -25,7 +33,7 @@ def load(content: IO[bytes], mediatype: str) -> Exif | None:
         Exif | None: None if no metadata available, otherwise return a metadata specific
             to a given media type.
     """
-    if mediatypes.is_image(mediatype):
+    if mediatype in _SUPPORTED_IMAGES:
         return _getexif(content)
     return None
 
