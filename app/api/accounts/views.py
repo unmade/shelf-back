@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import asyncio
-
 from edgedb import AsyncIOClient
 from fastapi import APIRouter, Depends
 
-from app import actions, crud, errors
+from app import actions, crud, errors, taskgroups
 from app.api import deps
 from app.api.paginator import Page, PageParam, PageSizeParam, get_offset
 from app.entities import User
@@ -75,7 +73,7 @@ async def list_all(
 ):
     """List all accounts."""
     offset = get_offset(page, per_page)
-    count, accounts = await asyncio.gather(
+    count, accounts = await taskgroups.gather(
         crud.account.count(db_client),
         crud.account.list_all(db_client, offset=offset, limit=per_page)
     )

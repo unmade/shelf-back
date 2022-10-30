@@ -13,7 +13,7 @@ from typing import IO, TYPE_CHECKING
 
 from edgedb import RetryOptions
 
-from app import config, crud, errors, hashes, mediatypes, metadata
+from app import config, crud, errors, hashes, mediatypes, metadata, taskgroups
 from app.entities import Account, File, Fingerprint, Namespace
 from app.storage import storage
 
@@ -391,7 +391,7 @@ async def reindex(db_client: DBClient, namespace: Namespace) -> None:
     await crud.mediatype.create_missing(db_client, names=mediatype_names)
 
     chunk_size = min(len(missing), 500)
-    await asyncio.gather(*(
+    await taskgroups.gather(*(
         crud.file.create_batch(db_client, ns_path, files=chunk)
         for chunk in itertools.zip_longest(*[iter(missing)] * chunk_size)
     ))
@@ -419,22 +419,32 @@ async def reindex_files_content(db_client: DBClient, namespace: Namespace) -> No
 
     async for files in batches:
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            tasks = [
-                loop.run_in_executor(
-                    executor, _reindex_content, storage, ns_path, f.path, f.mediatype,
+            results = await taskgroups.gather(*(
+                asyncio.wait_for(
+                    loop.run_in_executor(
+                        executor,
+                        _reindex_content,
+                        storage,
+                        ns_path,
+                        file.path,
+                        file.mediatype,
+                    ),
+                    timeout=None,
                 )
-                for f in files
-            ]
-            result = await asyncio.gather(*tasks)
+                for file in files
+            ))
 
+        # delete all fingerprints and metadata first
         file_ids = [file.id for file in files]
-        await asyncio.gather(
+        await taskgroups.gather(
             crud.fingerprint.delete_batch(db_client, file_ids=file_ids),
             crud.metadata.delete_batch(db_client, file_ids=file_ids),
         )
-        fps = ((path, dhash) for path, dhash, _ in result if dhash is not None)
-        data = ((path, meta) for path, _, meta in result if meta is not None)
-        await asyncio.gather(
+
+        # create it from scratch
+        fps = ((path, dhash) for path, dhash, _ in results if dhash is not None)
+        data = ((path, meta) for path, _, meta in results if meta is not None)
+        await taskgroups.gather(
             crud.fingerprint.create_batch(db_client, ns_path, fingerprints=fps),
             crud.metadata.create_batch(db_client, ns_path, data=data),
         )

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import operator
 import time
 import uuid
@@ -9,7 +8,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from app import crud, errors
+from app import crud, errors, taskgroups
 from app.entities import File
 from app.mediatypes import FOLDER, OCTET_STREAM
 
@@ -233,7 +232,7 @@ async def test_create_folder_concurrently_with_overlapping_parents(
         Path("a/b/c/d/c"),
     ]
 
-    await asyncio.gather(*(
+    await taskgroups.gather(*(
         crud.file.create_folder(db_client, namespace.path, path)
         for path in paths
     ))

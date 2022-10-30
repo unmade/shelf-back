@@ -9,7 +9,8 @@ from app import hashes
 
 
 def test_dhash_for_image():
-    with resources.open_binary("tests.data.images", "baikal_v1.jpeg") as im:
+    pkg = resources.files("tests.data.images")
+    with pkg.joinpath("baikal_v1.jpeg").open('rb') as im:
         assert hashes.dhash(im, mediatype="image/jpeg")
 
 
@@ -29,10 +30,11 @@ def test_dhash_but_mediatype_is_unsupported():
     ("park_v1.jpeg", "park_v1_downscaled.jpeg", 0),
 ])
 def test_dhash_image(name_a, name_b, delta):
-    with resources.open_binary("tests.data.images", name_a) as image_a:
+    pkg = resources.files("tests.data.images")
+    with pkg.joinpath(name_a).open('rb') as image_a:
         hash_a = hashes.dhash_image(image_a)
 
-    with resources.open_binary("tests.data.images", name_b) as image_b:
+    with pkg.joinpath(name_b).open('rb') as image_b:
         hash_b = hashes.dhash_image(image_b)
 
     assert (hash_a ^ hash_b).bit_count() == delta

@@ -180,7 +180,7 @@ async def test_iterdir_does_not_include_broken_symlinks(
     fullpath.unlink()
 
     files = list(await fs_storage.iterdir("user", "."))
-    assert(len(files)) == 1
+    assert (len(files)) == 1
     assert files[0].path == "x.txt"
 
 

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import uuid
 from io import BytesIO
 from pathlib import Path
@@ -8,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from app import actions, crud, errors, mediatypes
+from app import actions, crud, errors, mediatypes, taskgroups
 from app.entities import Exif
 from app.storage import storage
 
@@ -777,7 +776,7 @@ async def test_save_files_concurrently(db_client: DBClient, namespace: Namespace
 
     await actions.create_folder(db_client, namespace, parent)
 
-    await asyncio.gather(*(
+    await taskgroups.gather(*(
         actions.save_file(db_client, namespace, path, file)
         for path, file in zip(paths, files)
     ))

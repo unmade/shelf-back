@@ -26,7 +26,8 @@ def test_thumbnail(image_content: IO[bytes]):
 def test_thumbnail_on_animated_image():
     name = "animated.gif"
     size = 64
-    with resources.open_binary("tests.data.images", name) as content:
+    pkg = resources.files("tests.data.images")
+    with pkg.joinpath(name).open("rb") as content:
         thumbnail = thumbnails.thumbnail(content, size=size)
 
     assert len(thumbnail) == 19246
@@ -38,7 +39,8 @@ def test_thumbnail_on_animated_image():
 ])
 def test_thumbnail_should_downscale_only(size, dimensions):
     name = "park_v1_downscaled.jpeg"
-    with resources.open_binary("tests.data.images", name) as content:
+    pkg = resources.files("tests.data.images")
+    with pkg.joinpath(name).open("rb") as content:
         thumbnail = thumbnails.thumbnail(content, size=size)
     with Image.open(BytesIO(thumbnail)) as im:
         assert im.size == dimensions

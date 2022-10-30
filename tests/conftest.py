@@ -314,7 +314,7 @@ def image_content() -> BytesIO:
 @pytest.fixture
 def image_content_with_exif() -> BytesIO:
     name = "exif_iphone_with_hdr_on.jpeg"
-    return BytesIO(resources.read_binary("tests.data.images", name))
+    return BytesIO(resources.files("tests.data.images").joinpath(name).read_bytes())
 
 
 @pytest.fixture

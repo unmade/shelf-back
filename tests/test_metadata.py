@@ -82,7 +82,8 @@ def test_load_metadata_but_mediatype_is_not_supported():
 
 ])
 def test_getexif(name: str, expected: Exif):
-    with resources.open_binary("tests.data.images", name) as content:
+    pkg = resources.files("tests.data.images")
+    with pkg.joinpath(name).open("rb") as content:
         actual = metadata._getexif(content)
 
     assert actual == expected

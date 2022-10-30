@@ -109,7 +109,7 @@ async def test_list_all(
     account_factory: AccountFactory,
 ):
     await account_factory(user=superuser)
-    for _ in range(3):  # strangely, edegdb has some trouble with asyncio.gather
+    for _ in range(3):  # strangely, edegdb has some trouble with `gather`
         await account_factory()
     client.login(superuser.id)
     response = await client.get("/accounts/list_all")
@@ -127,7 +127,7 @@ async def test_list_all_with_page_params(
     account_factory: AccountFactory,
 ) -> None:
     await account_factory(user=superuser)
-    for _ in range(7):  # strangely, edegdb has some trouble with asyncio.gather
+    for _ in range(7):  # strangely, edegdb has some trouble with `gather`
         await account_factory()
     client.login(superuser.id)
     response = await client.get("/accounts/list_all?page=2&per_page=5")
