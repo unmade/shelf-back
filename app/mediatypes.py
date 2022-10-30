@@ -34,6 +34,7 @@ mimetypes.add_type("text/x-vim", ".vim")
 
 FOLDER = "application/directory"
 
+IMAGE_GIF = "image/gif"
 IMAGE_HEIC = "image/heic"
 IMAGE_HEIF = "image/heif"
 IMAGE_JPEG = "image/jpeg"

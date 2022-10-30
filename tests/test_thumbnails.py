@@ -23,6 +23,15 @@ def test_thumbnail(image_content: IO[bytes]):
     assert len(thumbnail) == 112
 
 
+def test_thumbnail_on_animated_image():
+    name = "animated.gif"
+    size = 64
+    with resources.open_binary("tests.data.images", name) as content:
+        thumbnail = thumbnails.thumbnail(content, size=size)
+
+    assert len(thumbnail) == 19246
+
+
 @pytest.mark.parametrize(["size", "dimensions"], [
     (256, (192, 256)),
     (2048, (480, 640)),
