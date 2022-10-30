@@ -11,6 +11,7 @@ gunicorn
 h11<0.13  # this is required only for tests, however put it here to correcly resolve dependencies
 orjson
 passlib
+pi-heif
 pillow
 pydantic[email]
 python-dateutil

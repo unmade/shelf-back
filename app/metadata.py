@@ -13,6 +13,8 @@ if TYPE_CHECKING:
     from PIL.TiffImagePlugin import IFDRational
 
 _SUPPORTED_IMAGES = {
+    mediatypes.IMAGE_HEIC,
+    mediatypes.IMAGE_HEIF,
     mediatypes.IMAGE_JPEG,
     mediatypes.IMAGE_PNG,
     mediatypes.IMAGE_WEBP,
@@ -50,7 +52,8 @@ def _getexif(content: IO[bytes]) -> Exif | None:
     """
     try:
         with Image.open(content) as im:
-            raw_exif = im._getexif()
+            raw_exif = im.getexif()
+            width, height = im.size
     except UnidentifiedImageError:
         return None
 
@@ -59,7 +62,7 @@ def _getexif(content: IO[bytes]) -> Exif | None:
 
     exif = {
         ExifTags.TAGS[k]: v
-        for k, v in raw_exif.items()
+        for k, v in raw_exif._get_merged_dict().items()
         if k in ExifTags.TAGS
     }
 
@@ -72,8 +75,8 @@ def _getexif(content: IO[bytes]) -> Exif | None:
         iso=_get_str_or_none(exif.get("ISOSpeedRatings")),
         dt_original=_get_timestamp(exif.get("DateTimeOriginal")),
         dt_digitized=_get_timestamp(exif.get("DateTimeDigitized")),
-        height=exif.get("ExifImageHeight"),
-        width=exif.get("ExifImageWidth"),
+        height=width,
+        width=height,
     )
 
 

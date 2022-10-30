@@ -9,6 +9,8 @@ from PIL.ImageOps import exif_transpose
 from app import errors, mediatypes
 
 _SUPPORTED_IMAGES = {
+    mediatypes.IMAGE_HEIC,
+    mediatypes.IMAGE_HEIF,
     mediatypes.IMAGE_JPEG,
     mediatypes.IMAGE_PNG,
     mediatypes.IMAGE_WEBP,

@@ -12,6 +12,8 @@ mimetypes.init()
 
 mimetypes.add_type("application/sql", ".sql")
 mimetypes.add_type("application/x-zsh", ".zsh")
+mimetypes.add_type("image/heif", ".heif")
+mimetypes.add_type("image/heif", ".hif")
 mimetypes.add_type("text/jsx", ".jsx")
 mimetypes.add_type("text/markdown", ".md")
 mimetypes.add_type("text/plain", ".cfg")
@@ -32,10 +34,12 @@ mimetypes.add_type("text/x-vim", ".vim")
 
 FOLDER = "application/directory"
 
+IMAGE_HEIC = "image/heic"
+IMAGE_HEIF = "image/heif"
 IMAGE_JPEG = "image/jpeg"
-IMAGE_ICON = "image/x-icon"
 IMAGE_PNG = "image/png"
 IMAGE_WEBP = "image/webp"
+IMAGE_ICON = "image/x-icon"
 
 OCTET_STREAM = "application/octet-stream"
 

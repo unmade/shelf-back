@@ -4,7 +4,7 @@
 #
 #    pip-compile requirements/lint.in
 #
-anyio==3.6.1
+anyio==3.6.2
     # via
     #   -c requirements/base.txt
     #   -c requirements/test.txt
@@ -18,9 +18,9 @@ attrs==22.1.0
     # via
     #   -c requirements/test.txt
     #   pytest
-boto3-stubs[s3]==1.24.91
+boto3-stubs[s3]==1.25.4
     # via -r requirements/lint.in
-botocore-stubs==1.27.91
+botocore-stubs==1.28.4
     # via boto3-stubs
 certifi==2022.9.24
     # via
@@ -42,7 +42,7 @@ dnspython==2.2.1
     # via
     #   -c requirements/base.txt
     #   email-validator
-edgedb==0.24.0
+edgedb==1.0.0
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
@@ -50,6 +50,10 @@ email-validator==1.3.0
     # via
     #   -c requirements/base.txt
     #   pydantic
+exceptiongroup==1.0.0
+    # via
+    #   -c requirements/test.txt
+    #   pytest
 fastapi==0.85.1
     # via
     #   -c requirements/base.txt
@@ -69,7 +73,7 @@ httpx==0.23.0
     # via
     #   -c requirements/test.txt
     #   -r requirements/lint.in
-identify==2.5.6
+identify==2.5.8
     # via pre-commit
 idna==3.4
     # via
@@ -84,7 +88,7 @@ iniconfig==1.1.1
     #   pytest
 mypy==0.982
     # via -r requirements/lint.in
-mypy-boto3-s3==1.24.76
+mypy-boto3-s3==1.25.0
     # via boto3-stubs
 mypy-extensions==0.4.3
     # via mypy
@@ -103,10 +107,6 @@ pluggy==1.0.0
     #   pytest
 pre-commit==2.20.0
     # via -r requirements/lint.in
-py==1.11.0
-    # via
-    #   -c requirements/test.txt
-    #   pytest
 pydantic[email]==1.10.2
     # via
     #   -c requirements/base.txt
@@ -117,7 +117,7 @@ pyparsing==3.0.9
     #   -c requirements/base.txt
     #   -c requirements/test.txt
     #   packaging
-pytest==7.1.3
+pytest==7.2.0
     # via
     #   -c requirements/test.txt
     #   -r requirements/lint.in
@@ -155,11 +155,11 @@ typer==0.6.1
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
-types-awscrt==0.14.7
+types-awscrt==0.15.1
     # via botocore-stubs
 types-orjson==3.6.2
     # via -r requirements/lint.in
-types-python-dateutil==2.8.19
+types-python-dateutil==2.8.19.2
     # via -r requirements/lint.in
 types-s3transfer==0.6.0.post4
     # via boto3-stubs
@@ -167,7 +167,6 @@ typing-extensions==4.4.0
     # via
     #   -c requirements/base.txt
     #   boto3-stubs
-    #   edgedb
     #   mypy
     #   mypy-boto3-s3
     #   pydantic
@@ -179,7 +178,7 @@ uvloop==0.17.0
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
-virtualenv==20.16.5
+virtualenv==20.16.6
     # via pre-commit
 
 # The following packages are considered to be unsafe in a requirements file:

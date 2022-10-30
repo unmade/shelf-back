@@ -10,6 +10,8 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 _SUPPORTED_IMAGES = {
+    mediatypes.IMAGE_HEIC,
+    mediatypes.IMAGE_HEIF,
     mediatypes.IMAGE_JPEG,
     mediatypes.IMAGE_PNG,
     mediatypes.IMAGE_WEBP,

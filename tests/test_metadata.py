@@ -35,6 +35,21 @@ def test_load_metadata_but_mediatype_is_not_supported():
         ),
     ),
     (
+        "exif_iphone.heic",
+        Exif(
+            type="exif",
+            make="Apple",
+            model="iPhone 8",
+            fnumber="1.8",
+            exposure="1/873",
+            iso="20",
+            dt_original=datetime(2018, 5, 28, 20, 35, 36).timestamp(),
+            dt_digitized=datetime(2018, 5, 28, 20, 35, 36).timestamp(),
+            height=1,
+            width=1,
+        ),
+    ),
+    (
         "exif_partial.png",
         Exif(
             type="exif",
