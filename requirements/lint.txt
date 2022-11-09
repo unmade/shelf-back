@@ -18,9 +18,9 @@ attrs==22.1.0
     # via
     #   -c requirements/test.txt
     #   pytest
-boto3-stubs[s3]==1.25.5
+boto3-stubs[s3]==1.26.6
     # via -r requirements/lint.in
-botocore-stubs==1.28.5
+botocore-stubs==1.29.6
     # via boto3-stubs
 certifi==2022.9.24
     # via
@@ -82,9 +82,9 @@ iniconfig==1.1.1
     # via
     #   -c requirements/test.txt
     #   pytest
-mypy==0.982
+mypy==0.990
     # via -r requirements/lint.in
-mypy-boto3-s3==1.25.0
+mypy-boto3-s3==1.26.0.post1
     # via boto3-stubs
 mypy-extensions==0.4.3
     # via mypy
@@ -95,7 +95,7 @@ packaging==21.3
     #   -c requirements/base.txt
     #   -c requirements/test.txt
     #   pytest
-platformdirs==2.5.2
+platformdirs==2.5.3
     # via virtualenv
 pluggy==1.0.0
     # via
@@ -146,11 +146,11 @@ typer==0.6.1
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
-types-awscrt==0.15.1
+types-awscrt==0.15.2
     # via botocore-stubs
 types-orjson==3.6.2
     # via -r requirements/lint.in
-types-python-dateutil==2.8.19.2
+types-python-dateutil==2.8.19.3
     # via -r requirements/lint.in
 types-s3transfer==0.6.0.post4
     # via boto3-stubs

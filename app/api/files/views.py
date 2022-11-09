@@ -462,6 +462,9 @@ async def upload_file(
     if filepath == config.TRASH_FOLDER_NAME:
         raise exceptions.MalformedPath("Uploads to the Trash are not allowed")
 
+    if file.file.seek(0, 2) > config.UPLOAD_FILE_MAX_SIZE:
+        raise exceptions.UploadFileTooLarge()
+
     parents = Path(filepath).parents
 
     try:

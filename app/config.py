@@ -89,3 +89,5 @@ SENTRY_DSN = os.getenv("SENTRY_DSN")
 SENTRY_ENV = os.getenv("SENTRY_ENV")
 
 TRASH_FOLDER_NAME = "Trash"
+
+UPLOAD_FILE_MAX_SIZE = int(os.getenv("UPLOAD_FILE_MAX_SIZE_IN_BYTES", 100 * _MB))

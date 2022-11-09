@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime
 from io import BytesIO
 from typing import TYPE_CHECKING
+from unittest import mock
 
 import pytest
 from fastapi import Response
@@ -21,6 +22,7 @@ from app.api.files.exceptions import (
     PathNotFound,
     StorageQuotaExceeded,
     ThumbnailUnavailable,
+    UploadFileTooLarge,
 )
 from app.api.files.schemas import ThumbnailSize
 from app.cache import cache, disk_cache
@@ -956,6 +958,21 @@ async def test_upload_but_path_is_a_file(
     client.login(namespace.owner.id)
     response = await client.post("/files/upload", files=payload)  # type: ignore
     assert response.json() == NotADirectory(path=f"{file.path}/dummy").as_dict()
+    assert response.status_code == 400
+
+
+async def test_upload_but_max_upload_size_is_exceeded(
+    client: TestClient,
+    namespace: Namespace,
+):
+    payload = {
+        "file": BytesIO(b"Dummy file"),
+        "path": (None, b"folder/file.txt"),
+    }
+    client.login(namespace.owner.id)
+    with mock.patch("app.config.UPLOAD_FILE_MAX_SIZE", 5):
+        response = await client.post("/files/upload", files=payload)  # type: ignore
+    assert response.json() == UploadFileTooLarge().as_dict()
     assert response.status_code == 400
 
 

@@ -151,5 +151,6 @@ to the [docs](.heroku/README.md).
 |STORAGE_S3_SECRET_ACCESS_KEY | - | -     | S3 secret access key. Required only if `s3` storage type is used |
 |STORAGE_S3_BUCKET_NAME       | - | shelf | S3 bucket to use to store files. Required only if `s3` storage type is used |
 |STORAGE_S3_REGION_NAME       | - | -     | S3 region. Required only if `s3` storage type is used |
-|SENTRY_DSN           | - | None   | Sentry DSN |
-|SENTRY_ENV           | - | None   | Sentry environment |
+|SENTRY_DSN                   | - | None   | Sentry DSN |
+|SENTRY_ENV                   | - | None   | Sentry environment |
+|UPLOAD_FILE_MAX_SIZE_IN_BYTES| - | 104857600 | Maximum upload file size. Default to 100 MB |

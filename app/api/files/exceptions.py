@@ -103,3 +103,10 @@ class ThumbnailUnavailable(FilesError):
     def get_message(self, path: StrOrPath) -> str:
         path = Path(path)
         return self.message.format(name=path.name, parent=path.parent)
+
+
+class UploadFileTooLarge(APIError):
+    status_code = 400
+    code = "UPLOAD_FILE_TOO_LARGE"
+    code_verbose = "Upload too large"
+    default_message = "File exceeds maximum upload size"
