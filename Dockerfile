@@ -2,15 +2,15 @@ FROM python:3.11-slim
 
 COPY ./requirements/base.txt /requirements/
 
-RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements/base.txt
+# RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements/base.txt
 
-# uncomment this to build on arm64
-# because edgedb doesn't have a wheel for arm64
-# RUN apt-get update && apt-get install -y --no-install-recommends gcc libc-dev \
-#     && rm -rf /var/lib/apt/lists/* \
-#     && pip install --upgrade pip \
-#     && pip install --no-cache-dir -r requirements/base.txt \
-#     && apt-get purge -y --auto-remove gcc libc-dev
+# uncomment this to build on arm64 or on python 3.11
+# because edgedb doesn't have a wheel for arm64 or python 3.11
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libc-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --upgrade pip \
+    && pip install --no-cache-dir -r requirements/base.txt \
+    && apt-get purge -y --auto-remove gcc libc-dev
 
 ARG app_version
 ENV APP_VERSION=$app_version

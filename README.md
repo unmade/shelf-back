@@ -7,16 +7,8 @@ This is backend for the Shelf App - a self-hosted file storage.
 
 ## Demo
 
-- [https://shelfcloud.herokuapp.com/files](https://shelfcloud.herokuapp.com/files)
-- [https://api-shelf.herokuapp.com/docs](https://api-shelf.herokuapp.com/docs)
-
-The demo version runs on free Heroku instance with no persistent storage.
-A dyno restart wipes out all data.
-
-You can login with a test user:
-
-- login: **admin**
-- password: **root**
+- [https://app.getshelf.cloud/files](https://app.getshelf.cloud/files)
+- [https://api.getshelf.cloud/docs](https://api.getshelf.cloud/docs)
 
 ## Development
 
@@ -122,11 +114,6 @@ superuser on the first image run:
 
 - `SHELF_SUPERUSER_USERNAME` - a superuser username
 - `SHELF_SUPERUSER_PASSWORD` - a superuser password
-
-### Running on Heroku
-
-It is possible to run project on Heroku, but with some limitation. Please refer
-to the [docs](.heroku/README.md).
 
 ## Environment variables
 
