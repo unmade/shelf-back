@@ -52,7 +52,7 @@ def thumbnail(content: IO[bytes], *, size: int) -> bytes:
     buffer = BytesIO()
     try:
         with Image.open(content) as im:
-            if getattr(im, "is_animated", False):
+            if im.format == 'GIF' and getattr(im, "is_animated", False):
                 frames = _thumbnail_sequence(im, size)
                 frame = next(frames)
                 frame.info = im.info
