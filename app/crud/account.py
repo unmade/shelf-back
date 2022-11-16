@@ -138,6 +138,16 @@ async def get(conn: DBAnyConn, user_id: StrOrUUID) -> Account:
 
 
 async def get_space_usage(conn: DBAnyConn, user_id: StrOrUUID) -> tuple[int, int]:
+    """
+    Return space usage and total available space for a given user ID
+
+    Args:
+        conn (DBAnyConn): Database connection.
+        user_id (StrOrUUID): User ID.
+
+    Returns:
+        tuple[int, int]: Tuple of used space and available quota.
+    """
     query = """
         WITH
             namespaces := (

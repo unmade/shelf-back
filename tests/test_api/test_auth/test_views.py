@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from unittest import mock
 
 import pytest
 
-from app.api.auth.exceptions import InvalidCredentials, UserAlreadyExists
+from app.api.auth.exceptions import (
+    InvalidCredentials,
+    SignUpDisabled,
+    UserAlreadyExists,
+)
 
 if TYPE_CHECKING:
     from app.entities import User
@@ -50,24 +55,38 @@ async def test_sign_in_but_password_is_invalid(
     assert response.json() == InvalidCredentials().as_dict()
 
 
-async def test_sign_up(client: TestClient, superuser: User):
+async def test_sign_up(client: TestClient):
     payload = {
         "username": "johndoe",
         "password": "Password1",
         "confirm_password": "Password1",
     }
-    response = await client.login(superuser.id).post("/auth/sign_up", json=payload)
+    response = await client.post("/auth/sign_up", json=payload)
     assert "access_token" in response.json()
     assert response.status_code == 200
 
 
-async def test_sign_up_but_payload_is_invalid(client: TestClient, superuser: User):
+async def test_sign_up_but_it_is_disabled(client: TestClient):
+    payload = {
+        "username": "johndoe",
+        "password": "Password1",
+        "confirm_password": "Password1",
+    }
+
+    with mock.patch("app.config.FEATURES_SIGN_UP_DISABLED", True):
+        response = await client.post("/auth/sign_up", json=payload)
+
+    assert response.json() == SignUpDisabled().as_dict()
+    assert response.status_code == 400
+
+
+async def test_sign_up_but_payload_is_invalid(client: TestClient):
     payload = {
         "username": "jd",
         "password": "psswrd",
         "confirm_password": "Password1",
     }
-    response = await client.login(superuser.id).post("/auth/sign_up", json=payload)
+    response = await client.post("/auth/sign_up", json=payload)
     assert response.status_code == 422
 
 
@@ -77,7 +96,7 @@ async def test_sign_up_but_username_is_taken(client: TestClient, superuser: User
         "password": "Password1",
         "confirm_password": "Password1",
     }
-    response = await client.login(superuser.id).post("/auth/sign_up", json=payload)
+    response = await client.post("/auth/sign_up", json=payload)
     message = f"Username '{superuser.username}' is taken"
     assert response.json() == UserAlreadyExists(message).as_dict()
     assert response.status_code == 400
@@ -95,7 +114,7 @@ async def test_sign_up_but_email_is_taken(
         "confirm_password": "Password1",
         "email": "johndoe@example.com",
     }
-    response = await client.login(superuser.id).post("/auth/sign_up", json=payload)
+    response = await client.post("/auth/sign_up", json=payload)
     message = "Email 'johndoe@example.com' is taken"
     assert response.json() == UserAlreadyExists(message).as_dict()
     assert response.status_code == 400

@@ -8,6 +8,13 @@ class InvalidCredentials(APIError):
     default_message = "Incorrect email or password"
 
 
+class SignUpDisabled(APIError):
+    status_code = 400
+    code = "SIGN_UP_DISABLED"
+    code_verbose = "Sign Up Disabled"
+    default_message = "Sign up is closed for new users"
+
+
 class UserAlreadyExists(APIError):
     status_code = 400
     code = "USER_ALREADY_EXISTS"

@@ -19,6 +19,7 @@ async def sign_in(
     db_client: AsyncIOClient = Depends(deps.db_client),
 ):
     """Grant new access token for a given credentials."""
+
     username = form_data.username.lower().strip()
     try:
         user_id, password = await crud.user.get_password(db_client, username=username)
@@ -39,6 +40,9 @@ async def sign_up(
     db_client: AsyncIOClient = Depends(deps.db_client),
 ):
     """Create a new account with given credentials and grant a new access token."""
+    if config.FEATURES_SIGN_UP_DISABLED:
+        raise exceptions.SignUpDisabled()
+
     try:
         account = await actions.create_account(
             db_client,

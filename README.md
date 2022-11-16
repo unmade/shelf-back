@@ -131,6 +131,8 @@ superuser on the first image run:
 |DATABASE_DSN         | - | -      | Database DSN. If not set, then fallback to EdgeDB envs |
 |DATABASE_TLS_CA_FILE | - | -      | Path to TLS Certificate file to connect to the database. If not set, then fallback to EDGEDB_TLS_CA |
 |DATABASE_TLS_SECURITY| - | -      | Set the TLS security mode |
+|FEATURES_SIGN_UP_DISABLED              | - | False | Whether sign up is disabled or not |
+|FEATURES_UPLOAD_FILE_MAX_SIZE_IN_BYTES | - | 104857600 | Maximum upload file size. Default to 100 MB |
 |STORAGE_TYPE         | - | filesystem | A primary storage type. Either `filesystem` or `s3` options are available |
 |STORAGE_LOCATION     | - | ./data | Storage location. Path should be provided without trailing slash |
 |STORAGE_QUOTA_PER_ACCOUNT_IN_BYTES | - | None | Default storage quota per account in bytes. If not set, then account has unlimited storage |
@@ -140,4 +142,3 @@ superuser on the first image run:
 |STORAGE_S3_REGION_NAME       | - | -     | S3 region. Required only if `s3` storage type is used |
 |SENTRY_DSN                   | - | None   | Sentry DSN |
 |SENTRY_ENV                   | - | None   | Sentry environment |
-|UPLOAD_FILE_MAX_SIZE_IN_BYTES| - | 104857600 | Maximum upload file size. Default to 100 MB |

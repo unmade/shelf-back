@@ -970,7 +970,7 @@ async def test_upload_but_max_upload_size_is_exceeded(
         "path": (None, b"folder/file.txt"),
     }
     client.login(namespace.owner.id)
-    with mock.patch("app.config.UPLOAD_FILE_MAX_SIZE", 5):
+    with mock.patch("app.config.FEATURES_UPLOAD_FILE_MAX_SIZE", 5):
         response = await client.post("/files/upload", files=payload)  # type: ignore
     assert response.json() == UploadFileTooLarge().as_dict()
     assert response.status_code == 400
