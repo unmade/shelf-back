@@ -75,7 +75,7 @@ module default {
         required property superuser -> bool;
 
         multi link bookmarks -> File {
-            on target delete DELETE SOURCE;
+            on target delete allow;
         };
     }
 }

@@ -224,9 +224,23 @@ async def test_delete_immediately_file(
     file_factory: FileFactory,
 ):
     file = await file_factory(namespace.path, path="file")
-    path = Path(file.path)
-    deleted_file = await actions.delete_immediately(db_client, namespace, path)
+    deleted_file = await actions.delete_immediately(db_client, namespace, file.path)
     assert deleted_file.path == "file"
+
+    assert not await storage.exists(namespace.path, file.path)
+    assert not await crud.file.exists(db_client, namespace.path, file.path)
+
+
+async def test_delete_immediately_bookmarked_file(
+    db_client: DBClient,
+    namespace: Namespace,
+    bookmark_factory: BookmarkFactory,
+    file_factory: FileFactory,
+):
+    file = await file_factory(namespace.path, path="file")
+    await bookmark_factory(namespace.owner.id, file.id)
+
+    await actions.delete_immediately(db_client, namespace, file.path)
 
     assert not await storage.exists(namespace.path, file.path)
     assert not await crud.file.exists(db_client, namespace.path, file.path)
