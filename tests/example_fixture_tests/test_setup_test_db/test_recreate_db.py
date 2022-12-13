@@ -40,6 +40,7 @@ def create_db_client(dsn: str) -> Iterator[Client]:
         dsn=dsn,
         max_concurrency=1,
         tls_ca_file=config.DATABASE_TLS_CA_FILE,
+        tls_security=config.DATABASE_TLS_SECURITY,
     ) as client:
         yield client
 
@@ -56,7 +57,7 @@ def test_recreates_db(request: FixtureRequest, db_dsn):
         with pytest.raises(edgedb.InvalidReferenceError) as excinfo:
             assert len(db_client.query("SELECT File")) == 0
 
-    assert str(excinfo.value) == "object type or alias 'default::File' does not exist"
+    assert "object type or alias 'default::File' does not exist" in str(excinfo.value)
 
     with create_db_client(server_dsn) as db_client:
         db_client.execute(f"DROP DATABASE {db_name};")

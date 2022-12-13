@@ -14,7 +14,7 @@ fastapi
 httpx
 pydantic
 pytest
-sentry-sdk
+sentry-sdk[fastapi]
 typer
 types-orjson
 types-python-dateutil

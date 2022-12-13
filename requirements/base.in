@@ -6,10 +6,10 @@ cashews[diskcache,redis]
 celery[redis]
 edgedb
 fastapi
-filetype<1.1  # see: https://github.com/h2non/filetype.py/issues/130
+filetype  # see: https://github.com/h2non/filetype.py/issues/130
 gunicorn
-h11<0.13  # this is required only for tests, however put it here to correcly resolve dependencies
 orjson
+PyMuPDF
 passlib
 pi-heif
 pillow
@@ -17,7 +17,7 @@ pydantic[email]
 python-dateutil
 python-jose[cryptography]
 python-multipart
-sentry-sdk==1.9.4  # version 1.9.8 leads to maximum recursion depth
+sentry-sdk==1.9.4  # version 1.9.8 leads to maximum recursion depth in GH Actions
 stream-zip
 typer
 uvicorn[standard]
