@@ -72,8 +72,8 @@ def decode_token(token: str) -> TokenPayload:
     try:
         payload = jwt.decode(token, config.APP_SECRET_KEY, algorithms=[ALGORITHM])
         return TokenPayload(**payload)
-    except (jwt.JWTError, ValidationError):
-        raise InvalidToken()
+    except (jwt.JWTError, ValidationError) as exc:
+        raise InvalidToken() from exc
 
 
 def is_strong_password(password: str) -> bool:

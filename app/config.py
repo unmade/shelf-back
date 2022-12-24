@@ -27,9 +27,8 @@ def _get_list(key: str, default: list[str] | None = None) -> list[str]:
     value = os.getenv(key)
     if value is not None:
         return value.split(",")
-    else:
-        if default is not None:
-            return default
+    if default is not None:
+        return default
     return []
 
 

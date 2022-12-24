@@ -750,7 +750,7 @@ async def move(
                 "size": sign * target.size,
                 "parents": [str(p) for p in parents]
             })
-            for sign, parents in zip((-1, 1), (to_decrease, to_increase))
+            for sign, parents in zip((-1, 1), (to_decrease, to_increase), strict=True)
         ]
     )
 

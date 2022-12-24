@@ -240,23 +240,19 @@ async def flush_db_if_needed(request: FixtureRequest):
     try:
         yield
     finally:
-        marker = request.node.get_closest_marker("database")
-        if not marker:
-            return
-
-        if not marker.kwargs.get("transaction", False):
-            return
-
-        session_db_client: DBClient = request.getfixturevalue("session_db_client")
-        await session_db_client.execute("""
-            DELETE Account;
-            DELETE File;
-            DELETE FileMetadata;
-            DELETE Fingerprint;
-            DELETE MediaType;
-            DELETE Namespace;
-            DELETE User;
-        """)
+        if marker := request.node.get_closest_marker("database"):
+            if marker.kwargs.get("transaction", False):
+                session_db_client: DBClient
+                session_db_client = request.getfixturevalue("session_db_client")
+                await session_db_client.execute("""
+                    DELETE Account;
+                    DELETE File;
+                    DELETE FileMetadata;
+                    DELETE Fingerprint;
+                    DELETE MediaType;
+                    DELETE Namespace;
+                    DELETE User;
+                """)
 
 
 @pytest.fixture

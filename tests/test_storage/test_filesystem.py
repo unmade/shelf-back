@@ -113,7 +113,7 @@ async def test_downloaddir(file_factory, fs_storage: FileSystemStorage):
     buffer.seek(0)
 
     with ZipFile(buffer, "r") as archive:
-        assert set(archive.namelist()) == set(["x.txt", "y.txt", "c/f.txt"])
+        assert set(archive.namelist()) == {"x.txt", "y.txt", "c/f.txt"}
         assert archive.read("x.txt") == b"Hello"
         assert archive.read("y.txt") == b"World"
         assert archive.read("c/f.txt") == b"!"

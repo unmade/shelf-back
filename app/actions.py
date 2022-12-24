@@ -194,7 +194,7 @@ async def find_duplicates(
     Returns:
         list[list[Fingerprint]]: List of lists of duplicate fingerprints.
     """
-    def _traverse(graph, node, visited=set()):
+    def _traverse(graph, node, visited=set()):  # noqa: B006
         """Returns list of all direct/indirect adjacent nodes for a given node."""
         nodes: list[Fingerprint] = []
         if node in visited:
@@ -387,7 +387,7 @@ async def reindex(db_client: DBClient, namespace: Namespace) -> None:
                 )
             )
 
-    mediatype_names = set(file.mediatype for file in missing)
+    mediatype_names = {file.mediatype for file in missing}
     await crud.mediatype.create_missing(db_client, names=mediatype_names)
 
     chunk_size = min(len(missing), 500)

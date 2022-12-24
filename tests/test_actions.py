@@ -792,7 +792,7 @@ async def test_save_files_concurrently(db_client: DBClient, namespace: Namespace
 
     await taskgroups.gather(*(
         actions.save_file(db_client, namespace, path, file)
-        for path, file in zip(paths, files)
+        for path, file in zip(paths, files, strict=True)
     ))
 
     count = len(await crud.file.get_many(db_client, namespace.path, paths))

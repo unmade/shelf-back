@@ -481,7 +481,7 @@ async def test_get_by_id_batch(
     ids = [file.id for file in files[::2]]
     files = await crud.file.get_by_id_batch(tx, namespace.path, ids=ids)
     assert len(files) == len(ids)
-    assert set(f.id for f in files) == set(ids)
+    assert {f.id for f in files} == set(ids)
 
 
 async def test_get_by_id_batch_filters_only_by_ids_in_namespace(
@@ -495,7 +495,7 @@ async def test_get_by_id_batch_filters_only_by_ids_in_namespace(
     files_b = [await file_factory(namespace_b.path) for _ in range(2)]
     ids = [file.id for file in files_a] + [file.id for file in files_b]
     files = await crud.file.get_by_id_batch(tx, namespace_a.path, ids=ids)
-    assert set(f.id for f in files) == set(f.id for f in files_a)
+    assert {f.id for f in files} == {f.id for f in files_a}
 
 
 async def test_get_many(tx: DBTransaction, namespace: Namespace):
@@ -508,7 +508,7 @@ async def test_get_many(tx: DBTransaction, namespace: Namespace):
     files = await crud.file.get_many(tx, namespace.path, paths=paths)
 
     assert len(files) == 3
-    for file, path in zip(files, paths[:-1]):
+    for file, path in zip(files, paths[:-1], strict=True):
         assert file.path == path
 
 
