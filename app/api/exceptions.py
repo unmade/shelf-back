@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TypedDict
+from typing import TypedDict, cast
 
 from fastapi.responses import JSONResponse
 
@@ -29,6 +29,16 @@ class APIError(Exception):
             "code_verbose": self.code_verbose,
             "message": self.message,
         }
+
+
+async def api_error_exception_group_handler(
+    _,
+    eg: ExceptionGroup[Exception],  # noqa: F821
+):
+    if api_eg := eg.subgroup(lambda e: isinstance(e, APIError)):
+        exc = cast(APIError, api_eg.exceptions[0])
+        return JSONResponse(exc.as_dict(), status_code=exc.status_code)
+    raise
 
 
 async def api_error_exception_handler(_, exc: APIError):

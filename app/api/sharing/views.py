@@ -3,17 +3,23 @@ from __future__ import annotations
 import secrets
 
 from edgedb import AsyncIOClient
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 
-from app import crud, errors
+from app import actions, crud, errors, mediatypes, taskgroups
 from app.api import deps
-from app.api.files.exceptions import PathNotFound
-from app.api.files.schemas import PathRequest
+from app.api.files.exceptions import IsADirectory, PathNotFound, ThumbnailUnavailable
+from app.api.files.schemas import PathRequest, ThumbnailSize
 from app.cache import cache
 from app.entities import Namespace
 
 from .exceptions import SharedLinkNotFound
-from .schemas import CreateSharedLinkResponse, GetSharedLinkFileRequest, SharedLinkFile
+from .schemas import (
+    CreateSharedLinkResponse,
+    GetSharedLinkFileRequest,
+    GetSharedLinkDownloadUrlRequest,
+    GetSharedLinkDownloadUrlResponse,
+    SharedLinkFile,
+)
 
 router = APIRouter()
 
@@ -35,6 +41,32 @@ async def create_shared_link(
     return CreateSharedLinkResponse(token=token)
 
 
+@router.post(
+    "/get_shared_link_download_url",
+    response_model=GetSharedLinkDownloadUrlResponse,
+)
+async def get_shared_link_download_url(
+    request: Request,
+    payload: GetSharedLinkDownloadUrlRequest,
+    db_client: AsyncIOClient = Depends(deps.db_client),
+):
+    value = await cache.get(payload.token)
+    if not value:
+        raise SharedLinkNotFound()
+
+    ns_path, path = value.split(":")
+    try:
+        file = await crud.file.get(db_client, ns_path, path)
+    except errors.FileNotFound as exc:
+        raise SharedLinkNotFound() from exc
+
+    key = secrets.token_urlsafe()
+    await cache.set(key=key, value=f"{ns_path}:{file.path}", expire=60)
+
+    download_url = request.url_for("download")
+    return {"download_url": f"{download_url}?key={key}"}
+
+
 @router.post("/get_shared_link_file", response_model=SharedLinkFile)
 async def get_shared_link_file(
     request: Request,
@@ -44,18 +76,54 @@ async def get_shared_link_file(
     "Return shared link file information."
     value = await cache.get(payload.token)
     if not value:
-        raise SharedLinkNotFound()
+        raise SharedLinkNotFound() from None
 
     ns_path, path = value.split(":")
 
     try:
         file = await crud.file.get(db_client, ns_path, path)
     except errors.FileNotFound as exc:
-        raise PathNotFound(path=path) from exc
+        raise SharedLinkNotFound() from exc
 
     return SharedLinkFile.from_entity(file, request, token=payload.token)
 
 
 @router.get("/get_shared_link_thumbnail/{token}")
-async def get_shared_link_thumbnail(token: str):
-    ...
+async def get_shared_link_thumbnail(
+    token: str,
+    size: ThumbnailSize,
+    db_client: AsyncIOClient = Depends(deps.db_client),
+):
+    """Get a thumbnail for a shared link file."""
+    value = await cache.get(token)
+    if not value:
+        raise SharedLinkNotFound() from None
+
+    ns_path, path = value.split(":")
+    try:
+        namespace, file = await taskgroups.gather(
+            crud.namespace.get(db_client, ns_path),
+            crud.file.get(db_client, ns_path, path),
+        )
+    except* errors.FileNotFound as exc:  # noqa: E999
+        raise SharedLinkNotFound() from exc
+
+    try:
+        _, thumbnail = await actions.get_thumbnail(
+            db_client, namespace, file.id, size=size.asint(),
+        )
+    except errors.IsADirectory as exc:
+        raise IsADirectory(path=file.id) from exc
+    except errors.ThumbnailUnavailable as exc:
+        raise ThumbnailUnavailable(path=file.id) from exc
+
+    filename = f"thumbnail-{size.value}.webp"
+
+    headers = {
+        "Content-Disposition": f'inline; filename="{filename}"',
+        "Content-Length": str(len(thumbnail)),
+        "Content-Type": mediatypes.IMAGE_WEBP,
+        "Cache-Control": "private, max-age=31536000, no-transform",
+    }
+
+    return Response(thumbnail, headers=headers)

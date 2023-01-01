@@ -46,6 +46,15 @@ class CreateSharedLinkResponse(BaseModel):
     token: str
 
 
+class GetSharedLinkDownloadUrlRequest(BaseModel):
+    token: str
+    filename: str
+
+
+class GetSharedLinkDownloadUrlResponse(BaseModel):
+    download_url: str
+
+
 class GetSharedLinkFileRequest(BaseModel):
     token: str
     filename: str

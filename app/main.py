@@ -31,7 +31,11 @@ def create_app() -> FastAPI:
     app.include_router(api.router)
 
     app.add_exception_handler(
-        api.exceptions.APIError, api.exceptions.api_error_exception_handler
+        ExceptionGroup,  # noqa: F821
+        api.exceptions.api_error_exception_group_handler,
+    )
+    app.add_exception_handler(
+        api.exceptions.APIError, api.exceptions.api_error_exception_handler,
     )
 
     @app.on_event("startup")

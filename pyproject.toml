@@ -14,5 +14,7 @@ ignore = [
     "B008",  # do not perform function calls in argument defaults
 ]
 
+target-version = "py311"
+
 [tool.ruff.isort]
 known-first-party=["app"]
