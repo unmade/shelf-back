@@ -3,23 +3,24 @@ from __future__ import annotations
 import secrets
 
 from edgedb import AsyncIOClient
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from app import crud, errors
 from app.api import deps
-from app.api.files import exceptions as file_exceptions
-from app.api.files import schemas as file_schemas
+from app.api.files.exceptions import PathNotFound
+from app.api.files.schemas import PathRequest
 from app.cache import cache
 from app.entities import Namespace
 
-from . import schemas
+from .exceptions import SharedLinkNotFound
+from .schemas import CreateSharedLinkResponse, GetSharedLinkFileRequest, SharedLinkFile
 
 router = APIRouter()
 
 
-@router.post("/create_shared_link", response_model=schemas.CreateSharedLinkResponse)
+@router.post("/create_shared_link", response_model=CreateSharedLinkResponse)
 async def create_shared_link(
-    payload: file_schemas.PathRequest,
+    payload: PathRequest,
     db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
 ):
@@ -27,8 +28,34 @@ async def create_shared_link(
     try:
         file = await crud.file.get(db_client, namespace.path, payload.path)
     except errors.FileNotFound as exc:
-        raise file_exceptions.PathNotFound(path=payload.path) from exc
+        raise PathNotFound(path=payload.path) from exc
 
-    key = secrets.token_urlsafe(16)
-    await cache.set(key, value=f"{namespace.path}:{file.id}")
-    return schemas.CreateSharedLinkResponse.construct(key=key)
+    token = secrets.token_urlsafe(16)
+    await cache.set(token, value=f"{namespace.path}:{file.path}")
+    return CreateSharedLinkResponse(token=token)
+
+
+@router.post("/get_shared_link_file", response_model=SharedLinkFile)
+async def get_shared_link_file(
+    request: Request,
+    payload: GetSharedLinkFileRequest,
+    db_client: AsyncIOClient = Depends(deps.db_client),
+):
+    "Return shared link file information."
+    value = await cache.get(payload.token)
+    if not value:
+        raise SharedLinkNotFound()
+
+    ns_path, path = value.split(":")
+
+    try:
+        file = await crud.file.get(db_client, ns_path, path)
+    except errors.FileNotFound as exc:
+        raise PathNotFound(path=path) from exc
+
+    return SharedLinkFile.from_entity(file, request, token=payload.token)
+
+
+@router.get("/get_shared_link_thumbnail/{token}")
+async def get_shared_link_thumbnail(token: str):
+    ...

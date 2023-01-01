@@ -23,7 +23,7 @@ class DownloadNotFound(APIError):
     status_code = 404
     code = "DOWNLOAD_NOT_FOUND"
     code_verbose = "Download not found"
-    default_message = "Download is expired or doesn't exists"
+    default_message = "Download is expired or doesn't exist"
 
 
 class FileAlreadyDeleted(FilesError):
