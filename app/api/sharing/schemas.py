@@ -22,7 +22,9 @@ class SharedLinkFile(BaseModel):
     thumbnail_url: str | None
 
     @classmethod
-    def from_entity(cls, file: File, request: Request, token: str) -> Self:
+    def from_entity(
+        cls, file: File, request: Request, token: str
+    ) -> Self:  # type: ignore[valid-type]
         return cls.construct(
             id=file.id,
             name=file.name,
