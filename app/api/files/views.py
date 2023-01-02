@@ -12,9 +12,9 @@ from fastapi import APIRouter, Depends, Form, Query, Request, UploadFile
 from fastapi import File as FileParam
 from fastapi.responses import ORJSONResponse, Response, StreamingResponse
 
-from app import actions, config, crud, errors, mediatypes, tasks
-from app.api import deps
-from app.cache import cache, disk_cache
+from app import actions, config, crud, errors, tasks
+from app.api import deps, shortcuts
+from app.cache import cache
 from app.entities import Namespace, User
 from app.storage import storage
 
@@ -287,38 +287,13 @@ async def get_thumbnail(
     namespace: Namespace = Depends(deps.namespace),
 ):
     """Get thumbnail for an image file."""
-    return await _get_thumbnail(db_client, namespace, file_id, size.asint(), mtime)
-
-
-@disk_cache(ttl="24h", key="{file_id}:{size}:{mtime}")
-async def _get_thumbnail(
-    db_client: AsyncIOClient,
-    namespace: Namespace,
-    file_id: UUID,
-    size: int,
-    mtime: float,
-):
-    try:
-        file, thumbnail = await actions.get_thumbnail(
-            db_client, namespace, file_id, size=size,
-        )
-    except errors.FileNotFound as exc:
-        raise exceptions.PathNotFound(path=str(file_id)) from exc
-    except errors.IsADirectory as exc:
-        raise exceptions.IsADirectory(path=str(file_id)) from exc
-    except errors.ThumbnailUnavailable as exc:
-        raise exceptions.ThumbnailUnavailable(path=str(file_id)) from exc
-
-    filename = file.name.encode("utf-8").decode("latin-1")
-
-    headers = {
-        "Content-Disposition": f'inline; filename="{filename}"',
-        "Content-Length": str(len(thumbnail)),
-        "Content-Type": mediatypes.IMAGE_WEBP,
-        "Cache-Control": "private, max-age=31536000, no-transform",
-    }
-
-    return Response(thumbnail, headers=headers)
+    return await shortcuts.get_cached_thumbnail(
+        db_client,
+        namespace,
+        file_id,
+        size.asint(),
+        mtime,
+    )
 
 
 @router.post("/list_folder", response_model=schemas.ListFolderResult)

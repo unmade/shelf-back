@@ -1,13 +1,11 @@
-from __future__ import annotations
-
 import secrets
 
 from edgedb import AsyncIOClient
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Request
 
-from app import actions, crud, errors, mediatypes, taskgroups
-from app.api import deps
-from app.api.files.exceptions import IsADirectory, PathNotFound, ThumbnailUnavailable
+from app import crud, errors, taskgroups
+from app.api import deps, shortcuts
+from app.api.files.exceptions import PathNotFound
 from app.api.files.schemas import PathRequest, ThumbnailSize
 from app.cache import cache
 from app.entities import Namespace
@@ -108,22 +106,13 @@ async def get_shared_link_thumbnail(
     except* errors.FileNotFound as exc:  # noqa: E999
         raise SharedLinkNotFound() from exc
 
-    try:
-        _, thumbnail = await actions.get_thumbnail(
-            db_client, namespace, file.id, size=size.asint(),
-        )
-    except errors.IsADirectory as exc:
-        raise IsADirectory(path=file.id) from exc
-    except errors.ThumbnailUnavailable as exc:
-        raise ThumbnailUnavailable(path=file.id) from exc
-
+    response = await shortcuts.get_cached_thumbnail(
+        db_client,
+        namespace,
+        file.id,
+        size.asint(),
+        file.mtime,
+    )
     filename = f"thumbnail-{size.value}.webp"
-
-    headers = {
-        "Content-Disposition": f'inline; filename="{filename}"',
-        "Content-Length": str(len(thumbnail)),
-        "Content-Type": mediatypes.IMAGE_WEBP,
-        "Cache-Control": "private, max-age=31536000, no-transform",
-    }
-
-    return Response(thumbnail, headers=headers)
+    response.headers["Content-Disposition"] = f'inline; filename="{filename}"'
+    return response
