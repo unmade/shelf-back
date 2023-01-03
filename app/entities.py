@@ -148,3 +148,21 @@ class Namespace(BaseModel):
     id: UUID
     path: Path
     owner: User
+
+
+class _SharedLinkFile(BaseModel):
+    id: str
+    name: str
+    path: str
+    mtime: float
+    size: int
+    mediatype: str
+    namespace: Namespace
+
+
+class SharedLink(BaseModel):
+    File = _SharedLinkFile
+
+    id: UUID
+    token: str
+    file: _SharedLinkFile

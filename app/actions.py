@@ -14,7 +14,7 @@ from typing import IO, TYPE_CHECKING
 from edgedb import RetryOptions
 
 from app import config, crud, errors, hashes, mediatypes, metadata, taskgroups
-from app.entities import Account, File, Fingerprint, Namespace
+from app.entities import Account, File, Fingerprint, Namespace, SharedLink
 from app.storage import storage
 
 if TYPE_CHECKING:
@@ -228,6 +228,28 @@ async def find_duplicates(
         for node in matches
         if (group := _traverse(matches, node))
     ]
+
+
+async def get_or_create_shared_link(
+    db_client: DBClient, namespace: Namespace, path: StrOrPath,
+) -> SharedLink:
+    """
+    Create a shared link for a file in a given path. If the link already exists than
+    existing link will be returned
+
+    Args:
+        db_client (DBClient): Database client.
+        namespace (Namespace): Namespace where a file is located
+        path (StrOrPath): Target file path.
+
+    Raises:
+        FileNotFound: If file/folder with a given path does not exists.
+
+    Returns:
+        SharedLink: A shared link.
+    """
+    ns_path = namespace.path
+    return await crud.shared_link.get_or_create(db_client, namespace=ns_path, path=path)
 
 
 async def get_thumbnail(
@@ -478,7 +500,7 @@ async def remove_bookmark(
     Remove a file from user bookmarks.
 
     Args:
-        db_client (DBClient): Database db_clientection.
+        db_client (DBClient): Database client.
         user_id (StrOrUUID): Target user ID.
         file_id (StrOrUUID): Target file ID.
 
@@ -486,6 +508,17 @@ async def remove_bookmark(
         errors.UserNotFound: If User with a target user_id does not exists.
     """
     await crud.user.remove_bookmark(db_client, user_id, file_id)
+
+
+async def revoke_shared_link(db_client: DBClient, token: str) -> None:
+    """
+    Revoke shared link token.
+
+    Args:
+        db_client (DBClient): Database client.
+        token (str): Shared link token to revoke.
+    """
+    await crud.shared_link.delete(db_client, token)
 
 
 async def save_file(

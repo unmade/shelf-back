@@ -9,7 +9,7 @@ from app import thumbnails
 if TYPE_CHECKING:
     from fastapi import Request
 
-    from app.entities import File
+    from app.entities import SharedLink
 
 
 class SharedLinkFile(BaseModel):
@@ -23,26 +23,30 @@ class SharedLinkFile(BaseModel):
 
     @classmethod
     def from_entity(
-        cls, file: File, request: Request, token: str
+        cls, link: SharedLink, request: Request
     ) -> Self:  # type: ignore[valid-type]
         return cls.construct(
-            id=file.id,
-            name=file.name,
-            size=file.size,
-            mtime=file.mtime,
-            mediatype=file.mediatype,
-            hidden=file.is_hidden(),
-            thumbnail_url=cls._make_thumbnail_url(request, file, token),
+            id=link.file.id,
+            name=link.file.name,
+            size=link.file.size,
+            mtime=link.file.mtime,
+            mediatype=link.file.mediatype,
+            hidden=link.file.name.startswith('.'),
+            thumbnail_url=cls._make_thumbnail_url(link, request),
         )
 
     @staticmethod
-    def _make_thumbnail_url(request: Request, file: File, token: str) -> str | None:
-        if thumbnails.is_supported(file.mediatype):
-            return request.url_for("get_shared_link_thumbnail", token=token)
+    def _make_thumbnail_url(link: SharedLink, request: Request, ) -> str | None:
+        if thumbnails.is_supported(link.file.mediatype):
+            return request.url_for("get_shared_link_thumbnail", token=link.token)
         return None
 
 
 class CreateSharedLinkResponse(BaseModel):
+    token: str
+
+
+class GetSharedLinkResponse(BaseModel):
     token: str
 
 
@@ -56,5 +60,10 @@ class GetSharedLinkDownloadUrlResponse(BaseModel):
 
 
 class GetSharedLinkFileRequest(BaseModel):
+    token: str
+    filename: str
+
+
+class RevokeSharedLinkRequest(BaseModel):
     token: str
     filename: str

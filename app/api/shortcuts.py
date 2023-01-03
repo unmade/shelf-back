@@ -1,18 +1,39 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import secrets
+from typing import TYPE_CHECKING, NamedTuple
 from uuid import UUID
 
-from fastapi.responses import Response
-
-from app import actions, errors, mediatypes
-from app.cache import disk_cache
+from app import actions, errors
+from app.cache import cache, disk_cache
 from app.entities import Namespace
 
 from .files import exceptions
 
 if TYPE_CHECKING:
-    from app.typedefs import DBClient
+    from app.entities import File
+    from app.typedefs import DBClient, StrOrPath
+
+
+class DownloadCache(NamedTuple):
+    ns_path: str
+    path: str
+
+
+async def create_download_cache(ns_path: StrOrPath, path: StrOrPath) -> str:
+    """
+    Set metadata to be used for file download.
+
+    Args:
+        ns_path (StrOrPath): Target namespace.
+        path (StrOrPath): File path.
+
+    Returns:
+        str: A temporary key to obtain data from the cache.
+    """
+    token = secrets.token_urlsafe()
+    await cache.set(key=token, value=f"{ns_path}:{path}", expire=60)
+    return token
 
 
 @disk_cache(ttl="24h", key="{file_id}:{size}:{mtime}")
@@ -22,14 +43,14 @@ async def get_cached_thumbnail(
     file_id: UUID,
     size: int,
     mtime: float,
-) -> Response:
+) -> tuple[File, bytes]:
     """
-    Return a prepared response with a thumbnail of a given file ID.
+    Return a file and thumbnail of a given file ID from cache.
 
-    If thumbnail doesn't exist than it will be created and cached.
+    If thumbnail doesn't exist it will be created and cached first.
     """
     try:
-        file, thumbnail = await actions.get_thumbnail(
+        return await actions.get_thumbnail(
             db_client, namespace, file_id, size=size,
         )
     except errors.FileNotFound as exc:
@@ -39,13 +60,20 @@ async def get_cached_thumbnail(
     except errors.ThumbnailUnavailable as exc:
         raise exceptions.ThumbnailUnavailable(path=str(file_id)) from exc
 
-    filename = file.name.encode("utf-8").decode("latin-1")
 
-    headers = {
-        "Content-Disposition": f'inline; filename="{filename}"',
-        "Content-Length": str(len(thumbnail)),
-        "Content-Type": mediatypes.IMAGE_WEBP,
-        "Cache-Control": "private, max-age=31536000, no-transform",
-    }
+async def pop_download_cache(token: str) -> DownloadCache | None:
+    """
+    Return download metadata and remove it from cache.
 
-    return Response(thumbnail, headers=headers)
+    Args:
+        token (str): A key returned by `create_download_cache` method.
+
+    Returns:
+        DownloadCache | None: Namespace path and file path respectively or None if
+            download metadata does not exist or expired.
+    """
+    value: str = await cache.get(token)
+    if not value:
+        return None
+    await cache.delete(token)
+    return DownloadCache(*value.split(":", maxsplit=1))

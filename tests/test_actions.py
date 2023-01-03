@@ -26,6 +26,7 @@ if TYPE_CHECKING:
         FingerprintFactory,
         FolderFactory,
         NamespaceFactory,
+        SharedLinkFactory,
     )
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
@@ -345,6 +346,37 @@ async def test_find_duplicates(
     # find duplicates in the folder 'a'
     dupes = await actions.find_duplicates(db_client, namespace, "a")
     assert len(dupes) == 0
+
+
+async def test_get_or_create_file_shared_link(
+    db_client: DBClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    file = await file_factory(namespace.path)
+    link = await actions.get_or_create_shared_link(db_client, namespace, file.path)
+    assert len(link.token) > 16
+
+
+async def test_get_or_create_folder_shared_link(
+    db_client: DBClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    await file_factory(namespace.path, "a/f.txt")
+    link = await actions.get_or_create_shared_link(db_client, namespace, path="a")
+    assert len(link.token) > 16
+
+
+async def test_get_or_create_shared_link_is_idempotent(
+    db_client: DBClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+):
+    file = await file_factory(namespace.path)
+    link_a = await actions.get_or_create_shared_link(db_client, namespace, file.path)
+    link_b = await actions.get_or_create_shared_link(db_client, namespace, file.path)
+    assert link_a == link_b
 
 
 async def test_get_thumbnail(
@@ -742,6 +774,23 @@ async def test_remove_bookmark_but_user_does_not_exists(
     user_id = uuid.uuid4()
     with pytest.raises(errors.UserNotFound):
         await actions.remove_bookmark(db_client, user_id, file.id)
+
+
+async def test_revoke_shared_link(
+    db_client: DBClient,
+    namespace: Namespace,
+    file_factory: FileFactory,
+    shared_link_factory: SharedLinkFactory,
+):
+    file = await file_factory(namespace.path)
+    link = await shared_link_factory(file.id)
+    await actions.revoke_shared_link(db_client, token=link.token)
+    with pytest.raises(errors.SharedLinkNotFound):
+        await crud.shared_link.get_by_token(db_client, link.token)
+
+
+async def test_revoke_non_existing_shared_link(db_client: DBClient):
+    await actions.revoke_shared_link(db_client, token="non-existing-token")
 
 
 @pytest.mark.parametrize("path", ["f.txt", "a/b/f.txt"])

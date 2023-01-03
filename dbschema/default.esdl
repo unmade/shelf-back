@@ -67,6 +67,16 @@ module default {
         };
     }
 
+    type SharedLink {
+        required property token  -> str {
+            constraint exclusive;
+        }
+        required link file -> File {
+            constraint exclusive;
+            on target delete DELETE SOURCE;
+        }
+    }
+
     type User {
         required property username -> str {
             constraint exclusive;

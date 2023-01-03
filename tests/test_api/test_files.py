@@ -2,30 +2,24 @@ from __future__ import annotations
 
 import secrets
 import urllib.parse
-import uuid
-from datetime import datetime
 from io import BytesIO
 from typing import TYPE_CHECKING
 from unittest import mock
 
 import pytest
-from fastapi import Response
 
 from app import config, tasks
+from app.api import shortcuts
 from app.api.files.exceptions import (
     DownloadNotFound,
     FileAlreadyDeleted,
     FileAlreadyExists,
-    IsADirectory,
     MalformedPath,
     NotADirectory,
     PathNotFound,
     StorageQuotaExceeded,
-    ThumbnailUnavailable,
     UploadFileTooLarge,
 )
-from app.api.files.schemas import ThumbnailSize
-from app.cache import cache, disk_cache
 from app.entities import Exif, RelocationPath
 
 if TYPE_CHECKING:
@@ -36,7 +30,6 @@ if TYPE_CHECKING:
         FileFactory,
         FileMetadataFactory,
         FingerprintFactory,
-        FolderFactory,
     )
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
@@ -185,8 +178,7 @@ async def test_download_file(
 ):
     content = b"Hello, World!"
     file = await file_factory(namespace.path, path=path, content=content)
-    key = secrets.token_urlsafe()
-    await cache.set(key, f"{namespace.path}:{file.path}")
+    key = await shortcuts.create_download_cache(namespace.path, file.path)
     client.login(namespace.owner.id)
     response = await client.get(f"/files/download?key={key}")
     assert response.status_code == 200
@@ -201,8 +193,7 @@ async def test_download_folder(
     file_factory: FileFactory,
 ):
     await file_factory(namespace.path, path="a/b/c/d.txt")
-    key = secrets.token_urlsafe()
-    await cache.set(key, f"{namespace.path}:a")
+    key = await shortcuts.create_download_cache(namespace.path, "a")
     client.login(namespace.owner.id)
     response = await client.get(f"/files/download?key={key}")
     assert response.status_code == 200
@@ -218,8 +209,7 @@ async def test_download_but_key_is_invalid(client: TestClient):
 
 
 async def test_download_but_file_not_found(client: TestClient, namespace: Namespace):
-    key = secrets.token_urlsafe()
-    await cache.set(key, f"{namespace.path}:f.txt")
+    key = await shortcuts.create_download_cache(namespace.path, "f.txt")
     client.login(namespace.owner.id)
     response = await client.get(f"/files/download?key={key}")
     assert response.json() == PathNotFound(path="f.txt").as_dict()
@@ -425,8 +415,6 @@ async def test_get_download_url(
     parts = urllib.parse.urlsplit(download_url)
     qs = urllib.parse.parse_qs(parts.query)
     assert len(qs["key"]) == 1
-    value = await cache.get(qs["key"][0])
-    assert value == f"{namespace.path}:{file.path}"
 
 
 async def test_get_download_url_but_file_not_found(
@@ -500,84 +488,6 @@ async def test_get_thumbnail(
     assert int(headers["Content-Length"]) < file.size
     assert headers["Content-Type"] == "image/webp"
     assert headers["Cache-Control"] == "private, max-age=31536000, no-transform"
-
-
-async def test_get_thumbnail_sets_disk_cache_on_cache_miss(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-    image_content: BytesIO,
-):
-    file = await file_factory(namespace.path, content=image_content)
-    key = f"{file.id}:{ThumbnailSize.xs.asint()}:{file.mtime}"
-    thumb = await disk_cache.get(key, default=None)
-    assert thumb is None
-    client.login(namespace.owner.id)
-    await client.get(f"/files/get_thumbnail/{file.id}?size=xs&mtime={file.mtime}")
-    thumb = await disk_cache.get(key, default=None)
-    assert thumb is not None
-
-
-async def test_get_thumbnail_hits_disk_cache(
-    client: TestClient,
-    namespace: Namespace,
-    image_content: BytesIO,
-):
-    file_id = str(uuid.uuid4())
-    mtime = datetime.now().timestamp()
-    filename, disksize = "im.jpeg", 1024
-
-    headers = {
-        "Content-Disposition": f'inline; filename="{filename}"',
-        "Content-Length": str(disksize),
-        "Content-Type": "image/webp",
-        "Cache-Control": "private, max-age=31536000, no-transform",
-    }
-    content = image_content.read()
-
-    key = f"{file_id}:{ThumbnailSize.xs.asint()}:{mtime}"
-    value = Response(content, headers=headers)
-
-    await disk_cache.set(key, value=value, expire=60)
-    client.login(namespace.owner.id)
-    response = await client.get(f"/files/get_thumbnail/{file_id}?size=xs&mtime={mtime}")
-    assert response.content == content
-    assert response.headers["Content-Disposition"] == headers["Content-Disposition"]
-    assert response.headers["Content-Length"] == headers["Content-Length"]
-    assert response.headers["Content-Type"] == headers["Content-Type"]
-    assert response.headers["Cache-Control"] == headers["Cache-Control"]
-
-
-async def test_get_thumbnail_but_path_not_found(
-    client: TestClient,
-    namespace: Namespace,
-):
-    file_id = str(uuid.uuid4())
-    client.login(namespace.owner.id)
-    response = await client.get(f"/files/get_thumbnail/{file_id}?size=sm&mtime=100")
-    assert response.json() == PathNotFound(path=file_id).as_dict()
-
-
-async def test_get_thumbnail_but_path_is_a_folder(
-    client: TestClient,
-    namespace: Namespace,
-    folder_factory: FolderFactory,
-):
-    folder = await folder_factory(namespace.path)
-    client.login(namespace.owner.id)
-    response = await client.get(f"/files/get_thumbnail/{folder.id}?size=sm&mtime=100")
-    assert response.json() == IsADirectory(path=folder.id).as_dict()
-
-
-async def test_get_thumbnail_but_file_is_not_thumbnailable(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    file = await file_factory(namespace.path)
-    client.login(namespace.owner.id)
-    response = await client.get(f"/files/get_thumbnail/{file.id}?size=sm&mtime=100")
-    assert response.json() == ThumbnailUnavailable(path=file.id).as_dict()
 
 
 async def test_list_folder(

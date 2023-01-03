@@ -1,21 +1,22 @@
-import secrets
+from __future__ import annotations
 
 from edgedb import AsyncIOClient
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 
-from app import crud, errors, taskgroups
+from app import actions, crud, errors, mediatypes
 from app.api import deps, shortcuts
 from app.api.files.exceptions import PathNotFound
 from app.api.files.schemas import PathRequest, ThumbnailSize
-from app.cache import cache
 from app.entities import Namespace
 
 from .exceptions import SharedLinkNotFound
 from .schemas import (
     CreateSharedLinkResponse,
-    GetSharedLinkFileRequest,
     GetSharedLinkDownloadUrlRequest,
     GetSharedLinkDownloadUrlResponse,
+    GetSharedLinkFileRequest,
+    GetSharedLinkResponse,
+    RevokeSharedLinkRequest,
     SharedLinkFile,
 )
 
@@ -30,13 +31,30 @@ async def create_shared_link(
 ):
     """Create a shared link for a file in a given path."""
     try:
-        file = await crud.file.get(db_client, namespace.path, payload.path)
+        link = await actions.get_or_create_shared_link(
+            db_client,
+            namespace=namespace,
+            path=payload.path,
+        )
     except errors.FileNotFound as exc:
         raise PathNotFound(path=payload.path) from exc
 
-    token = secrets.token_urlsafe(16)
-    await cache.set(token, value=f"{namespace.path}:{file.path}")
-    return CreateSharedLinkResponse(token=token)
+    return CreateSharedLinkResponse(token=link.token)
+
+
+@router.post("/get_shared_link", response_model=GetSharedLinkResponse)
+async def get_shared_link(
+    payload: PathRequest,
+    db_client: AsyncIOClient = Depends(deps.db_client),
+    namespace: Namespace = Depends(deps.namespace),
+):
+    """Return shared link for a file in a given path."""
+    try:
+        link = await crud.shared_link.get(db_client, namespace.path, payload.path)
+    except errors.SharedLinkNotFound as exc:
+        raise SharedLinkNotFound() from exc
+
+    return GetSharedLinkResponse(token=link.token)
 
 
 @router.post(
@@ -48,18 +66,14 @@ async def get_shared_link_download_url(
     payload: GetSharedLinkDownloadUrlRequest,
     db_client: AsyncIOClient = Depends(deps.db_client),
 ):
-    value = await cache.get(payload.token)
-    if not value:
-        raise SharedLinkNotFound()
-
-    ns_path, path = value.split(":")
+    """Return a link to download a shared link file."""
     try:
-        file = await crud.file.get(db_client, ns_path, path)
-    except errors.FileNotFound as exc:
+        link = await crud.shared_link.get_by_token(db_client, token=payload.token)
+    except errors.SharedLinkNotFound as exc:
         raise SharedLinkNotFound() from exc
 
-    key = secrets.token_urlsafe()
-    await cache.set(key=key, value=f"{ns_path}:{file.path}", expire=60)
+    file = link.file
+    key = await shortcuts.create_download_cache(file.namespace.path, file.path)
 
     download_url = request.url_for("download")
     return {"download_url": f"{download_url}?key={key}"}
@@ -71,19 +85,13 @@ async def get_shared_link_file(
     payload: GetSharedLinkFileRequest,
     db_client: AsyncIOClient = Depends(deps.db_client),
 ):
-    "Return shared link file information."
-    value = await cache.get(payload.token)
-    if not value:
-        raise SharedLinkNotFound() from None
-
-    ns_path, path = value.split(":")
-
+    """Return a shared link file information."""
     try:
-        file = await crud.file.get(db_client, ns_path, path)
-    except errors.FileNotFound as exc:
+        link = await crud.shared_link.get_by_token(db_client, token=payload.token)
+    except errors.SharedLinkNotFound as exc:
         raise SharedLinkNotFound() from exc
 
-    return SharedLinkFile.from_entity(file, request, token=payload.token)
+    return SharedLinkFile.from_entity(link, request)
 
 
 @router.get("/get_shared_link_thumbnail/{token}")
@@ -93,26 +101,34 @@ async def get_shared_link_thumbnail(
     db_client: AsyncIOClient = Depends(deps.db_client),
 ):
     """Get a thumbnail for a shared link file."""
-    value = await cache.get(token)
-    if not value:
-        raise SharedLinkNotFound() from None
-
-    ns_path, path = value.split(":")
     try:
-        namespace, file = await taskgroups.gather(
-            crud.namespace.get(db_client, ns_path),
-            crud.file.get(db_client, ns_path, path),
-        )
-    except* errors.FileNotFound as exc:  # noqa: E999
+        link = await crud.shared_link.get_by_token(db_client, token=token)
+    except errors.SharedLinkNotFound as exc:
         raise SharedLinkNotFound() from exc
 
-    response = await shortcuts.get_cached_thumbnail(
+    _, thumbnail = await shortcuts.get_cached_thumbnail(
         db_client,
-        namespace,
-        file.id,
+        link.file.namespace,
+        link.file.id,
         size.asint(),
-        file.mtime,
+        link.file.mtime,
     )
+
     filename = f"thumbnail-{size.value}.webp"
-    response.headers["Content-Disposition"] = f'inline; filename="{filename}"'
-    return response
+    headers = {
+        "Content-Disposition": f'inline; filename="{filename}"',
+        "Content-Length": str(len(thumbnail)),
+        "Content-Type": mediatypes.IMAGE_WEBP,
+        "Cache-Control": "private, max-age=31536000, no-transform",
+    }
+    return Response(thumbnail, headers=headers)
+
+
+@router.post("/revoke_shared_link")
+async def revoke_shared_link(
+    payload: RevokeSharedLinkRequest,
+    _: Namespace = Depends(deps.namespace),
+    db_client: AsyncIOClient = Depends(deps.db_client),
+):
+    """Revoke shared link."""
+    await actions.revoke_shared_link(db_client, payload.token)

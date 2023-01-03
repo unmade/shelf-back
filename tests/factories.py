@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os.path
+import secrets
 import time
 from io import BytesIO
 from typing import TYPE_CHECKING
@@ -8,7 +9,16 @@ from typing import TYPE_CHECKING
 from faker import Faker
 
 from app import config, crud, mediatypes, security, timezone
-from app.entities import Account, Exif, File, FileMetadata, Fingerprint, Namespace, User
+from app.entities import (
+    Account,
+    Exif,
+    File,
+    FileMetadata,
+    Fingerprint,
+    Namespace,
+    SharedLink,
+    User,
+)
 from app.storage import storage
 
 if TYPE_CHECKING:
@@ -295,6 +305,59 @@ class NamespaceFactory:
         await storage.makedirs(namespace.path, config.TRASH_FOLDER_NAME)
 
         return namespace
+
+
+class SharedLinkFactory:
+    __slots__ = ["_db_conn"]
+
+    def __init__(self, db_conn: DBAnyConn) -> None:
+        self._db_conn = db_conn
+
+    async def __call__(self, file_id: str) -> SharedLink:
+        token = secrets.token_urlsafe(16)
+
+        query = """
+            SELECT (
+                INSERT SharedLink {
+                    token := <str>$token,
+                    file := (
+                        SELECT
+                            File
+                        FILTER
+                            .id = <uuid>$file_id
+                        LIMIT 1
+                    )
+                }
+            ) {
+                token,
+                file: {
+                    id,
+                    name,
+                    path,
+                    size,
+                    mtime,
+                    mediatype: {
+                        name
+                    },
+                    namespace: {
+                        id,
+                        path,
+                        owner: {
+                            id,
+                            username,
+                            superuser,
+                        }
+                    }
+                }
+             }
+        """
+
+        link = await self._db_conn.query_required_single(
+            query,
+            token=token,
+            file_id=file_id,
+        )
+        return crud.shared_link.from_db(link)
 
 
 class UserFactory:

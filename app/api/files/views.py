@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import itertools
-import secrets
 from io import BytesIO
 from pathlib import Path
 from uuid import UUID
@@ -12,9 +11,8 @@ from fastapi import APIRouter, Depends, Form, Query, Request, UploadFile
 from fastapi import File as FileParam
 from fastapi.responses import ORJSONResponse, Response, StreamingResponse
 
-from app import actions, config, crud, errors, tasks
+from app import actions, config, crud, errors, mediatypes, tasks
 from app.api import deps, shortcuts
-from app.cache import cache
 from app.entities import Namespace, User
 from app.storage import storage
 
@@ -90,16 +88,14 @@ async def download(
     This endpoint is useful to perform downloads with browser. A `key` is obtained by
     calling `get_download_url` endpoint. Folders will be downloaded as a ZIP archive.
     """
-    value: str = await cache.get(key)
+    value = await shortcuts.pop_download_cache(key)
     if not value:
         raise exceptions.DownloadNotFound()
-    await cache.delete(key)
 
-    ns_path, path = value.split(':', maxsplit=1)
     try:
-        file = await crud.file.get(db_client, ns_path, path)
+        file = await crud.file.get(db_client, value.ns_path, value.path)
     except errors.FileNotFound as exc:
-        raise exceptions.PathNotFound(path=path) from exc
+        raise exceptions.PathNotFound(path=value.path) from exc
 
     filename = file.name.encode("utf-8").decode("latin-1")
     if file.is_folder():
@@ -115,7 +111,7 @@ async def download(
             "Content-Type": file.mediatype,
         }
         storage_download = storage.download
-    return StreamingResponse(storage_download(ns_path, path), headers=headers)
+    return StreamingResponse(storage_download(*value), headers=headers)
 
 
 @router.post("/download")
@@ -253,8 +249,7 @@ async def get_download_url(
     except errors.FileNotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
 
-    key = secrets.token_urlsafe()
-    await cache.set(key=key, value=f"{namespace.path}:{file.path}", expire=60)
+    key = await shortcuts.create_download_cache(namespace.path, file.path)
 
     download_url = request.url_for("download")
     return {"download_url": f"{download_url}?key={key}"}
@@ -287,13 +282,24 @@ async def get_thumbnail(
     namespace: Namespace = Depends(deps.namespace),
 ):
     """Get thumbnail for an image file."""
-    return await shortcuts.get_cached_thumbnail(
+    file, thumbnail = await shortcuts.get_cached_thumbnail(
         db_client,
         namespace,
         file_id,
         size.asint(),
         mtime,
     )
+
+    filename = file.name.encode("utf-8").decode("latin-1")
+
+    headers = {
+        "Content-Disposition": f'inline; filename="{filename}"',
+        "Content-Length": str(len(thumbnail)),
+        "Content-Type": mediatypes.IMAGE_WEBP,
+        "Cache-Control": "private, max-age=31536000, no-transform",
+    }
+
+    return Response(thumbnail, headers=headers)
 
 
 @router.post("/list_folder", response_model=schemas.ListFolderResult)

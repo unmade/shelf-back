@@ -14,6 +14,7 @@ class ErrorCode(str, enum.Enum):
     is_a_directory = "is_a_directory"
     missing_parent = "missing_parent"
     not_a_directory = "not_a_directory"
+    shared_link_not_found = "shared_link_not_found"
     storage_quota_exceeded = "storage_quota_exceeded"
 
 
@@ -61,6 +62,10 @@ class NamespaceNotFound(Exception):
 
 class NotADirectory(Error):
     code = ErrorCode.not_a_directory
+
+
+class SharedLinkNotFound(Error):
+    code = ErrorCode.shared_link_not_found
 
 
 class StorageQuotaExceeded(Error):
