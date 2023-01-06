@@ -12,6 +12,7 @@ select = [
 ]
 ignore = [
     "B008",  # do not perform function calls in argument defaults
+    "SIM102",  # use a single if-statement instead of nested if-statements
 ]
 
 target-version = "py311"

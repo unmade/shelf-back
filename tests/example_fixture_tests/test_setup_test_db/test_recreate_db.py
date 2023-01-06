@@ -53,8 +53,10 @@ def test_recreates_db(request: FixtureRequest, db_dsn):
 
     request.getfixturevalue("setup_test_db")
 
-    with create_db_client(dsn) as db_client:
-        with pytest.raises(edgedb.InvalidReferenceError) as excinfo:
+    with (
+        create_db_client(dsn) as db_client,
+        pytest.raises(edgedb.InvalidReferenceError) as excinfo
+    ):
             assert len(db_client.query("SELECT File")) == 0
 
     assert "object type or alias 'default::File' does not exist" in str(excinfo.value)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import time
 from os.path import join as joinpath
@@ -217,10 +218,8 @@ async def create_folder(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) 
     index = paths_lower.index(parents[-1].path.lower())
 
     for p in reversed(paths[:index]):
-        try:
+        with contextlib.suppress(errors.FileAlreadyExists, errors.MissingParent):
             await create(conn, namespace, p, mediatype=mediatypes.FOLDER)
-        except (errors.FileAlreadyExists, errors.MissingParent):
-            pass
 
 
 async def create_home_folder(conn: DBAnyConn, namespace: StrOrPath) -> File:

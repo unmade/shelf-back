@@ -163,8 +163,7 @@ async def test_download_but_client_raises_error(s3_storage: S3Storage):
     stubber = Stubber(s3_storage.s3.meta.client)
     stubber.add_client_error("get_object")
 
-    with stubber:
-        with pytest.raises(ClientError):
+    with stubber, pytest.raises(ClientError):
             s3_storage.download("user", "f.txt")
 
 
@@ -209,8 +208,7 @@ async def test_exists_but_client_raises_error(s3_storage: S3Storage):
     stubber = Stubber(s3_storage.s3.meta.client)
     stubber.add_client_error("head_object")
 
-    with stubber:
-        with pytest.raises(ClientError):
+    with stubber, pytest.raises(ClientError):
             await s3_storage.exists("user", "f.txt")
 
 
@@ -229,8 +227,7 @@ async def test_get_modified_time_but_client_raises_error(s3_storage: S3Storage):
     stubber = Stubber(s3_storage.s3.meta.client)
     stubber.add_client_error("head_object")
 
-    with stubber:
-        with pytest.raises(ClientError):
+    with stubber, pytest.raises(ClientError):
             await s3_storage.get_modified_time("user", "f.txt")
 
 
@@ -328,8 +325,7 @@ async def test_move_but_client_raises_error(s3_storage: S3Storage):
     stubber = Stubber(s3_storage.s3.meta.client)
     stubber.add_client_error("head_object")
 
-    with stubber:
-        with pytest.raises(ClientError):
+    with stubber, pytest.raises(ClientError):
             await s3_storage.move("user", "x.txt", "y.txt/x.txt")
 
 
@@ -433,8 +429,7 @@ async def test_size_but_client_raises_error(s3_storage: S3Storage):
     stubber = Stubber(s3_storage.s3.meta.client)
     stubber.add_client_error("head_object")
 
-    with stubber:
-        with pytest.raises(ClientError):
+    with stubber, pytest.raises(ClientError):
             await s3_storage.size("user", "f.txt")
 
 
@@ -462,6 +457,5 @@ async def test_thumbnail_but_client_raises_error(s3_storage: S3Storage):
     stubber = Stubber(s3_storage.s3.meta.client)
     stubber.add_client_error("head_object")
 
-    with stubber:
-        with pytest.raises(ClientError):
+    with stubber, pytest.raises(ClientError):
             await s3_storage.thumbnail("user", "im.jpg", size=128)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import datetime
 import glob
 import os
@@ -62,18 +63,14 @@ class FileSystemStorage(Storage):
     def delete(self, ns_path: StrOrPath, path: StrOrPath) -> None:
         fullpath = self._joinpath(self.location, ns_path, path)
         if not os.path.isdir(fullpath):
-            try:
+            with contextlib.suppress(FileNotFoundError):
                 os.unlink(fullpath)
-            except FileNotFoundError:
-                pass
 
     @sync_to_async
     def deletedir(self, ns_path: StrOrPath, path: StrOrPath) -> None:
         fullpath = self._joinpath(self.location, ns_path, path)
-        try:
+        with contextlib.suppress(FileNotFoundError, NotADirectoryError):
             shutil.rmtree(fullpath)
-        except (FileNotFoundError, NotADirectoryError):
-            pass
 
     def download(self, ns_path: StrOrPath, path: StrOrPath) -> Iterator[bytes]:
         fullpath = self._joinpath(self.location, ns_path, path)
