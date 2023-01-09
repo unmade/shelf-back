@@ -14,7 +14,7 @@ decorator==5.1.1
     # via ipython
 executing==1.2.0
     # via stack-data
-ipython==8.7.0
+ipython==8.8.0
     # via -r requirements/dev.in
 jedi==0.18.2
     # via ipython
@@ -35,7 +35,7 @@ ptyprocess==0.7.0
     # via pexpect
 pure-eval==0.2.2
     # via stack-data
-pygments==2.13.0
+pygments==2.14.0
     # via ipython
 six==1.16.0
     # via
@@ -44,7 +44,7 @@ six==1.16.0
     #   asttokens
 stack-data==0.6.2
     # via ipython
-traitlets==5.7.1
+traitlets==5.8.0
     # via
     #   ipython
     #   matplotlib-inline

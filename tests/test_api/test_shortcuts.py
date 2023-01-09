@@ -33,6 +33,14 @@ class TestCreateDownloadCache:
         assert value == "ns_path:f.txt"
 
 
+class TestMakeThumbnailTTL:
+    def test_small_size(self):
+        assert shortcuts._make_thumbnail_ttl(size=64) == "7d"
+
+    def test_large_size(self):
+        assert shortcuts._make_thumbnail_ttl(size=256) == "24h"
+
+
 class TestGetCachedThumbnail:
     async def test_get_thumbnail_sets_disk_cache_on_cache_miss(
         self,
@@ -47,7 +55,9 @@ class TestGetCachedThumbnail:
         key = f"{file.id}:{size}:{mtime}"
         value = await disk_cache.get(key, default=None)
         assert value is None
-        await shortcuts.get_cached_thumbnail(tx, namespace, file.id, size, mtime)
+        await shortcuts.get_cached_thumbnail(
+            tx, namespace, file.id, size=size, mtime=mtime
+        )
         file, thumb = await disk_cache.get(key, default=None)
         assert thumb is not None
 
@@ -67,7 +77,7 @@ class TestGetCachedThumbnail:
         await disk_cache.set(key, value=value, expire=60)
 
         result = await shortcuts.get_cached_thumbnail(
-            tx, namespace, file_id, size, mtime
+            tx, namespace, file_id, size=size, mtime=mtime
         )
         assert result == value
 
@@ -80,7 +90,9 @@ class TestGetCachedThumbnail:
         mtime = datetime.now().timestamp()
         size = ThumbnailSize.sm.asint()
         with pytest.raises(PathNotFound) as excinfo:
-            await shortcuts.get_cached_thumbnail(tx, namespace, file_id, size, mtime)
+            await shortcuts.get_cached_thumbnail(
+                tx, namespace, file_id, size=size, mtime=mtime
+            )
         assert str(excinfo.value) == str(PathNotFound(path=file_id))
 
     async def test_get_thumbnail_but_path_is_a_folder(
@@ -93,7 +105,9 @@ class TestGetCachedThumbnail:
         mtime = folder.mtime
         size = ThumbnailSize.xs.asint()
         with pytest.raises(IsADirectory) as excinfo:
-            await shortcuts.get_cached_thumbnail(tx, namespace, folder.id, size, mtime)
+            await shortcuts.get_cached_thumbnail(
+                tx, namespace, folder.id, size=size, mtime=mtime
+            )
         assert str(excinfo.value) == str(IsADirectory(path=folder.id))
 
     async def test_get_thumbnail_but_file_is_not_thumbnailable(
@@ -106,7 +120,9 @@ class TestGetCachedThumbnail:
         mtime = file.mtime
         size = ThumbnailSize.xs.asint()
         with pytest.raises(ThumbnailUnavailable) as excinfo:
-            await shortcuts.get_cached_thumbnail(tx, namespace, file.id, size, mtime)
+            await shortcuts.get_cached_thumbnail(
+                tx, namespace, file.id, size=size, mtime=mtime
+            )
         assert str(excinfo.value) == str(ThumbnailUnavailable(path=file.id))
 
 

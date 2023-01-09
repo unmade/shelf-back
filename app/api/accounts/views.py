@@ -10,24 +10,24 @@ from app.entities import User
 
 from .exceptions import UserAlreadyExists
 from .schemas import (
-    Account,
-    AccountSpaceUsage,
+    AccountSchema,
     CreateAccountRequest,
+    GetAccountSpaceUsageResponse,
     UpdateAccountRequest,
 )
 
 router = APIRouter()
 
 
-@router.post("/create", response_model=Account)
+@router.post("/create")
 async def create(
     payload: CreateAccountRequest,
     db_client: AsyncIOClient = Depends(deps.db_client),
     _: User = Depends(deps.superuser),
-):
+) -> AccountSchema:
     """Create new account."""
     try:
-        return Account.from_entity(
+        return AccountSchema.from_entity(
             await actions.create_account(
                 db_client,
                 payload.username,
@@ -41,36 +41,36 @@ async def create(
         raise UserAlreadyExists(str(exc)) from exc
 
 
-@router.get("/get_current", response_model=Account)
+@router.get("/get_current")
 async def get_current(
     db_client: AsyncIOClient = Depends(deps.db_client),
     user_id: str = Depends(deps.current_user_id),
-):
+) -> AccountSchema:
     """Get account information for a current user."""
     # normally, we would re-raised UserNotFound error, but if some user,
     # doesn't have an account, then it is data integrity error, so fail miserably.
-    return Account.from_entity(
+    return AccountSchema.from_entity(
         await crud.account.get(db_client, user_id)
     )
 
 
-@router.get("/get_space_usage", response_model=AccountSpaceUsage)
+@router.get("/get_space_usage")
 async def get_space_usage(
     db_client: AsyncIOClient = Depends(deps.db_client),
     user_id: str = Depends(deps.current_user_id),
-):
+) -> GetAccountSpaceUsageResponse:
     """Get the space usage information for the current account."""
     used, quota = await crud.account.get_space_usage(db_client, user_id)
-    return AccountSpaceUsage(used=used, quota=quota)
+    return GetAccountSpaceUsageResponse(used=used, quota=quota)
 
 
-@router.get("/list_all", response_model=Page[Account])
+@router.get("/list_all")
 async def list_all(
     page: int = PageParam,
     per_page: int = PageSizeParam,
     db_client: AsyncIOClient = Depends(deps.db_client),
     _: User = Depends(deps.superuser),
-):
+) -> Page[AccountSchema]:
     """List all accounts."""
     offset = get_offset(page, per_page)
     count, accounts = await taskgroups.gather(
@@ -80,17 +80,17 @@ async def list_all(
     return Page(
         page=page,
         count=count,
-        results=[Account.from_entity(account) for account in accounts],
+        results=[AccountSchema.from_entity(account) for account in accounts],
     )
 
 
-@router.patch("/update", response_model=Account)
+@router.patch("/update")
 async def update(
     payload: UpdateAccountRequest,
     db_client: AsyncIOClient = Depends(deps.db_client),
     user_id: str = Depends(deps.current_user_id),
-):
+) -> AccountSchema:
     """Update account details."""
-    return Account.from_entity(
+    return AccountSchema.from_entity(
         await crud.account.update(db_client, user_id, payload.as_update())
     )

@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from app.entities import SharedLink
 
 
-class SharedLinkFile(BaseModel):
+class SharedLinkFileSchema(BaseModel):
     id: str
     name: str
     size: int
@@ -22,9 +22,7 @@ class SharedLinkFile(BaseModel):
     thumbnail_url: str | None
 
     @classmethod
-    def from_entity(
-        cls, link: SharedLink, request: Request
-    ) -> Self:  # type: ignore[valid-type]
+    def from_entity(cls, link: SharedLink, request: Request) -> Self:
         return cls.construct(
             id=link.file.id,
             name=link.file.name,

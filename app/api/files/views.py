@@ -16,18 +16,43 @@ from app.api import deps, shortcuts
 from app.entities import Namespace, User
 from app.storage import storage
 
-from . import exceptions, schemas
+from . import exceptions
+from .schemas import (
+    AsyncTaskID,
+    AsyncTaskResult,
+    AsyncTaskStatus,
+    DeleteImmediatelyBatchCheckResponse,
+    DeleteImmediatelyBatchRequest,
+    EmptyTrashCheckResponse,
+    FileSchema,
+    FindDuplicatesRequest,
+    FindDuplicatesResponse,
+    GetBatchRequest,
+    GetBatchResponse,
+    GetContentMetadataResponse,
+    GetDownloadUrlResponse,
+    ListFolderResponse,
+    MoveBatchCheckResponse,
+    MoveBatchRequest,
+    MoveRequest,
+    MoveToTrashBatchRequest,
+    MoveToTrashRequest,
+    PathParam,
+    PathRequest,
+    ThumbnailSize,
+    UploadResponse,
+)
 
 router = APIRouter()
 
 
-@router.post("/create_folder", response_model=schemas.File)
+@router.post("/create_folder")
 async def create_folder(
     request: Request,
-    payload: schemas.PathRequest,
+    payload: PathRequest,
     db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
-):
+) -> FileSchema:
     """
     Create a new folder with a target path.
 
@@ -42,40 +67,37 @@ async def create_folder(
     except errors.NotADirectory as exc:
         raise exceptions.NotADirectory(path=payload.path) from exc
 
-    return schemas.File.from_entity(folder, request=request)
+    return FileSchema.from_entity(folder, request=request)
 
 
-@router.post("/delete_immediately_batch", response_model=schemas.AsyncTaskID)
+@router.post("/delete_immediately_batch")
 def delete_immediately_batch(
-    payload: schemas.DeleteImmediatelyBatchRequest,
+    payload: DeleteImmediatelyBatchRequest,
     namespace: Namespace = Depends(deps.namespace),
-):
+) -> AsyncTaskID:
     """Permanently delete multiple files or folders."""
     paths = [item.path for item in payload.items]
     task = tasks.delete_immediately_batch.delay(namespace, paths)
-    return schemas.AsyncTaskID(async_task_id=task.id)
+    return AsyncTaskID(async_task_id=task.id)
 
 
-@router.post(
-    "/delete_immediately_batch/check",
-    response_model=schemas.DeleteImmediatelyBatchCheckResponse,
-)
+@router.post("/delete_immediately_batch/check")
 def delete_immediately_check(
     request: Request,
-    payload: schemas.AsyncTaskID,
+    payload: AsyncTaskID,
     _: User = Depends(deps.current_user),
-):
-    response_model = schemas.DeleteImmediatelyBatchCheckResponse
+) -> DeleteImmediatelyBatchCheckResponse:
+    response_model = DeleteImmediatelyBatchCheckResponse
     task = tasks.celery_app.AsyncResult(str(payload.async_task_id))
     if task.status == celery.states.SUCCESS:
         return response_model(
-            status=schemas.AsyncTaskStatus.completed,
+            status=AsyncTaskStatus.completed,
             result=[
-                schemas.AsyncTaskResult.from_entity(result, request=request)
+                AsyncTaskResult.from_entity(result, request=request)
                 for result in task.result
             ],
         )
-    return response_model(status=schemas.AsyncTaskStatus.pending)
+    return response_model(status=AsyncTaskStatus.pending)
 
 
 @router.get("/download")
@@ -116,7 +138,7 @@ async def download(
 
 @router.post("/download")
 async def download_xhr(
-    payload: schemas.PathRequest,
+    payload: PathRequest,
     db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
 ):
@@ -157,32 +179,32 @@ async def download_xhr(
     return Response(buffer.read(), headers=headers)
 
 
-@router.post("/empty_trash", response_model=schemas.AsyncTaskID)
+@router.post("/empty_trash")
 def empty_trash(
     namespace: Namespace = Depends(deps.namespace),
-):
+) -> AsyncTaskID:
     """Delete all files and folders in the Trash folder."""
     task = tasks.empty_trash.delay(namespace)
-    return schemas.AsyncTaskID(async_task_id=task.id)
+    return AsyncTaskID(async_task_id=task.id)
 
 
-@router.post("/empty_trash/check", response_model=schemas.EmptyTrashCheckResponse)
+@router.post("/empty_trash/check")
 def empty_trash_check(
-    payload: schemas.AsyncTaskID,
+    payload: AsyncTaskID,
     _: User = Depends(deps.current_user),
-):
+) -> EmptyTrashCheckResponse:
     """Return empty_trash status."""
-    response_model = schemas.EmptyTrashCheckResponse
+    response_model = EmptyTrashCheckResponse
     task = tasks.celery_app.AsyncResult(str(payload.async_task_id))
     if task.status == celery.states.SUCCESS:
-        return response_model(status=schemas.AsyncTaskStatus.completed)
-    return response_model(status=schemas.AsyncTaskStatus.pending)
+        return response_model(status=AsyncTaskStatus.completed)
+    return response_model(status=AsyncTaskStatus.pending)
 
 
-@router.post("/find_duplicates", response_model=schemas.FindDuplicatesResponse)
+@router.post("/find_duplicates", response_model=FindDuplicatesResponse)
 async def find_duplicates(
     request: Request,
-    payload: schemas.FindDuplicatesRequest,
+    payload: FindDuplicatesRequest,
     db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
 ):
@@ -206,7 +228,7 @@ async def find_duplicates(
         "path": payload.path,
         "items": [
             [
-                schemas.File.from_entity(files[fp.file_id], request=request).dict()
+                FileSchema.from_entity(files[fp.file_id], request=request).dict()
                 for fp in group
             ]
             for group in groups
@@ -215,10 +237,10 @@ async def find_duplicates(
     })
 
 
-@router.post("/get_batch", response_model=schemas.GetBatchResult)
+@router.post("/get_batch", response_model=GetBatchResponse)
 async def get_batch(
     request: Request,
-    payload: schemas.GetBatchRequest,
+    payload: GetBatchRequest,
     db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
 ):
@@ -229,20 +251,20 @@ async def get_batch(
     # that way we speed up on a large volume of data
     return ORJSONResponse(content={
         "items": [
-            schemas.File.from_entity(file, request=request).dict()
+            FileSchema.from_entity(file, request=request).dict()
             for file in files
         ],
         "count": len(files),
     })
 
 
-@router.post("/get_download_url", response_model=schemas.GetDownloadUrlResult)
+@router.post("/get_download_url")
 async def get_download_url(
     request: Request,
-    payload: schemas.PathRequest,
+    payload: PathRequest,
     db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
-):
+) -> GetDownloadUrlResponse:
     """Return a link to download requested file or folder."""
     try:
         file = await crud.file.get(db_client, namespace.path, payload.path)
@@ -252,15 +274,15 @@ async def get_download_url(
     key = await shortcuts.create_download_cache(namespace.path, file.path)
 
     download_url = request.url_for("download")
-    return {"download_url": f"{download_url}?key={key}"}
+    return GetDownloadUrlResponse(download_url=f"{download_url}?key={key}")
 
 
-@router.post("/get_content_metadata", response_model=schemas.GetContentMetadataResponse)
+@router.post("/get_content_metadata")
 async def get_content_metadata(
-    payload: schemas.PathRequest,
+    payload: PathRequest,
     db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
-):
+) -> GetContentMetadataResponse:
     """Return content metadata for a given file."""
     try:
         file = await crud.file.get(db_client, namespace.path, payload.path)
@@ -268,15 +290,16 @@ async def get_content_metadata(
         raise exceptions.PathNotFound(path=payload.path) from exc
 
     try:
-        return await crud.metadata.get(db_client, file.id)
+        meta = await crud.metadata.get(db_client, file.id)
     except errors.FileMetadataNotFound:
-        return schemas.GetContentMetadataResponse(file_id=file.id, data=None)
+        return GetContentMetadataResponse(file_id=file.id, data=None)
+    return GetContentMetadataResponse.from_entity(meta)
 
 
 @router.get("/get_thumbnail/{file_id}")
 async def get_thumbnail(
     file_id: UUID,
-    size: schemas.ThumbnailSize,
+    size: ThumbnailSize,
     mtime: float,
     db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
@@ -286,8 +309,8 @@ async def get_thumbnail(
         db_client,
         namespace,
         file_id,
-        size.asint(),
-        mtime,
+        size=size.asint(),
+        mtime=mtime,
     )
 
     filename = file.name.encode("utf-8").decode("latin-1")
@@ -302,10 +325,10 @@ async def get_thumbnail(
     return Response(thumbnail, headers=headers)
 
 
-@router.post("/list_folder", response_model=schemas.ListFolderResult)
+@router.post("/list_folder", response_model=ListFolderResponse)
 async def list_folder(
     request: Request,
-    payload: schemas.PathRequest,
+    payload: PathRequest,
     db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
 ):
@@ -326,20 +349,20 @@ async def list_folder(
     return ORJSONResponse(content={
         "path": payload.path,
         "items": [
-            schemas.File.from_entity(file, request=request).dict()
+            FileSchema.from_entity(file, request=request).dict()
             for file in files
         ],
         "count": len(files),
     })
 
 
-@router.post("/move", response_model=schemas.File)
+@router.post("/move")
 async def move(
     request: Request,
-    payload: schemas.MoveRequest,
+    payload: MoveRequest,
     db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
-):
+) -> FileSchema:
     """
     Move a file or folder to a different location in the target Namespace.
     If the source path is a folder all its contents will be moved.
@@ -363,60 +386,60 @@ async def move(
         message = "Some parents don't exist in the destination path"
         raise exceptions.MalformedPath(message) from exc
 
-    return schemas.File.from_entity(file, request=request)
+    return FileSchema.from_entity(file, request=request)
 
 
-@router.post("/move_batch", response_model=schemas.AsyncTaskID)
+@router.post("/move_batch")
 def move_batch(
-    payload: schemas.MoveBatchRequest,
+    payload: MoveBatchRequest,
     namespace: Namespace = Depends(deps.namespace),
-):
+) -> AsyncTaskID:
     """Move multiple files or folders to different locations at once."""
     task = tasks.move_batch.delay(namespace, payload.items)
-    return schemas.AsyncTaskID(async_task_id=task.id)
+    return AsyncTaskID(async_task_id=task.id)
 
 
-@router.post("/move_batch/check", response_model=schemas.MoveBatchCheckResponse)
+@router.post("/move_batch/check")
 def move_batch_check(
     request: Request,
-    payload: schemas.AsyncTaskID,
+    payload: AsyncTaskID,
     _: User = Depends(deps.current_user),
-):
+) -> MoveBatchCheckResponse:
     """Return move_batch status and a list of results."""
-    response_model = schemas.MoveBatchCheckResponse
+    response_model = MoveBatchCheckResponse
     task = tasks.celery_app.AsyncResult(str(payload.async_task_id))
     if task.status == celery.states.SUCCESS:
         return response_model(
-            status=schemas.AsyncTaskStatus.completed,
+            status=AsyncTaskStatus.completed,
             result=[
-                schemas.AsyncTaskResult.from_entity(result, request=request)
+                AsyncTaskResult.from_entity(result, request=request)
                 for result in task.result
             ],
         )
-    return response_model(status=schemas.AsyncTaskStatus.pending)
+    return response_model(status=AsyncTaskStatus.pending)
 
 
-@router.post("/move_to_trash", response_model=schemas.File)
+@router.post("/move_to_trash")
 async def move_to_trash(
     request: Request,
-    payload: schemas.MoveToTrashRequest,
+    payload: MoveToTrashRequest,
     db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
-):
+) -> FileSchema:
     """Move file to the Trash folder."""
     try:
         file = await actions.move_to_trash(db_client, namespace, payload.path)
     except errors.FileNotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
 
-    return schemas.File.from_entity(file, request=request)
+    return FileSchema.from_entity(file, request=request)
 
 
-@router.post("/move_to_trash_batch", response_model=schemas.AsyncTaskID)
+@router.post("/move_to_trash_batch")
 def move_to_trash_batch(
-    payload: schemas.MoveToTrashBatchRequest,
+    payload: MoveToTrashBatchRequest,
     namespace: Namespace = Depends(deps.namespace),
-):
+) -> AsyncTaskID:
     """
     Move several files or folders to Trash at once.
 
@@ -424,17 +447,17 @@ def move_to_trash_batch(
     """
     paths = [item.path for item in payload.items]
     task = tasks.move_to_trash_batch.delay(namespace, paths)
-    return schemas.AsyncTaskID(async_task_id=task.id)
+    return AsyncTaskID(async_task_id=task.id)
 
 
-@router.post("/upload", response_model=schemas.UploadResult)
+@router.post("/upload")
 async def upload_file(
     request: Request,
     file: UploadFile = FileParam(...),
-    path: schemas.PathParam = Form(...),
+    path: PathParam = Form(...),
     db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
-):
+) -> UploadResponse:
     """Upload file to the specified path."""
     filepath = path.__root__
     del path
@@ -456,7 +479,7 @@ async def upload_file(
 
     updates = await crud.file.get_many(db_client, namespace.path, parents)
 
-    return schemas.UploadResult.construct(
-        file=schemas.File.from_entity(upload, request=request),
-        updates=[schemas.File.from_entity(item, request=request) for item in updates]
+    return UploadResponse.construct(
+        file=FileSchema.from_entity(upload, request=request),
+        updates=[FileSchema.from_entity(item, request=request) for item in updates]
     )

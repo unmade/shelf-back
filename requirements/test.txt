@@ -16,7 +16,7 @@ async-timeout==4.0.2
     # via
     #   -c requirements/base.txt
     #   redis
-attrs==22.1.0
+attrs==22.2.0
     # via pytest
 billiard==3.6.4.0
     # via
@@ -50,7 +50,7 @@ click-repl==0.2.0
     # via
     #   -c requirements/base.txt
     #   celery
-coverage[toml]==6.5.0
+coverage[toml]==7.0.4
     # via pytest-cov
 faker==15.3.4
     # via -r requirements/test.in
@@ -58,22 +58,22 @@ h11==0.14.0
     # via
     #   -c requirements/base.txt
     #   httpcore
-httpcore==0.16.2
+httpcore==0.16.3
     # via httpx
-httpx==0.23.1
+httpx==0.23.3
     # via -r requirements/test.in
 idna==3.4
     # via
     #   -c requirements/base.txt
     #   anyio
     #   rfc3986
-iniconfig==1.1.1
+iniconfig==2.0.0
     # via pytest
 kombu==5.2.4
     # via
     #   -c requirements/base.txt
     #   celery
-packaging==22.0
+packaging==23.0
     # via pytest
 pluggy==1.0.0
     # via pytest
@@ -96,11 +96,11 @@ python-dateutil==2.8.2
     # via
     #   -c requirements/base.txt
     #   faker
-pytz==2022.6
+pytz==2022.7
     # via
     #   -c requirements/base.txt
     #   celery
-redis==4.4.0
+redis==4.4.1
     # via
     #   -c requirements/base.txt
     #   celery

@@ -18,14 +18,11 @@ def file_factory():
         path: str | None = None,
         mediatype: str | None = None,
     ) -> File:
-        if path is not None:
-            pathname = PurePath(path)
-        else:
-            pathname = PurePath(fake.file_path(depth=3))
+        pathname = path or fake.file_path(depth=3)
 
         return File(
             id=str(fake.uuid4()),
-            name=pathname.name,
+            name=PurePath(pathname).name,
             path=str(pathname),
             size=fake.pyint(),
             mtime=fake.pyfloat(positive=True),

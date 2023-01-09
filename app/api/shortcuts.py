@@ -36,11 +36,18 @@ async def create_download_cache(ns_path: StrOrPath, path: StrOrPath) -> str:
     return token
 
 
-@disk_cache(ttl="24h", key="{file_id}:{size}:{mtime}")
+def _make_thumbnail_ttl(*args, size, **kwargs) -> str:
+    if size < 128:
+        return "7d"
+    return "24h"
+
+
+@disk_cache(key="{file_id}:{size}:{mtime}", ttl=_make_thumbnail_ttl)
 async def get_cached_thumbnail(
     db_client: DBClient,
     namespace: Namespace,
     file_id: UUID,
+    *,
     size: int,
     mtime: float,
 ) -> tuple[File, bytes]:

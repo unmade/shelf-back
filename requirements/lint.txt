@@ -10,17 +10,17 @@ anyio==3.6.2
     #   -c requirements/test.txt
     #   httpcore
     #   starlette
-asgiref==3.5.2
+asgiref==3.6.0
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
-attrs==22.1.0
+attrs==22.2.0
     # via
     #   -c requirements/test.txt
     #   pytest
-boto3-stubs[s3]==1.26.29
+boto3-stubs[s3]==1.26.45
     # via -r requirements/lint.in
-botocore-stubs==1.29.29
+botocore-stubs==1.29.45
     # via boto3-stubs
 certifi==2022.12.7
     # via
@@ -50,27 +50,27 @@ email-validator==1.3.0
     # via
     #   -c requirements/base.txt
     #   pydantic
-fastapi==0.88.0
+fastapi==0.89.0
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
     #   sentry-sdk
-filelock==3.8.2
+filelock==3.9.0
     # via virtualenv
 h11==0.14.0
     # via
     #   -c requirements/base.txt
     #   -c requirements/test.txt
     #   httpcore
-httpcore==0.16.2
+httpcore==0.16.3
     # via
     #   -c requirements/test.txt
     #   httpx
-httpx==0.23.1
+httpx==0.23.3
     # via
     #   -c requirements/test.txt
     #   -r requirements/lint.in
-identify==2.5.9
+identify==2.5.12
     # via pre-commit
 idna==3.4
     # via
@@ -79,11 +79,11 @@ idna==3.4
     #   anyio
     #   email-validator
     #   rfc3986
-iniconfig==1.1.1
+iniconfig==2.0.0
     # via
     #   -c requirements/test.txt
     #   pytest
-mypy==0.991
+mypy @ git+https://github.com/python/mypy.git@7efe8e5487804014ecf8cb9b6e08f7194f61f963
     # via -r requirements/lint.in
 mypy-boto3-s3==1.26.0.post1
     # via boto3-stubs
@@ -91,19 +91,19 @@ mypy-extensions==0.4.3
     # via mypy
 nodeenv==1.7.0
     # via pre-commit
-packaging==22.0
+packaging==23.0
     # via
     #   -c requirements/test.txt
     #   pytest
-platformdirs==2.6.0
+platformdirs==2.6.2
     # via virtualenv
 pluggy==1.0.0
     # via
     #   -c requirements/test.txt
     #   pytest
-pre-commit==2.20.0
+pre-commit==2.21.0
     # via -r requirements/lint.in
-pydantic[email]==1.10.2
+pydantic[email]==1.10.4
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
@@ -135,19 +135,17 @@ starlette==0.22.0
     # via
     #   -c requirements/base.txt
     #   fastapi
-toml==0.10.2
-    # via pre-commit
 typer==0.7.0
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
-types-awscrt==0.16.1
+types-awscrt==0.16.3
     # via
     #   botocore-stubs
     #   types-s3transfer
 types-orjson==3.6.2
     # via -r requirements/lint.in
-types-python-dateutil==2.8.19.4
+types-python-dateutil==2.8.19.5
     # via -r requirements/lint.in
 types-s3transfer==0.6.0.post5
     # via boto3-stubs

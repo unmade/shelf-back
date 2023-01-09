@@ -136,10 +136,7 @@ async def delete_immediately(
     """
     file = await crud.file.get(db_client, namespace.path, path)
 
-    if file.is_folder():
-        delete_from_storage = storage.deletedir
-    else:
-        delete_from_storage = storage.delete
+    delete_from_storage = storage.deletedir if file.is_folder() else storage.delete
 
     async for tx in db_client.transaction():  # pragma: no branch
         async with tx:
@@ -315,10 +312,7 @@ async def move(
 
     file = await crud.file.get(db_client, namespace.path, path)
 
-    if file.is_folder():
-        move_in_storage = storage.movedir
-    else:
-        move_in_storage = storage.move
+    move_in_storage = storage.movedir if file.is_folder() else storage.move
 
     next_parent = os.path.normpath(os.path.dirname(next_path))
     if not await crud.file.exists(db_client, namespace.path, next_parent):

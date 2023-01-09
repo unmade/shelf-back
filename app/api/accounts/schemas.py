@@ -1,15 +1,17 @@
 from __future__ import annotations
 
-from typing import Annotated, cast
+from typing import TYPE_CHECKING, Annotated, Self, cast
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
 
 from app.crud.account import AccountUpdate
-from app.entities import Account as AccountEntity
+
+if TYPE_CHECKING:
+    from app.entities import Account
 
 
-class Account(BaseModel):
+class AccountSchema(BaseModel):
     id: UUID
     username: str
     email: str | None
@@ -18,7 +20,7 @@ class Account(BaseModel):
     superuser: bool
 
     @classmethod
-    def from_entity(cls, account: AccountEntity) -> Account:
+    def from_entity(cls, account: Account) -> Self:
         return cls.construct(
             id=account.id,
             username=account.user.username,
@@ -29,7 +31,7 @@ class Account(BaseModel):
         )
 
 
-class AccountSpaceUsage(BaseModel):
+class GetAccountSpaceUsageResponse(BaseModel):
     used: int
     quota: int | None
 

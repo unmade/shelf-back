@@ -9,8 +9,8 @@ from .schemas import Feature, FeatureName, ListFeatureResponse
 router = APIRouter()
 
 
-@router.get("/list", response_model=ListFeatureResponse)
-async def list_all():
+@router.get("/list")
+async def list_all() -> ListFeatureResponse:
     """Return a list of available features."""
     return ListFeatureResponse.construct(
         items=[

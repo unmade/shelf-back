@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import Enum
 from os.path import normpath
-from typing import TYPE_CHECKING, Literal, Type
+from typing import TYPE_CHECKING, Literal, Self
 from uuid import UUID
 
 from pydantic import BaseModel, root_validator, validator
@@ -15,7 +15,7 @@ from .exceptions import FileAlreadyDeleted, MalformedPath
 if TYPE_CHECKING:
     from fastapi import Request
 
-    from app import entities
+    from app.entities import File, FileMetadata, FileTaskResult
 
 
 class ThumbnailSize(str, Enum):
@@ -52,7 +52,7 @@ def _normalize(path: str) -> str:
     return normpath(path)
 
 
-class File(BaseModel):
+class FileSchema(BaseModel):
     id: UUID
     name: str
     path: str
@@ -63,7 +63,7 @@ class File(BaseModel):
     thumbnail_url: str | None
 
     @classmethod
-    def from_entity(cls: Type[File], file: entities.File, request: Request) -> File:
+    def from_entity(cls, file: File, request: Request) -> Self:
         return cls.construct(
             id=file.id,  # type: ignore
             name=file.name,
@@ -76,7 +76,7 @@ class File(BaseModel):
         )
 
     @staticmethod
-    def _make_thumbnail_url(request: Request, file: entities.File) -> str | None:
+    def _make_thumbnail_url(request: Request, file: File) -> str | None:
         if thumbnails.is_supported(file.mediatype):
             return request.url_for("get_thumbnail", file_id=file.id)
         return None
@@ -104,17 +104,17 @@ class AsyncTaskStatus(str, Enum):
 
 
 class AsyncTaskResult(BaseModel):
-    file: File | None
+    file: FileSchema | None
     err_code: errors.ErrorCode | None
 
     @classmethod
     def from_entity(
         cls,
-        entity: entities.FileTaskResult,
+        entity: FileTaskResult,
         request: Request,
     ) -> AsyncTaskResult:
         return cls.construct(
-            file=File.from_entity(entity.file, request) if entity.file else None,
+            file=FileSchema.from_entity(entity.file, request) if entity.file else None,
             err_code=entity.err_code if entity.err_code else None,
         )
 
@@ -148,7 +148,7 @@ class FindDuplicatesRequest(PathRequest):
 
 class FindDuplicatesResponse(BaseModel):
     path: str
-    items: list[list[File]]
+    items: list[list[FileSchema]]
     count: int
 
 
@@ -156,8 +156,8 @@ class GetBatchRequest(BaseModel):
     ids: list[UUID]
 
 
-class GetBatchResult(BaseModel):
-    items: list[File]
+class GetBatchResponse(BaseModel):
+    items: list[FileSchema]
     count: int
 
 
@@ -178,14 +178,34 @@ class GetContentMetadataResponse(BaseModel):
     file_id: str
     data: DataExif | None
 
+    @classmethod
+    def from_entity(cls, entity: FileMetadata) -> Self:
+        if entity.data is None:
+            return cls(file_id=entity.file_id, data=None)
+        return cls(
+            file_id=entity.file_id,
+            data=DataExif(
+                type=entity.data.type,
+                make=entity.data.make,
+                model=entity.data.model,
+                fnumber=entity.data.fnumber,
+                exposure=entity.data.exposure,
+                iso=entity.data.iso,
+                dt_original=entity.data.dt_original,
+                dt_digitized=entity.data.dt_digitized,
+                height=entity.data.height,
+                width=entity.data.width,
+            ),
+        )
 
-class GetDownloadUrlResult(BaseModel):
+
+class GetDownloadUrlResponse(BaseModel):
     download_url: str
 
 
-class ListFolderResult(BaseModel):
+class ListFolderResponse(BaseModel):
     path: str
-    items: list[File]
+    items: list[FileSchema]
     count: int
 
 
@@ -237,6 +257,6 @@ class MoveToTrashBatchRequest(BaseModel):
     items: list[MoveToTrashRequest]
 
 
-class UploadResult(BaseModel):
-    file: File
-    updates: list[File]
+class UploadResponse(BaseModel):
+    file: FileSchema
+    updates: list[FileSchema]

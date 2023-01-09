@@ -36,5 +36,5 @@ class SignUpRequest(BaseModel):
         return value
 
 
-class Tokens(BaseModel):
+class TokensSchema(BaseModel):
     access_token: str

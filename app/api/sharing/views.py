@@ -17,18 +17,18 @@ from .schemas import (
     GetSharedLinkFileRequest,
     GetSharedLinkResponse,
     RevokeSharedLinkRequest,
-    SharedLinkFile,
+    SharedLinkFileSchema,
 )
 
 router = APIRouter()
 
 
-@router.post("/create_shared_link", response_model=CreateSharedLinkResponse)
+@router.post("/create_shared_link")
 async def create_shared_link(
     payload: PathRequest,
     db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
-):
+) -> CreateSharedLinkResponse:
     """Create a shared link for a file in a given path."""
     try:
         link = await actions.get_or_create_shared_link(
@@ -42,12 +42,12 @@ async def create_shared_link(
     return CreateSharedLinkResponse(token=link.token)
 
 
-@router.post("/get_shared_link", response_model=GetSharedLinkResponse)
+@router.post("/get_shared_link")
 async def get_shared_link(
     payload: PathRequest,
     db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
-):
+) -> GetSharedLinkResponse:
     """Return shared link for a file in a given path."""
     try:
         link = await crud.shared_link.get(db_client, namespace.path, payload.path)
@@ -57,15 +57,12 @@ async def get_shared_link(
     return GetSharedLinkResponse(token=link.token)
 
 
-@router.post(
-    "/get_shared_link_download_url",
-    response_model=GetSharedLinkDownloadUrlResponse,
-)
+@router.post("/get_shared_link_download_url")
 async def get_shared_link_download_url(
     request: Request,
     payload: GetSharedLinkDownloadUrlRequest,
     db_client: AsyncIOClient = Depends(deps.db_client),
-):
+) -> GetSharedLinkDownloadUrlResponse:
     """Return a link to download a shared link file."""
     try:
         link = await crud.shared_link.get_by_token(db_client, token=payload.token)
@@ -76,22 +73,22 @@ async def get_shared_link_download_url(
     key = await shortcuts.create_download_cache(file.namespace.path, file.path)
 
     download_url = request.url_for("download")
-    return {"download_url": f"{download_url}?key={key}"}
+    return GetSharedLinkDownloadUrlResponse(download_url=f"{download_url}?key={key}")
 
 
-@router.post("/get_shared_link_file", response_model=SharedLinkFile)
+@router.post("/get_shared_link_file")
 async def get_shared_link_file(
     request: Request,
     payload: GetSharedLinkFileRequest,
     db_client: AsyncIOClient = Depends(deps.db_client),
-):
+) -> SharedLinkFileSchema:
     """Return a shared link file information."""
     try:
         link = await crud.shared_link.get_by_token(db_client, token=payload.token)
     except errors.SharedLinkNotFound as exc:
         raise SharedLinkNotFound() from exc
 
-    return SharedLinkFile.from_entity(link, request)
+    return SharedLinkFileSchema.from_entity(link, request)
 
 
 @router.get("/get_shared_link_thumbnail/{token}")
@@ -110,8 +107,8 @@ async def get_shared_link_thumbnail(
         db_client,
         link.file.namespace,
         link.file.id,
-        size.asint(),
-        link.file.mtime,
+        size=size.asint(),
+        mtime=link.file.mtime,
     )
 
     filename = f"thumbnail-{size.value}.webp"
@@ -129,6 +126,6 @@ async def revoke_shared_link(
     payload: RevokeSharedLinkRequest,
     _: Namespace = Depends(deps.namespace),
     db_client: AsyncIOClient = Depends(deps.db_client),
-):
+) -> None:
     """Revoke shared link."""
     await actions.revoke_shared_link(db_client, payload.token)
