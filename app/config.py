@@ -83,6 +83,10 @@ FEATURES_UPLOAD_FILE_MAX_SIZE = int(
     )
 )
 
+REFRESH_TOKEN_EXPIRE = timedelta(
+    minutes=float(os.getenv("REFRESH_TOKEN_EXPIRE_IN_MINUTES", 7200)),  # 5 days
+)
+
 STORAGE_TYPE = StorageType(os.getenv("STORAGE_TYPE", "filesystem"))
 STORAGE_LOCATION = os.environ["STORAGE_LOCATION"]
 STORAGE_QUOTA = _get_int_or_none("STORAGE_QUOTA_PER_ACCOUNT_IN_BYTES")

@@ -4,9 +4,9 @@ from edgedb import AsyncIOClient
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 
-from app import crud, db, errors, security
+from app import crud, db, errors
 from app.entities import Namespace, User
-from app.security import TokenPayload
+from app.tokens import AccessTokenPayload, InvalidToken
 
 from . import exceptions
 
@@ -23,20 +23,20 @@ reusable_oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/sign_in", auto_error=Fals
 db_client = db.client
 
 
-def token_payload(token: str | None = Depends(reusable_oauth2)) -> TokenPayload:
+def token_payload(token: str | None = Depends(reusable_oauth2)) -> AccessTokenPayload:
     """Return payload from authentication token."""
     if token is None:
         raise exceptions.MissingToken() from None
 
     try:
-        return security.decode_token(token)
-    except security.InvalidToken as exc:
+        return AccessTokenPayload.decode(token)
+    except InvalidToken as exc:
         raise exceptions.InvalidToken() from exc
 
 
 async def current_user_id(
     db_client: AsyncIOClient = Depends(db_client),
-    payload: TokenPayload = Depends(token_payload),
+    payload: AccessTokenPayload = Depends(token_payload),
 ) -> str:
     """Get user_id from a token payload."""
     if not await crud.user.exists(db_client, user_id=payload.sub):
@@ -46,7 +46,7 @@ async def current_user_id(
 
 async def current_user(
     db_client: AsyncIOClient = Depends(db_client),
-    payload: TokenPayload = Depends(token_payload),
+    payload: AccessTokenPayload = Depends(token_payload),
 ) -> User:
     """Get user from a token payload."""
     try:

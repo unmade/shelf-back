@@ -13,9 +13,10 @@ from faker import Faker
 from httpx import AsyncClient
 from PIL import Image
 
-from app import config, db, security
+from app import config, db
 from app.main import create_app
 from app.tasks import CeleryConfig
+from app.tokens import AccessTokenPayload
 from tests.factories import (
     AccountFactory,
     BookmarkFactory,
@@ -49,7 +50,7 @@ class TestClient(AsyncClient):
         Authenticates given user by creating access token and setting it as
         the Authorization header.
         """
-        token = security.create_access_token(str(user_id))
+        token = AccessTokenPayload.create(str(user_id)).encode()
         self.headers.update({"Authorization": f"Bearer {token}"})
         return self
 

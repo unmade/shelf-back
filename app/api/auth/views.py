@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from edgedb import AsyncIOClient
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 from fastapi.security import OAuth2PasswordRequestForm
 
-from app import actions, config, crud, errors, security
+from app import actions, config, crud, errors, security, tokens
 from app.api import deps
+from app.api.exceptions import InvalidToken
 
 from . import exceptions
 from .schemas import SignUpRequest, TokensSchema
@@ -29,9 +30,8 @@ async def sign_in(
     if not security.verify_password(form_data.password, password):
         raise exceptions.InvalidCredentials()
 
-    return TokensSchema(
-        access_token=security.create_access_token(str(user_id))
-    )
+    access_token, refresh_token = await tokens.create_tokens(str(user_id))
+    return TokensSchema(access_token=access_token, refresh_token=refresh_token)
 
 
 @router.post("/sign_up")
@@ -54,16 +54,22 @@ async def sign_up(
     except errors.UserAlreadyExists as exc:
         raise exceptions.UserAlreadyExists(str(exc)) from exc
 
-    return TokensSchema(
-        access_token=security.create_access_token(str(account.user.id))
-    )
+    access_token, refresh_token = await tokens.create_tokens(str(account.user.id))
+    return TokensSchema(access_token=access_token, refresh_token=refresh_token)
 
 
 @router.post("/refresh_token")
 async def refresh_token(
-    curr_user_id: str = Depends(deps.current_user_id),
+    x_shelf_refresh_token: str | None = Header(default=None)
 ) -> TokensSchema:
     """Grant new access token based on current access token."""
-    return TokensSchema(
-        access_token=security.create_access_token(curr_user_id)
-    )
+    refresh_token = x_shelf_refresh_token
+    if refresh_token is None:
+        raise InvalidToken() from None
+
+    try:
+        access_token, refresh_token = await tokens.rotate_tokens(refresh_token)
+    except tokens.TokenError as exc:
+        raise InvalidToken() from exc
+
+    return TokensSchema(access_token=access_token, refresh_token=refresh_token)

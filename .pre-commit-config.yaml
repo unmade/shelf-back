@@ -3,7 +3,7 @@ default_language_version:
 repos:
 -   repo: https://github.com/charliermarsh/ruff-pre-commit
     # Ruff version.
-    rev: 'v0.0.215'
+    rev: 'v0.0.219'
     hooks:
     -   id: ruff
         # Respect `exclude` and `extend-exclude` settings.

@@ -8,7 +8,7 @@ from fastapi import Depends
 
 from app.api import deps, exceptions
 from app.entities import User
-from app.security import TokenPayload
+from app.tokens import AccessTokenPayload
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -30,7 +30,7 @@ async def get_superuser(superuser: User = Depends(deps.superuser)):
     return {"user": superuser}
 
 
-async def token_payload(payload: TokenPayload = Depends(deps.token_payload)):
+async def token_payload(payload: AccessTokenPayload = Depends(deps.token_payload)):
     return {"payload": payload}
 
 

@@ -5,11 +5,13 @@ from unittest import mock
 
 import pytest
 
+from app import tokens
 from app.api.auth.exceptions import (
     InvalidCredentials,
     SignUpDisabled,
     UserAlreadyExists,
 )
+from app.api.exceptions import InvalidToken
 
 if TYPE_CHECKING:
     from app.entities import User
@@ -27,8 +29,8 @@ async def test_sign_in(client: TestClient, user_factory: UserFactory, username: 
         "password": "root",
     }
     response = await client.post("/auth/sign_in", data=data)
-    assert response.status_code == 200
     assert "access_token" in response.json()
+    assert response.status_code == 200
 
 
 async def test_sign_in_but_user_does_not_exists(client: TestClient):
@@ -37,8 +39,8 @@ async def test_sign_in_but_user_does_not_exists(client: TestClient):
         "password": "root",
     }
     response = await client.post("/auth/sign_in", data=data)
-    assert response.status_code == 401
     assert response.json() == InvalidCredentials().as_dict()
+    assert response.status_code == 401
 
 
 async def test_sign_in_but_password_is_invalid(
@@ -51,8 +53,8 @@ async def test_sign_in_but_password_is_invalid(
         "password": "wrong password",
     }
     response = await client.post("/auth/sign_in", data=data)
-    assert response.status_code == 401
     assert response.json() == InvalidCredentials().as_dict()
+    assert response.status_code == 401
 
 
 async def test_sign_up(client: TestClient):
@@ -121,6 +123,21 @@ async def test_sign_up_but_email_is_taken(
 
 
 async def test_refresh_token(client: TestClient, user: User):
-    response = await client.login(user.id).post("/auth/refresh_token")
-    assert response.status_code == 200
+    _, refresh_token = await tokens.create_tokens(str(user.id))
+    headers = {"x-shelf-refresh-token": refresh_token}
+    response = await client.post("/auth/refresh_token", headers=headers)
     assert "access_token" in response.json()
+    assert response.status_code == 200
+
+
+async def test_refresh_token_but_header_is_not_provided(client: TestClient):
+    response = await client.post("/auth/refresh_token")
+    assert response.json() == InvalidToken().as_dict()
+    assert response.status_code == 403
+
+
+async def test_refresh_token_but_token_is_invalid(client: TestClient):
+    headers = {"x-shelf-refresh-token": "invalid_token"}
+    response = await client.post("/auth/refresh_token", headers=headers)
+    assert response.json() == InvalidToken().as_dict()
+    assert response.status_code == 403
