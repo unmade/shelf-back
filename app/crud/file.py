@@ -70,13 +70,15 @@ async def create(
     path = PurePath(path)
     mtime = mtime or time.time()
 
-    try:
-        parent = await get(conn, namespace, path.parent)
-    except errors.FileNotFound as exc:
-        raise errors.MissingParent() from exc
-    else:
-        if not parent.is_folder():
-            raise errors.NotADirectory()
+    parent = None
+    if str(path) != ".":
+        try:
+            parent = await get(conn, namespace, path.parent)
+        except errors.FileNotFound as exc:
+            raise errors.MissingParent() from exc
+        else:
+            if not parent.is_folder():
+                raise errors.NotADirectory()
 
     query = """
         SELECT (

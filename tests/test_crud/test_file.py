@@ -71,6 +71,11 @@ async def test_create_is_case_insensitive(tx: DBTransaction, namespace: Namespac
     assert file.path == "A/f"  # original case of parent is preserved
 
 
+async def test_creates_home_folder(tx: DBTransaction, namespace: Namespace):
+    await crud.file.delete_all(tx, namespace.path)
+    await crud.file.create(tx, namespace.path, ".")
+
+
 async def test_create_but_parent_is_missing(tx: DBTransaction, namespace: Namespace):
     with pytest.raises(errors.MissingParent):
         await crud.file.create(tx, namespace.path, "New Folder/file")
