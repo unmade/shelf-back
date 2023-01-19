@@ -74,7 +74,7 @@ async def create_client(max_concurrency: int | None = 1) -> AsyncIterator[DBClie
         yield client
 
 
-async def init_client() -> None:  # pragma: no cover
+def init_client() -> None:  # pragma: no cover
     """Initialize a database client."""
     global _client
 

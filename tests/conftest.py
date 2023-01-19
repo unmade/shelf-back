@@ -14,6 +14,7 @@ from httpx import AsyncClient
 from PIL import Image
 
 from app import config, db
+from app.infrastructure.database.edgedb import EdgeDBDatabase
 from app.main import create_app
 from app.tasks import CeleryConfig
 from app.tokens import AccessTokenPayload
@@ -179,14 +180,25 @@ async def setup_test_db(reuse_db, db_dsn) -> None:
 @pytest.fixture(scope="session")
 async def session_db_client(setup_test_db):
     """A session scoped database client."""
-    async with edgedb.create_async_client(
+    database = EdgeDBDatabase(
         dsn=config.DATABASE_DSN,
         max_concurrency=4,
         tls_ca_file=config.DATABASE_TLS_CA_FILE,
         tls_security=config.DATABASE_TLS_SECURITY,
+    )
+    with mock.patch("app.main._create_database", return_value=database):
+        yield database.client
+
+
+@pytest.fixture(scope="session")
+def session_sync_client(setup_test_db):
+    with edgedb.create_client(
+        dsn=config.DATABASE_DSN,
+        max_concurrency=1,
+        tls_ca_file=config.DATABASE_TLS_CA_FILE,
+        tls_security=config.DATABASE_TLS_SECURITY,
     ) as client:
-        with mock.patch("app.db._client", client):
-            yield client
+        yield client
 
 
 @pytest.fixture
@@ -237,16 +249,15 @@ def db_client_or_tx(request: FixtureRequest):
 
 
 @pytest.fixture(autouse=True)
-async def flush_db_if_needed(request: FixtureRequest):
+def flush_db_if_needed(request: FixtureRequest):
     """Flush database after each tests."""
     try:
         yield
     finally:
         if marker := request.node.get_closest_marker("database"):
             if marker.kwargs.get("transaction", False):
-                session_db_client: DBClient
-                session_db_client = request.getfixturevalue("session_db_client")
-                await session_db_client.execute("""
+                session_db_client = request.getfixturevalue("session_sync_client")
+                session_db_client.execute("""
                     DELETE Account;
                     DELETE File;
                     DELETE FileMetadata;

@@ -4,9 +4,10 @@ from edgedb import AsyncIOClient
 from fastapi import APIRouter, Depends, Header
 from fastapi.security import OAuth2PasswordRequestForm
 
-from app import actions, config, crud, errors, security, tokens
+from app import config, crud, errors, security, tokens
 from app.api import deps
 from app.api.exceptions import InvalidToken
+from app.infrastructure.provider import UseCase
 
 from . import exceptions
 from .schemas import SignUpRequest, TokensSchema
@@ -37,24 +38,22 @@ async def sign_in(
 @router.post("/sign_up")
 async def sign_up(
     payload: SignUpRequest,
-    db_client: AsyncIOClient = Depends(deps.db_client),
+    usecases: UseCase = Depends(deps.usecases),
 ) -> TokensSchema:
     """Create a new account with given credentials and grant a new access token."""
     if config.FEATURES_SIGN_UP_DISABLED:
         raise exceptions.SignUpDisabled()
 
     try:
-        account = await actions.create_account(
-            db_client,
+        user = await usecases.signup(
             payload.username,
             payload.password,
-            email=payload.email,
             storage_quota=config.STORAGE_QUOTA,
         )
     except errors.UserAlreadyExists as exc:
         raise exceptions.UserAlreadyExists(str(exc)) from exc
 
-    access_token, refresh_token = await tokens.create_tokens(str(account.user.id))
+    access_token, refresh_token = await tokens.create_tokens(str(user.id))
     return TokensSchema(access_token=access_token, refresh_token=refresh_token)
 
 

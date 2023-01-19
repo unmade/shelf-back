@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Type
+from typing import TYPE_CHECKING
 
 from app import config
 
@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from .base import Storage
 
 
-def _get_storage_class(storage_type: config.StorageType) -> Type[Storage]:
+def _get_storage_class(storage_type: config.StorageType) -> type[Storage]:
     """Return storage class based on STORAGE_TYPE environment variable."""
     if storage_type == config.StorageType.filesystem:
         from .filesystem import FileSystemStorage

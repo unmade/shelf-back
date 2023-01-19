@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from edgedb import AsyncIOClient
-from fastapi import Depends
+from fastapi import Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 
-from app import crud, db, errors
+from app import crud, errors
 from app.entities import Namespace, User
+from app.infrastructure.provider import UseCase
 from app.tokens import AccessTokenPayload, InvalidToken
 
 from . import exceptions
@@ -19,8 +20,8 @@ __all__ = [
 
 reusable_oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/sign_in", auto_error=False)
 
-# This is just an alias to be consistent and import all deps from one place
-db_client = db.client
+async def db_client(request: Request) -> AsyncIOClient:
+    return request.app.state.db_client  # type: ignore[no-any-return]
 
 
 def token_payload(token: str | None = Depends(reusable_oauth2)) -> AccessTokenPayload:
@@ -63,6 +64,10 @@ async def namespace(
     # We should fail because the system is in the inconsistent state - user exists,
     # but doesn't have a namespace
     return await crud.namespace.get_by_owner(db_client, user_id)
+
+
+async def usecases(request: Request) -> UseCase:
+    return request.app.state.provider.usecase  # type: ignore[no-any-return]
 
 
 async def superuser(user: User = Depends(current_user)) -> User:

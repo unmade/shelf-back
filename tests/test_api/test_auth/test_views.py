@@ -5,7 +5,7 @@ from unittest import mock
 
 import pytest
 
-from app import tokens
+from app import config, errors, tokens
 from app.api.auth.exceptions import (
     InvalidCredentials,
     SignUpDisabled,
@@ -14,9 +14,11 @@ from app.api.auth.exceptions import (
 from app.api.exceptions import InvalidToken
 
 if TYPE_CHECKING:
+    from fastapi import FastAPI
+
     from app.entities import User
     from tests.conftest import TestClient
-    from tests.factories import AccountFactory, UserFactory
+    from tests.factories import UserFactory
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
 
@@ -57,69 +59,68 @@ async def test_sign_in_but_password_is_invalid(
     assert response.status_code == 401
 
 
-async def test_sign_up(client: TestClient):
-    payload = {
-        "username": "johndoe",
-        "password": "Password1",
-        "confirm_password": "Password1",
-    }
-    response = await client.post("/auth/sign_up", json=payload)
-    assert "access_token" in response.json()
-    assert response.status_code == 200
+class TestSignUp:
+    @pytest.fixture
+    def signup(self, app: FastAPI):
+        usecase = app.state.provider.usecase
+        signup_mock = mock.AsyncMock(usecase.signup)
+        with mock.patch.object(usecase, "signup", signup_mock) as mocked:
+            yield mocked
 
-
-async def test_sign_up_but_it_is_disabled(client: TestClient):
-    payload = {
-        "username": "johndoe",
-        "password": "Password1",
-        "confirm_password": "Password1",
-    }
-
-    with mock.patch("app.config.FEATURES_SIGN_UP_DISABLED", True):
+    async def test(self, client: TestClient, signup: mock.AsyncMock):
+        payload = {
+            "username": "johndoe",
+            "password": "Password1",
+            "confirm_password": "Password1",
+        }
         response = await client.post("/auth/sign_up", json=payload)
+        assert "access_token" in response.json()
+        assert response.status_code == 200
+        signup.assert_awaited_once_with(
+            payload["username"],
+            payload["password"],
+            storage_quota=config.STORAGE_QUOTA,
+        )
 
-    assert response.json() == SignUpDisabled().as_dict()
-    assert response.status_code == 400
+    async def test_but_it_is_disabled(self, client: TestClient, signup: mock.AsyncMock):
+        payload = {
+            "username": "johndoe",
+            "password": "Password1",
+            "confirm_password": "Password1",
+        }
 
+        with mock.patch("app.config.FEATURES_SIGN_UP_DISABLED", True):
+            response = await client.post("/auth/sign_up", json=payload)
 
-async def test_sign_up_but_payload_is_invalid(client: TestClient):
-    payload = {
-        "username": "jd",
-        "password": "psswrd",
-        "confirm_password": "Password1",
-    }
-    response = await client.post("/auth/sign_up", json=payload)
-    assert response.status_code == 422
+        assert response.json() == SignUpDisabled().as_dict()
+        assert response.status_code == 400
+        signup.assert_not_awaited()
 
+    async def test_but_passwords_dont_match(
+        self, client: TestClient, signup: mock.AsyncMock
+    ):
+        payload = {
+            "username": "jd",
+            "password": "psswrd",
+            "confirm_password": "Password1",
+        }
+        response = await client.post("/auth/sign_up", json=payload)
+        assert response.status_code == 422
+        signup.assert_not_awaited()
 
-async def test_sign_up_but_username_is_taken(client: TestClient, superuser: User):
-    payload = {
-        "username": superuser.username,
-        "password": "Password1",
-        "confirm_password": "Password1",
-    }
-    response = await client.post("/auth/sign_up", json=payload)
-    message = f"Username '{superuser.username}' is taken"
-    assert response.json() == UserAlreadyExists(message).as_dict()
-    assert response.status_code == 400
-
-
-async def test_sign_up_but_email_is_taken(
-    client: TestClient,
-    superuser: User,
-    account_factory: AccountFactory,
-) -> None:
-    await account_factory(email="johndoe@example.com", user=superuser)
-    payload = {
-        "username": "johndoe",
-        "password": "Password1",
-        "confirm_password": "Password1",
-        "email": "johndoe@example.com",
-    }
-    response = await client.post("/auth/sign_up", json=payload)
-    message = "Email 'johndoe@example.com' is taken"
-    assert response.json() == UserAlreadyExists(message).as_dict()
-    assert response.status_code == 400
+    async def test_but_username_is_taken(
+        self, client: TestClient, signup: mock.AsyncMock
+    ):
+        payload = {
+            "username": "johndoe",
+            "password": "Password1",
+            "confirm_password": "Password1",
+        }
+        signup.side_effect = errors.UserAlreadyExists("Username 'johndoe' is taken")
+        response = await client.post("/auth/sign_up", json=payload)
+        message = str(signup.side_effect)
+        assert response.json() == UserAlreadyExists(message).as_dict()
+        assert response.status_code == 400
 
 
 async def test_refresh_token(client: TestClient, user: User):

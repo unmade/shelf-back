@@ -4,7 +4,11 @@ import sentry_sdk
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app import api, config, db
+from app import api, config
+from app.infrastructure.database.edgedb.db import EdgeDBDatabase
+from app.infrastructure.provider import Provider
+from app.storage.filesystem import FileSystemStorage
+from app.storage.s3 import S3Storage
 
 sentry_sdk.init(
     config.SENTRY_DSN,
@@ -34,15 +38,35 @@ def create_app() -> FastAPI:
         api.exceptions.APIError, api.exceptions.api_error_exception_handler,
     )
 
-    @app.on_event("startup")
-    async def init_db_client():
-        await db.init_client()
+    database = _create_database()
+    app.state.db_client = database.client
+    app.state.provider = Provider(
+        database=database,
+        storage=_create_storage(),
+    )
 
     @app.on_event("shutdown")
     async def close_db_client():
-        await db.close_client()
+        await app.state.db_client.close_client()
 
     return app
+
+
+def _create_database():
+    return EdgeDBDatabase(
+        dsn=config.DATABASE_DSN,
+        max_concurrency=4,
+        tls_ca_file=config.DATABASE_TLS_CA_FILE,
+        tls_security=config.DATABASE_TLS_SECURITY,
+    )
+
+
+def _create_storage():
+    if config.STORAGE_TYPE == config.StorageType.s3:
+        return S3Storage(
+            location=config.STORAGE_LOCATION,
+        )
+    return FileSystemStorage(location=config.STORAGE_LOCATION)
 
 
 app = create_app()
