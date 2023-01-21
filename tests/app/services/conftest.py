@@ -50,6 +50,7 @@ def namespace_service(tmp_path: Path, tx_database: EdgeDBDatabase) -> NamespaceS
     return NamespaceService(
         namespace_repo=tx_database.namespace,
         folder_repo=tx_database.folder,
+        file_repo=tx_database.file,
         storage=FileSystemStorage(tmp_path),
     )
 
@@ -65,3 +66,8 @@ def user_service(tx_database: EdgeDBDatabase) -> UserService:
 @pytest.fixture
 async def user(user_service: UserService) -> User:
     return await user_service.create("admin", "root")
+
+
+@pytest.fixture
+async def namespace(user: User, namespace_service: NamespaceService):
+    return await namespace_service.create(user.username, owner_id=user.id)

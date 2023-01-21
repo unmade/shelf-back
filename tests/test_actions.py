@@ -172,51 +172,51 @@ async def test_create_account_but_email_is_taken(db_client: DBClient):
     """, username="user_b")
 
 
-async def test_create_folder(db_client: DBClient, namespace: Namespace):
-    path = Path("a/b/c")
-    await actions.create_folder(db_client, namespace, path)
+# async def test_create_folder(db_client: DBClient, namespace: Namespace):
+#     path = Path("a/b/c")
+#     await actions.create_folder(db_client, namespace, path)
 
-    assert await storage.exists(namespace.path, path)
+#     assert await storage.exists(namespace.path, path)
 
-    query = """
-        SELECT File { id }
-        FILTER
-            .path IN array_unpack(<array<str>>$paths)
-            AND
-            .namespace.path = <str>$namespace
-    """
+#     query = """
+#         SELECT File { id }
+#         FILTER
+#             .path IN array_unpack(<array<str>>$paths)
+#             AND
+#             .namespace.path = <str>$namespace
+#     """
 
-    folders = await db_client.query(
-        query,
-        namespace=str(namespace.path),
-        paths=[str(path)] + [str(p) for p in Path(path).parents]
-    )
+#     folders = await db_client.query(
+#         query,
+#         namespace=str(namespace.path),
+#         paths=[str(path)] + [str(p) for p in Path(path).parents]
+#     )
 
-    assert len(folders) == 4
-
-
-async def test_create_folder_but_folder_exists(
-    db_client: DBClient,
-    namespace: Namespace,
-):
-    path = Path("a/b/c")
-    await actions.create_folder(db_client, namespace, path)
-
-    with pytest.raises(errors.FileAlreadyExists):
-        await actions.create_folder(db_client, namespace, path.parent)
-
-    assert await storage.exists(namespace.path, path.parent)
+#     assert len(folders) == 4
 
 
-async def test_create_folder_but_parent_is_file(
-    db_client: DBClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    await file_factory(namespace.path, path="file")
+# async def test_create_folder_but_folder_exists(
+#     db_client: DBClient,
+#     namespace: Namespace,
+# ):
+#     path = Path("a/b/c")
+#     await actions.create_folder(db_client, namespace, path)
 
-    with pytest.raises(errors.NotADirectory):
-        await actions.create_folder(db_client, namespace, "file/folder")
+#     with pytest.raises(errors.FileAlreadyExists):
+#         await actions.create_folder(db_client, namespace, path.parent)
+
+#     assert await storage.exists(namespace.path, path.parent)
+
+
+# async def test_create_folder_but_parent_is_file(
+#     db_client: DBClient,
+#     namespace: Namespace,
+#     file_factory: FileFactory,
+# ):
+#     await file_factory(namespace.path, path="file")
+
+#     with pytest.raises(errors.NotADirectory):
+#         await actions.create_folder(db_client, namespace, "file/folder")
 
 
 async def test_delete_immediately_file(

@@ -14,6 +14,7 @@ from fastapi.responses import ORJSONResponse, Response, StreamingResponse
 from app import actions, config, crud, errors, mediatypes, tasks
 from app.api import deps, shortcuts
 from app.entities import Namespace, User
+from app.infrastructure.provider import Service
 from app.storage import storage
 
 from . import exceptions
@@ -50,8 +51,8 @@ router = APIRouter()
 async def create_folder(
     request: Request,
     payload: PathRequest,
-    db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
+    services: Service = Depends(deps.services),
 ) -> FileSchema:
     """
     Create a new folder with a target path.
@@ -61,7 +62,7 @@ async def create_folder(
     if not existed, and 'c' will be returned as a response.
     """
     try:
-        folder = await actions.create_folder(db_client, namespace, payload.path)
+        folder = await services.namespace.create_folder(namespace.path, payload.path)
     except errors.FileAlreadyExists as exc:
         raise exceptions.FileAlreadyExists(path=payload.path) from exc
     except errors.NotADirectory as exc:

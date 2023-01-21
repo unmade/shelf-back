@@ -32,6 +32,24 @@ class Account(BaseModel):
     created_at: datetime = Field(default_factory=timezone.now)
 
 
+class File(BaseModel):
+    id: UUID
+    ns_path: str
+    name: str
+    path: str
+    size: int
+    mtime: float
+    mediatype: str
+
+    def is_folder(self) -> bool:
+        """True if file is a folder, False otherwise."""
+        return self.mediatype == mediatypes.FOLDER
+
+    def is_hidden(self) -> bool:
+        """True if file name startswith '.', False othewise."""
+        return self.name.startswith(".")
+
+
 class Folder(BaseModel):
     id: UUID
     ns_path: str
@@ -40,6 +58,10 @@ class Folder(BaseModel):
     size: int = 0
     mtime: float = Field(default_factory=mtime_factory)
     mediatype: str = mediatypes.FOLDER
+
+    def is_hidden(self) -> bool:
+        """True if file name startswith '.', False othewise."""
+        return self.name.startswith(".")
 
 
 class Namespace(BaseModel):

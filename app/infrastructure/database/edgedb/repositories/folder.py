@@ -1,8 +1,27 @@
 from __future__ import annotations
 
-from app import crud
+from typing import TYPE_CHECKING, Iterable
+from uuid import UUID
+
+from app import crud, mediatypes
 from app.app.repositories import IFolderRepository
 from app.domain.entities import Folder
+
+if TYPE_CHECKING:
+    from app.entities import File
+    from app.typedefs import StrOrPath
+
+
+def _from_db(ns_path: str, obj: File) -> Folder:
+    return Folder.construct(
+        id=UUID(obj.id),
+        ns_path=ns_path,
+        name=obj.name,
+        path=obj.path,
+        size=obj.size,
+        mtime=obj.mtime,
+        mediatype=obj.mediatype,
+    )
 
 
 class FolderRepository(IFolderRepository):
@@ -12,6 +31,22 @@ class FolderRepository(IFolderRepository):
     @property
     def conn(self):
         return self.db_context.get()
+
+    async def get_by_path(self, ns_path: StrOrPath, path: StrOrPath) -> Folder:
+        obj = await crud.file.get(self.conn, ns_path, path)
+        assert obj.mediatype == mediatypes.FOLDER
+        return _from_db(str(ns_path), obj)
+
+    async def get_by_path_batch(
+        self, ns_path: StrOrPath, paths: Iterable[StrOrPath],
+    ) -> list[Folder]:
+        files = await crud.file.get_many(
+            self.conn,
+            namespace=ns_path,
+            paths=paths,
+        )
+        assert all(file.mediatype == mediatypes.FOLDER for file in files)
+        return [_from_db(str(ns_path), file) for file in files]
 
     async def save(self, folder: Folder) -> Folder:
         created_folder = await crud.file.create(

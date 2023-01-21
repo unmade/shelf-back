@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import secrets
 import urllib.parse
+import uuid
 from io import BytesIO
 from typing import TYPE_CHECKING
 from unittest import mock
 
 import pytest
 
-from app import config, tasks
+from app import config, errors, tasks
 from app.api import shortcuts
 from app.api.files.exceptions import (
     DownloadNotFound,
@@ -20,9 +21,14 @@ from app.api.files.exceptions import (
     StorageQuotaExceeded,
     UploadFileTooLarge,
 )
+from app.domain.entities import Folder
 from app.entities import Exif, RelocationPath
 
 if TYPE_CHECKING:
+    from unittest.mock import MagicMock
+
+    from fastapi import FastAPI
+
     from app.entities import FileTaskResult, Namespace
     from tests.conftest import TestClient
     from tests.factories import (
@@ -33,6 +39,66 @@ if TYPE_CHECKING:
     )
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
+
+
+class TestCreateFolder:
+    @pytest.fixture
+    def ns_service(self, app: FastAPI):
+        service = app.state.provider.service
+        ns_service_mock = mock.MagicMock(service.namespace)
+        with mock.patch.object(service, "namespace", ns_service_mock) as mocked:
+            yield mocked
+
+    @pytest.mark.parametrize(["path", "expected_path"], [
+        ("Folder", "Folder"),
+        ("Nested/Path/Folder", "Nested/Path/Folder",),
+        (".Hidden Folder", ".Hidden Folder",),
+        (" Whitespaces ", "Whitespaces",),
+    ])
+    async def test(
+        self,
+        client: TestClient,
+        namespace: Namespace,
+        ns_service: MagicMock,
+        path: str,
+        expected_path: str,
+    ):
+        ns_service.create_folder.return_value = Folder(
+            id=uuid.uuid4(),
+            ns_path=str(namespace.path),
+            name=expected_path.split('/')[-1],
+            path=expected_path,
+        )
+        payload = {"path": path}
+        client.login(namespace.owner.id)
+        response = await client.post("/files/create_folder", json=payload)
+        assert response.status_code == 200
+        ns_service.create_folder.assert_awaited_once_with(
+            namespace.path, expected_path
+        )
+
+    async def test_when_folder_exists(
+        self, client: TestClient, namespace: Namespace, ns_service: MagicMock
+    ):
+        ns_service.create_folder.side_effect = errors.FileAlreadyExists
+        payload = {"path": "Trash"}
+        client.login(namespace.owner.id)
+        response = await client.post("/files/create_folder", json=payload)
+        assert response.json() == FileAlreadyExists(path='Trash').as_dict()
+        assert response.status_code == 400
+        ns_service.create_folder.assert_awaited_once_with(namespace.path, "Trash")
+
+    async def test_when_parent_is_a_file(
+        self, client: TestClient, namespace: Namespace, ns_service: MagicMock
+    ):
+        ns_service.create_folder.side_effect = errors.NotADirectory()
+        path = "file/folder"
+        payload = {"path": path}
+        client.login(namespace.owner.id)
+        response = await client.post("/files/create_folder", json=payload)
+        assert response.json() == NotADirectory(path="file/folder").as_dict()
+        assert response.status_code == 400
+        ns_service.create_folder.assert_awaited_once_with(namespace.path, path)
 
 
 @pytest.mark.parametrize(["path", "name", "expected_path", "hidden"], [
@@ -56,30 +122,6 @@ async def test_create_folder(
     assert response.json()["path"] == (expected_path or path)
     assert response.json()["hidden"] is hidden
     assert response.status_code == 200
-
-
-async def test_create_folder_but_folder_exists(
-    client: TestClient,
-    namespace: Namespace,
-):
-    payload = {"path": "Trash"}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/create_folder", json=payload)
-    assert response.json() == FileAlreadyExists(path='Trash').as_dict()
-    assert response.status_code == 400
-
-
-async def test_create_folder_but_parent_is_a_file(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    await file_factory(namespace.path, path="file")
-    payload = {"path": "file/folder"}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/create_folder", json=payload)
-    assert response.json() == NotADirectory(path="file/folder").as_dict()
-    assert response.status_code == 400
 
 
 @pytest.mark.usefixtures("celery_session_worker")

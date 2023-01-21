@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
     from .database.edgedb import EdgeDBDatabase
 
-__all__ = ["Provider"]
+__all__ = ["Provider", "Service", "UseCase"]
 
 
 class Provider:
@@ -28,6 +28,7 @@ class Service:
         self.namespace = NamespaceService(
             namespace_repo=database.namespace,
             folder_repo=database.folder,
+            file_repo=database.file,
             storage=storage,
         )
 

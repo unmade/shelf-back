@@ -6,7 +6,7 @@ from fastapi.security import OAuth2PasswordBearer
 
 from app import crud, errors
 from app.entities import Namespace, User
-from app.infrastructure.provider import UseCase
+from app.infrastructure.provider import Service, UseCase
 from app.tokens import AccessTokenPayload, InvalidToken
 
 from . import exceptions
@@ -68,6 +68,10 @@ async def namespace(
 
 async def usecases(request: Request) -> UseCase:
     return request.app.state.provider.usecase  # type: ignore[no-any-return]
+
+
+async def services(request: Request) -> Service:
+    return request.app.state.provider.service  # type: ignore[no-any-return]
 
 
 async def superuser(user: User = Depends(current_user)) -> User:
