@@ -29,6 +29,8 @@ class Service:
             namespace_repo=database.namespace,
             folder_repo=database.folder,
             file_repo=database.file,
+            fingerprint_repo=database.fingerprint,
+            metadata_repo=database.metadata,
             storage=storage,
         )
 

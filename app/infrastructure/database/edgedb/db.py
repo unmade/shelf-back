@@ -7,7 +7,9 @@ import edgedb
 
 from .repositories import (
     AccountRepository,
+    ContentMetadataRepository,
     FileRepository,
+    FingerprintRepository,
     FolderRepository,
     NamespaceRepository,
     UserRepository,
@@ -38,5 +40,7 @@ class EdgeDBDatabase:
         self.account = AccountRepository(db_context=db_context)
         self.folder = FolderRepository(db_context=db_context)
         self.file = FileRepository(db_context=db_context)
+        self.fingerprint = FingerprintRepository(db_context=db_context)
+        self.metadata = ContentMetadataRepository(db_context=db_context)
         self.namespace = NamespaceRepository(db_context=db_context)
         self.user = UserRepository(db_context=db_context)

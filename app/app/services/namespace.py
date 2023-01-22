@@ -1,16 +1,27 @@
 from __future__ import annotations
 
 import contextlib
+import os
 from pathlib import PurePath
-from typing import TYPE_CHECKING
-from uuid import UUID
+from typing import IO, TYPE_CHECKING
 
-from app import errors
-from app.domain.entities import SENTINEL_ID, Folder, Namespace
+from app import errors, hashes, mediatypes, metadata
+from app.domain.entities import (
+    SENTINEL_ID,
+    ContentMetadata,
+    File,
+    Fingerprint,
+    Folder,
+    Namespace,
+)
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from app.app.repositories import (
+        IContentMetadataRepository,
         IFileRepository,
+        IFingerprintRepository,
         IFolderRepository,
         INamespaceRepository,
     )
@@ -24,20 +35,89 @@ class NamespaceService:
     def __init__(
         self,
         file_repo: IFileRepository,
+        fingerprint_repo: IFingerprintRepository,
         folder_repo: IFolderRepository,
+        metadata_repo: IContentMetadataRepository,
         namespace_repo: INamespaceRepository,
         storage: Storage,
     ):
         self.namespace_repo = namespace_repo
         self.file_repo = file_repo
+        self.fingerprint_repo = fingerprint_repo
+        self.metadata_repo = metadata_repo
         self.folder_repo = folder_repo
         self.storage = storage
 
-    async def create(
-        self,
-        path: StrOrPath,
-        owner_id: UUID,
-    ) -> Namespace:
+    async def add_file(
+        self, ns_path: StrOrPath, path: StrOrPath, content: IO[bytes]
+    ) -> File:
+        """
+        Saves a file to a storage and to a database. Additionally calculates and saves
+        dhash and fingerprint for supported mediatypes.
+
+        Any missing parents are also created.
+
+        If file name is already taken, then file will be saved under a new name.
+        For example - if path 'f.txt' is taken, then new path will be 'f (1).txt'.
+
+        Args:
+            ns_path (StrOrPath): Namespace path where a file should be saved.
+            path (StrOrPath): Path where a file will be saved.
+            content (IO): Actual file content.
+
+        Raises:
+            FileAlreadyExists: If a file in a target path already exists.
+            NotADirectory: If one of the path parents is not a folder.
+
+        Returns:
+            File: Saved file.
+        """
+        path = PurePath(path)
+        try:
+            parent = await self.file_repo.get_by_path(ns_path, path.parent)
+        except errors.FileNotFound:
+            with contextlib.suppress(errors.FileAlreadyExists):
+                await self.create_folder(ns_path, str(path.parent))
+        else:
+            if not parent.is_folder():
+                raise errors.NotADirectory()
+
+        next_path = await self.file_repo.next_path(ns_path, path)
+        mediatype = mediatypes.guess(next_path, content)
+
+        dhash = hashes.dhash(content, mediatype=mediatype)
+        meta = metadata.load(content, mediatype=mediatype)
+
+        storage_file = await self.storage.save(ns_path, next_path, content)
+
+        file = await self.file_repo.save(
+            File(
+                id=SENTINEL_ID,
+                ns_path=str(ns_path),
+                name=os.path.basename(next_path),
+                path=next_path,
+                size=storage_file.size,
+                mediatype=mediatype,
+            ),
+        )
+        if dhash is not None:
+            await self.fingerprint_repo.save(
+                Fingerprint(file.id, value=dhash)
+            )
+
+        if meta is not None:
+            await self.metadata_repo.save(
+                ContentMetadata(
+                    file_id=str(file.id),
+                    data=meta,  # type: ignore[arg-type]
+                ),
+            )
+
+        await self.file_repo.incr_size_batch(str(ns_path), path.parents, file.size)
+
+        return file
+
+    async def create(self, path: StrOrPath, owner_id: UUID) -> Namespace:
         """
         Creates a namespace with a `Home` and `Trash` folders.
 
@@ -98,8 +178,8 @@ class NamespaceService:
         for p in reversed(paths[:index]):
             # parallel calls can create folder at the same path. Consider, for example,
             # when the first call tries to create a folder at path 'a/b/c/f' and
-            # the second call tries to create at path 'a/b/c/d/f'. To solve that, simply
-            # ignore FileAlreadyExists error.
+            # the second call tries to create at path 'a/b/c/d/f'. To solve that,
+            # simply ignore FileAlreadyExists error.
             with contextlib.suppress(errors.FileAlreadyExists):
                 await self.folder_repo.save(
                     Folder(
@@ -111,3 +191,9 @@ class NamespaceService:
                 )
 
         return await self.folder_repo.get_by_path(ns_path, path)
+
+    async def get_by_path(self, path) -> Namespace:
+        return await self.namespace_repo.get_by_path(path)
+
+    async def get_space_used_by_owner_id(self, owner_id: UUID) -> int:
+        return await self.namespace_repo.get_space_used_by_owner_id(owner_id)

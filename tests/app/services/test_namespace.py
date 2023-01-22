@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from io import BytesIO
+from pathlib import PurePath
 from typing import TYPE_CHECKING
 from unittest import mock
 
 import pytest
 
-from app import errors
+from app import errors, taskgroups
 from app.domain.entities import SENTINEL_ID, Folder, Namespace
 
 if TYPE_CHECKING:
@@ -13,6 +15,96 @@ if TYPE_CHECKING:
     from app.domain.entities import User
 
 pytestmark = [pytest.mark.asyncio]
+
+
+class TestAddFile:
+    async def test(self, namespace: Namespace, namespace_service: NamespaceService):
+        content = BytesIO(b"Dummy file")
+        file = await namespace_service.add_file(namespace.path, "f.txt", content)
+        assert file.name == "f.txt"
+        assert file.path == "f.txt"
+        assert file.size == 10
+        assert file.mediatype == 'text/plain'
+
+    async def test_saving_an_image(
+        self,
+        namespace: Namespace,
+        namespace_service: NamespaceService,
+        image_content: BytesIO,
+    ):
+        content = image_content
+        file = await namespace_service.add_file(namespace.path, "im.jpeg", content)
+        assert file.mediatype == "image/jpeg"
+
+    async def test_creating_missing_parents(
+        self, namespace: Namespace, namespace_service: NamespaceService
+    ):
+        content = BytesIO(b"Dummy file")
+        file = await namespace_service.add_file(namespace.path, "a/b/f.txt", content)
+        assert file.name == "f.txt"
+        assert file.path == "a/b/f.txt"
+
+        paths = ["a", "a/b"]
+        file_repo = namespace_service.file_repo
+        a, b = await file_repo.get_by_path_batch(namespace.path,  paths=paths)
+        assert a.path == "a"
+        assert b.path == "a/b"
+
+    async def test_parents_size_is_updated(
+        self, namespace: Namespace, namespace_service: NamespaceService
+    ):
+        content = BytesIO(b"Dummy file")
+        await namespace_service.add_file(namespace.path, "a/b/f.txt", content)
+        paths = [".", "a", "a/b"]
+        file_repo = namespace_service.file_repo
+        home, a, b = await file_repo.get_by_path_batch(namespace.path, paths=paths)
+        assert home.size == 10
+        assert a.size == 10
+        assert b.size == 10
+
+    @pytest.mark.skip
+    async def test_saving_files_concurrently(
+        self, namespace: Namespace, namespace_service: NamespaceService
+    ):
+        CONCURRENCY = 50
+        parent = PurePath("a/b/c")
+        paths = [parent / str(name) for name in range(CONCURRENCY)]
+        contents = [BytesIO(b"1") for _ in range(CONCURRENCY)]
+
+        await namespace_service.create_folder(namespace.path, parent)
+
+        await taskgroups.gather(*(
+            namespace_service.add_file(namespace.path, path, content)
+            for path, content in zip(paths, contents, strict=True)
+        ))
+
+        file_repo = namespace_service.file_repo
+        count = len(await file_repo.get_by_path_batch(namespace.path, paths))
+        assert count == CONCURRENCY
+
+        home = await file_repo.get_by_path(namespace.path, ".")
+        assert home.size == CONCURRENCY
+
+    async def test_when_file_path_already_taken(
+        self, namespace: Namespace, namespace_service: NamespaceService
+    ):
+        content = BytesIO(b"Dummy file")
+        await namespace_service.add_file(namespace.path, "f.txt", content)
+        await namespace_service.add_file(namespace.path, "f.txt", content)
+
+        file_repo = namespace_service.file_repo
+        paths = ["f.txt", "f (1).txt"]
+        f_1, f = await file_repo.get_by_path_batch(namespace.path, paths)
+        assert f.path == "f.txt"
+        assert f_1.path == "f (1).txt"
+
+    async def test_when_parent_path_is_file(
+        self, namespace: Namespace, namespace_service: NamespaceService
+    ):
+        content = BytesIO(b"Dummy file")
+        await namespace_service.add_file(namespace.path, "f.txt", content)
+        with pytest.raises(errors.NotADirectory):
+            await namespace_service.add_file(namespace.path, "f.txt/f.txt", content)
 
 
 class TestCreate:

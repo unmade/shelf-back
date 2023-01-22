@@ -51,6 +51,8 @@ def namespace_service(tmp_path: Path, tx_database: EdgeDBDatabase) -> NamespaceS
         namespace_repo=tx_database.namespace,
         folder_repo=tx_database.folder,
         file_repo=tx_database.file,
+        fingerprint_repo=tx_database.fingerprint,
+        metadata_repo=tx_database.metadata,
         storage=FileSystemStorage(tmp_path),
     )
 

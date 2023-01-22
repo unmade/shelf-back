@@ -11,6 +11,8 @@ if TYPE_CHECKING:
     from app.entities import File
     from app.typedefs import StrOrPath
 
+__all__ = "FolderRepository"
+
 
 def _from_db(ns_path: str, obj: File) -> Folder:
     return Folder.construct(

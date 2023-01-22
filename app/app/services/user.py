@@ -7,6 +7,7 @@ from app.domain.entities import SENTINEL_ID, Account, User
 
 if TYPE_CHECKING:
     from app.app.repositories import IAccountRepository, IUserRepository
+    from app.typedefs import StrOrUUID
 
 __all__ = ["UserService"]
 
@@ -71,3 +72,6 @@ class UserService:
             )
         )
         return user
+
+    async def get_account(self, user_id: StrOrUUID) -> Account:
+        return await self.account_repo.get_by_user_id(user_id)

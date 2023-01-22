@@ -3,12 +3,16 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
+from faker import Faker
 
+from app.domain.entities import SENTINEL_ID, User
 from app.infrastructure.database.edgedb import EdgeDBDatabase
 from app.infrastructure.database.edgedb.db import db_context
 
 if TYPE_CHECKING:
     from app.infrastructure.database.edgedb.typedefs import EdgeDBTransaction
+
+fake = Faker()
 
 
 @pytest.fixture(scope="module")
@@ -41,5 +45,27 @@ def tx_database(database: EdgeDBDatabase, tx: EdgeDBTransaction):
 
 
 @pytest.fixture
+def file_repo(tx_database: EdgeDBDatabase):
+    return tx_database.file
+
+
+@pytest.fixture
+def namespace_repo(tx_database: EdgeDBDatabase):
+    return tx_database.namespace
+
+
+@pytest.fixture
 def user_repo(tx_database: EdgeDBDatabase):
     return tx_database.user
+
+
+@pytest.fixture
+async def user(user_repo):
+    return await user_repo.save(
+        User(
+            id=SENTINEL_ID,
+            username=fake.unique.user_name(),
+            password=fake.password(),
+            superuser=False,
+        )
+    )

@@ -1,10 +1,17 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import edgedb
 
 from app import errors
 from app.app.repositories import IUserRepository
 from app.domain.entities import User
+
+if TYPE_CHECKING:
+    pass
+
+__all__ = ["UserRepository"]
 
 
 class UserRepository(IUserRepository):
