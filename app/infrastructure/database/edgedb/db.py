@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from contextvars import ContextVar
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, AsyncIterator
 
 import edgedb
+from edgedb.asyncio_client import AsyncIOIteration
 
 from app.app.infrastructure import IDatabase
 from app.app.repositories import (
@@ -63,3 +64,17 @@ class EdgeDBDatabase(IDatabase):
         self.metadata = ContentMetadataRepository(db_context=db_context)
         self.namespace = NamespaceRepository(db_context=db_context)
         self.user = UserRepository(db_context=db_context)
+
+    async def atomic(self, attempts: int = 3) -> AsyncIterator[None]:
+        if isinstance(db_context.get(), AsyncIOIteration):
+            yield
+            return
+
+        tx_client = self.client.with_retry_options(edgedb.RetryOptions(attempts))
+        async for tx in tx_client.transaction():
+            async with tx:
+                token = db_context.set(tx)
+                try:
+                    yield
+                finally:
+                    db_context.reset(token)

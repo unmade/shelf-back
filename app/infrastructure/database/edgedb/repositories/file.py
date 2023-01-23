@@ -47,7 +47,7 @@ class FileRepository(IFileRepository):
         return [_from_db(str(ns_path), file) for file in files]
 
     async def incr_size_batch(
-        self, ns_path: str, paths: Iterable[StrOrPath], value: int
+        self, ns_path: StrOrPath, paths: Iterable[StrOrPath], value: int
     ) -> None:
         return await crud.file.inc_size_batch(self.conn, ns_path, paths, value)
 

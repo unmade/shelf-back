@@ -39,7 +39,7 @@ class IFileRepository(Protocol):
         """
 
     async def incr_size_batch(
-        self, ns_path: str, paths: Iterable[StrOrPath], value: int,
+        self, ns_path: StrOrPath, paths: Iterable[StrOrPath], value: int,
     ) -> None:
         """
         Increments size for specified paths.

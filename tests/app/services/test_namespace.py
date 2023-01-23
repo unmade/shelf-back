@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from app.app.services import NamespaceService
     from app.domain.entities import User
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
 
 class TestAddFile:
@@ -62,7 +62,7 @@ class TestAddFile:
         assert a.size == 10
         assert b.size == 10
 
-    @pytest.mark.skip
+    @pytest.mark.database(transaction=True)
     async def test_saving_files_concurrently(
         self, namespace: Namespace, namespace_service: NamespaceService
     ):

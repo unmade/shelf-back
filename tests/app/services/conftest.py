@@ -12,12 +12,15 @@ from app.storage.filesystem import FileSystemStorage
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from pytest import FixtureRequest
+
     from app.domain.entities import User
     from app.infrastructure.database.edgedb.typedefs import EdgeDBTransaction
 
 
 @pytest.fixture(scope="module")
-def database(db_dsn):
+def _database(db_dsn):
+    """Returns a database instance."""
     _, dsn, _ = db_dsn
     return EdgeDBDatabase(
         dsn,
@@ -27,8 +30,9 @@ def database(db_dsn):
 
 
 @pytest.fixture
-async def tx(database: EdgeDBDatabase):
-    async for transaction in database.client.transaction():
+async def _tx(_database: EdgeDBDatabase):
+    """Yields a transaction and rollback it after each test."""
+    async for transaction in _database.client.transaction():
         transaction._managed = True
         try:
             yield transaction
@@ -37,29 +41,50 @@ async def tx(database: EdgeDBDatabase):
 
 
 @pytest.fixture
-def tx_database(database: EdgeDBDatabase, tx: EdgeDBTransaction):
-    token = db_context.set(tx)
+def _tx_database(_database: EdgeDBDatabase, _tx: EdgeDBTransaction):
+    """Database instance where all queries run in the same transaction."""
+    # pytest-asyncio doesn't support contextvars properly, so set the context manually
+    # in a regular non-async fixture.
+    token = db_context.set(_tx)
     try:
-        yield database
+        yield _database
     finally:
         db_context.reset(token)
 
 
 @pytest.fixture
-def namespace_service(tmp_path: Path, tx_database: EdgeDBDatabase) -> NamespaceService:
-    return NamespaceService(database=tx_database, storage=FileSystemStorage(tmp_path))
+def _db_or_tx(request: FixtureRequest):
+    """Returns regular or a transactional database instance based on database marker."""
+    marker = request.node.get_closest_marker("database")
+    if not marker:
+        raise RuntimeError("Access to database without `database` marker!")
+
+    if marker.kwargs.get("transaction", False):
+        yield request.getfixturevalue("_database")
+    else:
+        yield request.getfixturevalue("_tx_database")
 
 
 @pytest.fixture
-def user_service(tx_database: EdgeDBDatabase) -> UserService:
-    return UserService(database=tx_database)
+def namespace_service(_db_or_tx, tmp_path: Path):
+    """A namespace service instance."""
+    storage = FileSystemStorage(tmp_path)
+    return NamespaceService(database=_db_or_tx, storage=storage)
+
+
+@pytest.fixture
+def user_service(_db_or_tx: EdgeDBDatabase) -> UserService:
+    """A user service instance."""
+    return UserService(database=_db_or_tx)
 
 
 @pytest.fixture
 async def user(user_service: UserService) -> User:
+    """A user instance."""
     return await user_service.create("admin", "root")
 
 
 @pytest.fixture
 async def namespace(user: User, namespace_service: NamespaceService):
+    """A namespace owned by `user` fixture."""
     return await namespace_service.create(user.username, owner_id=user.id)

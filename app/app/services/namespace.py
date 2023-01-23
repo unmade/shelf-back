@@ -87,30 +87,27 @@ class NamespaceService:
 
         storage_file = await self.storage.save(ns_path, next_path, content)
 
-        file = await self.db.file.save(
-            File(
-                id=SENTINEL_ID,
-                ns_path=str(ns_path),
-                name=os.path.basename(next_path),
-                path=next_path,
-                size=storage_file.size,
-                mediatype=mediatype,
-            ),
-        )
-        if dhash is not None:
-            await self.db.fingerprint.save(
-                Fingerprint(file.id, value=dhash)
-            )
-
-        if meta is not None:
-            await self.db.metadata.save(
-                ContentMetadata(
-                    file_id=str(file.id),
-                    data=meta,  # type: ignore[arg-type]
+        async for _ in self.db.atomic(attempts=10):
+            file = await self.db.file.save(
+                File(
+                    id=SENTINEL_ID,
+                    ns_path=str(ns_path),
+                    name=os.path.basename(next_path),
+                    path=next_path,
+                    size=storage_file.size,
+                    mediatype=mediatype,
                 ),
             )
-
-        await self.db.file.incr_size_batch(str(ns_path), path.parents, file.size)
+            if dhash is not None:
+                await self.db.fingerprint.save(Fingerprint(file.id, value=dhash))
+            if meta is not None:
+                await self.db.metadata.save(
+                    ContentMetadata(
+                        file_id=str(file.id),
+                        data=meta,  # type: ignore[arg-type]
+                    ),
+                )
+            await self.db.file.incr_size_batch(ns_path, path.parents, file.size)
 
         return file
 
