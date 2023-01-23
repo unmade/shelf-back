@@ -5,6 +5,17 @@ from typing import TYPE_CHECKING
 
 import edgedb
 
+from app.app.infrastructure import IDatabase
+from app.app.repositories import (
+    IAccountRepository,
+    IContentMetadataRepository,
+    IFileRepository,
+    IFingerprintRepository,
+    IFolderRepository,
+    INamespaceRepository,
+    IUserRepository,
+)
+
 from .repositories import (
     AccountRepository,
     ContentMetadataRepository,
@@ -21,7 +32,15 @@ if TYPE_CHECKING:
 db_context: EdgeDBContext = ContextVar("db_context")
 
 
-class EdgeDBDatabase:
+class EdgeDBDatabase(IDatabase):
+    account: IAccountRepository
+    file: IFileRepository
+    fingerprint: IFingerprintRepository
+    folder: IFolderRepository
+    metadata: IContentMetadataRepository
+    namespace: INamespaceRepository
+    user: IUserRepository
+
     def __init__(
         self,
         dsn: str | None,
@@ -37,7 +56,7 @@ class EdgeDBDatabase:
         )
         db_context.set(self.client)
 
-        self.account = AccountRepository(db_context=db_context)
+        self.account= AccountRepository(db_context=db_context)
         self.folder = FolderRepository(db_context=db_context)
         self.file = FileRepository(db_context=db_context)
         self.fingerprint = FingerprintRepository(db_context=db_context)

@@ -25,19 +25,8 @@ class Service:
     __slots__ = ["namespace", "user"]
 
     def __init__(self, database: EdgeDBDatabase, storage: Storage):
-        self.namespace = NamespaceService(
-            namespace_repo=database.namespace,
-            folder_repo=database.folder,
-            file_repo=database.file,
-            fingerprint_repo=database.fingerprint,
-            metadata_repo=database.metadata,
-            storage=storage,
-        )
-
-        self.user = UserService(
-            account_repo=database.account,
-            user_repo=database.user,
-        )
+        self.namespace = NamespaceService(database=database, storage=storage)
+        self.user = UserService(database=database)
 
 
 class UseCase:

@@ -45,8 +45,8 @@ class TestAddFile:
         assert file.path == "a/b/f.txt"
 
         paths = ["a", "a/b"]
-        file_repo = namespace_service.file_repo
-        a, b = await file_repo.get_by_path_batch(namespace.path,  paths=paths)
+        db = namespace_service.db
+        a, b = await db.file.get_by_path_batch(namespace.path,  paths=paths)
         assert a.path == "a"
         assert b.path == "a/b"
 
@@ -56,8 +56,8 @@ class TestAddFile:
         content = BytesIO(b"Dummy file")
         await namespace_service.add_file(namespace.path, "a/b/f.txt", content)
         paths = [".", "a", "a/b"]
-        file_repo = namespace_service.file_repo
-        home, a, b = await file_repo.get_by_path_batch(namespace.path, paths=paths)
+        db = namespace_service.db
+        home, a, b = await db.file.get_by_path_batch(namespace.path, paths=paths)
         assert home.size == 10
         assert a.size == 10
         assert b.size == 10
@@ -78,11 +78,11 @@ class TestAddFile:
             for path, content in zip(paths, contents, strict=True)
         ))
 
-        file_repo = namespace_service.file_repo
-        count = len(await file_repo.get_by_path_batch(namespace.path, paths))
+        db = namespace_service.db
+        count = len(await db.file.get_by_path_batch(namespace.path, paths))
         assert count == CONCURRENCY
 
-        home = await file_repo.get_by_path(namespace.path, ".")
+        home = await db.file.get_by_path(namespace.path, ".")
         assert home.size == CONCURRENCY
 
     async def test_when_file_path_already_taken(
@@ -92,9 +92,9 @@ class TestAddFile:
         await namespace_service.add_file(namespace.path, "f.txt", content)
         await namespace_service.add_file(namespace.path, "f.txt", content)
 
-        file_repo = namespace_service.file_repo
+        db = namespace_service.db
         paths = ["f.txt", "f (1).txt"]
-        f_1, f = await file_repo.get_by_path_batch(namespace.path, paths)
+        f_1, f = await db.file.get_by_path_batch(namespace.path, paths)
         assert f.path == "f.txt"
         assert f_1.path == "f (1).txt"
 
@@ -148,7 +148,7 @@ class TestCreateFolder:
     async def test_when_path_is_not_a_directory(
         self, namespace: Namespace, namespace_service: NamespaceService
     ):
-        await namespace_service.folder_repo.save(
+        await namespace_service.db.folder.save(
             Folder(
                 id=SENTINEL_ID,
                 ns_path=namespace.path,

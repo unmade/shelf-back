@@ -3,9 +3,10 @@ from __future__ import annotations
 import contextlib
 import os
 from pathlib import PurePath
-from typing import IO, TYPE_CHECKING
+from typing import IO, TYPE_CHECKING, Protocol
 
 from app import errors, hashes, mediatypes, metadata
+from app.app.infrastructure import IDatabase
 from app.domain.entities import (
     SENTINEL_ID,
     ContentMetadata,
@@ -31,21 +32,17 @@ if TYPE_CHECKING:
 __all__ = ["NamespaceService"]
 
 
+class IServiceDatabase(IDatabase, Protocol):
+    file: IFileRepository
+    fingerprint: IFingerprintRepository
+    folder: IFolderRepository
+    metadata: IContentMetadataRepository
+    namespace: INamespaceRepository
+
+
 class NamespaceService:
-    def __init__(
-        self,
-        file_repo: IFileRepository,
-        fingerprint_repo: IFingerprintRepository,
-        folder_repo: IFolderRepository,
-        metadata_repo: IContentMetadataRepository,
-        namespace_repo: INamespaceRepository,
-        storage: Storage,
-    ):
-        self.namespace_repo = namespace_repo
-        self.file_repo = file_repo
-        self.fingerprint_repo = fingerprint_repo
-        self.metadata_repo = metadata_repo
-        self.folder_repo = folder_repo
+    def __init__(self, database: IServiceDatabase, storage: Storage):
+        self.db = database
         self.storage = storage
 
     async def add_file(
@@ -74,7 +71,7 @@ class NamespaceService:
         """
         path = PurePath(path)
         try:
-            parent = await self.file_repo.get_by_path(ns_path, path.parent)
+            parent = await self.db.file.get_by_path(ns_path, path.parent)
         except errors.FileNotFound:
             with contextlib.suppress(errors.FileAlreadyExists):
                 await self.create_folder(ns_path, str(path.parent))
@@ -82,7 +79,7 @@ class NamespaceService:
             if not parent.is_folder():
                 raise errors.NotADirectory()
 
-        next_path = await self.file_repo.next_path(ns_path, path)
+        next_path = await self.db.file.next_path(ns_path, path)
         mediatype = mediatypes.guess(next_path, content)
 
         dhash = hashes.dhash(content, mediatype=mediatype)
@@ -90,7 +87,7 @@ class NamespaceService:
 
         storage_file = await self.storage.save(ns_path, next_path, content)
 
-        file = await self.file_repo.save(
+        file = await self.db.file.save(
             File(
                 id=SENTINEL_ID,
                 ns_path=str(ns_path),
@@ -101,19 +98,19 @@ class NamespaceService:
             ),
         )
         if dhash is not None:
-            await self.fingerprint_repo.save(
+            await self.db.fingerprint.save(
                 Fingerprint(file.id, value=dhash)
             )
 
         if meta is not None:
-            await self.metadata_repo.save(
+            await self.db.metadata.save(
                 ContentMetadata(
                     file_id=str(file.id),
                     data=meta,  # type: ignore[arg-type]
                 ),
             )
 
-        await self.file_repo.incr_size_batch(str(ns_path), path.parents, file.size)
+        await self.db.file.incr_size_batch(str(ns_path), path.parents, file.size)
 
         return file
 
@@ -132,14 +129,14 @@ class NamespaceService:
             Namespace: A freshly created namespace instance.
         """
         await self.storage.makedirs(path, "Trash")
-        namespace = await self.namespace_repo.save(
+        namespace = await self.db.namespace.save(
             Namespace(id=SENTINEL_ID, path=str(path), owner_id=owner_id)
         )
 
-        await self.folder_repo.save(
+        await self.db.folder.save(
             Folder(id=SENTINEL_ID, ns_path=namespace.path, name="home", path=".")
         )
-        await self.folder_repo.save(
+        await self.db.folder.save(
             Folder(id=SENTINEL_ID, ns_path=namespace.path, name="Trash", path="Trash")
         )
 
@@ -162,7 +159,7 @@ class NamespaceService:
         """
         paths = [PurePath(path)] + list(PurePath(path).parents)
 
-        parents = await self.file_repo.get_by_path_batch(ns_path, paths)
+        parents = await self.db.file.get_by_path_batch(ns_path, paths)
         assert len(parents) > 0, f"No home folder in a namespace: '{ns_path}'"
 
         if any(not file.is_folder() for file in parents):
@@ -181,7 +178,7 @@ class NamespaceService:
             # the second call tries to create at path 'a/b/c/d/f'. To solve that,
             # simply ignore FileAlreadyExists error.
             with contextlib.suppress(errors.FileAlreadyExists):
-                await self.folder_repo.save(
+                await self.db.folder.save(
                     Folder(
                         id=SENTINEL_ID,
                         ns_path=str(ns_path),
@@ -190,10 +187,10 @@ class NamespaceService:
                     )
                 )
 
-        return await self.folder_repo.get_by_path(ns_path, path)
+        return await self.db.folder.get_by_path(ns_path, path)
 
     async def get_by_path(self, path) -> Namespace:
-        return await self.namespace_repo.get_by_path(path)
+        return await self.db.namespace.get_by_path(path)
 
     async def get_space_used_by_owner_id(self, owner_id: UUID) -> int:
-        return await self.namespace_repo.get_space_used_by_owner_id(owner_id)
+        return await self.db.namespace.get_space_used_by_owner_id(owner_id)

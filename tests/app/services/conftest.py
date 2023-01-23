@@ -47,22 +47,12 @@ def tx_database(database: EdgeDBDatabase, tx: EdgeDBTransaction):
 
 @pytest.fixture
 def namespace_service(tmp_path: Path, tx_database: EdgeDBDatabase) -> NamespaceService:
-    return NamespaceService(
-        namespace_repo=tx_database.namespace,
-        folder_repo=tx_database.folder,
-        file_repo=tx_database.file,
-        fingerprint_repo=tx_database.fingerprint,
-        metadata_repo=tx_database.metadata,
-        storage=FileSystemStorage(tmp_path),
-    )
+    return NamespaceService(database=tx_database, storage=FileSystemStorage(tmp_path))
 
 
 @pytest.fixture
 def user_service(tx_database: EdgeDBDatabase) -> UserService:
-    return UserService(
-        account_repo=tx_database.account,
-        user_repo=tx_database.user,
-    )
+    return UserService(database=tx_database)
 
 
 @pytest.fixture

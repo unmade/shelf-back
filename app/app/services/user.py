@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from app import security
+from app.app.infrastructure.database import IDatabase
 from app.domain.entities import SENTINEL_ID, Account, User
 
 if TYPE_CHECKING:
@@ -12,14 +13,14 @@ if TYPE_CHECKING:
 __all__ = ["UserService"]
 
 
+class IServiceDatabase(IDatabase, Protocol):
+    account: IAccountRepository
+    user: IUserRepository
+
+
 class UserService:
-    def __init__(
-        self,
-        account_repo: IAccountRepository,
-        user_repo: IUserRepository,
-    ):
-        self.account_repo = account_repo
-        self.user_repo = user_repo
+    def __init__(self, database: IServiceDatabase):
+        self.db = database
 
     async def create(
         self,
@@ -52,7 +53,7 @@ class UserService:
         Returns:
             User: A freshly created user.
         """
-        user = await self.user_repo.save(
+        user = await self.db.user.save(
             User(
                 id=SENTINEL_ID,
                 username=username.lower(),
@@ -61,7 +62,7 @@ class UserService:
             )
         )
 
-        await self.account_repo.save(
+        await self.db.account.save(
             Account(
                 id=SENTINEL_ID,
                 username=username.lower(),
@@ -74,4 +75,4 @@ class UserService:
         return user
 
     async def get_account(self, user_id: StrOrUUID) -> Account:
-        return await self.account_repo.get_by_user_id(user_id)
+        return await self.db.account.get_by_user_id(user_id)
