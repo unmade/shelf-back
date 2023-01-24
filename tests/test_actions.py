@@ -2,24 +2,20 @@ from __future__ import annotations
 
 import uuid
 from io import BytesIO
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
 
-from app import actions, crud, errors, mediatypes, taskgroups
+from app import actions, crud, errors
 from app.entities import Exif
 from app.storage import storage
 
 if TYPE_CHECKING:
     from uuid import UUID
 
-    from pytest import FixtureRequest
-
     from app.entities import Namespace
     from app.typedefs import DBAnyConn, DBClient, StrOrUUID
     from tests.factories import (
-        AccountFactory,
         BookmarkFactory,
         FileFactory,
         FileMetadataFactory,
@@ -170,53 +166,6 @@ async def test_create_account_but_email_is_taken(db_client: DBClient):
                 .username = <str>$username
         )
     """, username="user_b")
-
-
-# async def test_create_folder(db_client: DBClient, namespace: Namespace):
-#     path = Path("a/b/c")
-#     await actions.create_folder(db_client, namespace, path)
-
-#     assert await storage.exists(namespace.path, path)
-
-#     query = """
-#         SELECT File { id }
-#         FILTER
-#             .path IN array_unpack(<array<str>>$paths)
-#             AND
-#             .namespace.path = <str>$namespace
-#     """
-
-#     folders = await db_client.query(
-#         query,
-#         namespace=str(namespace.path),
-#         paths=[str(path)] + [str(p) for p in Path(path).parents]
-#     )
-
-#     assert len(folders) == 4
-
-
-# async def test_create_folder_but_folder_exists(
-#     db_client: DBClient,
-#     namespace: Namespace,
-# ):
-#     path = Path("a/b/c")
-#     await actions.create_folder(db_client, namespace, path)
-
-#     with pytest.raises(errors.FileAlreadyExists):
-#         await actions.create_folder(db_client, namespace, path.parent)
-
-#     assert await storage.exists(namespace.path, path.parent)
-
-
-# async def test_create_folder_but_parent_is_file(
-#     db_client: DBClient,
-#     namespace: Namespace,
-#     file_factory: FileFactory,
-# ):
-#     await file_factory(namespace.path, path="file")
-
-#     with pytest.raises(errors.NotADirectory):
-#         await actions.create_folder(db_client, namespace, "file/folder")
 
 
 async def test_delete_immediately_file(
@@ -791,145 +740,3 @@ async def test_revoke_shared_link(
 
 async def test_revoke_non_existing_shared_link(db_client: DBClient):
     await actions.revoke_shared_link(db_client, token="non-existing-token")
-
-
-@pytest.mark.parametrize("path", ["f.txt", "a/b/f.txt"])
-async def test_save_file(db_client: DBClient, namespace: Namespace, path: str):
-    file = BytesIO(b"Dummy file")
-
-    saved_file = await actions.save_file(db_client, namespace, path, file)
-
-    file_in_db = await crud.file.get(db_client, namespace.path, path)
-
-    assert saved_file == file_in_db
-
-    assert file_in_db.name == Path(path).name
-    assert file_in_db.path == str(path)
-    assert file_in_db.size == 10
-    assert file_in_db.mediatype == 'text/plain'
-
-    size = await storage.size(namespace.path, path)
-    assert file_in_db.size == size
-
-    # there can be slight gap between saving to the DB and the storage
-    mtime = await storage.get_modified_time(namespace.path, path)
-    assert file_in_db.mtime == pytest.approx(mtime)
-
-
-async def test_save_file_updates_parents_size(
-    db_client: DBClient,
-    namespace: Namespace,
-):
-    path = Path("a/b/f.txt")
-    file = BytesIO(b"Dummy file")
-
-    await actions.save_file(db_client, namespace, path, file)
-
-    parents = await crud.file.get_many(db_client, namespace.path, path.parents)
-    assert len(parents) == 3
-    for parent in parents:
-        assert parent.size == 10
-
-
-async def test_save_files_concurrently(db_client: DBClient, namespace: Namespace):
-    CONCURRENCY = 50
-    parent = Path("a/b/c")
-    paths = [parent / str(name) for name in range(CONCURRENCY)]
-    files = [BytesIO(b"1") for _ in range(CONCURRENCY)]
-
-    await actions.create_folder(db_client, namespace, parent)
-
-    await taskgroups.gather(*(
-        actions.save_file(db_client, namespace, path, file)
-        for path, file in zip(paths, files, strict=True)
-    ))
-
-    count = len(await crud.file.get_many(db_client, namespace.path, paths))
-    assert count == CONCURRENCY
-
-    home = await crud.file.get(db_client, namespace.path, ".")
-    assert home.size == CONCURRENCY
-
-
-async def test_save_file_creates_fingerprint(
-    db_client: DBClient,
-    namespace: Namespace,
-    image_content: BytesIO,
-):
-    path = "im.jpeg"
-
-    image_in_db = await actions.save_file(db_client, namespace, path, image_content)
-    assert image_in_db.mediatype == "image/jpeg"
-
-    assert await crud.fingerprint.get(db_client, file_id=image_in_db.id)
-
-
-@pytest.mark.parametrize(["content_fixture", "saved"], [
-    ("image_content", False),
-    ("image_content_with_exif", True),
-])
-async def test_save_file_creates_metadata(
-    request: FixtureRequest,
-    db_client: DBClient,
-    namespace: Namespace,
-    content_fixture: str,
-    saved: bool,
-):
-    path = "img.jpg"
-    content = request.getfixturevalue(content_fixture)
-    file = await actions.save_file(db_client, namespace, path, content)
-
-    assert await crud.metadata.exists(db_client, file_id=file.id) is saved
-
-
-async def test_save_file_but_name_already_taken(
-    db_client: DBClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    path = "a/b/f.txt"
-    await file_factory(namespace.path, path=path)
-    file = BytesIO(b"Dummy file")
-
-    saved_file = await actions.save_file(db_client, namespace, path, file)
-    assert saved_file.name == "f (1).txt"
-
-
-async def test_save_file_but_path_is_a_file(
-    db_client: DBClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    path = "f.txt"
-    await file_factory(namespace.path, path=path)
-    file = BytesIO(b"Dummy file")
-
-    with pytest.raises(errors.NotADirectory):
-        await actions.save_file(db_client, namespace, f"{path}/dummy", file)
-
-
-async def test_save_file_but_quota_exceeded(
-    db_client: DBClient,
-    namespace: Namespace,
-    account_factory: AccountFactory,
-    file_factory: FileFactory,
-):
-    text = b"Dummy file"
-    content = BytesIO(bytes(text))
-    await account_factory(user=namespace.owner, storage_quota=len(text) * 2 - 1)
-    await file_factory(namespace.path, content=content)
-    with pytest.raises(errors.StorageQuotaExceeded):
-        await actions.save_file(db_client, namespace, "f.txt", content)
-
-
-async def test_save_file_with_text_content_but_image_like_extension(
-    db_client: DBClient,
-    namespace: Namespace,
-):
-    path = "img.jpg"
-    content = BytesIO(b"I'm not an image")
-    file = await actions.save_file(db_client, namespace, path, content)
-    assert file.mediatype == mediatypes.OCTET_STREAM
-    assert await crud.metadata.exists(db_client, file_id=file.id) is False
-    with pytest.raises(errors.FingerprintNotFound):
-        assert await crud.fingerprint.get(db_client, file_id=file.id) is None

@@ -11,7 +11,7 @@ from app.domain.entities import Account, User
 if TYPE_CHECKING:
     from app.app.services import UserService
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
 
 class TestCreate:

@@ -20,6 +20,26 @@ class UploadFile:
     async def __call__(
         self, ns_path: StrOrPath, path: StrOrPath, content: IO[bytes],
     ) -> File:
+        """
+        Uploads a file to a namespace.
+
+        If file name is already taken, then the file automatically renamed to a new one.
+        For example - a path 'f.txt' will be saved as 'f (1).txt' in case its taken.
+
+        Args:
+            ns_path (StrOrPath): Namespace path where a file should be saved.
+            path (StrOrPath): Path where a file will be saved.
+            content (IO): Actual file.
+
+        Raises:
+            FileTooLarge: If upload file size exceeds max upload size limit.
+            MalformedPath: If upload path is invalid (e.g. uploading to Trash folder).
+            NotADirectory: If one of the path parents is not a folder.
+            StorageQuotaExceeded: If storage quota exceeded.
+
+        Returns:
+            File: Uploaded file.
+        """
         path = str(path)
         if path.lower() == "trash" or path.lower().startswith("trash/"):
             raise errors.MalformedPath("Uploads to the Trash folder are not allowed")

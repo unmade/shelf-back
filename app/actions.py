@@ -2,16 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
-import contextlib
 import itertools
 import os.path
 from collections import defaultdict, deque
 from datetime import datetime
 from io import BytesIO
 from pathlib import PurePath
-from typing import IO, TYPE_CHECKING
-
-from edgedb import RetryOptions
+from typing import TYPE_CHECKING
 
 from app import config, crud, errors, hashes, mediatypes, metadata, taskgroups
 from app.entities import Account, File, Fingerprint, Namespace, SharedLink
@@ -92,29 +89,6 @@ async def create_account(
                 storage_quota=storage_quota,
             )
     return account
-
-
-async def create_folder(
-    db_client: DBClient, namespace: Namespace, path: StrOrPath,
-) -> File:
-    """
-    Create folder with any missing parents in a target Namespace.
-
-    Args:
-        db_client (DBClient): Database client.
-        namespace (Namespace): Namespace where a folder should be created.
-        path (StrOrPath): Path to a folder to create.
-
-    Raises:
-        FileAlreadyExists: If folder with this path already exists.
-        NotADirectory: If one of the path parents is not a directory.
-
-    Returns:
-        File: Created folder.
-    """
-    await storage.makedirs(namespace.path, path)
-    await crud.file.create_folder(db_client, namespace.path, path)
-    return await crud.file.get(db_client, namespace.path, path)
 
 
 async def delete_immediately(
@@ -513,61 +487,3 @@ async def revoke_shared_link(db_client: DBClient, token: str) -> None:
         token (str): Shared link token to revoke.
     """
     await crud.shared_link.delete(db_client, token)
-
-
-async def save_file(
-    db_client: DBClient, namespace: Namespace, path: StrOrPath, content: IO[bytes],
-) -> File:
-    """
-    Save file to storage and database.
-
-    If file name is already taken, then file will be saved under a new name.
-    For example - if target name 'f.txt' is taken, then new name will be 'f (1).txt'.
-
-    Args:
-        db_client (DBClient): Database client.
-        namespace (Namespace): Namespace where a file should be saved.
-        path (StrOrPath): Path where a file will be saved.
-        content (IO): Actual file.
-
-    Raises:
-        NotADirectory: If one of the path parents is not a folder.
-        StorageQuotaExceeded: If storage quota exceeded.
-
-    Returns:
-        File: Saved file.
-    """
-    used, quota = await crud.account.get_space_usage(db_client, namespace.owner.id)
-    size = content.seek(0, 2)
-    if quota is not None and (used + size) > quota:
-        raise errors.StorageQuotaExceeded()
-
-    parent = os.path.normpath(os.path.dirname(path))
-    if not await crud.file.exists(db_client, namespace.path, parent):
-        with contextlib.suppress(errors.FileAlreadyExists):
-            await create_folder(db_client, namespace, parent)
-
-    next_path = await crud.file.next_path(db_client, namespace.path, path)
-    mediatype = mediatypes.guess(next_path, content)
-
-    dhash = hashes.dhash(content, mediatype=mediatype)
-    meta = metadata.load(content, mediatype=mediatype)
-
-    storage_file = await storage.save(namespace.path, next_path, content)
-
-    db_client = db_client.with_retry_options(RetryOptions(10))
-    async for tx in db_client.transaction():  # pragma: no branch
-        async with tx:
-            file = await crud.file.create(
-                tx,
-                namespace.path,
-                next_path,
-                size=storage_file.size,
-                mediatype=mediatype,
-            )
-            if dhash is not None:
-                await crud.fingerprint.create(tx, file.id, fp=dhash)
-            if meta is not None:
-                await crud.metadata.create(tx, file.id, data=meta)
-
-    return file
