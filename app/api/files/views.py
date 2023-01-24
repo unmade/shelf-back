@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import itertools
 from io import BytesIO
-from pathlib import Path
 from uuid import UUID
 
 import celery.states
@@ -14,7 +13,7 @@ from fastapi.responses import ORJSONResponse, Response, StreamingResponse
 from app import actions, config, crud, errors, mediatypes, tasks
 from app.api import deps, shortcuts
 from app.entities import Namespace, User
-from app.infrastructure.provider import Service
+from app.infrastructure.provider import Service, UseCase
 from app.storage import storage
 
 from . import exceptions
@@ -41,7 +40,6 @@ from .schemas import (
     PathParam,
     PathRequest,
     ThumbnailSize,
-    UploadResponse,
 )
 
 router = APIRouter()
@@ -456,31 +454,22 @@ async def upload_file(
     request: Request,
     file: UploadFile = FileParam(...),
     path: PathParam = Form(...),
-    db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
-) -> UploadResponse:
+    usecases: UseCase = Depends(deps.usecases),
+) -> FileSchema:
     """Upload file to the specified path."""
     filepath = path.__root__
     del path
 
-    if filepath == config.TRASH_FOLDER_NAME:
-        raise exceptions.MalformedPath("Uploads to the Trash are not allowed")
-
-    if file.file.seek(0, 2) > config.FEATURES_UPLOAD_FILE_MAX_SIZE:
-        raise exceptions.UploadFileTooLarge()
-
-    parents = Path(filepath).parents
-
     try:
-        upload = await actions.save_file(db_client, namespace, filepath, file.file)
+        upload = await usecases.upload_file(str(namespace.path), filepath, file.file)
+    except errors.FileTooLarge as exc:
+        raise exceptions.UploadFileTooLarge() from exc
+    except errors.MalformedPath as exc:
+        raise exceptions.MalformedPath(str(exc)) from exc
     except errors.NotADirectory as exc:
         raise exceptions.NotADirectory(path=filepath) from exc
     except errors.StorageQuotaExceeded as exc:
         raise exceptions.StorageQuotaExceeded() from exc
 
-    updates = await crud.file.get_many(db_client, namespace.path, parents)
-
-    return UploadResponse.construct(
-        file=FileSchema.from_entity(upload, request=request),
-        updates=[FileSchema.from_entity(item, request=request) for item in updates]
-    )
+    return FileSchema.from_entity(upload, request=request)

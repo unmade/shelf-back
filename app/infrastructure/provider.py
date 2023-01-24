@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from app.app.services import NamespaceService, UserService
-from app.app.usecases import SignUp
+from app.app.usecases import SignUp, UploadFile
 
 if TYPE_CHECKING:
     from app.storage.base import Storage
@@ -30,10 +30,14 @@ class Service:
 
 
 class UseCase:
-    __slots__ = ["signup"]
+    __slots__ = ["signup", "upload_file"]
 
     def __init__(self, services: Service):
         self.signup = SignUp(
+            namespace_service=services.namespace,
+            user_service=services.user,
+        )
+        self.upload_file = UploadFile(
             namespace_service=services.namespace,
             user_service=services.user,
         )

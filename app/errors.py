@@ -9,9 +9,11 @@ class ErrorCode(str, enum.Enum):
     file_not_found = "file_not_found"
     file_metadata_already_exists = "file_metadata_already_exists"
     file_metadata_not_found = "file_metadata_not_found"
+    file_too_large = "file_too_large"
     fingerprint_already_exists = "fingerprint_already_exists"
     fingerprint_not_found = "fingerprint_not_found"
     is_a_directory = "is_a_directory"
+    malformed_path = "malformed_path"
     missing_parent = "missing_parent"
     not_a_directory = "not_a_directory"
     shared_link_not_found = "shared_link_not_found"
@@ -40,6 +42,10 @@ class FileMetadataNotFound(Error):
     code = ErrorCode.file_metadata_not_found
 
 
+class FileTooLarge(Error):
+    code = ErrorCode.file_too_large
+
+
 class FingerprintAlreadyExists(Error):
     code = ErrorCode.fingerprint_already_exists
 
@@ -50,6 +56,10 @@ class FingerprintNotFound(Error):
 
 class IsADirectory(Error):
     code = ErrorCode.is_a_directory
+
+
+class MalformedPath(Error):
+    code = ErrorCode.malformed_path
 
 
 class MissingParent(Error):

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import os.path
 import secrets
 import urllib.parse
 import uuid
 from io import BytesIO
+from tempfile import SpooledTemporaryFile
 from typing import TYPE_CHECKING
 from unittest import mock
 
@@ -21,18 +23,18 @@ from app.api.files.exceptions import (
     StorageQuotaExceeded,
     UploadFileTooLarge,
 )
-from app.domain.entities import Folder
+from app.domain.entities import File, Folder
 from app.entities import Exif, RelocationPath
 
 if TYPE_CHECKING:
-    from unittest.mock import MagicMock
+    from unittest.mock import AsyncMock, MagicMock
 
     from fastapi import FastAPI
 
+    from app.api.exceptions import APIError
     from app.entities import FileTaskResult, Namespace
     from tests.conftest import TestClient
     from tests.factories import (
-        AccountFactory,
         FileFactory,
         FileMetadataFactory,
         FingerprintFactory,
@@ -863,86 +865,76 @@ async def test_move_to_trash_batch(
     assert results[0].file.path.startswith("Trash/")
 
 
-@pytest.mark.parametrize(["path", "expected_path", "updates_count"], [
-    (b"folder/file.txt", "folder/file.txt", 2),
-    (b"./f.txt", "f.txt", 1),
-])
-async def test_upload(
-    client: TestClient,
-    namespace: Namespace,
-    path: str,
-    expected_path: str,
-    updates_count: int,
-):
-    payload = {
-        "file": BytesIO(b"Dummy file"),
-        "path": (None, path),
-    }
-    client.login(namespace.owner.id)
-    response = await client.post("/files/upload", files=payload)  # type: ignore
-    assert response.status_code == 200
-    assert response.json()["file"]["path"] == expected_path
-    assert len(response.json()["updates"]) == updates_count
+class TestUpload:
+    @pytest.fixture
+    def upload_file(self, app: FastAPI):
+        usecase = app.state.provider.usecase
+        upload_file_mock = mock.AsyncMock(usecase.upload_file)
+        with mock.patch.object(usecase, "upload_file", upload_file_mock) as mocked:
+            yield mocked
 
+    @staticmethod
+    def make_file(ns_path: str, path: str, size: int) -> File:
+        return File(
+            id=uuid.uuid4(),
+            ns_path=ns_path,
+            name=os.path.basename(path),
+            path=path,
+            size=size,
+            mediatype="plain/text",
+        )
 
-async def test_upload_but_to_a_special_path(client: TestClient, namespace: Namespace):
-    payload = {
-        "file": BytesIO(b"Dummy file"),
-        "path": (None, b"Trash"),
-    }
-    client.login(namespace.owner.id)
-    response = await client.post("/files/upload", files=payload)  # type: ignore
-    message = "Uploads to the Trash are not allowed"
-    assert response.json() == MalformedPath(message).as_dict()
-    assert response.status_code == 400
-
-
-async def test_upload_but_path_is_a_file(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    file = await file_factory(namespace.path, path="f.txt")
-    payload = {
-        "file": BytesIO(b"Dummy file"),
-        "path": (None, f"{file.path}/dummy".encode()),
-    }
-    client.login(namespace.owner.id)
-    response = await client.post("/files/upload", files=payload)  # type: ignore
-    assert response.json() == NotADirectory(path=f"{file.path}/dummy").as_dict()
-    assert response.status_code == 400
-
-
-async def test_upload_but_max_upload_size_is_exceeded(
-    client: TestClient,
-    namespace: Namespace,
-):
-    payload = {
-        "file": BytesIO(b"Dummy file"),
-        "path": (None, b"folder/file.txt"),
-    }
-    client.login(namespace.owner.id)
-    with mock.patch("app.config.FEATURES_UPLOAD_FILE_MAX_SIZE", 5):
+    @pytest.mark.parametrize(["path", "expected_path"], [
+        (b"folder/file.txt", "folder/file.txt"),
+        (b"./f.txt", "f.txt"),
+    ])
+    async def test(
+        self,
+        client: TestClient,
+        namespace: Namespace,
+        upload_file: AsyncMock,
+        path: str,
+        expected_path: str,
+    ):
+        ns_path = str(namespace.path)
+        content = BytesIO(b"Dummy file")
+        size = len(content.getvalue())
+        upload_file.return_value = self.make_file(ns_path, expected_path, size=size)
+        payload = {
+            "file": content,
+            "path": (None, path),
+        }
+        client.login(namespace.owner.id)
         response = await client.post("/files/upload", files=payload)  # type: ignore
-    assert response.json() == UploadFileTooLarge().as_dict()
-    assert response.status_code == 400
+        assert response.status_code == 200
+        assert response.json()["path"] == expected_path
+        assert upload_file.await_args is not None
+        assert len(upload_file.await_args.args) == 3
+        assert upload_file.await_args.args[:2] == (ns_path, expected_path)
+        assert isinstance(upload_file.await_args.args[2], SpooledTemporaryFile)
 
-
-async def test_upload_but_storage_quota_is_exceeded(
-    client: TestClient,
-    namespace: Namespace,
-    account_factory: AccountFactory,
-    file_factory: FileFactory,
-):
-    text = b"Dummy file"
-    content = BytesIO(text)
-    await account_factory(user=namespace.owner, storage_quota=len(text) * 2 - 1)
-    await file_factory(namespace.path, content=content)
-    payload = {
-        "file": content,
-        "path": (None, b"folder/file.txt"),
-    }
-    client.login(namespace.owner.id)
-    response = await client.post("/files/upload", files=payload)  # type: ignore
-    assert response.json() == StorageQuotaExceeded().as_dict()
-    assert response.status_code == 400
+    @pytest.mark.parametrize(["path", "error", "expected_error"], [
+        ("Trash", errors.MalformedPath("Bad path"), MalformedPath("Bad path")),
+        ("f.txt/file", errors.NotADirectory(), NotADirectory(path="f.txt/file")),
+        ("f.txt", errors.FileTooLarge(), UploadFileTooLarge()),
+        ("f.txt", errors.StorageQuotaExceeded(), StorageQuotaExceeded()),
+    ])
+    async def test_reraising_app_errors_to_api_errors(
+        self,
+        client: TestClient,
+        namespace: Namespace,
+        upload_file: AsyncMock,
+        path: str,
+        error: errors.Error,
+        expected_error: APIError,
+    ):
+        upload_file.side_effect = error
+        payload = {
+            "file": BytesIO(b"Dummy file"),
+            "path": (None, path.encode()),
+        }
+        client.login(namespace.owner.id)
+        response = await client.post("/files/upload", files=payload)  # type: ignore
+        assert response.json() == expected_error.as_dict()
+        assert response.status_code == 400
+        upload_file.assert_awaited_once()
