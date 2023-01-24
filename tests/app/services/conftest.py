@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from unittest import mock
 
 import pytest
 
@@ -81,7 +82,9 @@ def user_service(_db_or_tx: EdgeDBDatabase) -> UserService:
 @pytest.fixture
 async def user(user_service: UserService) -> User:
     """A user instance."""
-    return await user_service.create("admin", "root")
+    # mock password hashing to speed up test setup
+    with mock.patch("app.security.make_password", return_value="root"):
+        return await user_service.create("admin", "root")
 
 
 @pytest.fixture
