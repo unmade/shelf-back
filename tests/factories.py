@@ -19,7 +19,7 @@ from app.entities import (
     SharedLink,
     User,
 )
-from app.storage import storage
+from app.infrastructure.storage import storage
 
 if TYPE_CHECKING:
     from app.typedefs import DBAnyConn, StrOrPath, StrOrUUID

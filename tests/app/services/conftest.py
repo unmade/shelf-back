@@ -8,7 +8,7 @@ import pytest
 from app.app.services import NamespaceService, UserService
 from app.infrastructure.database.edgedb import EdgeDBDatabase
 from app.infrastructure.database.edgedb.db import db_context
-from app.storage.filesystem import FileSystemStorage
+from app.infrastructure.storage import FileSystemStorage
 
 if TYPE_CHECKING:
     from pathlib import Path

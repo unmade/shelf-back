@@ -14,7 +14,7 @@ from app import actions, config, crud, errors, mediatypes, tasks
 from app.api import deps, shortcuts
 from app.entities import Namespace, User
 from app.infrastructure.provider import Service, UseCase
-from app.storage import storage
+from app.infrastructure.storage import storage
 
 from . import exceptions
 from .schemas import (

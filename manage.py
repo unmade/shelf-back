@@ -9,8 +9,7 @@ import uvloop
 from app import actions, config, crud, db, errors
 from app.infrastructure.database.edgedb.db import EdgeDBDatabase
 from app.infrastructure.provider import Provider
-from app.storage.filesystem import FileSystemStorage
-from app.storage.s3 import S3Storage
+from app.infrastructure.storage import FileSystemStorage, S3Storage
 
 cli = typer.Typer()
 

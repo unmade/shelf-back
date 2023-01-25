@@ -105,7 +105,7 @@ def celery_config():
 @pytest.fixture(autouse=True)
 def replace_storage_location_with_tmp_path(tmp_path: Path):
     """Monkey patches storage root_dir with a temporary directory."""
-    from app.storage import storage
+    from app.infrastructure.storage import storage
 
     storage.location = str(tmp_path)
 

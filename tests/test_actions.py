@@ -8,7 +8,7 @@ import pytest
 
 from app import actions, crud, errors
 from app.entities import Exif
-from app.storage import storage
+from app.infrastructure.storage import storage
 
 if TYPE_CHECKING:
     from uuid import UUID

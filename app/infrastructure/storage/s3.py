@@ -13,19 +13,22 @@ from botocore.client import Config
 from botocore.exceptions import ClientError
 
 from app import config, errors, thumbnails
+from app.app.infrastructure.storage import IStorage, StorageFile
 
-from .base import Storage, StorageFile, StreamZipFile
+from ._datastructures import StreamZipFile
 
 if TYPE_CHECKING:
     from app.typedefs import StrOrPath
 
+__all__ = ["S3Storage"]
 
-class S3Storage(Storage):
+
+class S3Storage(IStorage):
     def __init__(self, location: StrOrPath):
         assert config.STORAGE_S3_ACCESS_KEY_ID is not None
         assert config.STORAGE_S3_SECRET_ACCESS_KEY is not None
         assert config.STORAGE_S3_REGION_NAME is not None
-        super().__init__(location)
+        self.location = str(location)
         self.bucket_name = config.STORAGE_S3_BUCKET_NAME
         self.s3 = boto3.resource(
             "s3",

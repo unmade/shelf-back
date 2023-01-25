@@ -12,11 +12,11 @@ from typing import TYPE_CHECKING
 
 from app import config, crud, errors, hashes, mediatypes, metadata, taskgroups
 from app.entities import File, Fingerprint, Namespace, SharedLink
-from app.storage import storage
+from app.infrastructure.storage import storage
 
 if TYPE_CHECKING:
+    from app.app.infrastructure import IStorage
     from app.entities import Exif
-    from app.storage.base import Storage
     from app.typedefs import DBClient, StrOrPath, StrOrUUID
 
 
@@ -389,7 +389,7 @@ async def reindex_files_content(db_client: DBClient, namespace: Namespace) -> No
 
 
 def _reindex_content(
-    storage: Storage,
+    storage: IStorage,
     ns_path: StrOrPath,
     path: StrOrPath,
     mediatype: str,

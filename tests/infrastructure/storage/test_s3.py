@@ -11,7 +11,7 @@ from botocore.exceptions import ClientError
 from botocore.stub import Stubber
 
 from app import errors
-from app.storage.s3 import S3Storage
+from app.infrastructure.storage.s3 import S3Storage
 
 if TYPE_CHECKING:
     from app.typedefs import StrOrPath

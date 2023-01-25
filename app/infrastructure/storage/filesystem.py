@@ -12,14 +12,20 @@ import stream_zip
 from asgiref.sync import sync_to_async
 
 from app import errors, thumbnails
+from app.app.infrastructure.storage import IStorage, StorageFile
 
-from .base import Storage, StorageFile, StreamZipFile
+from ._datastructures import StreamZipFile
 
 if TYPE_CHECKING:
     from app.typedefs import StrOrPath
 
+__all__ = ["FileSystemStorage"]
 
-class FileSystemStorage(Storage):
+
+class FileSystemStorage(IStorage):
+    def __init__(self, location: StrOrPath):
+        self.location = str(location)
+
     @staticmethod
     def _joinpath(path: StrOrPath, *paths: StrOrPath) -> str:
         """Join two or more paths and return a normalize path."""

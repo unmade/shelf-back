@@ -6,7 +6,7 @@ from app.app.services import NamespaceService, UserService
 from app.app.usecases import SignUp, UploadFile
 
 if TYPE_CHECKING:
-    from app.storage.base import Storage
+    from app.app.infrastructure.storage import IStorage
 
     from .database.edgedb import EdgeDBDatabase
 
@@ -16,7 +16,7 @@ __all__ = ["Provider", "Service", "UseCase"]
 class Provider:
     __slots__ = ["service", "usecase"]
 
-    def __init__(self, database: EdgeDBDatabase, storage: Storage):
+    def __init__(self, database: EdgeDBDatabase, storage: IStorage):
         self.service = Service(database=database, storage=storage)
         self.usecase = UseCase(self.service)
 
@@ -24,7 +24,7 @@ class Provider:
 class Service:
     __slots__ = ["namespace", "user"]
 
-    def __init__(self, database: EdgeDBDatabase, storage: Storage):
+    def __init__(self, database: EdgeDBDatabase, storage: IStorage):
         self.namespace = NamespaceService(database=database, storage=storage)
         self.user = UserService(database=database)
 

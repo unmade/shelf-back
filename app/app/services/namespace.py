@@ -19,6 +19,7 @@ from app.domain.entities import (
 if TYPE_CHECKING:
     from uuid import UUID
 
+    from app.app.infrastructure.storage import IStorage
     from app.app.repositories import (
         IContentMetadataRepository,
         IFileRepository,
@@ -26,7 +27,6 @@ if TYPE_CHECKING:
         IFolderRepository,
         INamespaceRepository,
     )
-    from app.storage.base import Storage
     from app.typedefs import StrOrPath
 
 __all__ = ["NamespaceService"]
@@ -41,7 +41,7 @@ class IServiceDatabase(IDatabase, Protocol):
 
 
 class NamespaceService:
-    def __init__(self, database: IServiceDatabase, storage: Storage):
+    def __init__(self, database: IServiceDatabase, storage: IStorage):
         self.db = database
         self.storage = storage
 

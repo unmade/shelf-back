@@ -1,22 +1,12 @@
 from __future__ import annotations
 
 import abc
-import datetime
-from io import IOBase
-from typing import IO, TYPE_CHECKING, Iterator, NamedTuple
-
-from stream_zip import NO_COMPRESSION_32, NO_COMPRESSION_64, ZIP_32, ZIP_64
+from typing import IO, TYPE_CHECKING, Iterator, Protocol
 
 if TYPE_CHECKING:
     from app.typedefs import StrOrPath
 
-
-class StreamZipFile(NamedTuple):
-    path: str
-    modified_at: datetime.datetime
-    perms: int
-    compression: NO_COMPRESSION_32 | NO_COMPRESSION_64 | ZIP_32 | ZIP_64
-    content: IOBase
+__all__ = ["IStorage", "StorageFile"]
 
 
 class StorageFile:
@@ -58,9 +48,11 @@ class StorageFile:
         return self._is_dir
 
 
-class Storage:
+class IStorage(Protocol):
+    location: str
+
     def __init__(self, location: StrOrPath):
-        self.location = str(location)
+        ...
 
     @abc.abstractmethod
     async def delete(self, ns_path: StrOrPath, path: StrOrPath) -> None:

@@ -10,7 +10,7 @@ import pytest
 from asgiref.sync import sync_to_async
 
 from app import errors
-from app.storage.filesystem import FileSystemStorage
+from app.infrastructure.storage import FileSystemStorage
 
 if TYPE_CHECKING:
     from pathlib import Path

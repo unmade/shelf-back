@@ -7,8 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import api, config
 from app.infrastructure.database.edgedb.db import EdgeDBDatabase
 from app.infrastructure.provider import Provider
-from app.storage.filesystem import FileSystemStorage
-from app.storage.s3 import S3Storage
+from app.infrastructure.storage import FileSystemStorage, S3Storage
 
 sentry_sdk.init(
     config.SENTRY_DSN,
