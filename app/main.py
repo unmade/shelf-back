@@ -39,7 +39,7 @@ def create_app() -> FastAPI:
     )
 
     database = _create_database()
-    app.state.db_client = database.client
+    app.state.db_client = database.client  # keep compatibility with old code
     app.state.provider = Provider(
         database=database,
         storage=_create_storage(),
@@ -47,7 +47,7 @@ def create_app() -> FastAPI:
 
     @app.on_event("shutdown")
     async def close_db_client():
-        await app.state.db_client.close_client()
+        await database.shutdown()
 
     return app
 

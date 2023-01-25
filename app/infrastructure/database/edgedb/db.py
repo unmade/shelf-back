@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextvars import ContextVar
-from typing import TYPE_CHECKING, AsyncIterator
+from typing import TYPE_CHECKING, AsyncIterator, Self
 
 import edgedb
 from edgedb.asyncio_client import AsyncIOIteration
@@ -65,6 +65,10 @@ class EdgeDBDatabase(IDatabase):
         self.namespace = NamespaceRepository(db_context=db_context)
         self.user = UserRepository(db_context=db_context)
 
+    async def __aenter__(self) -> Self:
+        await self.client.__aenter__()
+        return self
+
     async def atomic(self, attempts: int = 3) -> AsyncIterator[None]:
         if isinstance(db_context.get(), AsyncIOIteration):
             yield
@@ -78,3 +82,6 @@ class EdgeDBDatabase(IDatabase):
                     yield
                 finally:
                     db_context.reset(token)
+
+    async def shutdown(self) -> None:
+        await self.client.aclose()

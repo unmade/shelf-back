@@ -11,7 +11,7 @@ from pathlib import PurePath
 from typing import TYPE_CHECKING
 
 from app import config, crud, errors, hashes, mediatypes, metadata, taskgroups
-from app.entities import Account, File, Fingerprint, Namespace, SharedLink
+from app.entities import File, Fingerprint, Namespace, SharedLink
 from app.storage import storage
 
 if TYPE_CHECKING:
@@ -37,58 +37,6 @@ async def add_bookmark(
         errors.UserNotFound: If User with a target user_id does not exists.
     """
     await crud.user.add_bookmark(db_client, user_id, file_id)
-
-
-async def create_account(
-    db_client: DBClient,
-    username: str,
-    password: str,
-    *,
-    email: str | None = None,
-    first_name: str = "",
-    last_name: str = "",
-    superuser: bool = False,
-    storage_quota: int | None = None,
-) -> Account:
-    """
-    Create a new user, namespace, home and trash folders.
-
-    Args:
-        db_client (DBClient): Database client.
-        username (str): Username for a new user.
-        password (str): Plain-text password.
-        email (str | None, optional): Email. Defaults to None.
-        first_name (str, optional): First name. Defaults to "".
-        last_name (str, optional): Last name. Defaults to "".
-        superuser (bool, optional): Whether user is super user or not. Defaults to
-            False.
-        storage_quota (int | None, optional): Storage quota for the account. Use None
-            for the unlimited quota. Defaults to None.
-
-    Raises:
-        UserAlreadyExists: If user with this username or email already exists.
-
-    Returns:
-        Account: A freshly created account.
-    """
-    username = username.lower()
-    await storage.makedirs(username, config.TRASH_FOLDER_NAME)
-
-    async for tx in db_client.transaction():  # pragma: no branch
-        async with tx:
-            user = await crud.user.create(tx, username, password, superuser=superuser)
-            namespace = await crud.namespace.create(tx, username, user.id)
-            await crud.file.create_home_folder(tx, namespace.path)
-            await crud.file.create_folder(tx, namespace.path, config.TRASH_FOLDER_NAME)
-            account = await crud.account.create(
-                tx,
-                username,
-                email=email,
-                first_name=first_name,
-                last_name=last_name,
-                storage_quota=storage_quota,
-            )
-    return account
 
 
 async def delete_immediately(

@@ -3,42 +3,18 @@ from __future__ import annotations
 from edgedb import AsyncIOClient
 from fastapi import APIRouter, Depends
 
-from app import actions, crud, errors, taskgroups
+from app import crud, taskgroups
 from app.api import deps
 from app.api.paginator import Page, PageParam, PageSizeParam, get_offset
 from app.entities import User
 
-from .exceptions import UserAlreadyExists
 from .schemas import (
     AccountSchema,
-    CreateAccountRequest,
     GetAccountSpaceUsageResponse,
     UpdateAccountRequest,
 )
 
 router = APIRouter()
-
-
-@router.post("/create")
-async def create(
-    payload: CreateAccountRequest,
-    db_client: AsyncIOClient = Depends(deps.db_client),
-    _: User = Depends(deps.superuser),
-) -> AccountSchema:
-    """Create new account."""
-    try:
-        return AccountSchema.from_entity(
-            await actions.create_account(
-                db_client,
-                payload.username,
-                payload.password,
-                email=payload.email,
-                first_name=payload.first_name,
-                last_name=payload.last_name,
-            )
-        )
-    except errors.UserAlreadyExists as exc:
-        raise UserAlreadyExists(str(exc)) from exc
 
 
 @router.get("/get_current")
