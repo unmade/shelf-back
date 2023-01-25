@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Self, cast
+from typing import TYPE_CHECKING, Self
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field
-
-from app.crud.account import AccountUpdate
+from pydantic import BaseModel
 
 if TYPE_CHECKING:
-    from app.entities import Account
+    from app.domain.entities import Account
 
 
 class AccountSchema(BaseModel):
@@ -17,37 +15,19 @@ class AccountSchema(BaseModel):
     email: str | None
     first_name: str
     last_name: str
-    superuser: bool
+    superuser: bool = False
 
     @classmethod
     def from_entity(cls, account: Account) -> Self:
         return cls.construct(
             id=account.id,
-            username=account.user.username,
+            username=account.username,
             email=account.email,
             first_name=account.first_name,
             last_name=account.last_name,
-            superuser=account.user.superuser,
         )
 
 
 class GetAccountSpaceUsageResponse(BaseModel):
     used: int
     quota: int | None
-
-
-class CreateAccountRequest(BaseModel):
-    username: Annotated[str, Field(min_length=3, max_length=31)]
-    password: Annotated[str, Field(min_length=8, max_length=63)]
-    email: EmailStr | None = None
-    first_name: Annotated[str, Field(max_length=63)] = ""
-    last_name: Annotated[str, Field(max_length=63)] = ""
-
-
-class UpdateAccountRequest(BaseModel):
-    email: EmailStr | None = None
-    first_name: str = ""
-    last_name: str = ""
-
-    def as_update(self) -> AccountUpdate:
-        return cast(AccountUpdate, self.dict(exclude_unset=True))

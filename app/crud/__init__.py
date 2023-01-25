@@ -1,4 +1,3 @@
-from . import account  # noqa
 from . import file  # noqa
 from . import fingerprint  # noqa
 from . import mediatype  # noqa

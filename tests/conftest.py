@@ -14,12 +14,12 @@ from httpx import AsyncClient
 from PIL import Image
 
 from app import config, db
+from app.domain.entities import SENTINEL_ID, Account
 from app.infrastructure.database.edgedb import EdgeDBDatabase
 from app.main import create_app
 from app.tasks import CeleryConfig
 from app.tokens import AccessTokenPayload
 from tests.factories import (
-    AccountFactory,
     BookmarkFactory,
     FileFactory,
     FileMetadataFactory,
@@ -33,12 +33,13 @@ from tests.factories import (
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from uuid import UUID
 
+    from fastapi import FastAPI
     from pytest import FixtureRequest
 
-    from app.entities import Account, Namespace, User
-    from app.typedefs import DBAnyConn, DBClient
+    from app.app.repositories import IAccountRepository
+    from app.entities import Namespace, User
+    from app.typedefs import DBAnyConn, DBClient, StrOrUUID
 
 fake = Faker()
 
@@ -46,7 +47,7 @@ pytest_plugins = ["pytester"]
 
 
 class TestClient(AsyncClient):
-    def login(self, user_id: UUID) -> TestClient:
+    def login(self, user_id: StrOrUUID) -> TestClient:
         """
         Authenticates given user by creating access token and setting it as
         the Authorization header.
@@ -270,15 +271,18 @@ def flush_db_if_needed(request: FixtureRequest):
 
 
 @pytest.fixture
-def account_factory(db_client_or_tx: DBAnyConn) -> AccountFactory:
-    """Create Account in the database."""
-    return AccountFactory(db_client_or_tx)
-
-
-@pytest.fixture
-async def account(account_factory: AccountFactory) -> Account:
+async def account(app: FastAPI, user: User):
     """An Account instance."""
-    return await account_factory(email=fake.unique.email())
+    account_repo: IAccountRepository = app.state.provider.service.user.db.account
+    return await account_repo.save(
+        Account(
+            id=SENTINEL_ID,
+            username=user.username,
+            email=fake.email(),
+            first_name=fake.first_name(),
+            last_name=fake.last_name(),
+        )
+    )
 
 
 @pytest.fixture

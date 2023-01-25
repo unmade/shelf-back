@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 import edgedb
 
-from app import crud, errors
+from app import errors
 from app.app.repositories import IAccountRepository
 from app.domain.entities import Account
 
@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from app.typedefs import StrOrUUID
 
 __all__ = ["AccountRepository"]
+
 
 class AccountRepository(IAccountRepository):
     def __init__(self, db_context):
@@ -25,7 +26,7 @@ class AccountRepository(IAccountRepository):
         query = """
             SELECT Account {
                 id, email, first_name, last_name, storage_quota, created_at, user: {
-                    username
+                    id, username
                 }
             }
             FILTER
@@ -49,21 +50,35 @@ class AccountRepository(IAccountRepository):
         )
 
     async def save(self, account: Account) -> Account:
-        created_account = await crud.account.create(
-            self.conn,
-            username=account.username,
-            email=account.email,
-            first_name=account.first_name,
-            last_name=account.last_name,
-            storage_quota=account.storage_quota,
-            created_at=account.created_at,
-        )
-        return Account.construct(
-            id=created_account.id,
-            username=account.username,
-            email=account.email,
-            first_name=account.first_name,
-            last_name=account.last_name,
-            storage_quota=account.storage_quota,
-            created_at=account.created_at,
-        )
+        query = """
+            SELECT (
+                INSERT Account {
+                    email := <OPTIONAL str>$email,
+                    first_name := <str>$first_name,
+                    last_name := <str>$last_name,
+                    storage_quota := <OPTIONAL int64>$storage_quota,
+                    created_at := <datetime>$created_at,
+                    user := (
+                        SELECT
+                            User
+                        FILTER
+                            .username = <str>$username
+                        LIMIT 1
+                    )
+                }
+            ) { id }
+        """
+        try:
+            obj = await self.conn.query_required_single(
+                query,
+                username=account.username,
+                email=account.email,
+                first_name=account.first_name,
+                last_name=account.last_name,
+                storage_quota=account.storage_quota,
+                created_at=account.created_at,
+            )
+        except edgedb.ConstraintViolationError as exc:
+            raise errors.UserAlreadyExists(f"Email '{account.email}' is taken") from exc
+
+        return account.copy(update={"id": obj.id})

@@ -8,9 +8,8 @@ from typing import TYPE_CHECKING
 
 from faker import Faker
 
-from app import config, crud, mediatypes, security, timezone
+from app import config, crud, mediatypes, security
 from app.entities import (
-    Account,
     Exif,
     File,
     FileMetadata,
@@ -25,54 +24,6 @@ if TYPE_CHECKING:
     from app.typedefs import DBAnyConn, StrOrPath, StrOrUUID
 
 fake = Faker()
-
-
-class AccountFactory:
-    __slots__ = ["_db_conn"]
-
-    def __init__(self, db_conn: DBAnyConn) -> None:
-        self._db_conn = db_conn
-
-    async def __call__(
-        self,
-        email: str | None = None,
-        first_name: str = "",
-        last_name: str = "",
-        storage_quota: int | None = None,
-        user: User | None = None,
-    ) -> Account:
-        if user is None:
-            user = await UserFactory(self._db_conn)()
-
-        query = """
-            SELECT (
-                INSERT Account {
-                    email := <OPTIONAL str>$email,
-                    first_name := <str>$first_name,
-                    last_name := <str>$last_name,
-                    storage_quota := <OPTIONAL int64>$storage_quota,
-                    created_at := <datetime>$created_at,
-                    user := (
-                        SELECT
-                            User
-                        FILTER
-                            .id = <uuid>$user_id
-                    ),
-                }
-            ) { id, email, first_name, last_name, user: { username, superuser } }
-        """
-
-        return crud.account.from_db(
-            await self._db_conn.query_required_single(
-                query,
-                email=email,
-                user_id=user.id,
-                first_name=first_name,
-                last_name=last_name,
-                storage_quota=storage_quota,
-                created_at=timezone.now(),
-            )
-        )
 
 
 class BookmarkFactory:

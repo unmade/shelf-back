@@ -27,7 +27,7 @@ if TYPE_CHECKING:
         IFolderRepository,
         INamespaceRepository,
     )
-    from app.typedefs import StrOrPath
+    from app.typedefs import StrOrPath, StrOrUUID
 
 __all__ = ["NamespaceService"]
 
@@ -189,5 +189,5 @@ class NamespaceService:
     async def get_by_path(self, path) -> Namespace:
         return await self.db.namespace.get_by_path(path)
 
-    async def get_space_used_by_owner_id(self, owner_id: UUID) -> int:
+    async def get_space_used_by_owner_id(self, owner_id: StrOrUUID) -> int:
         return await self.db.namespace.get_space_used_by_owner_id(owner_id)

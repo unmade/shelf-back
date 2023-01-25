@@ -1,86 +1,72 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from unittest import mock
 
 import pytest
 
+from app.domain.entities import Account
+
 if TYPE_CHECKING:
-    from app.entities import Account, User
+    from unittest.mock import MagicMock
+
+    from fastapi import FastAPI
+
+    from app.entities import User
     from tests.conftest import TestClient
-    from tests.factories import AccountFactory
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
 
 
-async def test_get_current(client: TestClient, account: Account):
-    response = await client.login(account.user.id).get("/accounts/get_current")
-    data = response.json()
-    assert data["username"] == account.user.username
-    assert data["email"] is not None
-    assert data["first_name"] == ""
-    assert data["last_name"] == ""
-    assert data["superuser"] is False
-    assert response.status_code == 200
+@pytest.fixture
+def ns_service(app: FastAPI):
+    service = app.state.provider.service
+    service_mock = mock.MagicMock(service.namespace)
+    with mock.patch.object(service, "namespace", service_mock) as mocked:
+        yield mocked
 
 
-async def test_get_space_usage(client: TestClient, account: Account):
-    response = await client.login(account.user.id).get("/accounts/get_space_usage")
-    assert response.json()["used"] == 0
-    assert response.json()["quota"] is None
-    assert response.status_code == 200
+@pytest.fixture
+def user_service(app: FastAPI):
+    service = app.state.provider.service
+    service_mock = mock.MagicMock(service.user)
+    with mock.patch.object(service, "user", service_mock) as mocked:
+        yield mocked
 
 
-async def test_list_all(
-    client: TestClient,
-    superuser: User,
-    account_factory: AccountFactory,
-):
-    await account_factory(user=superuser)
-    for _ in range(3):  # strangely, edegdb has some trouble with `gather`
-        await account_factory()
-    client.login(superuser.id)
-    response = await client.get("/accounts/list_all")
-    data = response.json()
-    assert data["page"] == 1
-    assert data["count"] == 4
-    assert len(data["results"]) == 4
-    usernames = [result["username"] for result in data["results"]]
-    assert usernames == sorted(usernames)
+class TestGetCurrent:
+    async def test(
+        self,
+        client: TestClient,
+        account: Account,
+        user: User,
+        user_service: MagicMock,
+    ):
+        user_service.get_account.return_value = account
+        response = await client.login(user.id).get("/accounts/get_current")
+        data = response.json()
+        assert data["username"] == account.username
+        assert data["email"] == account.email
+        assert data["first_name"] == account.first_name
+        assert data["last_name"] == account.last_name
+        assert data["superuser"] is False
+        assert response.status_code == 200
 
 
-async def test_list_all_with_page_params(
-    client: TestClient,
-    superuser: User,
-    account_factory: AccountFactory,
-) -> None:
-    await account_factory(user=superuser)
-    for _ in range(7):  # strangely, edegdb has some trouble with `gather`
-        await account_factory()
-    client.login(superuser.id)
-    response = await client.get("/accounts/list_all?page=2&per_page=5")
-    data = response.json()
-    assert data["page"] == 2
-    assert data["count"] == 8
-    assert len(data["results"]) == 3
-    usernames = [result["username"] for result in data["results"]]
-    assert usernames == sorted(usernames)
-
-
-async def test_update_account(client: TestClient, account: Account):
-    payload = {"first_name": "John", "last_name": "Doe"}
-    client.login(account.user.id)
-    response = await client.patch("/accounts/update", json=payload)
-    data = response.json()
-    assert data["email"] is not None
-    assert data["first_name"] == "John"
-    assert data["last_name"] == "Doe"
-    assert response.status_code == 200
-
-
-async def test_update_account_unset_email(client: TestClient, account: Account):
-    payload = {"email": None}
-    client.login(account.user.id)
-    response = await client.patch("/accounts/update", json=payload)
-    data = response.json()
-    assert data["email"] is None
-    assert response.status_code == 200
+class TestGetSpaceUsage:
+    async def test(
+        self,
+        client: TestClient,
+        account: Account,
+        user: User,
+        ns_service: MagicMock,
+        user_service: MagicMock,
+    ):
+        user_id = str(user.id)
+        user_service.get_account.return_value = account
+        ns_service.get_space_used_by_owner_id.return_value = 256
+        response = await client.login(user_id).get("/accounts/get_space_usage")
+        assert response.json() == {"quota": account.storage_quota, "used": 256}
+        assert response.status_code == 200
+        user_service.get_account.assert_awaited_once_with(user_id)
+        ns_service.get_space_used_by_owner_id.assert_awaited_once_with(user_id)

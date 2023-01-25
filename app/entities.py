@@ -18,14 +18,6 @@ def orjson_dumps(value, *, default=None) -> str:
     return orjson.dumps(value, default=default).decode()
 
 
-class Account(BaseModel):
-    id: UUID
-    email: str | None
-    first_name: str
-    last_name: str
-    user: User
-
-
 class File:
     __slots__ = ("id", "name", "path", "size", "mtime", "mediatype")
 

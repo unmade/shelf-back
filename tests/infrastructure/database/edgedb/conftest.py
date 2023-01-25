@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING
 import pytest
 from faker import Faker
 
-from app.domain.entities import SENTINEL_ID, User
+from app.app.repositories import IAccountRepository, IUserRepository
+from app.domain.entities import SENTINEL_ID, Account, User
 from app.infrastructure.database.edgedb import EdgeDBDatabase
 from app.infrastructure.database.edgedb.db import db_context
 
@@ -50,6 +51,11 @@ def file_repo(tx_database: EdgeDBDatabase):
 
 
 @pytest.fixture
+def account_repo(tx_database: EdgeDBDatabase):
+    return tx_database.account
+
+
+@pytest.fixture
 def namespace_repo(tx_database: EdgeDBDatabase):
     return tx_database.namespace
 
@@ -60,7 +66,20 @@ def user_repo(tx_database: EdgeDBDatabase):
 
 
 @pytest.fixture
-async def user(user_repo):
+async def account(user: User, account_repo: IAccountRepository):
+    return await account_repo.save(
+        Account(
+            id=SENTINEL_ID,
+            username=user.username,
+            email=fake.email(),
+            first_name=fake.first_name(),
+            last_name=fake.last_name(),
+        )
+    )
+
+
+@pytest.fixture
+async def user(user_repo: IUserRepository):
     return await user_repo.save(
         User(
             id=SENTINEL_ID,
