@@ -13,8 +13,6 @@ if TYPE_CHECKING:
 
     from app.typedefs import DBClient
 
-_client: DBClient | None = None
-
 _TYPE_NAME = {
     "bool": "bool",
     "float": "float64",
@@ -72,32 +70,6 @@ async def create_client(max_concurrency: int | None = 1) -> AsyncIterator[DBClie
         tls_security=config.DATABASE_TLS_SECURITY,
     ) as client:
         yield client
-
-
-def init_client() -> None:  # pragma: no cover
-    """Initialize a database client."""
-    global _client
-
-    _client = edgedb.create_async_client(
-        dsn=config.DATABASE_DSN,
-        max_concurrency=4,
-        tls_ca_file=config.DATABASE_TLS_CA_FILE,
-        tls_security=config.DATABASE_TLS_SECURITY,
-    )
-
-
-async def close_client() -> None:  # pragma: no cover
-    """Gracefully close database close."""
-    global _client
-
-    assert _client is not None, "Database client is not initialized."
-    await _client.aclose()
-    _client = None
-
-
-def client() -> DBClient:
-    assert _client is not None, "Database client is not initialized."
-    return _client
 
 
 async def migrate(conn: DBClient, schema: str) -> None:
