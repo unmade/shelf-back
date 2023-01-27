@@ -9,17 +9,18 @@ from app.app.repositories import IAccountRepository
 from app.domain.entities import Account
 
 if TYPE_CHECKING:
+    from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
     from app.typedefs import StrOrUUID
 
 __all__ = ["AccountRepository"]
 
 
 class AccountRepository(IAccountRepository):
-    def __init__(self, db_context):
+    def __init__(self, db_context: EdgeDBContext):
         self.db_context = db_context
 
     @property
-    def conn(self):
+    def conn(self) -> EdgeDBAnyConn:
         return self.db_context.get()
 
     async def get_by_user_id(self, user_id: StrOrUUID) -> Account:

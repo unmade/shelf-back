@@ -9,6 +9,7 @@ from app.domain.entities import Folder
 
 if TYPE_CHECKING:
     from app.entities import File
+    from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
     from app.typedefs import StrOrPath
 
 __all__ = "FolderRepository"
@@ -27,11 +28,11 @@ def _from_db(ns_path: str, obj: File) -> Folder:
 
 
 class FolderRepository(IFolderRepository):
-    def __init__(self, db_context):
+    def __init__(self, db_context: EdgeDBContext):
         self.db_context = db_context
 
     @property
-    def conn(self):
+    def conn(self) -> EdgeDBAnyConn:
         return self.db_context.get()
 
     async def get_by_path(self, ns_path: StrOrPath, path: StrOrPath) -> Folder:

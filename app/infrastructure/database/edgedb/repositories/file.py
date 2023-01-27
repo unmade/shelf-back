@@ -11,6 +11,7 @@ from app.domain.entities import File
 
 if TYPE_CHECKING:
     from app.entities import File as LegacyFile
+    from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
     from app.typedefs import StrOrPath
 
 __all__ = ["FileRepository"]
@@ -29,11 +30,11 @@ def _from_db(ns_path: str, obj: LegacyFile) -> File:
 
 
 class FileRepository(IFileRepository):
-    def __init__(self, db_context):
+    def __init__(self, db_context: EdgeDBContext):
         self.db_context = db_context
 
     @property
-    def conn(self):
+    def conn(self) -> EdgeDBAnyConn:
         return self.db_context.get()
 
     async def get_by_path(self, ns_path: StrOrPath, path: StrOrPath) -> File:
