@@ -10,8 +10,31 @@ from app.domain.entities import Account, User
 
 if TYPE_CHECKING:
     from app.app.services import UserService
+    from app.domain.entities import File
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
+
+
+class TestAddBookmark:
+    async def test(self, user: User, file: File, user_service: UserService):
+        await user_service.add_bookmark(user.id, file.id)
+        bookmarks = await user_service.db.user.list_bookmarks(user.id)
+        assert bookmarks == [file.id]
+
+
+class TestListBookmarks:
+    async def test(self, user: User, file: File, user_service: UserService):
+        await user_service.add_bookmark(user.id, file.id)
+        bookmarks = await user_service.list_bookmarks(user.id)
+        assert bookmarks == [file.id]
+
+
+class TestRemoveBook:
+    async def test(self, user: User, file: File, user_service: UserService):
+        await user_service.add_bookmark(user.id, file.id)
+        await user_service.remove_bookmark(user.id, file.id)
+        bookmarks = await user_service.list_bookmarks(user.id)
+        assert bookmarks == []
 
 
 class TestCreate:

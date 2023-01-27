@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol
+from uuid import UUID
 
 from app import security
 from app.app.infrastructure.database import IDatabase
+from app.app.repositories import IAccountRepository, IUserRepository
 from app.domain.entities import SENTINEL_ID, Account, User
 
 if TYPE_CHECKING:
-    from app.app.repositories import IAccountRepository, IUserRepository
     from app.typedefs import StrOrUUID
 
 __all__ = ["UserService"]
@@ -21,6 +22,20 @@ class IServiceDatabase(IDatabase, Protocol):
 class UserService:
     def __init__(self, database: IServiceDatabase):
         self.db = database
+
+    async def add_bookmark(self, user_id: StrOrUUID, file_id: StrOrUUID) -> None:
+        """
+        Adds a file to user bookmarks.
+
+        Args:
+            user_id (StrOrUUID): Target user ID.
+            file_id (StrOrUUID): Target file ID.
+
+        Raises:
+            errors.UserNotFound: If User with a target user_id does not exist.
+            errors.FileNotFound: If File with a target file_id does not exist.
+        """
+        await self.db.user.add_bookmark(user_id=user_id, file_id=file_id)
 
     async def create(
         self,
@@ -75,4 +90,45 @@ class UserService:
         return user
 
     async def get_account(self, user_id: StrOrUUID) -> Account:
+        """
+        Returns an account for a given user ID.
+
+        Args:
+            user_id (StrOrUUID): User ID to return an account for.
+
+        Raises:
+            errors.UserNotFound: If account for given user ID does not exists.
+
+        Returns:
+            Account: an Account instance.
+        """
         return await self.db.account.get_by_user_id(user_id)
+
+    async def list_bookmarks(self, user_id: StrOrUUID) -> list[UUID]:
+        """
+        Lists bookmarks for a given user ID.
+
+        Args:
+            user_id (str): User ID to list bookmarks for.
+
+        Raises:
+            errors.UserNotFound: If User with given ID does not exist.
+
+        Returns:
+            list[UUID]: List of resource IDs bookmarked by user.
+        """
+        return await self.db.user.list_bookmarks(user_id)
+
+    async def remove_bookmark(self, user_id: StrOrUUID, file_id: StrOrUUID) -> None:
+        """
+        Removes a file from user bookmarks.
+
+        Args:
+            conn (DBAnyConn): Database connection.
+            user_id (StrOrUUID): Target user ID.
+            file_id (StrOrUUID): Target file ID.
+
+        Raises:
+            errors.UserNotFound: If User with a target user_id does not exists.
+        """
+        await self.db.user.remove_bookmark(user_id, file_id)

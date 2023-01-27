@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from io import BytesIO
 from typing import TYPE_CHECKING
 from unittest import mock
 
@@ -15,13 +16,13 @@ if TYPE_CHECKING:
 
     from pytest import FixtureRequest
 
-    from app.domain.entities import User
+    from app.domain.entities import Namespace, User
     from app.infrastructure.database.edgedb.typedefs import EdgeDBTransaction
 
 
 @pytest.fixture(scope="module")
 def _database(db_dsn):
-    """Returns a database instance."""
+    """Returns an EdgeDBDatabase instance."""
     _, dsn, _ = db_dsn
     return EdgeDBDatabase(
         dsn,
@@ -43,7 +44,7 @@ async def _tx(_database: EdgeDBDatabase):
 
 @pytest.fixture
 def _tx_database(_database: EdgeDBDatabase, _tx: EdgeDBTransaction):
-    """Database instance where all queries run in the same transaction."""
+    """EdgeDBDatabase instance where all queries run in the same transaction."""
     # pytest-asyncio doesn't support contextvars properly, so set the context manually
     # in a regular non-async fixture.
     token = db_context.set(_tx)
@@ -85,6 +86,13 @@ async def user(user_service: UserService) -> User:
     # mock password hashing to speed up test setup
     with mock.patch("app.security.make_password", return_value="root"):
         return await user_service.create("admin", "root")
+
+
+@pytest.fixture
+async def file(namespace: Namespace, namespace_service: NamespaceService):
+    content = BytesIO(b"Dummy file")
+    return await namespace_service.add_file(namespace.path, "f.txt", content)
+
 
 
 @pytest.fixture

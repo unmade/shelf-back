@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 class IAccountRepository(Protocol):
     async def get_by_user_id(self, user_id: StrOrUUID) -> Account:
         """
-        Return an account for a given user ID.
+        Returns an account for a given user ID.
 
         Args:
             user_id (StrOrUUID): User ID to return an account for.

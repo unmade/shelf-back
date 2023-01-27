@@ -9,18 +9,84 @@ from app.app.repositories import IUserRepository
 from app.domain.entities import User
 
 if TYPE_CHECKING:
-    pass
+    from uuid import UUID
+
+    from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
+    from app.typedefs import StrOrUUID
 
 __all__ = ["UserRepository"]
 
 
 class UserRepository(IUserRepository):
-    def __init__(self, db_context):
+    def __init__(self, db_context: EdgeDBContext):
         self.db_context = db_context
 
     @property
-    def conn(self):
+    def conn(self) -> EdgeDBAnyConn:
         return self.db_context.get()
+
+    async def add_bookmark(self, user_id: StrOrUUID, file_id: StrOrUUID) -> None:
+        query = """
+            UPDATE
+                User
+            FILTER
+                .id = <uuid>$user_id
+            SET {
+                bookmarks += (
+                    SELECT
+                        File
+                    FILTER
+                        .id = <uuid>$file_id
+                    LIMIT 1
+                )
+            }
+        """
+
+        try:
+            await self.conn.query_required_single(
+                query, user_id=user_id, file_id=file_id,
+            )
+        except edgedb.NoDataError as exc:
+            raise errors.UserNotFound(f"No user with id: '{user_id}'") from exc
+
+    async def list_bookmarks(self, user_id: StrOrUUID) -> list[UUID]:
+        query = """
+            SELECT
+                User { bookmarks }
+            FILTER
+                .id = <uuid>$user_id
+            LIMIT 1
+        """
+        try:
+            user = await self.conn.query_required_single(query, user_id=user_id)
+        except edgedb.NoDataError as exc:
+            raise errors.UserNotFound(f"No user with id: '{user_id}'") from exc
+
+        return [entry.id for entry in user.bookmarks]
+
+    async def remove_bookmark(self, user_id: StrOrUUID, file_id: StrOrUUID) -> None:
+        query = """
+            UPDATE
+                User
+            FILTER
+                .id = <uuid>$user_id
+            SET {
+                bookmarks -= (
+                    SELECT
+                        File
+                    FILTER
+                        .id = <uuid>$file_id
+                    LIMIT 1
+                )
+            }
+        """
+
+        try:
+            await self.conn.query_required_single(
+                query, user_id=user_id, file_id=file_id
+            )
+        except edgedb.NoDataError as exc:
+            raise errors.UserNotFound() from exc
 
     async def save(self, user: User) -> User:
         query = """
