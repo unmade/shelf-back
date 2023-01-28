@@ -186,8 +186,21 @@ class NamespaceService:
 
         return await self.db.folder.get_by_path(ns_path, path)
 
-    async def get_by_path(self, path) -> Namespace:
+    async def get_by_path(self, path: str) -> Namespace:
         return await self.db.namespace.get_by_path(path)
 
     async def get_space_used_by_owner_id(self, owner_id: StrOrUUID) -> int:
         return await self.db.namespace.get_space_used_by_owner_id(owner_id)
+
+    async def has_file_with_id(self, ns_path: StrOrPath, file_id: StrOrUUID) -> bool:
+        """
+        Checks whether a file with a given ID exists in the target namespace.
+
+        Args:
+            ns_path (StrOrPath): Target namespace path.
+            file_id (StrOrUUID): Target file ID.
+
+        Returns:
+            bool: True if namespace contains file with a given ID, False otherwise.
+        """
+        return await self.db.file.exists_with_id(ns_path, file_id)

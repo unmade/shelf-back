@@ -12,7 +12,7 @@ from app.domain.entities import SENTINEL_ID, Folder, Namespace
 
 if TYPE_CHECKING:
     from app.app.services import NamespaceService
-    from app.domain.entities import User
+    from app.domain.entities import File, User
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
@@ -160,3 +160,11 @@ class TestCreateFolder:
 
         with pytest.raises(errors.NotADirectory):
             await namespace_service.create_folder(namespace.path, "f.txt/folder")
+
+
+class TestHasFileWithID:
+    async def test(
+        self, namespace: Namespace, file: File, namespace_service: NamespaceService
+    ):
+        exists = await namespace_service.has_file_with_id(namespace.path, file.id)
+        assert exists is True

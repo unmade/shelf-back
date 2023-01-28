@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING, Iterable, cast
 from uuid import UUID
 
 import edgedb
@@ -12,7 +12,7 @@ from app.domain.entities import File
 if TYPE_CHECKING:
     from app.entities import File as LegacyFile
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
-    from app.typedefs import StrOrPath
+    from app.typedefs import StrOrPath, StrOrUUID
 
 __all__ = ["FileRepository"]
 
@@ -36,6 +36,24 @@ class FileRepository(IFileRepository):
     @property
     def conn(self) -> EdgeDBAnyConn:
         return self.db_context.get()
+
+    async def exists_with_id(self, ns_path: StrOrPath, file_id: StrOrUUID) -> bool:
+        query = """
+            SELECT EXISTS (
+                SELECT
+                    File
+                FILTER
+                    .id = <uuid>$file_id
+                    AND
+                    .namespace.path = <str>$ns_path
+            )
+        """
+
+        ns_path = str(ns_path)
+        exists = await self.conn.query_required_single(
+            query, ns_path=ns_path, file_id=file_id
+        )
+        return cast(bool, exists)
 
     async def get_by_path(self, ns_path: StrOrPath, path: StrOrPath) -> File:
         obj = await crud.file.get(self.conn, ns_path, path)

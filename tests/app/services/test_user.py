@@ -22,21 +22,6 @@ class TestAddBookmark:
         assert bookmarks == [file.id]
 
 
-class TestListBookmarks:
-    async def test(self, user: User, file: File, user_service: UserService):
-        await user_service.add_bookmark(user.id, file.id)
-        bookmarks = await user_service.list_bookmarks(user.id)
-        assert bookmarks == [file.id]
-
-
-class TestRemoveBook:
-    async def test(self, user: User, file: File, user_service: UserService):
-        await user_service.add_bookmark(user.id, file.id)
-        await user_service.remove_bookmark(user.id, file.id)
-        bookmarks = await user_service.list_bookmarks(user.id)
-        assert bookmarks == []
-
-
 class TestCreate:
     @pytest.mark.parametrize(["given", "expected"], [
         (
@@ -94,3 +79,18 @@ class TestCreate:
         assert user.id is not None
         assert user == expected["user"]
         assert security.verify_password(given["password"], user.password)
+
+
+class TestListBookmarks:
+    async def test(self, user: User, file: File, user_service: UserService):
+        await user_service.db.user.add_bookmark(user.id, file.id)
+        bookmarks = await user_service.list_bookmarks(user.id)
+        assert bookmarks == [file.id]
+
+
+class TestRemoveBook:
+    async def test(self, user: User, file: File, user_service: UserService):
+        await user_service.db.user.add_bookmark(user.id, file.id)
+        await user_service.remove_bookmark(user.id, file.id)
+        bookmarks = await user_service.list_bookmarks(user.id)
+        assert bookmarks == []

@@ -5,10 +5,22 @@ from typing import TYPE_CHECKING, Iterable, Protocol
 from app.domain.entities import File
 
 if TYPE_CHECKING:
-    from app.typedefs import StrOrPath
+    from app.typedefs import StrOrPath, StrOrUUID
 
 
 class IFileRepository(Protocol):
+    async def exists_with_id(self, ns_path: StrOrPath, file_id: StrOrUUID) -> bool:
+        """
+        Checks whether a file or a folder with a given ID exists in a target namespace.
+
+        Args:
+            ns_path (StrOrPath): Target namespace path.
+            file_id (StrOrUUID): Path to a file or a folder.
+
+        Returns:
+            bool: True if file/folder exists, False otherwise.
+        """
+
     async def get_by_path(self, ns_path: StrOrPath, path: StrOrPath) -> File:
         """
         Return a file at a target path.
