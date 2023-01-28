@@ -26,33 +26,6 @@ if TYPE_CHECKING:
 fake = Faker()
 
 
-class BookmarkFactory:
-    __slots__ = ["_db_conn"]
-
-    def __init__(self, db_conn: DBAnyConn) -> None:
-        self._db_conn = db_conn
-
-    async def __call__(self, user_id: StrOrUUID, file_id: StrOrUUID) -> None:
-        query = """
-            UPDATE
-                User
-            FILTER
-                .id = <uuid>$user_id
-            SET {
-                bookmarks += (
-                    SELECT
-                        File
-                    FILTER
-                        .id = <uuid>$file_id
-                )
-            }
-        """
-
-        await self._db_conn.query_required_single(
-            query, user_id=user_id, file_id=file_id
-        )
-
-
 class FileFactory:
     __slots__ = ["_db_conn"]
 

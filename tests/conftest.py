@@ -20,7 +20,6 @@ from app.main import create_app
 from app.tasks import CeleryConfig
 from app.tokens import AccessTokenPayload
 from tests.factories import (
-    BookmarkFactory,
     FileFactory,
     FileMetadataFactory,
     FingerprintFactory,
@@ -283,12 +282,6 @@ async def account(app: FastAPI, user: User):
             last_name=fake.last_name(),
         )
     )
-
-
-@pytest.fixture
-async def bookmark_factory(db_client_or_tx: DBAnyConn) -> BookmarkFactory:
-    """Add file to user bookmarks."""
-    return BookmarkFactory(db_client_or_tx)
 
 
 @pytest.fixture

@@ -20,25 +20,6 @@ if TYPE_CHECKING:
     from app.typedefs import DBClient, StrOrPath, StrOrUUID
 
 
-async def add_bookmark(
-    db_client: DBClient,
-    user_id: StrOrUUID,
-    file_id: StrOrUUID,
-) -> None:
-    """
-    Add a file to user bookmarks.
-
-    Args:
-        db_client (DBClient): Database client.
-        user_id (StrOrUUID): Target user ID.
-        file_id (StrOrUUID): Target file ID.
-
-    Raises:
-        errors.UserNotFound: If User with a target user_id does not exists.
-    """
-    await crud.user.add_bookmark(db_client, user_id, file_id)
-
-
 async def delete_immediately(
     db_client: DBClient, namespace: Namespace, path: StrOrPath,
 ) -> File:
@@ -407,23 +388,6 @@ def _reindex_content(
     dhash = hashes.dhash(content, mediatype=mediatype)
     meta = metadata.load(content, mediatype=mediatype)
     return path, dhash, meta
-
-
-async def remove_bookmark(
-    db_client: DBClient, user_id: StrOrUUID, file_id: StrOrUUID,
-) -> None:
-    """
-    Remove a file from user bookmarks.
-
-    Args:
-        db_client (DBClient): Database client.
-        user_id (StrOrUUID): Target user ID.
-        file_id (StrOrUUID): Target file ID.
-
-    Raises:
-        errors.UserNotFound: If User with a target user_id does not exists.
-    """
-    await crud.user.remove_bookmark(db_client, user_id, file_id)
 
 
 async def revoke_shared_link(db_client: DBClient, token: str) -> None:

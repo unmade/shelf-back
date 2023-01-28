@@ -21,40 +21,6 @@ def from_db(obj: edgedb.Object) -> User:
     )
 
 
-async def add_bookmark(conn: DBAnyConn, user_id: StrOrUUID, file_id: StrOrUUID) -> None:
-    """
-    Add a file to user bookmarks.
-
-    Args:
-        conn (DBAnyConn): Database connection.
-        user_id (StrOrUUID): Target user ID.
-        file_id (StrOrUUID): Target file ID.
-
-    Raises:
-        errors.UserNotFound: If User with a target user_id does not exists.
-    """
-    query = """
-        UPDATE
-            User
-        FILTER
-            .id = <uuid>$user_id
-        SET {
-            bookmarks += (
-                SELECT
-                    File
-                FILTER
-                    .id = <uuid>$file_id
-                LIMIT 1
-            )
-        }
-    """
-
-    try:
-        await conn.query_required_single(query, user_id=user_id, file_id=file_id)
-    except edgedb.NoDataError as exc:
-        raise errors.UserNotFound() from exc
-
-
 async def create(
     conn: DBAnyConn, username: str, password: str, *, superuser: bool = False,
 ) -> User:
@@ -168,68 +134,3 @@ async def get_password(conn: DBAnyConn, username: str) -> tuple[UUID, str]:
         raise errors.UserNotFound(f"No user with username: '{username}'") from exc
 
     return user.id, user.password
-
-
-async def list_bookmarks(conn: DBAnyConn, user_id: StrOrUUID) -> list[UUID]:
-    """
-    List user bookmarks.
-
-    Args:
-        conn (DBAnyConn): Database connection.
-        user_id (str): User ID to list bookmarks for.
-
-    Raises:
-        errors.UserNotFound: If User with given ID does not exist.
-
-    Returns:
-        list[UUID]: List of resource IDs bookmarked by user.
-    """
-    query = """
-        SELECT
-            User { bookmarks }
-        FILTER
-            .id = <uuid>$user_id
-        LIMIT 1
-    """
-    try:
-        user = await conn.query_required_single(query, user_id=user_id)
-    except edgedb.NoDataError as exc:
-        raise errors.UserNotFound(f"No user with id: '{user_id}'") from exc
-
-    return [entry.id for entry in user.bookmarks]
-
-
-async def remove_bookmark(
-    conn: DBAnyConn, user_id: StrOrUUID, file_id: StrOrUUID,
-) -> None:
-    """
-    Remove a file from user bookmarks.
-
-    Args:
-        conn (DBAnyConn): Database connection.
-        user_id (StrOrUUID): Target user ID.
-        file_id (StrOrUUID): Target file ID.
-
-    Raises:
-        errors.UserNotFound: If User with a target user_id does not exists.
-    """
-    query = """
-        UPDATE
-            User
-        FILTER
-            .id = <uuid>$user_id
-        SET {
-            bookmarks -= (
-                SELECT
-                    File
-                FILTER
-                    .id = <uuid>$file_id
-                LIMIT 1
-            )
-        }
-    """
-
-    try:
-        await conn.query_required_single(query, user_id=user_id, file_id=file_id)
-    except edgedb.NoDataError as exc:
-        raise errors.UserNotFound() from exc

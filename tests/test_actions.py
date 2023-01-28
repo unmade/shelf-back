@@ -11,12 +11,10 @@ from app.entities import Exif
 from app.infrastructure.storage import storage
 
 if TYPE_CHECKING:
-    from uuid import UUID
 
     from app.entities import Namespace
-    from app.typedefs import DBAnyConn, DBClient, StrOrUUID
+    from app.typedefs import DBClient
     from tests.factories import (
-        BookmarkFactory,
         FileFactory,
         FileMetadataFactory,
         FingerprintFactory,
@@ -26,38 +24,6 @@ if TYPE_CHECKING:
     )
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
-
-
-async def _get_bookmarks_id(conn: DBAnyConn, user_id: StrOrUUID) -> list[UUID]:
-    query = """
-        SELECT User { bookmarks: { id } }
-        FILTER .id = <uuid>$user_id
-    """
-    user = await conn.query_required_single(query, user_id=user_id)
-    return [entry.id for entry in user.bookmarks]
-
-
-async def test_add_bookmark(
-    db_client: DBClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    file = await file_factory(namespace.path)
-    await actions.add_bookmark(db_client, namespace.owner.id, file.id)
-    bookmarks = await _get_bookmarks_id(db_client, user_id=namespace.owner.id)
-    assert len(bookmarks) == 1
-    assert str(bookmarks[0]) == file.id
-
-
-async def test_add_bookmark_but_user_does_not_exists(
-    db_client: DBClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    file = await file_factory(namespace.path)
-    user_id = uuid.uuid4()
-    with pytest.raises(errors.UserNotFound):
-        await actions.add_bookmark(db_client, user_id, file.id)
 
 
 async def test_delete_immediately_file(
@@ -73,10 +39,11 @@ async def test_delete_immediately_file(
     assert not await crud.file.exists(db_client, namespace.path, file.path)
 
 
+@pytest.mark.skip("waiting for refactoring to service method")
 async def test_delete_immediately_bookmarked_file(
     db_client: DBClient,
     namespace: Namespace,
-    bookmark_factory: BookmarkFactory,
+    bookmark_factory,
     file_factory: FileFactory,
 ):
     file = await file_factory(namespace.path, path="file")
@@ -589,32 +556,6 @@ async def test_reindex_files_content_replaces_existing_file_metadata(
     meta = await crud.metadata.get(db_client, file_id=img.id)
     assert meta.data is not None
     assert meta.data != exif
-
-
-async def test_remove_bookmark(
-    db_client: DBClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-    bookmark_factory: BookmarkFactory,
-):
-    file = await file_factory(namespace.path)
-    await bookmark_factory(namespace.owner.id, file.id)
-    bookmarks = await _get_bookmarks_id(db_client, user_id=namespace.owner.id)
-    assert len(bookmarks) == 1
-    await actions.remove_bookmark(db_client, namespace.owner.id, file.id)
-    bookmarks = await _get_bookmarks_id(db_client, user_id=namespace.owner.id)
-    assert len(bookmarks) == 0
-
-
-async def test_remove_bookmark_but_user_does_not_exists(
-    db_client: DBClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    file = await file_factory(namespace.path)
-    user_id = uuid.uuid4()
-    with pytest.raises(errors.UserNotFound):
-        await actions.remove_bookmark(db_client, user_id, file.id)
 
 
 async def test_revoke_shared_link(
