@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol
 from uuid import UUID
 
-from app import security
+from app import errors, security
 from app.app.infrastructure.database import IDatabase
 from app.app.repositories import IAccountRepository, IUserRepository
 from app.domain.entities import SENTINEL_ID, Account, User
@@ -132,3 +132,22 @@ class UserService:
             errors.UserNotFound: If User with a target user_id does not exists.
         """
         await self.db.user.remove_bookmark(user_id, file_id)
+
+    async def verify_credentials(self, username: str, password: str) -> User | None:
+        """
+        Verifies user credentials and returns a User instance.
+
+        Args:
+            username (str): User username.
+            password (str): User plaint-text password.
+
+        Returns:
+            bool: a User instance if credentials are valid, None otherwise.
+        """
+        try:
+            user = await self.db.user.get_by_username(username.lower().strip())
+        except errors.UserNotFound:
+            return None
+        if not security.verify_password(password, user.password):
+            return None
+        return user

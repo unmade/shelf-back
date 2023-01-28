@@ -25,6 +25,20 @@ class IUserRepository(Protocol):
             errors.UserNotFound: If User with a target user_id does not exists.
         """
 
+    async def get_by_username(self, username: str) -> User:
+        """
+        Retrieves a user by username
+
+        Args:
+            username (str): User username.
+
+        Raises:
+            errors.UserNotFound: If User with a target username does not exists.
+
+        Returns:
+            User: a User instance.
+        """
+
     async def list_bookmarks(self, user_id: StrOrUUID) -> list[UUID]:
         """
         Lists bookmarks for a given user ID.

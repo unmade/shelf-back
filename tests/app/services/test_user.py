@@ -94,3 +94,25 @@ class TestRemoveBook:
         await user_service.remove_bookmark(user.id, file.id)
         bookmarks = await user_service.list_bookmarks(user.id)
         assert bookmarks == []
+
+
+class TestVerifyCredentials:
+    async def test(self, user: User, user_service: UserService):
+        result = await user_service.verify_credentials(user.username, "root")
+        assert result == user
+
+    async def test_when_user_does_not_exists(self, user_service: UserService):
+        user = await user_service.verify_credentials("admin", "root")
+        assert user is None
+
+    async def test_when_password_is_wrong(self, user: User, user_service: UserService):
+        result = await user_service.verify_credentials(user.username, "1234")
+        assert result is None
+
+    async def test_case_insensitiveness(self, user: User, user_service: UserService):
+        result = await user_service.verify_credentials(user.username.upper(), "root")
+        assert result == user
+
+    async def test_stripping_spaces(self, user: User, user_service: UserService):
+        result = await user_service.verify_credentials(f" {user.username} ", "root")
+        assert result == user

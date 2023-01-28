@@ -14,49 +14,41 @@ from app.api.auth.exceptions import (
 from app.api.exceptions import InvalidToken
 
 if TYPE_CHECKING:
+    from unittest.mock import MagicMock
+
     from fastapi import FastAPI
 
     from app.entities import User
     from tests.conftest import TestClient
-    from tests.factories import UserFactory
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
 
 
-@pytest.mark.parametrize("username", ["johndoe", "JohnDoe", " johndoe "])
-async def test_sign_in(client: TestClient, user_factory: UserFactory, username: str):
-    await user_factory(username="johndoe", hash_password=True)
-    data = {
-        "username": username,
-        "password": "root",
-    }
-    response = await client.post("/auth/sign_in", data=data)
-    assert "access_token" in response.json()
-    assert response.status_code == 200
+class TestSignIn:
+    url = "/auth/sign_in"
 
+    async def test(self, client: TestClient, user: User, user_service: MagicMock):
+        user_service.verify_credentials.return_value = user
+        data = {
+            "username": user.username,
+            "password": "root",
+        }
+        response = await client.post(self.url, data=data)
+        assert "access_token" in response.json()
+        assert response.status_code == 200
+        user_service.verify_credentials.assert_awaited_once_with(user.username, "root")
 
-async def test_sign_in_but_user_does_not_exists(client: TestClient):
-    data = {
-        "username": "username",
-        "password": "root",
-    }
-    response = await client.post("/auth/sign_in", data=data)
-    assert response.json() == InvalidCredentials().as_dict()
-    assert response.status_code == 401
-
-
-async def test_sign_in_but_password_is_invalid(
-    client: TestClient,
-    user_factory: UserFactory,
-):
-    user = await user_factory(hash_password=True)
-    data = {
-        "username": user.username,
-        "password": "wrong password",
-    }
-    response = await client.post("/auth/sign_in", data=data)
-    assert response.json() == InvalidCredentials().as_dict()
-    assert response.status_code == 401
+    async def test_when_credentials_are_invalid(
+        self, client: TestClient, user_service: MagicMock
+    ):
+        user_service.verify_credentials.return_value = None
+        data = {
+            "username": "username",
+            "password": "root",
+        }
+        response = await client.post(self.url, data=data)
+        assert response.json() == InvalidCredentials().as_dict()
+        assert response.status_code == 401
 
 
 class TestSignUp:
@@ -123,22 +115,21 @@ class TestSignUp:
         assert response.status_code == 400
 
 
-async def test_refresh_token(client: TestClient, user: User):
-    _, refresh_token = await tokens.create_tokens(str(user.id))
-    headers = {"x-shelf-refresh-token": refresh_token}
-    response = await client.post("/auth/refresh_token", headers=headers)
-    assert "access_token" in response.json()
-    assert response.status_code == 200
+class TestRefreshToken:
+    async def test_refresh_token(self, client: TestClient, user: User):
+        _, refresh_token = await tokens.create_tokens(str(user.id))
+        headers = {"x-shelf-refresh-token": refresh_token}
+        response = await client.post("/auth/refresh_token", headers=headers)
+        assert "access_token" in response.json()
+        assert response.status_code == 200
 
+    async def test_refresh_token_but_header_is_not_provided(self, client: TestClient):
+        response = await client.post("/auth/refresh_token")
+        assert response.json() == InvalidToken().as_dict()
+        assert response.status_code == 403
 
-async def test_refresh_token_but_header_is_not_provided(client: TestClient):
-    response = await client.post("/auth/refresh_token")
-    assert response.json() == InvalidToken().as_dict()
-    assert response.status_code == 403
-
-
-async def test_refresh_token_but_token_is_invalid(client: TestClient):
-    headers = {"x-shelf-refresh-token": "invalid_token"}
-    response = await client.post("/auth/refresh_token", headers=headers)
-    assert response.json() == InvalidToken().as_dict()
-    assert response.status_code == 403
+    async def test_refresh_token_but_token_is_invalid(self, client: TestClient):
+        headers = {"x-shelf-refresh-token": "invalid_token"}
+        response = await client.post("/auth/refresh_token", headers=headers)
+        assert response.json() == InvalidToken().as_dict()
+        assert response.status_code == 403

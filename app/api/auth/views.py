@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from edgedb import AsyncIOClient
 from fastapi import APIRouter, Depends, Header
 from fastapi.security import OAuth2PasswordRequestForm
 
-from app import config, crud, errors, security, tokens
+from app import config, errors, tokens
 from app.api import deps
 from app.api.exceptions import InvalidToken
-from app.infrastructure.provider import UseCase
+from app.infrastructure.provider import Service, UseCase
 
 from . import exceptions
 from .schemas import SignUpRequest, TokensSchema
@@ -18,20 +17,16 @@ router = APIRouter()
 @router.post("/sign_in")
 async def sign_in(
     form_data: OAuth2PasswordRequestForm = Depends(),
-    db_client: AsyncIOClient = Depends(deps.db_client),
+    services: Service = Depends(deps.services),
 ) -> TokensSchema:
     """Grant new access token for a given credentials."""
 
-    username = form_data.username.lower().strip()
-    try:
-        user_id, password = await crud.user.get_password(db_client, username=username)
-    except errors.UserNotFound as exc:
-        raise exceptions.InvalidCredentials() from exc
-
-    if not security.verify_password(form_data.password, password):
+    username, password = form_data.username, form_data.password
+    user = await services.user.verify_credentials(username, password)
+    if user is None:
         raise exceptions.InvalidCredentials()
 
-    access_token, refresh_token = await tokens.create_tokens(str(user_id))
+    access_token, refresh_token = await tokens.create_tokens(str(user.id))
     return TokensSchema(access_token=access_token, refresh_token=refresh_token)
 
 

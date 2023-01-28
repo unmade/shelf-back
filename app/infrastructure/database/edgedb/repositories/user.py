@@ -49,6 +49,25 @@ class UserRepository(IUserRepository):
         except edgedb.NoDataError as exc:
             raise errors.UserNotFound(f"No user with id: '{user_id}'") from exc
 
+    async def get_by_username(self, username: str) -> User:
+        query = """
+            SELECT
+                User { id, username, password, superuser }
+            FILTER
+                .username = <str>$username
+            LIMIT 1
+        """
+        try:
+            obj = await self.conn.query_required_single(query, username=username)
+        except edgedb.NoDataError as exc:
+            raise errors.UserNotFound() from exc
+        return User.construct(
+            id=obj.id,
+            username=obj.username,
+            password=obj.password,
+            superuser=obj.superuser,
+        )
+
     async def list_bookmarks(self, user_id: StrOrUUID) -> list[UUID]:
         query = """
             SELECT

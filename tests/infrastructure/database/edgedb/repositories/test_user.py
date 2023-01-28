@@ -68,6 +68,17 @@ class TestAddBookmark:
         assert len(bookmarks) == 0
 
 
+class TestGetByUsername:
+    async def test(self, user: User, user_repo: UserRepository):
+        retrieved_user = await user_repo.get_by_username(user.username)
+        assert retrieved_user == user
+
+    async def test_when_user_does_not_exist(self, user_repo: UserRepository):
+        username = "admin"
+        with pytest.raises(errors.UserNotFound):
+            await user_repo.get_by_username(username)
+
+
 class TestListBookmarks:
     async def test(
         self, namespace: Namespace, file_factory: FileFactory, user_repo: UserRepository

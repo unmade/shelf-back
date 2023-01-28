@@ -6,6 +6,7 @@ from unittest import mock
 
 import pytest
 
+from app import security
 from app.app.services import NamespaceService, UserService
 from app.infrastructure.database.edgedb import EdgeDBDatabase
 from app.infrastructure.database.edgedb.db import db_context
@@ -80,11 +81,16 @@ def user_service(_db_or_tx: EdgeDBDatabase) -> UserService:
     return UserService(database=_db_or_tx)
 
 
+@pytest.fixture(scope="session")
+def _hashed_password():
+    return security.make_password("root")
+
+
 @pytest.fixture
-async def user(user_service: UserService) -> User:
+async def user(_hashed_password: str, user_service: UserService) -> User:
     """A user instance."""
     # mock password hashing to speed up test setup
-    with mock.patch("app.security.make_password", return_value="root"):
+    with mock.patch("app.security.make_password", return_value=_hashed_password):
         return await user_service.create("admin", "root")
 
 
