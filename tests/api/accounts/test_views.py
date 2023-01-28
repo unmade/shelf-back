@@ -1,37 +1,17 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from unittest import mock
 
 import pytest
-
-from app.domain.entities import Account
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
-    from fastapi import FastAPI
-
+    from app.domain.entities import Account
     from app.entities import User
     from tests.conftest import TestClient
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
-
-
-@pytest.fixture
-def ns_service(app: FastAPI):
-    service = app.state.provider.service
-    service_mock = mock.MagicMock(service.namespace)
-    with mock.patch.object(service, "namespace", service_mock) as mocked:
-        yield mocked
-
-
-@pytest.fixture
-def user_service(app: FastAPI):
-    service = app.state.provider.service
-    service_mock = mock.MagicMock(service.user)
-    with mock.patch.object(service, "user", service_mock) as mocked:
-        yield mocked
 
 
 class TestGetCurrent:

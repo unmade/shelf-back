@@ -44,13 +44,6 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
 
 
 class TestCreateFolder:
-    @pytest.fixture
-    def ns_service(self, app: FastAPI):
-        service = app.state.provider.service
-        ns_service_mock = mock.MagicMock(service.namespace)
-        with mock.patch.object(service, "namespace", ns_service_mock) as mocked:
-            yield mocked
-
     @pytest.mark.parametrize(["path", "expected_path"], [
         ("Folder", "Folder"),
         ("Nested/Path/Folder", "Nested/Path/Folder",),
@@ -65,15 +58,19 @@ class TestCreateFolder:
         path: str,
         expected_path: str,
     ):
-        ns_service.create_folder.return_value = Folder(
+        folder = Folder(
             id=uuid.uuid4(),
             ns_path=str(namespace.path),
             name=expected_path.split('/')[-1],
             path=expected_path,
         )
+        ns_service.create_folder.return_value = folder
         payload = {"path": path}
         client.login(namespace.owner.id)
         response = await client.post("/files/create_folder", json=payload)
+        assert response.json()["id"] == str(folder.id)
+        assert response.json()["name"] == folder.name
+        assert response.json()["path"] == folder.path
         assert response.status_code == 200
         ns_service.create_folder.assert_awaited_once_with(
             namespace.path, expected_path
@@ -101,29 +98,6 @@ class TestCreateFolder:
         assert response.json() == NotADirectory(path="file/folder").as_dict()
         assert response.status_code == 400
         ns_service.create_folder.assert_awaited_once_with(namespace.path, path)
-
-
-@pytest.mark.parametrize(["path", "name", "expected_path", "hidden"], [
-    ("Folder", "Folder", None, False),
-    ("Nested/Path/Folder", "Folder", None, False),
-    (".Hidden Folder", ".Hidden Folder", None, True),
-    (" Whitespaces ", "Whitespaces", "Whitespaces", False),
-])
-async def test_create_folder(
-    client: TestClient,
-    namespace: Namespace,
-    path: str,
-    name: str,
-    expected_path: str | None,
-    hidden: bool,
-):
-    payload = {"path": path}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/create_folder", json=payload)
-    assert response.json()["name"] == name
-    assert response.json()["path"] == (expected_path or path)
-    assert response.json()["hidden"] is hidden
-    assert response.status_code == 200
 
 
 @pytest.mark.usefixtures("celery_session_worker")

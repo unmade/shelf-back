@@ -36,8 +36,8 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
     from pytest import FixtureRequest
 
-    from app.app.repositories import IAccountRepository
     from app.entities import Namespace, User
+    from app.infrastructure.database.edgedb.repositories import AccountRepository
     from app.typedefs import DBAnyConn, DBClient, StrOrUUID
 
 fake = Faker()
@@ -270,18 +270,22 @@ def flush_db_if_needed(request: FixtureRequest):
 
 
 @pytest.fixture
-async def account(app: FastAPI, user: User):
+async def account(app: FastAPI, user: User, db_client_or_tx: DBAnyConn):
     """An Account instance."""
-    account_repo: IAccountRepository = app.state.provider.service.user.db.account
-    return await account_repo.save(
-        Account(
-            id=SENTINEL_ID,
-            username=user.username,
-            email=fake.email(),
-            first_name=fake.first_name(),
-            last_name=fake.last_name(),
+    account_repo: AccountRepository = app.state.provider.service.user.db.account
+    token = account_repo.db_context.set(db_client_or_tx)
+    try:
+        return await account_repo.save(
+            Account(
+                id=SENTINEL_ID,
+                username=user.username,
+                email=fake.email(),
+                first_name=fake.first_name(),
+                last_name=fake.last_name(),
+            )
         )
-    )
+    finally:
+        account_repo.db_context.reset(token)
 
 
 @pytest.fixture

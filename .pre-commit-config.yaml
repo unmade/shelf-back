@@ -3,11 +3,11 @@ default_language_version:
 repos:
 -   repo: https://github.com/charliermarsh/ruff-pre-commit
     # Ruff version.
-    rev: 'v0.0.219'
+    rev: 'v0.0.236'
     hooks:
     -   id: ruff
         # Respect `exclude` and `extend-exclude` settings.
-        args: ["--fix", "--force-exclude"]
+        args: ["--fix"]
 -   repo: local
     hooks:
       - id: mypy
