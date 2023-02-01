@@ -3,10 +3,11 @@ from __future__ import annotations
 import contextlib
 import os
 from pathlib import PurePath
-from typing import IO, TYPE_CHECKING, Protocol
+from typing import IO, TYPE_CHECKING, Any, Iterable, Iterator, Protocol
 
 from app import errors, hashes, mediatypes, metadata
 from app.app.infrastructure import IDatabase
+from app.app.repositories.file import FileUpdate
 from app.domain.entities import (
     SENTINEL_ID,
     ContentMetadata,
@@ -30,6 +31,11 @@ if TYPE_CHECKING:
     from app.typedefs import StrOrPath, StrOrUUID
 
 __all__ = ["NamespaceService"]
+
+
+def _lowered(items: Iterable[Any]) -> Iterator[str]:
+    """Return an iterator of lower-cased strings."""
+    return (str(item).lower() for item in items)
 
 
 class IServiceDatabase(IDatabase, Protocol):
@@ -204,3 +210,74 @@ class NamespaceService:
             bool: True if namespace contains file with a given ID, False otherwise.
         """
         return await self.db.file.exists_with_id(ns_path, file_id)
+
+    async def move_file(
+        self, ns_path: StrOrPath, path: StrOrPath, next_path: StrOrPath
+    ) -> File:
+        """
+        Move a file or a folder to a different location in the target Namespace.
+        If the source path is a folder all its contents will be moved.
+
+        Args:
+            ns_path (StrOrPath): Namespace path where file/folder should be moved
+            path (StrOrPath): Path to be moved.
+            next_path (StrOrPath): Path that is the destination.
+
+        Raises:
+            errors.FileNotFound: If source path does not exists.
+            errors.FileAlreadyExists: If some file already in the destination path.
+            errors.MissingParent: If 'next_path' parent does not exists.
+            errors.NotADirectory: If one of the 'next_path' parents is not a folder.
+
+        Returns:
+            File: Moved file/folder.
+        """
+        path = PurePath(path)
+        next_path = PurePath(next_path)
+
+        assert str(path).lower() not in (".", "trash"), (
+            "Can't move Home or Trash folder."
+        )
+        assert not str(next_path).lower().startswith(f"{str(path).lower()}/"), (
+            "Can't move to itself."
+        )
+
+        paths = [path, next_path, next_path.parent]
+        files = {
+            file.path.lower(): file
+            for file in await self.db.file.get_by_path_batch(ns_path, paths)
+        }
+
+        file = files.get(str(path).lower())
+        if file is None:
+            raise errors.FileNotFound() from None
+
+        if str(next_path.parent).lower() not in files:
+            raise errors.MissingParent() from None
+
+        next_parent = files[str(next_path.parent).lower()]
+        if not next_parent.is_folder():
+            raise errors.NotADirectory() from None
+
+        if str(path).lower() != str(next_path).lower():
+            if str(next_path).lower() in files:
+                raise errors.FileAlreadyExists() from None
+
+        to_decrease = set(_lowered(path.parents)) - set(_lowered(next_path.parents))
+        to_increase = set(_lowered(next_path.parents)) - set(_lowered(path.parents))
+
+        file_update = FileUpdate(
+            id=file.id,
+            name=str(next_path.name),
+            path=str(PurePath(next_parent.path) / next_path.name),
+        )
+
+        move_storage = self.storage.movedir if file.is_folder() else self.storage.move
+        await move_storage(ns_path, path, file_update["path"])
+        async for _ in self.db.atomic():
+            updated_file = await self.db.file.update(file_update)
+            if file.is_folder():
+                await self.db.file.replace_path_prefix(ns_path, path, next_path)
+            await self.db.file.incr_size_batch(ns_path, to_decrease, value=-file.size)
+            await self.db.file.incr_size_batch(ns_path, to_increase, value=file.size)
+        return updated_file

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from unittest import mock
 
 import pytest
+from faker import Faker
 
 from app import security
 from app.app.services import NamespaceService, UserService
@@ -14,11 +15,20 @@ from app.infrastructure.storage import FileSystemStorage
 
 if TYPE_CHECKING:
     from pathlib import Path
+    from typing import Protocol
 
     from pytest import FixtureRequest
 
-    from app.domain.entities import Namespace, User
+    from app.domain.entities import File, Namespace, User
     from app.infrastructure.database.edgedb.typedefs import EdgeDBTransaction
+
+    class FileFactory(Protocol):
+        async def __call__(self, ns_path: str, path: str | None = None) -> File: ...
+
+    class FolderFactory(Protocol):
+        async def __call__(self, ns_path: str, path: str | None = None) -> File: ...
+
+fake = Faker()
 
 
 @pytest.fixture(scope="module")
@@ -100,8 +110,28 @@ async def file(namespace: Namespace, namespace_service: NamespaceService):
     return await namespace_service.add_file(namespace.path, "f.txt", content)
 
 
-
 @pytest.fixture
 async def namespace(user: User, namespace_service: NamespaceService):
     """A namespace owned by `user` fixture."""
     return await namespace_service.create(user.username, owner_id=user.id)
+
+
+@pytest.fixture
+def file_factory(namespace_service: NamespaceService) -> FileFactory:
+    """A factory to create a File instance saved to the DB and storage."""
+    async def factory(ns_path: str, path: str | None = None):
+        content = BytesIO(b"Dummy file")
+        if path is None:
+            path = fake.unique.file_name(category="text", extension="txt")
+        return await namespace_service.add_file(ns_path, path, content)
+    return factory
+
+
+@pytest.fixture
+def folder_factory(namespace_service: NamespaceService) -> FolderFactory:
+    """A factory to create a File instance saved to the DB and storage."""
+    async def factory(ns_path: str, path: str | None = None):
+        if path is None:
+            path = fake.unique.file_name(category="text", extension="txt")
+        return await namespace_service.create_folder(ns_path, path)
+    return factory

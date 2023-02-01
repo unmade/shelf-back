@@ -4,7 +4,7 @@ from typing import Optional, Union
 
 import pytest
 
-from app import db
+from app.infrastructure.database.edgedb import autocast
 
 
 @pytest.mark.parametrize(["pytype", "dbtype"], [
@@ -15,12 +15,12 @@ from app import db
     (str | None, '<OPTIONAL str>'),
 ])
 def test_autocast(pytype, dbtype) -> None:
-    assert db.autocast(pytype) == dbtype
+    assert autocast.autocast(pytype) == dbtype
 
 
 def test_autocast_but_type_is_unsupported() -> None:
     with pytest.raises(TypeError) as excinfo:
-        db.autocast(list[int])
+        autocast.autocast(list[int])
 
     message = "Can't cast python type `list[int]` to EdgeDB type."
     assert str(excinfo.value) == message
@@ -32,7 +32,7 @@ def test_autocast_but_type_is_unsupported() -> None:
 ])
 def test_autocast_but_type_is_union(pytype, pytype_as_str) -> None:
     with pytest.raises(TypeError) as excinfo:
-        db.autocast(pytype)
+        autocast.autocast(pytype)
 
     message = f"Can't cast python type `{pytype_as_str}` to EdgeDB type."
     assert str(excinfo.value) == message
@@ -40,7 +40,7 @@ def test_autocast_but_type_is_union(pytype, pytype_as_str) -> None:
 
 def test_autocast_but_type_is_invalid() -> None:
     with pytest.raises(TypeError) as excinfo:
-        db.autocast("invalid type")
+        autocast.autocast("invalid type")
 
     message = "Can't cast python type `invalid type` to EdgeDB type."
     assert str(excinfo.value) == message

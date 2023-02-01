@@ -24,7 +24,6 @@ if TYPE_CHECKING:
     class FileFactory(Protocol):
         async def __call__(self, ns_path: str) -> File: ...
 
-
 fake = Faker()
 
 

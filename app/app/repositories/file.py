@@ -1,21 +1,41 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable, Protocol
+from typing import TYPE_CHECKING, Iterable, Protocol, Required, TypedDict
+from uuid import UUID
 
 from app.domain.entities import File
 
 if TYPE_CHECKING:
     from app.typedefs import StrOrPath, StrOrUUID
 
+__all__ = ["IFileRepository", "FileUpdate"]
+
+
+class FileUpdate(TypedDict, total=False):
+    id: Required[UUID]
+    name: str
+    path: str
+
 
 class IFileRepository(Protocol):
+    async def exists_at_path(self, ns_path: StrOrPath, path: StrOrPath) -> bool:
+        """
+        Checks whether a file or a folder exists at path in a target namespace.
+
+        Args:
+            ns_path (StrOrPath): Target namespace path.
+            path (StrOrPath): Path to a file or a folder.
+
+        Returns:
+            bool: True if file/folder exists, False otherwise.
+        """
     async def exists_with_id(self, ns_path: StrOrPath, file_id: StrOrUUID) -> bool:
         """
         Checks whether a file or a folder with a given ID exists in a target namespace.
 
         Args:
             ns_path (StrOrPath): Target namespace path.
-            file_id (StrOrUUID): Path to a file or a folder.
+            file_id (StrOrUUID): File ID.
 
         Returns:
             bool: True if file/folder exists, False otherwise.
@@ -64,8 +84,8 @@ class IFileRepository(Protocol):
 
     async def next_path(self, ns_path: StrOrPath, path: StrOrPath) -> str:
         """
-        Return a path with modified name if current one already taken, otherwise return
-        path unchanged.
+        Returns a path with modified name if the current one is already taken, otherwise
+        returns path unchanged.
 
         For example, if path 'a/f.tar.gz' exists, then the next path will be as follows
         'a/f (1).tar.gz'.
@@ -78,16 +98,42 @@ class IFileRepository(Protocol):
             str: an available file path
         """
 
+    async def replace_path_prefix(
+        self, ns_path: StrOrPath, prefix: StrOrPath, next_prefix: StrOrPath
+    ) -> None:
+        """
+        Replaces `prefix` with a `next_prefix` for all paths starting with a `prefix`.
+
+        Args:
+            ns_path (StrOrPath): Namespace path.
+            prefix (StrOrPath): Prefix to be replaced.
+            next_prefix (StrOrPath): Prefix to be replaces to.
+        """
+
     async def save(self, file: File) -> File:
         """
         Saves a new file.
 
         Args:
-            file (File): a File to be saved
+            file (File): a File to be saved.
 
         Raises:
             FileAlreadyExists: If a file in a target path already exists.
 
         Returns:
             File: Created file.
+        """
+
+    async def update(self, file_update: FileUpdate) -> File:
+        """
+        Updates a file with provided set of fields.
+
+        Args:
+            file (FileUpdate): a file fields to be updated with new values.
+
+        Raises:
+            FileNotFound: if a file with given ID does not exists.
+
+        Returns:
+            File: Updated file.
         """
