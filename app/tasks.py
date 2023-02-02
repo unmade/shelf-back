@@ -9,16 +9,37 @@ from celery import Celery
 
 from app import actions, config, db, errors
 from app.entities import FileTaskResult
+from app.infrastructure.database.edgedb.db import EdgeDBDatabase
+from app.infrastructure.provider import Provider
+from app.infrastructure.storage import FileSystemStorage, S3Storage
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from app.app.infrastructure import IStorage
     from app.entities import Namespace, RelocationPath
     from app.typedefs import StrOrPath
 
 logger = logging.getLogger(__name__)
 
 celery_app = Celery(__name__)
+
+
+def _create_database() -> EdgeDBDatabase:
+    return EdgeDBDatabase(
+        dsn=config.DATABASE_DSN,
+        max_concurrency=1,
+        tls_ca_file=config.DATABASE_TLS_CA_FILE,
+        tls_security=config.DATABASE_TLS_SECURITY,
+    )
+
+
+def _create_storage() -> IStorage:
+    if config.STORAGE_TYPE == config.StorageType.s3:
+        return S3Storage(
+            location=config.STORAGE_LOCATION,
+        )
+    return FileSystemStorage(location=config.STORAGE_LOCATION)
 
 
 class CeleryConfig:
@@ -94,7 +115,7 @@ async def empty_trash(namespace: Namespace) -> None:
 
 @asynctask
 async def move_batch(
-    namespace: Namespace,
+    ns_path: StrOrPath,
     relocations: Iterable[RelocationPath],
 ) -> list[FileTaskResult]:
     """
@@ -109,14 +130,19 @@ async def move_batch(
         list[FileTaskResult]: List, where each item contains either a moved file
             or an error code.
     """
+    storage = _create_storage()
+
     results = []
-    async with db.create_client() as conn:
+    async with _create_database() as database:
+        provider = Provider(database=database, storage=storage)
+        services = provider.service
+
         for relocation in relocations:
             path, next_path = relocation.from_path, relocation.to_path
             file, err_code = None, None
 
             try:
-                file = await actions.move(conn, namespace, path, next_path)
+                file = await services.namespace.move_file(ns_path, path, next_path)
             except errors.Error as exc:
                 err_code = exc.code
             except Exception:

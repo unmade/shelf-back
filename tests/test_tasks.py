@@ -10,6 +10,8 @@ from app import crud, errors, tasks
 from app.entities import RelocationPath
 
 if TYPE_CHECKING:
+    from unittest.mock import MagicMock
+
     from pytest import LogCaptureFixture
 
     from app.entities import FileTaskResult, Namespace
@@ -100,52 +102,74 @@ async def test_empty_trash(
         assert not await crud.file.exists(db_client, namespace.path, path)
 
 
-async def test_move_batch(namespace: Namespace, file_factory: FileFactory):
-    await file_factory(namespace.path, path="folder/a")
-    files = [await file_factory(namespace.path) for _ in range(2)]
-    relocations = [
-        RelocationPath(from_path=files[0].path, to_path=f"folder/{files[0].path}"),
-        RelocationPath(from_path=files[1].path, to_path=f"not_exists/{files[1].path}"),
-    ]
+class TestMoveBatch:
+    @pytest.fixture(autouse=True)
+    def setUp(self):
+        with (
+            mock.patch("app.tasks._create_database"),
+            mock.patch("app.tasks._create_storage"),
+        ):
+            yield
 
-    task = tasks.move_batch.delay(namespace, relocations)
-    results: list[FileTaskResult] = task.get(timeout=2)
-    assert len(results) == 2
+    @pytest.fixture
+    def move_file(self):
+        target = "app.app.services.NamespaceService.move_file"
+        with mock.patch(target) as move_file_mock:
+            yield move_file_mock
 
-    assert results[0].file is not None
-    assert results[0].file.path == relocations[0].to_path
+    @staticmethod
+    def make_file(ns_path: str, path: str):
+        import os.path
+        import uuid
 
-    assert results[1].file is None
-    assert results[1].err_code == errors.ErrorCode.missing_parent
+        from app.domain.entities import File
+        return File(
+            id=uuid.uuid4(),
+            ns_path=ns_path,
+            name=os.path.basename(path),
+            path=path,
+            size=10,
+            mediatype="plain/text",
+        )
 
+    def test(
+        self, caplog: LogCaptureFixture, namespace: Namespace, move_file: MagicMock
+    ):
+        move_file.side_effect = [
+            self.make_file(str(namespace.path), "folder/a.txt"),
+            errors.MissingParent,
+            Exception,
+            self.make_file(str(namespace.path), "f.txt"),
+        ]
 
-async def test_move_batch_but_move_fails_with_exception(
-    caplog: LogCaptureFixture,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    files = [await file_factory(namespace.path) for _ in range(2)]
-    relocations = [
-        RelocationPath(from_path=files[0].path, to_path=f".{files[0].path}"),
-        RelocationPath(from_path=files[1].path, to_path=f".{files[1].path}"),
-    ]
+        relocations = [
+            RelocationPath(from_path="a.txt", to_path="folder/a.txt"),
+            RelocationPath(from_path="b.txt", to_path="not_exists/b.txt"),
+            RelocationPath(from_path="c.txt", to_path="e.txt"),
+            RelocationPath(from_path="d.txt", to_path="f.txt"),
+        ]
 
-    task = tasks.move_batch.delay(namespace, relocations)
-    with mock.patch("app.actions.move", side_effect=Exception) as move_mock:
+        task = tasks.move_batch.delay(namespace.path, relocations)
+
         results: list[FileTaskResult] = task.get(timeout=2)
+        assert len(results) == 4
 
-    assert move_mock.call_count == 2
+        assert results[0].file is not None
+        assert results[0].file.path == relocations[0].to_path
 
-    assert len(results) == 2
+        assert results[1].file is None
+        assert results[1].err_code == errors.ErrorCode.missing_parent
 
-    assert results[0].file is None
-    assert results[0].err_code == errors.ErrorCode.internal
+        assert results[2].file is None
+        assert results[2].err_code == errors.ErrorCode.internal
 
-    assert results[1].file is None
-    assert results[1].err_code == errors.ErrorCode.internal
+        assert results[3].file is not None
+        assert results[3].file.path == relocations[3].to_path
 
-    log_record = ("app.tasks", logging.ERROR, "Unexpectedly failed to move file")
-    assert caplog.record_tuples == [log_record, log_record]
+        assert move_file.await_count == 4
+
+        log_record = ("app.tasks", logging.ERROR, "Unexpectedly failed to move file")
+        assert caplog.record_tuples == [log_record]
 
 
 async def test_move_to_trash_batch(namespace: Namespace, file_factory: FileFactory):

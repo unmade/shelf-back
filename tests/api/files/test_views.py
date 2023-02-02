@@ -715,7 +715,7 @@ async def test_move_batch_check_task_is_pending(
         RelocationPath(from_path=file.path, to_path="folder/b.txt"),
         RelocationPath(from_path="c.txt", to_path="d.txt"),
     ]
-    task = tasks.move_batch.delay(namespace, relocations)
+    task = tasks.move_batch.delay(namespace.path, relocations)
     payload = {"async_task_id": task.id}
 
     client.login(namespace.owner.id)
@@ -740,7 +740,7 @@ async def test_move_batch_check_task_is_completed(
         RelocationPath(from_path=file.path, to_path="folder/b.txt"),
         RelocationPath(from_path="c.txt", to_path="d.txt"),
     ]
-    task = tasks.move_batch.delay(namespace, relocations)
+    task = tasks.move_batch.delay(namespace.path, relocations)
     task.get(timeout=1)
 
     payload = {"async_task_id": task.id}

@@ -108,6 +108,8 @@ def replace_storage_location_with_tmp_path(tmp_path: Path):
     from app.infrastructure.storage import storage
 
     storage.location = str(tmp_path)
+    with mock.patch("app.config.STORAGE_LOCATION", tmp_path):
+        yield
 
 
 @pytest.fixture(autouse=True, scope="session")

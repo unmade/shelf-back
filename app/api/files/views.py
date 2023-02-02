@@ -394,7 +394,7 @@ def move_batch(
     namespace: Namespace = Depends(deps.namespace),
 ) -> AsyncTaskID:
     """Move multiple files or folders to different locations at once."""
-    task = tasks.move_batch.delay(namespace, payload.items)
+    task = tasks.move_batch.delay(namespace.path, payload.items)
     return AsyncTaskID(async_task_id=task.id)
 
 

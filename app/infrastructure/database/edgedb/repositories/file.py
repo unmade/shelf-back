@@ -57,7 +57,7 @@ class FileRepository(IFileRepository):
                 SELECT
                     File
                 FILTER
-                    .path = <uuid>$path
+                    .path = <str>$path
                     AND
                     .namespace.path = <str>$ns_path
             )
