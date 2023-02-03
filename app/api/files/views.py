@@ -445,7 +445,7 @@ def move_to_trash_batch(
     To check task result use the same endpoint to check regular move result.
     """
     paths = [item.path for item in payload.items]
-    task = tasks.move_to_trash_batch.delay(namespace, paths)
+    task = tasks.move_to_trash_batch.delay(namespace.path, paths)
     return AsyncTaskID(async_task_id=task.id)
 
 

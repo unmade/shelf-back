@@ -122,7 +122,7 @@ async def move_batch(
     Move several files/folders to a different locations
 
     Args:
-        namespace (Namespace): Namespace, where files should be moved.
+        ns_path (StrOrPath): Namespace, where files should be moved.
         relocations (Iterable[RelocationPath]): Iterable, where each item contains
             current file path and path to move file to.
 
@@ -149,38 +149,53 @@ async def move_batch(
                 err_code = errors.ErrorCode.internal
                 logger.exception("Unexpectedly failed to move file")
 
-            results.append(FileTaskResult(file=file, err_code=err_code))
+            results.append(
+                FileTaskResult(
+                    file=file,  # type: ignore
+                    err_code=err_code,
+                )
+            )
     return results
 
 
 @asynctask
 async def move_to_trash_batch(
-    namespace: Namespace,
+    ns_path: StrOrPath,
     paths: Iterable[StrOrPath],
 ) -> list[FileTaskResult]:
     """
     Move several files to trash asynchronously.
 
     Args:
-        namespace (Namespace): Namespace, where files should be moved to trash
+        ns_path (StrOrPath): Namespace, where files should be moved to trash
         paths (Iterable[StrOrPath]): Iterable of pathnames to move to trash.
 
     Returns:
         list[FileTaskResult]: List, where each item contains either a moved file
             or an error code.
     """
+    storage = _create_storage()
+
     results = []
-    async with db.create_client() as conn:
+    async with _create_database() as database:
+        provider = Provider(database=database, storage=storage)
+        services = provider.service
+
         for path in paths:
             file, err_code = None, None
 
             try:
-                file = await actions.move_to_trash(conn, namespace, path)
+                file = await services.namespace.move_file_to_trash(ns_path, path)
             except errors.Error as exc:
                 err_code = exc.code
             except Exception:
                 err_code = errors.ErrorCode.internal
                 logger.exception("Unexpectedly failed to move file to trash")
 
-            results.append(FileTaskResult(file=file, err_code=err_code))
+            results.append(
+                FileTaskResult(
+                    file=file,  # type: ignore
+                    err_code=err_code,
+                )
+            )
     return results

@@ -326,3 +326,71 @@ class TestMoveFile:
         with pytest.raises(AssertionError) as excinfo:
             await namespace_service.move_file(namespace.path, a, b)
         assert str(excinfo.value) == "Can't move to itself."
+
+
+class TestMoveFileToTrash:
+    async def test_moving_a_file(
+        self,
+        namespace: Namespace,
+        file_factory: FileFactory,
+        namespace_service: NamespaceService,
+    ):
+        ns_path = namespace.path
+        file = await file_factory(namespace.path, "f.txt")
+        moved_file = await namespace_service.move_file_to_trash(ns_path, file.path)
+        assert moved_file.name == "f.txt"
+        assert moved_file.path == "Trash/f.txt"
+        assert await namespace_service.storage.exists(ns_path, "Trash/f.txt")
+        assert await namespace_service.db.file.exists_at_path(ns_path, "Trash/f.txt")
+
+    async def test_autorenaming(
+        self,
+        namespace: Namespace,
+        file_factory: FileFactory,
+        namespace_service: NamespaceService,
+    ):
+        ns_path = namespace.path
+        await file_factory(namespace.path, path="Trash/b")
+        await file_factory(namespace.path, path="a/b/f1")
+
+        file = await namespace_service.move_file_to_trash(ns_path, "a/b")
+        assert file.path.startswith("Trash/b ")
+
+        assert await namespace_service.storage.exists(ns_path, "Trash/b")
+        assert await namespace_service.db.file.exists_at_path(ns_path, "Trash/b")
+        assert not await namespace_service.storage.exists(ns_path, "Trash/b/f1")
+        assert not await namespace_service.db.file.exists_at_path(ns_path, "Trash/b/f1")
+
+        path = file.path
+        assert await namespace_service.storage.exists(ns_path, path)
+        assert await namespace_service.storage.exists(ns_path, f"{path}/f1")
+        assert await namespace_service.db.file.exists_at_path(ns_path, path)
+        assert await namespace_service.db.file.exists_at_path(ns_path, f"{path}/f1")
+
+    async def test_updating_parents_size(
+        self,
+        namespace: Namespace,
+        file_factory: FileFactory,
+        namespace_service: NamespaceService,
+    ):
+        ns_path = namespace.path
+        await file_factory(ns_path, "a/b/f.txt")
+        await file_factory(ns_path, "a/b/c/x.txt")
+        await file_factory(ns_path, "a/b/c/y.txt")
+        await file_factory(ns_path, "a/g/z.txt")
+
+        await namespace_service.move_file_to_trash(ns_path, "a/b/c")
+
+        paths = [".", "a", "a/b", "trash"]
+        db = namespace_service.db
+        home, a, b, trash = await db.file.get_by_path_batch(ns_path, paths)
+        assert home.size == 40
+        assert a.size == 20
+        assert b.size == 10
+        assert trash.size == 20
+
+    async def test_when_path_does_not_exist(
+        self, namespace: Namespace, namespace_service: NamespaceService
+    ):
+        with pytest.raises(errors.FileNotFound):
+            await namespace_service.move_file_to_trash(namespace.path, "f.txt")

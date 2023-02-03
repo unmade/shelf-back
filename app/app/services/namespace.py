@@ -5,7 +5,7 @@ import os
 from pathlib import PurePath
 from typing import IO, TYPE_CHECKING, Any, Iterable, Iterator, Protocol
 
-from app import errors, hashes, mediatypes, metadata
+from app import errors, hashes, mediatypes, metadata, timezone
 from app.app.infrastructure import IDatabase
 from app.app.repositories.file import FileUpdate
 from app.domain.entities import (
@@ -263,17 +263,55 @@ class NamespaceService:
             if str(next_path).lower() in files:
                 raise errors.FileAlreadyExists() from None
 
+        # preserve parent casing
+        next_path = PurePath(next_parent.path) / next_path.name
+        return await self._move_file(file, next_path)
+
+    async def move_file_to_trash(self, ns_path: StrOrPath, path: StrOrPath) -> File:
+        """
+        Move a file or folder to the Trash folder in the target Namespace.
+        If the path is a folder all its contents will be moved.
+        If file with the same name already in the Trash, then path will be renamed.
+
+        Args:
+            db_client (DBClient): Database client.
+            namespace (Namespace): Namespace where path located.
+            path (StrOrPath): Path to a file or folder to be moved to the Trash folder.
+
+        Raises:
+            errors.FileNotFound: If source path does not exists.
+
+        Returns:
+            File: Moved file.
+        """
+        next_path = PurePath("Trash") / os.path.basename(path)
+
+        file = await self.db.file.get_by_path(ns_path, path)
+
+        if await self.db.file.exists_at_path(ns_path, next_path):
+            name = next_path.name.strip(next_path.suffix)
+            timestamp = f"{timezone.now():%H%M%S%f}"
+            next_path = next_path.parent / f"{name} {timestamp}{next_path.suffix}"
+
+        return await self._move_file(file, next_path)
+
+    async def _move_file(self, file: File, next_path: StrOrPath) -> File:
+        """Actually moves a file or a folder in the storage and in the database."""
+        ns_path = file.ns_path
+        path = PurePath(file.path)
+        next_path = PurePath(next_path)
+
         to_decrease = set(_lowered(path.parents)) - set(_lowered(next_path.parents))
         to_increase = set(_lowered(next_path.parents)) - set(_lowered(path.parents))
 
         file_update = FileUpdate(
             id=file.id,
-            name=str(next_path.name),
-            path=str(PurePath(next_parent.path) / next_path.name),
+            name=next_path.name,
+            path=str(next_path),
         )
 
         move_storage = self.storage.movedir if file.is_folder() else self.storage.move
-        await move_storage(ns_path, path, file_update["path"])
+        await move_storage(ns_path, file.path, file_update["path"])
         async for _ in self.db.atomic():
             updated_file = await self.db.file.update(file_update)
             if file.is_folder():

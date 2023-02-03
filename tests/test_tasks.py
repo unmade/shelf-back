@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import os.path
+import uuid
 from typing import TYPE_CHECKING
 from unittest import mock
 
@@ -18,12 +20,23 @@ if TYPE_CHECKING:
     from app.typedefs import DBClient
     from tests.factories import FileFactory
 
-
 pytestmark = [
     pytest.mark.asyncio,
     pytest.mark.database(transaction=True),
     pytest.mark.usefixtures("celery_session_worker"),
 ]
+
+
+def _make_file(ns_path: str, path: str):
+    from app.domain.entities import File
+    return File(
+        id=uuid.uuid4(),
+        ns_path=ns_path,
+        name=os.path.basename(path),
+        path=path,
+        size=10,
+        mediatype="plain/text",
+    )
 
 
 @pytest.mark.database(transaction=False)
@@ -117,29 +130,14 @@ class TestMoveBatch:
         with mock.patch(target) as move_file_mock:
             yield move_file_mock
 
-    @staticmethod
-    def make_file(ns_path: str, path: str):
-        import os.path
-        import uuid
-
-        from app.domain.entities import File
-        return File(
-            id=uuid.uuid4(),
-            ns_path=ns_path,
-            name=os.path.basename(path),
-            path=path,
-            size=10,
-            mediatype="plain/text",
-        )
-
     def test(
         self, caplog: LogCaptureFixture, namespace: Namespace, move_file: MagicMock
     ):
         move_file.side_effect = [
-            self.make_file(str(namespace.path), "folder/a.txt"),
+            _make_file(str(namespace.path), "folder/a.txt"),
             errors.MissingParent,
             Exception,
-            self.make_file(str(namespace.path), "f.txt"),
+            _make_file(str(namespace.path), "f.txt"),
         ]
 
         relocations = [
@@ -168,46 +166,57 @@ class TestMoveBatch:
 
         assert move_file.await_count == 4
 
-        log_record = ("app.tasks", logging.ERROR, "Unexpectedly failed to move file")
+        msg = "Unexpectedly failed to move file"
+        log_record = ("app.tasks", logging.ERROR, msg)
         assert caplog.record_tuples == [log_record]
 
 
-async def test_move_to_trash_batch(namespace: Namespace, file_factory: FileFactory):
-    files = [await file_factory(namespace.path) for _ in range(2)]
-    paths = [files[0].path, "file_not_exist.txt"]
+class TestMovetoTrashFile:
+    @pytest.fixture(autouse=True)
+    def setUp(self):
+        with (
+            mock.patch("app.tasks._create_database"),
+            mock.patch("app.tasks._create_storage"),
+        ):
+            yield
 
-    task = tasks.move_to_trash_batch.delay(namespace, paths)
-    results: list[FileTaskResult] = task.get(timeout=2)
+    @pytest.fixture
+    def move_to_trash(self):
+        target = "app.app.services.NamespaceService.move_file_to_trash"
+        with mock.patch(target) as move_file_mock:
+            yield move_file_mock
 
-    assert len(results) == 2
+    def test(
+        self, caplog: LogCaptureFixture, namespace: Namespace, move_to_trash: MagicMock
+    ):
+        side_effect = [
+            _make_file(str(namespace.path), "Trash/a.txt"),
+            errors.FileNotFound,
+            Exception,
+            _make_file(str(namespace.path), "Tras/f.txt"),
+        ]
+        move_to_trash.side_effect = side_effect
 
-    assert results[0].file is not None
-    assert results[0].file.path == f"Trash/{paths[0]}"
+        paths = ["a.txt", "b.txt", "c.txt", "d.txt"]
+        task = tasks.move_to_trash_batch.delay(namespace.path, paths)
 
-    assert results[1].file is None
-    assert results[1].err_code == errors.ErrorCode.file_not_found
-
-
-async def test_move_to_trash_batch_but_move_fails_with_exception(
-    caplog: LogCaptureFixture,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    files = [await file_factory(namespace.path) for _ in range(2)]
-    paths = [files[0].path, "file_not_exist.txt"]
-
-    task = tasks.move_to_trash_batch.delay(namespace, paths)
-    with mock.patch("app.actions.move_to_trash", side_effect=Exception) as move_mock:
         results: list[FileTaskResult] = task.get(timeout=2)
+        assert len(results) == 4
 
-    assert move_mock.call_count == 2
+        assert results[0].file is not None
+        assert results[0].file.path == side_effect[0].path
 
-    assert len(results) == 2
+        assert results[1].file is None
+        assert results[1].err_code == errors.ErrorCode.file_not_found
 
-    assert results[0].file is None
-    assert results[0].err_code == errors.ErrorCode.internal
-    assert results[1].file is None
-    assert results[1].err_code == errors.ErrorCode.internal
+        assert results[2].file is None
+        assert results[2].err_code == errors.ErrorCode.internal
 
-    log_record = "app.tasks", logging.ERROR, "Unexpectedly failed to move file to trash"
-    assert caplog.record_tuples == [log_record, log_record]
+        assert results[3].file is not None
+        assert results[3].file.path == side_effect[3].path
+
+        assert move_to_trash.await_count == 4
+
+        msg = "Unexpectedly failed to move file to trash"
+        log_record = ("app.tasks", logging.ERROR, msg)
+        assert caplog.record_tuples == [log_record]
