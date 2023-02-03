@@ -3,14 +3,11 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import itertools
-import os.path
 from collections import defaultdict, deque
-from datetime import datetime
 from io import BytesIO
-from pathlib import PurePath
 from typing import TYPE_CHECKING
 
-from app import config, crud, errors, hashes, mediatypes, metadata, taskgroups
+from app import config, crud, hashes, mediatypes, metadata, taskgroups
 from app.entities import File, Fingerprint, Namespace, SharedLink
 from app.infrastructure.storage import storage
 
@@ -176,90 +173,6 @@ async def get_thumbnail(
     file = await crud.file.get_by_id(db_client, file_id=file_id)
     thumbnail = await storage.thumbnail(ns_path, file.path, size=size)
     return file, thumbnail
-
-
-async def move(
-    db_client: DBClient,
-    namespace: Namespace,
-    path: StrOrPath,
-    next_path: StrOrPath,
-) -> File:
-    """
-    Move a file or folder to a different location in the target Namespace.
-    If the source path is a folder all its contents will be moved.
-
-    Args:
-        db_client (DBClient): Database client.
-        namespace (Namespace): Namespace, where file/folder should be moved.
-        path (StrOrPath): Path to be moved.
-        next_path (StrOrPath): Path that is the destination.
-
-    Raises:
-        errors.FileNotFound: If source path does not exists.
-        errors.FileAlreadyExists: If some file already in the destination path.
-        errors.MissingParent: If 'next_path' parent does not exists.
-        errors.NotADirectory: If one of the 'next_path' parents is not a folder.
-
-    Returns:
-        File: Moved file/folder.
-    """
-    path = str(path)
-    next_path = str(next_path)
-
-    assert path.lower() not in (".", config.TRASH_FOLDER_NAME.lower()), (
-        "Can't move Home or Trash folder."
-    )
-    assert not next_path.lower().startswith(f"{path.lower()}/"), (
-        "Can't move to itself."
-    )
-
-    file = await crud.file.get(db_client, namespace.path, path)
-
-    move_in_storage = storage.movedir if file.is_folder() else storage.move
-
-    next_parent = os.path.normpath(os.path.dirname(next_path))
-    if not await crud.file.exists(db_client, namespace.path, next_parent):
-        raise errors.MissingParent() from None
-
-    if path.lower() != next_path.lower():
-        if await crud.file.exists(db_client, namespace.path, next_path):
-            raise errors.FileAlreadyExists() from None
-
-    await move_in_storage(namespace.path, path, next_path)
-
-    async for tx in db_client.transaction():  # pragma: no branch
-        async with tx:
-            file = await crud.file.move(tx, namespace.path, path, next_path)
-    return file
-
-
-async def move_to_trash(
-    db_client: DBClient, namespace: Namespace, path: StrOrPath,
-) -> File:
-    """
-    Move a file or folder to the Trash folder in the target Namespace.
-    If the path is a folder all its contents will be moved.
-    If file with the same name already in the Trash, then path will be renamed.
-
-    Args:
-        db_client (DBClient): Database client.
-        namespace (Namespace): Namespace where path located.
-        path (StrOrPath): Path to a file or folder to be moved to the Trash folder.
-
-    Raises:
-        errors.FileNotFound: If source path does not exists.
-
-    Returns:
-        File: Moved file.
-    """
-    next_path = PurePath(config.TRASH_FOLDER_NAME) / os.path.basename(path)
-
-    if await crud.file.exists(db_client, namespace.path, next_path):
-        name = next_path.name.strip(next_path.suffix)
-        timestamp = f"{datetime.now():%H%M%S%f}"
-        next_path = next_path.parent / f"{name} {timestamp}{next_path.suffix}"
-
-    return await move(db_client, namespace, path, next_path)
 
 
 async def reindex(db_client: DBClient, namespace: Namespace) -> None:

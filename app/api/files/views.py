@@ -34,9 +34,7 @@ from .schemas import (
     ListFolderResponse,
     MoveBatchCheckResponse,
     MoveBatchRequest,
-    MoveRequest,
     MoveToTrashBatchRequest,
-    MoveToTrashRequest,
     PathParam,
     PathRequest,
     ThumbnailSize,
@@ -355,39 +353,6 @@ async def list_folder(
     })
 
 
-@router.post("/move")
-async def move(
-    request: Request,
-    payload: MoveRequest,
-    db_client: AsyncIOClient = Depends(deps.db_client),
-    namespace: Namespace = Depends(deps.namespace),
-) -> FileSchema:
-    """
-    Move a file or folder to a different location in the target Namespace.
-    If the source path is a folder all its contents will be moved.
-
-    The last part of a new path would become new file/folder name.
-    For example, to rename file with path 'file.txt', the new path should be
-    'renamed_file.txt'.
-
-    Note, this method doesn't allow to move file/folder to/from Trash folder.
-    """
-    from_path, to_path = payload.from_path, payload.to_path
-    try:
-        file = await actions.move(db_client, namespace, from_path, to_path)
-    except errors.FileAlreadyExists as exc:
-        raise exceptions.FileAlreadyExists(path=to_path) from exc
-    except errors.FileNotFound as exc:
-        raise exceptions.PathNotFound(path=from_path) from exc
-    except errors.NotADirectory as exc:
-        raise exceptions.NotADirectory(path=to_path) from exc
-    except errors.MissingParent as exc:
-        message = "Some parents don't exist in the destination path"
-        raise exceptions.MalformedPath(message) from exc
-
-    return FileSchema.from_entity(file, request=request)
-
-
 @router.post("/move_batch")
 def move_batch(
     payload: MoveBatchRequest,
@@ -416,22 +381,6 @@ def move_batch_check(
             ],
         )
     return response_model(status=AsyncTaskStatus.pending)
-
-
-@router.post("/move_to_trash")
-async def move_to_trash(
-    request: Request,
-    payload: MoveToTrashRequest,
-    db_client: AsyncIOClient = Depends(deps.db_client),
-    namespace: Namespace = Depends(deps.namespace),
-) -> FileSchema:
-    """Move file to the Trash folder."""
-    try:
-        file = await actions.move_to_trash(db_client, namespace, payload.path)
-    except errors.FileNotFound as exc:
-        raise exceptions.PathNotFound(path=payload.path) from exc
-
-    return FileSchema.from_entity(file, request=request)
 
 
 @router.post("/move_to_trash_batch")

@@ -15,7 +15,6 @@ from app import config, errors, tasks
 from app.api import shortcuts
 from app.api.files.exceptions import (
     DownloadNotFound,
-    FileAlreadyDeleted,
     FileAlreadyExists,
     MalformedPath,
     NotADirectory,
@@ -555,153 +554,30 @@ async def test_list_folder_but_path_is_not_a_folder(
     assert response.json() == NotADirectory(path="f.txt").as_dict()
 
 
-@pytest.mark.parametrize(["path", "next_path"], [
-    ("file.txt", ".file.txt"),
-    ("f", "f.txt"),
-])
-async def test_move(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-    path: str,
-    next_path: str,
-):
-    await file_factory(namespace.path, path=path)
-    payload = {"from_path": path, "to_path": next_path}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/move", json=payload)
-    assert response.status_code == 200
-    assert response.json()["name"] == next_path
-    assert response.json()["path"] == next_path
+class TestMoveBatch:
+    @pytest.fixture
+    def move_batch(self):
+        with mock.patch("app.tasks.move_batch") as patch:
+            yield patch
 
+    async def test(
+        self, client: TestClient, namespace: Namespace, move_batch: MagicMock,
+    ):
+        expected_task_id = uuid.uuid4()
+        move_batch.delay.return_value = mock.Mock(id=expected_task_id)
+        payload = {
+            "items": [
+                {"from_path": f"{i}.txt", "to_path": f"folder/{i}.txt"}
+                for i in range(3)
+            ]
+        }
+        client.login(namespace.owner.id)
+        response = await client.post("/files/move_batch", json=payload)
+        assert "async_task_id" in response.json()
+        assert response.status_code == 200
 
-@pytest.mark.parametrize("path", [".", "Trash"])
-async def test_move_but_it_is_a_special_path(
-    client: TestClient,
-    namespace: Namespace,
-    path: str,
-):
-    payload = {"from_path": path, "to_path": "Trashbin"}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/move", json=payload)
-    message = "Can't move Home or Trash folder"
-    assert response.json() == MalformedPath(message).as_dict()
-    assert response.status_code == 400
-
-
-@pytest.mark.parametrize("next_path", [".", "Trash"])
-async def test_move_but_to_a_special_path(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-    next_path: str,
-):
-    file = await file_factory(namespace.path)
-    payload = {"from_path": file.path, "to_path": next_path}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/move", json=payload)
-    message = "Can't move Home or Trash folder"
-    assert response.json() == MalformedPath(message).as_dict()
-    assert response.status_code == 400
-
-
-async def test_move_but_it_is_inside_trash_folder(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    file = await file_factory(namespace.path, path="Trash/f.txt")
-    payload = {"from_path": file.path, "to_path": "Trash/f (1).txt"}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/move", json=payload)
-    message = "Can't move files inside Trash"
-    assert response.json() == MalformedPath(message).as_dict()
-    assert response.status_code == 400
-
-
-async def test_move_but_path_is_recursive(client: TestClient, namespace: Namespace):
-    payload = {"from_path": "a/b", "to_path": "a/b/c"}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/move", json=payload)
-    message = "Destination path should not start with source path"
-    assert response.json() == MalformedPath(message).as_dict()
-    assert response.status_code == 400
-
-
-async def test_move_but_file_exists(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    file_a = await file_factory(namespace.path, path="folder/file.txt")
-    file_b = await file_factory(namespace.path, path="file.txt")
-    payload = {"from_path": file_a.path, "to_path": file_b.path}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/move", json=payload)
-    assert response.status_code == 400
-    assert response.json() == FileAlreadyExists(path=file_b.path).as_dict()
-
-
-async def test_move_but_file_not_found(client: TestClient, namespace: Namespace):
-    payload = {"from_path": "file_a.txt", "to_path": "file_b.txt"}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/move", json=payload)
-    assert response.status_code == 404
-    assert response.json() == PathNotFound(path="file_a.txt").as_dict()
-
-
-async def test_move_but_to_path_is_a_file(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    file_a = await file_factory(namespace.path, path="file_a.txt")
-    file_b = await file_factory(namespace.path, path="file_b.txt")
-    payload = {"from_path": file_a.path, "to_path": f"{file_b.path}/{file_a.path}"}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/move", json=payload)
-    assert response.status_code == 400
-    assert response.json() == NotADirectory(path=payload["to_path"]).as_dict()
-
-
-async def test_move_but_path_missing_parent(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    file_a = await file_factory(namespace.path, path="file_a.txt")
-    payload = {"from_path": file_a.path, "to_path": f"folder/{file_a.path}"}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/move", json=payload)
-    message = "Some parents don't exist in the destination path"
-    assert response.json() == MalformedPath(message).as_dict()
-    assert response.status_code == 400
-
-
-@pytest.mark.usefixtures("celery_session_worker")
-async def test_move_batch(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    await file_factory(namespace.path, path='folder/a.txt')
-    files = [await file_factory(namespace.path) for _ in range(3)]
-    payload = {
-        "items": [
-            {"from_path": file.path, "to_path": f"folder/{file.path}"}
-            for file in files
-        ]
-    }
-    client.login(namespace.owner.id)
-    response = await client.post("/files/move_batch", json=payload)
-    assert "async_task_id" in response.json()
-    assert response.status_code == 200
-
-    task_id = response.json()["async_task_id"]
-    task = tasks.celery_app.AsyncResult(task_id)
-    results: list[FileTaskResult] = task.get(timeout=2)
-    assert results[0].file is not None
-    assert results[0].file.path.startswith("folder/")
+        task_id = response.json()["async_task_id"]
+        assert task_id == str(expected_task_id)
 
 
 @pytest.mark.usefixtures("celery_session_worker")
@@ -759,84 +635,29 @@ async def test_move_batch_check_task_is_completed(
     assert results[1]["err_code"] == "file_not_found"
 
 
-@pytest.mark.parametrize(["file_path", "path", "expected_path"], [
-    ("file.txt", "file.txt", "Trash/file.txt"),  # move file to the Trash
-    ("a/b/c/d.txt", "a/b", "Trash/b"),  # move folder to the Trash
-])
-async def test_move_to_trash(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-    file_path: str,
-    path: str,
-    expected_path: str,
-):
-    await file_factory(namespace.path, path=file_path)
-    payload = {"path": path}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/move_to_trash", json=payload)
-    assert response.status_code == 200
-    assert response.json()["path"] == expected_path
+class TestMoveToTrashBatch:
+    @pytest.fixture
+    def move_to_trash_batch(self):
+        with mock.patch("app.tasks.move_to_trash_batch") as patch:
+            yield patch
 
+    async def test(
+        self, client: TestClient, namespace: Namespace, move_to_trash_batch: MagicMock,
+    ):
+        expected_task_id = uuid.uuid4()
+        move_to_trash_batch.delay.return_value = mock.Mock(id=expected_task_id)
+        payload = {
+            "items": [
+                {"path": f"{i}.txt"} for i in range(3)
+            ]
+        }
+        client.login(namespace.owner.id)
+        response = await client.post("/files/move_to_trash_batch", json=payload)
+        assert "async_task_id" in response.json()
+        assert response.status_code == 200
 
-async def test_move_to_trash_but_it_is_a_trash(
-    client: TestClient,
-    namespace: Namespace,
-):
-    payload = {"path": "Trash"}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/move_to_trash", json=payload)
-    message = "Can't move Trash into itself"
-    assert response.json() == MalformedPath(message).as_dict()
-    assert response.status_code == 400
-
-
-async def test_move_to_trash_but_file_is_in_trash(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    file = await file_factory(namespace.path, path="Trash/file.txt")
-    payload = {"path": file.path}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/move_to_trash", json=payload)
-    assert response.status_code == 400
-    assert response.json() == FileAlreadyDeleted(path=file.path).as_dict()
-
-
-async def test_move_to_trash_but_file_not_found(
-    client: TestClient,
-    namespace: Namespace,
-):
-    payload = {"path": "file.txt"}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/move_to_trash", json=payload)
-    assert response.status_code == 404
-    assert response.json() == PathNotFound(path=payload["path"]).as_dict()
-
-
-@pytest.mark.usefixtures("celery_session_worker")
-async def test_move_to_trash_batch(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    files = [await file_factory(namespace.path) for _ in range(3)]
-    payload = {
-        "items": [
-            {"path": file.path} for file in files
-        ],
-    }
-    client.login(namespace.owner.id)
-    response = await client.post("/files/move_to_trash_batch", json=payload)
-    assert "async_task_id" in response.json()
-    assert response.status_code == 200
-
-    task_id = response.json()["async_task_id"]
-    task = tasks.celery_app.AsyncResult(task_id)
-    results: list[FileTaskResult] = task.get(timeout=2)
-    assert results[0].file is not None
-    assert results[0].file.path.startswith("Trash/")
+        task_id = response.json()["async_task_id"]
+        assert task_id == str(expected_task_id)
 
 
 class TestUpload:
