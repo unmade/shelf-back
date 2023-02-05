@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import pytest
 from faker import Faker
 
+from app import mediatypes
 from app.domain.entities import SENTINEL_ID, Account, File, Namespace, User
 from app.infrastructure.database.edgedb import EdgeDBDatabase
 from app.infrastructure.database.edgedb.db import db_context
@@ -22,7 +23,10 @@ if TYPE_CHECKING:
     from app.infrastructure.database.edgedb.typedefs import EdgeDBTransaction
 
     class FileFactory(Protocol):
-        async def __call__(self, ns_path: str) -> File: ...
+        async def __call__(self, ns_path: str, path: str | None = None) -> File: ...
+
+    class FolderFactory(Protocol):
+        async def __call__(self, ns_path: str, path: str | None = None) -> File: ...
 
 fake = Faker()
 
@@ -87,9 +91,10 @@ def user_repo(_tx_database: EdgeDBDatabase):
 
 @pytest.fixture
 def file_factory(file_repo: IFileRepository) -> FileFactory:
-    """A Factory to create and save a File to the EdgeDB."""
-    async def factory(ns_path: str):
-        path = fake.unique.file_name(category="text", extension="txt")
+    """A factory to create a saved File to the EdgeDB."""
+    async def factory(ns_path: str, path: str | None = None):
+        if path is None:
+            path = fake.unique.file_name(category="text", extension="txt")
         return await file_repo.save(
             File(
                 id=SENTINEL_ID,
@@ -98,6 +103,25 @@ def file_factory(file_repo: IFileRepository) -> FileFactory:
                 path=path,
                 size=10,
                 mediatype="plain/text",
+            )
+        )
+    return factory
+
+
+@pytest.fixture
+def folder_factory(file_repo: IFileRepository) -> FolderFactory:
+    """A factory to create a saved Folder to the EdgeDB."""
+    async def factory(ns_path: str, path: str | None = None):
+        if path is None:
+            path = fake.unique.file_name(category="text", extension="txt")
+        return await file_repo.save(
+            File(
+                id=SENTINEL_ID,
+                ns_path=ns_path,
+                name=os.path.basename(path),
+                path=path,
+                size=0,
+                mediatype=mediatypes.FOLDER,
             )
         )
     return factory

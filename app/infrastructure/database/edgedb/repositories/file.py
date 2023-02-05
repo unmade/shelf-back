@@ -163,7 +163,7 @@ class FileRepository(IFileRepository):
             "size": file.size,
             "mtime": file.mtime,
             "mediatype": file.mediatype,
-            "namespace": str(file.ns_path),
+            "namespace": file.ns_path,
         }
 
         try:
