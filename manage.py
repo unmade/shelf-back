@@ -74,6 +74,7 @@ def createsuperuser(
                 await services.namespace.create(user.username, owner_id=user.id)
                 typer.echo("User created successfully.")
 
+    print("error")
     asyncio.run(_createuser(username, password))
 
 
