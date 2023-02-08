@@ -18,6 +18,32 @@ class FileUpdate(TypedDict, total=False):
 
 
 class IFileRepository(Protocol):
+    async def delete(self, ns_path: StrOrPath, path: StrOrPath) -> File:
+        """
+        Deletes file at a given path.
+
+        Args:
+            ns_path (StrOrPath): Target namespace path.
+            paths (StrOrPath): Path to be deleted.
+
+        Raises:
+            FileNotFound: If a file at a target path does not exists.
+
+        Returns:
+            File: Deleted file.
+        """
+
+    async def delete_all_with_prefix(
+        self, ns_path: StrOrPath, prefix: StrOrPath
+    ) -> None:
+        """
+        Deletes all files with path starting with a given prefix.
+
+        Args:
+            ns_path (StrOrPath): Target namespace path.
+            paths (StrOrPath): Path to be deleted.
+        """
+
     async def exists_at_path(self, ns_path: StrOrPath, path: StrOrPath) -> bool:
         """
         Checks whether a file or a folder exists at path in a target namespace.

@@ -7,7 +7,7 @@ from uuid import UUID
 import orjson
 from pydantic import BaseModel
 
-from app import errors, mediatypes
+from app import mediatypes
 
 if TYPE_CHECKING:
     from app.typedefs import StrOrUUID
@@ -86,18 +86,6 @@ class Exif(BaseModel):
 class FileMetadata(BaseModel):
     file_id: str
     data: Exif
-
-
-class FileTaskResult:
-    __slots__ = ("file", "err_code")
-
-    def __init__(
-        self,
-        file: File | None = None,
-        err_code: errors.ErrorCode | None = None,
-    ) -> None:
-        self.file = file
-        self.err_code = err_code
 
 
 class Fingerprint:

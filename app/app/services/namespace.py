@@ -192,6 +192,38 @@ class NamespaceService:
 
         return await self.db.folder.get_by_path(ns_path, path)
 
+    async def delete_file(self, ns_path: StrOrPath, path: StrOrPath) -> File:
+        """
+        Permanently deletes a file. If path is a folder deletes a folder with all of its
+        contents.
+
+        Args:
+            ns_path (StrOrPath): Namespace path where file/folder should be deleted.
+            path (StrOrPath): Path to a file/folder to delete.
+
+        Raises:
+            FileNotFound: If a file/folder with a given path does not exists.
+
+        Returns:
+            File: Deleted file.
+        """
+        assert str(path).lower() not in (".", "trash"), (
+            "Can't delete Home or Trash folder."
+        )
+
+        async for _ in self.db.atomic():
+            file = await self.db.file.delete(ns_path, path)
+            if file.is_folder():
+                await self.db.file.delete_all_with_prefix(ns_path, prefix=file.path)
+            parents = PurePath(file.path).parents
+            await self.db.file.incr_size_batch(ns_path, parents, value=-file.size)
+
+        storage = self.storage
+        delete_from_storage = storage.deletedir if file.is_folder() else storage.delete
+        await delete_from_storage(ns_path, path)
+
+        return file
+
     async def get_by_path(self, path: str) -> Namespace:
         return await self.db.namespace.get_by_path(path)
 
@@ -215,7 +247,7 @@ class NamespaceService:
         self, ns_path: StrOrPath, path: StrOrPath, next_path: StrOrPath
     ) -> File:
         """
-        Move a file or a folder to a different location in the target Namespace.
+        Moves a file or a folder to a different location in the target Namespace.
         If the source path is a folder all its contents will be moved.
 
         Args:

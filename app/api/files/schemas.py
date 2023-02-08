@@ -17,7 +17,8 @@ from .exceptions import FileAlreadyDeleted, MalformedPath
 if TYPE_CHECKING:
     from fastapi import Request
 
-    from app.entities import File, FileMetadata, FileTaskResult
+    from app.entities import File, FileMetadata
+    from app.tasks import FileTaskResult
 
 
 class ThumbnailSize(str, Enum):

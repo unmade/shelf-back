@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from celery import Celery
 
 from app import actions, config, db, errors
-from app.entities import FileTaskResult
+from app.domain.entities import File
 from app.infrastructure.database.edgedb.db import EdgeDBDatabase
 from app.infrastructure.provider import Provider
 from app.infrastructure.storage import FileSystemStorage, S3Storage
@@ -23,6 +23,18 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 celery_app = Celery(__name__)
+
+
+class FileTaskResult:
+    __slots__ = ("file", "err_code")
+
+    def __init__(
+        self,
+        file: File | None = None,
+        err_code: errors.ErrorCode | None = None,
+    ) -> None:
+        self.file = file
+        self.err_code = err_code
 
 
 def _create_database() -> EdgeDBDatabase:
@@ -70,34 +82,41 @@ def ping() -> str:
 
 @asynctask
 async def delete_immediately_batch(
-    namespace: Namespace,
+    ns_path: StrOrPath,
     paths: Iterable[StrOrPath],
 ) -> list[FileTaskResult]:
     """
-    Permanently delete a file or a folder with all of its contents.
+    Permanently deletes a file at given paths. If some is a folder, then it will be
+    deleted with all of its contents.
 
     Args:
-        namespace (Namespace): Namespace where file/folder should be deleted.
+        ns_path (StrOrPath): Namespace path where file/folder should be deleted.
         paths (Iterable[StrOrPath]): Iterable of pathnames to delete.
 
     Returns:
         list[FileTaskResult]: List, where each item contains either a moved file
             or an error code.
     """
+    storage = _create_storage()
+
     results = []
-    async with db.create_client() as conn:
+    async with _create_database() as database:
+        provider = Provider(database=database, storage=storage)
+        services = provider.service
+
         for path in paths:
             file, err_code = None, None
 
             try:
-                file = await actions.delete_immediately(conn, namespace, path)
+                file = await services.namespace.delete_file(ns_path, path)
             except errors.FileNotFound:
                 err_code = errors.ErrorCode.file_not_found
             except Exception:
                 err_code = errors.ErrorCode.internal
                 logger.exception("Unexpectedly failed to delete a file")
 
-            results.append(FileTaskResult(file=file, err_code=err_code))
+            result = FileTaskResult(file=file,err_code=err_code)
+            results.append(result)
     return results
 
 
@@ -149,12 +168,8 @@ async def move_batch(
                 err_code = errors.ErrorCode.internal
                 logger.exception("Unexpectedly failed to move file")
 
-            results.append(
-                FileTaskResult(
-                    file=file,  # type: ignore
-                    err_code=err_code,
-                )
-            )
+            result = FileTaskResult(file=file,err_code=err_code)
+            results.append(result)
     return results
 
 
@@ -192,10 +207,6 @@ async def move_to_trash_batch(
                 err_code = errors.ErrorCode.internal
                 logger.exception("Unexpectedly failed to move file to trash")
 
-            results.append(
-                FileTaskResult(
-                    file=file,  # type: ignore
-                    err_code=err_code,
-                )
-            )
+            result = FileTaskResult(file=file,err_code=err_code)
+            results.append(result)
     return results

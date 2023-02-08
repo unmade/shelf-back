@@ -24,7 +24,8 @@ from app.api.files.exceptions import (
     UploadFileTooLarge,
 )
 from app.domain.entities import File, Folder
-from app.entities import Exif, FileTaskResult
+from app.entities import Exif
+from app.tasks import FileTaskResult
 
 if TYPE_CHECKING:
     from unittest.mock import AsyncMock, MagicMock
@@ -136,7 +137,7 @@ class TestDeleteImmediatelyBatch:
         assert task_id == str(expected_task_id)
         assert response.status_code == 200
         paths = [f"{i}.txt" for i in range(3)]
-        delete_batch.delay.assert_called_once_with(namespace, paths)
+        delete_batch.delay.assert_called_once_with(namespace.path, paths)
 
     @pytest.mark.parametrize("path", [".", "Trash"])
     async def test_when_path_is_malformed(
@@ -178,10 +179,7 @@ class TestDeleteImmediatelyBatchCheck:
         task_result.return_value = mock.Mock(
             status=celery.states.SUCCESS,
             result=[
-                FileTaskResult(
-                    file=_make_file(ns_path, "f.txt"),  # type: ignore
-                    err_code=None,
-                ),
+                FileTaskResult(file=_make_file(ns_path, "f.txt"), err_code=None),
                 FileTaskResult(file=None, err_code=errors.ErrorCode.file_not_found),
             ]
         )
@@ -631,10 +629,7 @@ class TestMoveBatchCheck:
         task_result.return_value = mock.Mock(
             status=celery.states.SUCCESS,
             result=[
-                FileTaskResult(
-                    file=_make_file(ns_path, "f.txt"),  # type: ignore
-                    err_code=None,
-                ),
+                FileTaskResult(file=_make_file(ns_path, "f.txt"), err_code=None),
                 FileTaskResult(file=None, err_code=errors.ErrorCode.file_not_found),
             ]
         )

@@ -51,6 +51,42 @@ class FileRepository(IFileRepository):
     def conn(self) -> EdgeDBAnyConn:
         return self.db_context.get()
 
+    async def delete(self, ns_path: StrOrPath, path: StrOrPath) -> File:
+        query = """
+            SELECT (
+                DELETE
+                    File
+                FILTER
+                    str_lower(.path) = str_lower(<str>$path)
+                    AND
+                    .namespace.path = <str>$ns_path
+                LIMIT 1
+            ) { id, name, path, size, mtime, mediatype: { name } }
+        """
+
+        try:
+            obj = await self.conn.query_required_single(
+                query, ns_path=str(ns_path), path=str(path)
+            )
+        except edgedb.NoDataError as exc:
+            raise errors.FileNotFound() from exc
+
+        return _from_db(str(ns_path), obj)
+
+    async def delete_all_with_prefix(
+        self, ns_path: StrOrPath, prefix: StrOrPath
+    ) -> None:
+        query = """
+            DELETE
+                File
+            FILTER
+                .path ILIKE <str>$prefix ++ '/%'
+                AND
+                .namespace.path = <str>$ns_path
+        """
+
+        await self.conn.query(query, ns_path=str(ns_path), prefix=str(prefix))
+
     async def exists_at_path(self, ns_path: StrOrPath, path: StrOrPath) -> bool:
         query = """
             SELECT EXISTS (

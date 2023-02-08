@@ -16,7 +16,8 @@ if TYPE_CHECKING:
 
     from pytest import LogCaptureFixture
 
-    from app.entities import FileTaskResult, Namespace
+    from app.entities import Namespace
+    from app.tasks import FileTaskResult
     from app.typedefs import DBClient
     from tests.factories import FileFactory
 
@@ -25,6 +26,15 @@ pytestmark = [
     pytest.mark.database(transaction=True),
     pytest.mark.usefixtures("celery_session_worker"),
 ]
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setUp():
+    with (
+        mock.patch("app.tasks._create_database"),
+        mock.patch("app.tasks._create_storage"),
+    ):
+        yield
 
 
 def _make_file(ns_path: str, path: str):
@@ -45,53 +55,47 @@ def test_celery_works():
     assert task.get(timeout=1) == "pong"
 
 
-async def test_delete_immediately_batch(
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    file = await file_factory(namespace.path, path="x.txt")
+class TestDeleteImmediatelyBatch:
+    @pytest.fixture
+    def delete_file(self):
+        target = "app.app.services.NamespaceService.delete_file"
+        with mock.patch(target) as patch:
+            yield patch
 
-    task = tasks.delete_immediately_batch.delay(namespace, [file.path, "y.txt"])
-    result: list[FileTaskResult] = task.get(timeout=2)
+    def test(
+        self, caplog: LogCaptureFixture, namespace: Namespace, delete_file: MagicMock
+    ):
+        side_effect = [
+            _make_file(str(namespace.path), "Trash/a.txt"),
+            errors.FileNotFound,
+            Exception,
+            _make_file(str(namespace.path), "Tras/f.txt"),
+        ]
+        delete_file.side_effect = side_effect
 
-    assert len(result) == 2
-    assert result[0].file == file
-    assert result[0].err_code is None
+        paths = ["a.txt", "b.txt", "c.txt", "d.txt"]
+        task = tasks.delete_immediately_batch.delay(namespace.path, paths)
 
-    assert result[1].file is None
-    assert result[1].err_code == errors.ErrorCode.file_not_found
+        results: list[FileTaskResult] = task.get(timeout=2)
+        assert len(results) == 4
 
+        assert results[0].file is not None
+        assert results[0].file.path == side_effect[0].path
 
-async def test_delete_immediately_batch_but_deletefails_with_an_error(
-    namespace: Namespace,
-):
-    task = tasks.delete_immediately_batch.delay(namespace, ["x.txt", "y.txt"])
-    result: list[FileTaskResult] = task.get(timeout=2)
+        assert results[1].file is None
+        assert results[1].err_code == errors.ErrorCode.file_not_found
 
-    assert len(result) == 2
-    assert result[0].file is None
-    assert result[0].err_code == errors.ErrorCode.file_not_found
+        assert results[2].file is None
+        assert results[2].err_code == errors.ErrorCode.internal
 
-    assert result[1].file is None
-    assert result[1].err_code == errors.ErrorCode.file_not_found
+        assert results[3].file is not None
+        assert results[3].file.path == side_effect[3].path
 
+        assert delete_file.await_count == 4
 
-async def test_delete_immediately_batch_but_delete_fails_with_exception(
-    caplog: LogCaptureFixture,
-    namespace: Namespace,
-):
-    task = tasks.delete_immediately_batch.delay(namespace, ["f.txt"])
-    func = "app.actions.delete_immediately"
-    with mock.patch(func, side_effect=Exception) as delete_mock:
-        result: list[FileTaskResult] = task.get(timeout=2)
-
-    assert delete_mock.called
-
-    assert result[0].file is None
-    assert result[0].err_code == errors.ErrorCode.internal
-
-    log_record = "app.tasks", logging.ERROR, "Unexpectedly failed to delete a file"
-    assert caplog.record_tuples == [log_record]
+        msg = "Unexpectedly failed to delete a file"
+        log_record = ("app.tasks", logging.ERROR, msg)
+        assert caplog.record_tuples == [log_record]
 
 
 async def test_empty_trash(
@@ -116,14 +120,6 @@ async def test_empty_trash(
 
 
 class TestMoveBatch:
-    @pytest.fixture(autouse=True)
-    def setUp(self):
-        with (
-            mock.patch("app.tasks._create_database"),
-            mock.patch("app.tasks._create_storage"),
-        ):
-            yield
-
     @pytest.fixture
     def move_file(self):
         target = "app.app.services.NamespaceService.move_file"
@@ -172,14 +168,6 @@ class TestMoveBatch:
 
 
 class TestMovetoTrashFile:
-    @pytest.fixture(autouse=True)
-    def setUp(self):
-        with (
-            mock.patch("app.tasks._create_database"),
-            mock.patch("app.tasks._create_storage"),
-        ):
-            yield
-
     @pytest.fixture
     def move_to_trash(self):
         target = "app.app.services.NamespaceService.move_file_to_trash"

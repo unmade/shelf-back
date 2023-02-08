@@ -74,7 +74,7 @@ def delete_immediately_batch(
 ) -> AsyncTaskID:
     """Permanently delete multiple files or folders."""
     paths = [item.path for item in payload.items]
-    task = tasks.delete_immediately_batch.delay(namespace, paths)
+    task = tasks.delete_immediately_batch.delay(namespace.path, paths)
     return AsyncTaskID(async_task_id=task.id)
 
 

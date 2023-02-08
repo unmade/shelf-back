@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import operator
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import pytest
 
@@ -18,6 +18,14 @@ if TYPE_CHECKING:
     from tests.infrastructure.database.edgedb.conftest import FileFactory, FolderFactory
 
 pytestmark = [pytest.mark.asyncio]
+
+
+async def _exists_with_id(file_id: StrOrUUID) -> bool:
+    query = """SELECT EXISTS(SELECT File FILTER .id = <uuid>$file_id)"""
+    return cast(
+        bool,
+        await db_context.get().query_required_single(query, file_id=file_id)
+    )
 
 
 async def _get_by_id(file_id: StrOrUUID) -> File:
@@ -39,6 +47,37 @@ async def _get_by_id(file_id: StrOrUUID) -> File:
         mtime=obj.mtime,
         mediatype=obj.mediatype.name,
     )
+
+
+class TestDelete:
+    async def test(self, file_repo: FileRepository, file: File):
+        deleted_file = await file_repo.delete(file.ns_path, file.path)
+        assert deleted_file == file
+        assert not await _exists_with_id(file.id)
+
+    async def test_when_does_not_exist(self, file_repo: FileRepository):
+        with pytest.raises(errors.FileNotFound):
+            await file_repo.delete("admin", "f.txt")
+
+
+class TestDeleteAllWithPrefix:
+    async def test(
+        self,
+        file_repo: FileRepository,
+        file_factory: FileFactory,
+        folder_factory: FolderFactory,
+        namespace: Namespace,
+    ):
+        ns_path = str(namespace.path)
+        folder, *files = [
+            await folder_factory(ns_path, "a/b/c"),
+            await file_factory(ns_path, "a/b/c/f.txt"),
+            await file_factory(ns_path, "a/b/c/d/f.txt"),
+        ]
+        await file_repo.delete_all_with_prefix(ns_path, prefix=folder.path)
+        assert await _exists_with_id(folder.id)
+        assert not await _exists_with_id(files[0].id)
+        assert not await _exists_with_id(files[1].id)
 
 
 class TestExistsAtPath:

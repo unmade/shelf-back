@@ -164,6 +164,78 @@ class TestCreateFolder:
             await namespace_service.create_folder(namespace.path, "f.txt/folder")
 
 
+class TestDeleteFile:
+    async def test_deleting_a_file(
+        self, namespace_service: NamespaceService, namespace: Namespace, file: File
+    ):
+        ns_path = namespace.path
+        deleted_file = await namespace_service.delete_file(ns_path, file.path)
+        assert deleted_file == file
+        assert not await namespace_service.db.file.exists_with_id(ns_path, file.id)
+        assert not await namespace_service.storage.exists(ns_path, file.path)
+
+    async def test_deleting_a_folder(
+        self,
+        namespace_service: NamespaceService,
+        namespace: Namespace,
+        file_factory: FileFactory,
+    ):
+        ns_path = namespace.path
+        await file_factory(ns_path, "a/b/c/f.txt")
+        await file_factory(ns_path, "a/b/f (1).txt")
+        await file_factory(ns_path, "a/c/f.txt")
+
+        await namespace_service.delete_file(ns_path, "a/b")
+
+        # check folder deleted from DB with its content
+        paths = ["a", "a/c", "a/b", "a/b/c", "a/b/c/f.txt", "a/b/f (1).txt"]
+        files = await namespace_service.db.file.get_by_path_batch(ns_path, paths)
+        assert len(files) == 2
+        assert files[0].path == "a"
+        assert files[1].path == "a/c"
+
+        # check folder deleted from the storage
+        assert not await namespace_service.storage.exists(ns_path, "a/b")
+
+    async def test_updating_parent_size(
+        self,
+        namespace_service: NamespaceService,
+        namespace: Namespace,
+        file_factory: FileFactory
+    ):
+        ns_path = namespace.path
+        await file_factory(ns_path, "a/f.txt")
+        await file_factory(ns_path, "a/b/c/d/f.txt")
+        await file_factory(ns_path, "a/b/c/f.txt")
+
+        # check parent sizes before deletion
+        paths = ["a", "a/b"]
+        a, b = await namespace_service.db.file.get_by_path_batch(ns_path, paths)
+        assert a.size == 30
+        assert b.size == 20
+
+        # delete the folder
+        await namespace_service.delete_file(ns_path, "a/b/c")
+
+        # check parents were updated
+        a, b = await namespace_service.db.file.get_by_path_batch(ns_path, paths)
+        assert a.size == 10
+        assert b.size == 0
+
+    @pytest.mark.parametrize("path", [".", "Trash"])
+    async def test_when_deleting_a_special_path(
+        self, namespace_service: NamespaceService, namespace: Namespace, path: str
+    ):
+        with pytest.raises(AssertionError):
+            await namespace_service.delete_file(namespace.path, path)
+
+    async def test_when_file_does_not_exists(
+        self, namespace_service: NamespaceService, namespace: Namespace
+    ):
+        with pytest.raises(errors.FileNotFound):
+            await namespace_service.delete_file(namespace.path, "f.txt")
+
+
 class TestHasFileWithID:
     async def test(
         self, namespace: Namespace, file: File, namespace_service: NamespaceService
