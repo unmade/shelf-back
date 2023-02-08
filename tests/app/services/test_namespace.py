@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from app.app.services import NamespaceService
     from app.domain.entities import File, User
 
-    from .conftest import FileFactory, FolderFactory
+    from .conftest import BookmarkFactory, FileFactory, FolderFactory
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
@@ -221,6 +221,19 @@ class TestDeleteFile:
         a, b = await namespace_service.db.file.get_by_path_batch(ns_path, paths)
         assert a.size == 10
         assert b.size == 0
+
+    async def test_when_file_is_bookmarked(
+        self,
+        namespace_service: NamespaceService,
+        bookmark_factory: BookmarkFactory,
+        namespace: Namespace,
+        file: File,
+    ):
+        ns_path = namespace.path
+        await bookmark_factory(namespace.owner_id, file.id)
+        await namespace_service.delete_file(ns_path, file.path)
+        assert not await namespace_service.db.file.exists_with_id(ns_path, file.id)
+        assert not await namespace_service.storage.exists(ns_path, file.path)
 
     @pytest.mark.parametrize("path", [".", "Trash"])
     async def test_when_deleting_a_special_path(

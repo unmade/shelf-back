@@ -21,6 +21,10 @@ if TYPE_CHECKING:
 
     from app.domain.entities import File, Namespace, User
     from app.infrastructure.database.edgedb.typedefs import EdgeDBTransaction
+    from app.typedefs import StrOrUUID
+
+    class BookmarkFactory(Protocol):
+        async def __call__(self, user_id: StrOrUUID, file_id: StrOrUUID) -> None: ...
 
     class FileFactory(Protocol):
         async def __call__(self, ns_path: str, path: str | None = None) -> File: ...
@@ -114,6 +118,14 @@ async def file(namespace: Namespace, namespace_service: NamespaceService):
 async def namespace(user: User, namespace_service: NamespaceService):
     """A namespace owned by `user` fixture."""
     return await namespace_service.create(user.username, owner_id=user.id)
+
+
+@pytest.fixture
+def bookmark_factory(user_service: UserService):
+    """A factory to bookmark a file by ID for a given user ID."""
+    async def factory(user_id: StrOrUUID, file_id: StrOrUUID) -> None:
+        await user_service.add_bookmark(user_id, file_id)
+    return factory
 
 
 @pytest.fixture

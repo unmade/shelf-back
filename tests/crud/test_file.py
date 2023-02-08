@@ -332,59 +332,6 @@ async def test_create_home_folder_but_it_already_exists(
         await crud.file.create_home_folder(tx, namespace.path)
 
 
-async def test_delete_file(tx: DBTransaction, namespace: Namespace):
-    path = Path("folder/file")
-    await crud.file.create(tx, namespace.path, path.parent, mediatype=FOLDER)
-    await crud.file.create(tx, namespace.path, path.parent / "b", size=4)
-    await crud.file.create(tx, namespace.path, path, size=8)
-
-    # ensure parent size has increased
-    parent = await crud.file.get(tx, namespace.path, path.parent)
-    assert parent.size == 12
-
-    file = await crud.file.delete(tx, namespace.path, path)
-    assert file.path == str(path)
-    assert not await crud.file.exists(tx, namespace.path, path)
-
-    # ensure parent size has decreased
-    parent = await crud.file.get(tx, namespace.path, path.parent)
-    assert parent.size == 4
-
-
-async def test_delete_non_empty_folder(tx: DBTransaction, namespace: Namespace):
-    await crud.file.create(tx, namespace.path, "a", mediatype=FOLDER)
-    await crud.file.create(tx, namespace.path, "a/b", mediatype=FOLDER)
-    await crud.file.create(tx, namespace.path, "a/b/c", size=8)
-
-    # ensure parent size has increased
-    a, b = await crud.file.get_many(tx, namespace.path, ["a", "a/b"])
-    assert a.size == 8
-    assert b.size == 8
-
-    await crud.file.delete(tx, namespace.path, "a/b")
-    assert not await crud.file.exists(tx, namespace.path, "a/b")
-    assert not await crud.file.exists(tx, namespace.path, "a/b/c")
-
-    # ensure size has decreased
-    parent = await crud.file.get(tx, namespace.path, "a")
-    assert parent.size == 0
-
-
-async def test_delete_is_case_insensitive(tx: DBTransaction, namespace: Namespace):
-    await crud.file.create(tx, namespace.path, "F", size=8)
-
-    file = await crud.file.delete(tx, namespace.path, "f")
-    assert file.path == "F"
-
-
-async def test_delete_file_but_it_does_not_exist(
-    tx: DBTransaction,
-    namespace: Namespace,
-):
-    with pytest.raises(errors.FileNotFound):
-        await crud.file.delete(tx, namespace.path, "f")
-
-
 async def test_delete_all(tx: DBTransaction, namespace: Namespace):
     await crud.file.create_folder(tx, namespace.path, "a")
     paths = ["x.txt", "a/f.txt", "Trash/f.txt"]

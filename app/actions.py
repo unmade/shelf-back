@@ -17,36 +17,6 @@ if TYPE_CHECKING:
     from app.typedefs import DBClient, StrOrPath, StrOrUUID
 
 
-async def delete_immediately(
-    db_client: DBClient, namespace: Namespace, path: StrOrPath,
-) -> File:
-    """
-    Permanently delete a file or a folder with all of its contents.
-
-    Args:
-        db_client (DBClient): Database client.
-        namespace (Namespace): Namespace where file/folder should be deleted.
-        path (StrOrPath): Path to a file/folder to delete.
-
-    Raises:
-        FileNotFound: If file/folder with a given path does not exists.
-
-    Returns:
-        File: Deleted file.
-    """
-    file = await crud.file.get(db_client, namespace.path, path)
-
-    delete_from_storage = storage.deletedir if file.is_folder() else storage.delete
-
-    async for tx in db_client.transaction():  # pragma: no branch
-        async with tx:
-            await crud.file.delete(tx, namespace.path, path)
-
-    await delete_from_storage(namespace.path, path)
-
-    return file
-
-
 async def empty_trash(db_client: DBClient, namespace: Namespace) -> File:
     """
     Delete all files and folders in the Trash folder within a target Namespace.

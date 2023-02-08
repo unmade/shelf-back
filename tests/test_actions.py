@@ -26,62 +26,6 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
 
 
-async def test_delete_immediately_file(
-    db_client: DBClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    file = await file_factory(namespace.path, path="file")
-    deleted_file = await actions.delete_immediately(db_client, namespace, file.path)
-    assert deleted_file.path == "file"
-
-    assert not await storage.exists(namespace.path, file.path)
-    assert not await crud.file.exists(db_client, namespace.path, file.path)
-
-
-@pytest.mark.skip("waiting for refactoring to service method")
-async def test_delete_immediately_bookmarked_file(
-    db_client: DBClient,
-    namespace: Namespace,
-    bookmark_factory,
-    file_factory: FileFactory,
-):
-    file = await file_factory(namespace.path, path="file")
-    await bookmark_factory(namespace.owner.id, file.id)
-
-    await actions.delete_immediately(db_client, namespace, file.path)
-
-    assert not await storage.exists(namespace.path, file.path)
-    assert not await crud.file.exists(db_client, namespace.path, file.path)
-
-
-async def test_delete_immediately_folder(
-    db_client: DBClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    await file_factory(namespace.path, path="a/b/f.txt")
-    await file_factory(namespace.path, path="a/b/f (1).txt")
-    path = "a/b"
-    deleted_folder = await actions.delete_immediately(db_client, namespace, path)
-    assert deleted_folder.path == "a/b"
-
-    assert await storage.exists(namespace.path, "a")
-    assert await crud.file.exists(db_client, namespace.path, "a")
-    assert not await storage.exists(namespace.path, "a/b")
-    assert not await crud.file.exists(db_client, namespace.path, "a/b")
-    assert not await storage.exists(namespace.path, "a/b/f.txt")
-    assert not await crud.file.exists(db_client, namespace.path, "a/b/f (1).txt")
-
-
-async def test_delete_immediately_but_file_not_exists(
-    db_client: DBClient,
-    namespace: Namespace,
-):
-    with pytest.raises(errors.FileNotFound):
-        await actions.delete_immediately(db_client, namespace, "file")
-
-
 async def test_empty_trash(
     db_client: DBClient,
     namespace: Namespace,

@@ -284,49 +284,6 @@ async def create_home_folder(conn: DBAnyConn, namespace: StrOrPath) -> File:
     return from_db(file)
 
 
-async def delete(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> File:
-    """
-    Permanently delete file or a folder with all of its contents and decrease size
-    of the parents accordingly.
-
-    Args:
-        conn (DBAnyConn): Database connection.
-        namespace (StrOrPath): Namespace where to delete a file.
-        path (StrOrPath): Path to a file.
-
-    Raises:
-        FileNotFound: If file/folder with a given path does not exists.
-
-    Returns:
-        File: Deleted file.
-    """
-
-    query = """
-        SELECT (
-            DELETE
-                File
-            FILTER
-                .namespace.path = <str>$namespace
-                AND (
-                    str_lower(.path) = str_lower(<str>$path)
-                    OR
-                    str_lower(.path) LIKE str_lower(<str>$path) ++ '/%'
-                )
-        ) { id, name, path, size, mtime, mediatype: { name } }
-    """
-
-    try:
-        file = from_db(
-            (await conn.query(query, namespace=str(namespace), path=str(path)))[0]
-        )
-    except IndexError as exc:
-        raise errors.FileNotFound() from exc
-
-    await inc_size_batch(conn, namespace, PurePath(path).parents, size=-file.size)
-
-    return file
-
-
 async def delete_all(conn: DBAnyConn, namespace: StrOrPath) -> None:
     """
     Delete all files in a given namespace.
