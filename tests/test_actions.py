@@ -26,36 +26,6 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
 
 
-async def test_empty_trash(
-    db_client: DBClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    await file_factory(namespace.path, path="Trash/a/b/c/d/file")
-    await file_factory(namespace.path, path="Trash/f.txt")
-    await file_factory(namespace.path, path="Trash/Documents/f.txt")
-    await file_factory(namespace.path, path="file")
-
-    await actions.empty_trash(db_client, namespace)
-
-    assert not list(await storage.iterdir(namespace.path, "Trash"))
-
-    trash = await crud.file.get(db_client, namespace.path, "Trash")
-    files = await crud.file.list_folder(db_client, namespace.path, "Trash")
-    assert trash.size == 0
-    assert files == []
-
-
-async def test_empty_trash_but_its_already_empty(
-    db_client: DBClient,
-    namespace: Namespace,
-):
-    await actions.empty_trash(db_client, namespace)
-
-    trash = await crud.file.get(db_client, namespace.path, "Trash")
-    assert trash.size == 0
-
-
 async def test_find_duplicates(
     db_client: DBClient,
     namespace: Namespace,

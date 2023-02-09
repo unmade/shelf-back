@@ -65,6 +65,9 @@ class S3Storage(IStorage):
         prefix = f"{self._joinpath(ns_path, path)}/"
         self.bucket.objects.filter(Prefix=prefix).delete()
 
+    async def emptydir(self, ns_path: StrOrPath, path: StrOrPath) -> None:
+        await self.deletedir(ns_path, path)
+
     def download(self, ns_path: StrOrPath, path: StrOrPath) -> Iterator[bytes]:
         key = self._joinpath(ns_path, path)
 

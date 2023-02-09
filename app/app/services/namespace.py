@@ -224,6 +224,23 @@ class NamespaceService:
 
         return file
 
+    async def empty_trash(self, ns_path: StrOrPath) -> None:
+        """
+        Deletes all files and folders in the Trash folder in a target Namespace.
+
+        Args:
+            ns_path (StrOrPath): Namespace path where to empty the Trash folder.
+        """
+        trash = await self.db.file.get_by_path(ns_path, "trash")
+        if trash.size == 0:
+            return
+
+        async for _ in self.db.atomic():
+            await self.db.file.delete_all_with_prefix(ns_path, "trash")
+            parents = [".", "trash"]
+            await self.db.file.incr_size_batch(ns_path, parents, value=-trash.size)
+        await self.storage.emptydir(ns_path, "trash")
+
     async def get_by_path(self, path: str) -> Namespace:
         return await self.db.namespace.get_by_path(path)
 

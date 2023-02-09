@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Any, AsyncIterator, Iterable, Iterator, cast
 import edgedb
 
 from app import errors, mediatypes
-from app.config import TRASH_FOLDER_NAME
 from app.entities import File
 
 if TYPE_CHECKING:
@@ -300,33 +299,6 @@ async def delete_all(conn: DBAnyConn, namespace: StrOrPath) -> None:
     """
 
     await conn.query(query, namespace=str(namespace))
-
-
-async def empty_trash(conn: DBAnyConn, namespace: StrOrPath) -> File:
-    """
-    Delete all files and folders in the Trash.
-
-    Args:
-        conn (DBAnyConn): Database connection.
-        namespace (StrOrPath): Namespace where to empty the Trash folder.
-
-    Returns:
-        File: Trash folder.
-    """
-    trash = await get(conn, namespace, TRASH_FOLDER_NAME)
-    await conn.query("""
-        DELETE
-            File
-        FILTER
-            str_lower(.path) LIKE str_lower(<str>$path) ++ '/%'
-            AND
-            .namespace.path = <str>$namespace
-    """, namespace=str(namespace), path=TRASH_FOLDER_NAME)
-    paths = [".", TRASH_FOLDER_NAME]
-    await inc_size_batch(conn, str(namespace), paths=paths, size=-trash.size)
-
-    trash.size = 0
-    return trash
 
 
 async def exists(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> bool:

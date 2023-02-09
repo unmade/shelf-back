@@ -79,6 +79,16 @@ class IStorage(Protocol):
         """
 
     @abc.abstractmethod
+    async def emptydir(self, ns_path: StrOrPath, path: StrOrPath) -> None:
+        """
+        Deletes a folder content but not a folder itself.
+
+        Args:
+            ns_path (StrOrPath): Namespace path.
+            path (StrOrPath): Folder pathname relative to namespace.
+        """
+
+    @abc.abstractmethod
     def download(self, ns_path: StrOrPath, path: StrOrPath) -> Iterator[bytes]:
         """
         Return an iterator over a file content.

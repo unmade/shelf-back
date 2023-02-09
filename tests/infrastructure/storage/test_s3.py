@@ -139,6 +139,26 @@ async def test_deletedir_but_dir_does_not_exist(s3_storage: S3Storage):
     await s3_storage.deletedir("user", "a")
 
 
+async def test_emptydir(file_factory, s3_storage: S3Storage):
+    await file_factory("user/a/f.txt")
+    await file_factory("user/a/b/f.txt")
+    await s3_storage.emptydir("user", "a")
+    assert not await s3_storage.exists("user", "a")
+    assert not await s3_storage.exists("user", "a/f.txt")
+    assert not await s3_storage.exists("user", "a/b")
+    assert not await s3_storage.exists("user", "a/b/f.txt")
+
+
+async def test_emptydir_but_it_is_a_file(file_factory, s3_storage: S3Storage):
+    await file_factory("user/f.txt")
+    await s3_storage.emptydir("user", "f.txt")
+    assert await s3_storage.exists("user", "f.txt")
+
+
+async def test_emptydir_but_dir_does_not_exist(s3_storage: S3Storage):
+    await s3_storage.emptydir("user", "a")
+
+
 async def test_download(file_factory, s3_storage: S3Storage):
     await file_factory("user/f.txt")
     buffer = BytesIO()

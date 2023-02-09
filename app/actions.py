@@ -7,7 +7,7 @@ from collections import defaultdict, deque
 from io import BytesIO
 from typing import TYPE_CHECKING
 
-from app import config, crud, hashes, mediatypes, metadata, taskgroups
+from app import crud, hashes, mediatypes, metadata, taskgroups
 from app.entities import File, Fingerprint, Namespace, SharedLink
 from app.infrastructure.storage import storage
 
@@ -15,32 +15,6 @@ if TYPE_CHECKING:
     from app.app.infrastructure import IStorage
     from app.entities import Exif
     from app.typedefs import DBClient, StrOrPath, StrOrUUID
-
-
-async def empty_trash(db_client: DBClient, namespace: Namespace) -> File:
-    """
-    Delete all files and folders in the Trash folder within a target Namespace.
-
-    Args:
-        db_client (DBClient): Database client.
-        namespace (Namespace): Namespace where Trash folder should be emptied.
-
-    Returns:
-        File: Trash folder.
-    """
-    ns_path = namespace.path
-    files = await crud.file.list_folder(db_client, ns_path, config.TRASH_FOLDER_NAME)
-    async for tx in db_client.transaction():  # pragma: no branch
-        async with tx:
-            await crud.file.empty_trash(tx, ns_path)
-
-    for file in files:
-        if file.is_folder():
-            await storage.deletedir(ns_path, file.path)
-        else:
-            await storage.delete(ns_path, file.path)
-
-    return await crud.file.get(db_client, ns_path, config.TRASH_FOLDER_NAME)
 
 
 async def find_duplicates(

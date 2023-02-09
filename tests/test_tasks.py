@@ -8,7 +8,7 @@ from unittest import mock
 
 import pytest
 
-from app import crud, errors, tasks
+from app import errors, tasks
 from app.entities import RelocationPath
 
 if TYPE_CHECKING:
@@ -16,16 +16,9 @@ if TYPE_CHECKING:
 
     from pytest import LogCaptureFixture
 
-    from app.entities import Namespace
     from app.tasks import FileTaskResult
-    from app.typedefs import DBClient
-    from tests.factories import FileFactory
 
-pytestmark = [
-    pytest.mark.asyncio,
-    pytest.mark.database(transaction=True),
-    pytest.mark.usefixtures("celery_session_worker"),
-]
+pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("celery_session_worker")]
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -62,19 +55,18 @@ class TestDeleteImmediatelyBatch:
         with mock.patch(target) as patch:
             yield patch
 
-    def test(
-        self, caplog: LogCaptureFixture, namespace: Namespace, delete_file: MagicMock
-    ):
+    def test(self, caplog: LogCaptureFixture, delete_file: MagicMock):
+        ns_path = "admin"
         side_effect = [
-            _make_file(str(namespace.path), "Trash/a.txt"),
+            _make_file(ns_path, "Trash/a.txt"),
             errors.FileNotFound,
             Exception,
-            _make_file(str(namespace.path), "Tras/f.txt"),
+            _make_file(ns_path, "Tras/f.txt"),
         ]
         delete_file.side_effect = side_effect
 
         paths = ["a.txt", "b.txt", "c.txt", "d.txt"]
-        task = tasks.delete_immediately_batch.delay(namespace.path, paths)
+        task = tasks.delete_immediately_batch.delay(ns_path, paths)
 
         results: list[FileTaskResult] = task.get(timeout=2)
         assert len(results) == 4
@@ -98,25 +90,30 @@ class TestDeleteImmediatelyBatch:
         assert caplog.record_tuples == [log_record]
 
 
-async def test_empty_trash(
-    db_client: DBClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    paths = ["Trash/f.txt", "Trash/folder/x.txt", "Trash/folder/y.txt"]
-    for path in paths:
-        await file_factory(namespace.path, path)
+class TestEmptyTrash:
+    @pytest.fixture
+    def empty_trash(self):
+        target = "app.app.services.NamespaceService.empty_trash"
+        with mock.patch(target) as patch:
+            yield patch
 
-    task = tasks.empty_trash.delay(namespace)
-    result = task.get(timeout=2)
+    async def test(self, empty_trash: MagicMock):
+        ns_path = "admin"
+        task = tasks.empty_trash.delay(ns_path)
+        task.get(timeout=2)
+        empty_trash.assert_awaited_once_with(ns_path)
 
-    assert result is None
-
-    trash = await crud.file.get(db_client, namespace.path, "Trash")
-    assert trash.size == 0
-
-    for path in paths:
-        assert not await crud.file.exists(db_client, namespace.path, path)
+    async def test_when_failed_unexpectedly(
+        self, caplog: LogCaptureFixture, empty_trash: MagicMock
+    ):
+        ns_path = "admin"
+        empty_trash.side_effect = Exception
+        task = tasks.empty_trash.delay(ns_path)
+        task.get(timeout=2)
+        empty_trash.assert_awaited_once_with(ns_path)
+        msg = "Unexpectedly failed to empty trash folder"
+        log_record = ("app.tasks", logging.ERROR, msg)
+        assert caplog.record_tuples == [log_record]
 
 
 class TestMoveBatch:
@@ -126,14 +123,13 @@ class TestMoveBatch:
         with mock.patch(target) as move_file_mock:
             yield move_file_mock
 
-    def test(
-        self, caplog: LogCaptureFixture, namespace: Namespace, move_file: MagicMock
-    ):
+    def test(self, caplog: LogCaptureFixture, move_file: MagicMock):
+        ns_path = "admin"
         move_file.side_effect = [
-            _make_file(str(namespace.path), "folder/a.txt"),
+            _make_file(ns_path, "folder/a.txt"),
             errors.MissingParent,
             Exception,
-            _make_file(str(namespace.path), "f.txt"),
+            _make_file(ns_path, "f.txt"),
         ]
 
         relocations = [
@@ -143,7 +139,7 @@ class TestMoveBatch:
             RelocationPath(from_path="d.txt", to_path="f.txt"),
         ]
 
-        task = tasks.move_batch.delay(namespace.path, relocations)
+        task = tasks.move_batch.delay(ns_path, relocations)
 
         results: list[FileTaskResult] = task.get(timeout=2)
         assert len(results) == 4
@@ -174,19 +170,18 @@ class TestMovetoTrashFile:
         with mock.patch(target) as move_file_mock:
             yield move_file_mock
 
-    def test(
-        self, caplog: LogCaptureFixture, namespace: Namespace, move_to_trash: MagicMock
-    ):
+    def test(self, caplog: LogCaptureFixture, move_to_trash: MagicMock):
+        ns_path = "admin"
         side_effect = [
-            _make_file(str(namespace.path), "Trash/a.txt"),
+            _make_file(ns_path, "Trash/a.txt"),
             errors.FileNotFound,
             Exception,
-            _make_file(str(namespace.path), "Tras/f.txt"),
+            _make_file(ns_path, "Tras/f.txt"),
         ]
         move_to_trash.side_effect = side_effect
 
         paths = ["a.txt", "b.txt", "c.txt", "d.txt"]
-        task = tasks.move_to_trash_batch.delay(namespace.path, paths)
+        task = tasks.move_to_trash_batch.delay(ns_path, paths)
 
         results: list[FileTaskResult] = task.get(timeout=2)
         assert len(results) == 4

@@ -78,6 +78,16 @@ class FileSystemStorage(IStorage):
         with contextlib.suppress(FileNotFoundError, NotADirectoryError):
             shutil.rmtree(fullpath)
 
+    @sync_to_async
+    def emptydir(self, ns_path: StrOrPath, path: StrOrPath) -> None:
+        fullpath = self._joinpath(self.location, ns_path, path)
+        with contextlib.suppress(FileNotFoundError, NotADirectoryError):
+            for entry in os.scandir(fullpath):
+                if entry.is_dir():
+                    shutil.rmtree(entry.path)
+                else:
+                    os.unlink(entry.path)
+
     def download(self, ns_path: StrOrPath, path: StrOrPath) -> Iterator[bytes]:
         fullpath = self._joinpath(self.location, ns_path, path)
         file = self._from_path(ns_path, fullpath)

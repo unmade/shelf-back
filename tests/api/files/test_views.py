@@ -327,7 +327,7 @@ class TestEmptyTrash:
         task_id = response.json()["async_task_id"]
         assert task_id == str(expected_task_id)
         assert response.status_code == 200
-        empty_trash.delay.assert_called_once_with(namespace)
+        empty_trash.delay.assert_called_once_with(namespace.path)
 
 
 class TestEmptyTrashCheck:

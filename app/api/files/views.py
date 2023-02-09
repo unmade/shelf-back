@@ -181,7 +181,7 @@ def empty_trash(
     namespace: Namespace = Depends(deps.namespace),
 ) -> AsyncTaskID:
     """Delete all files and folders in the Trash folder."""
-    task = tasks.empty_trash.delay(namespace)
+    task = tasks.empty_trash.delay(namespace.path)
     return AsyncTaskID(async_task_id=task.id)
 
 

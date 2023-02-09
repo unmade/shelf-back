@@ -348,36 +348,6 @@ async def test_delete_all(tx: DBTransaction, namespace: Namespace):
     assert not await crud.file.exists(tx, namespace.path, ".")
 
 
-async def test_empty_trash(tx: DBTransaction, namespace: Namespace):
-    await crud.file.create_folder(tx, namespace.path, "Trash/a/b")
-    await crud.file.create_folder(tx, namespace.path, "Trash/a/c")
-    await crud.file.create(tx, namespace.path, "Trash/f", size=32)
-    await crud.file.create(tx, namespace.path, "f", size=16)
-
-    home = await crud.file.get(tx, namespace.path, ".")
-    assert home.size == 48
-
-    trash = await crud.file.empty_trash(tx, namespace.path)
-
-    assert await crud.file.get(tx, namespace.path, "Trash") == trash
-    files = await crud.file.list_folder(tx, namespace.path, "Trash")
-    assert trash.size == 0
-    assert files == []
-
-    home = await crud.file.get(tx, namespace.path, ".")
-    assert home.size == 16
-
-
-async def test_empty_trash_but_its_already_empty(
-    tx: DBTransaction,
-    namespace: Namespace,
-):
-    trash = await crud.file.empty_trash(tx, namespace.path)
-    files = await crud.file.list_folder(tx, namespace.path, "Trash")
-    assert trash.size == 0
-    assert files == []
-
-
 @pytest.mark.parametrize(["a", "b"], [
     ("file", "file"),
     ("File", "file"),

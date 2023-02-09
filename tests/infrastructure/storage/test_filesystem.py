@@ -83,7 +83,26 @@ async def test_deletedir_but_it_is_a_file(file_factory, fs_storage: FileSystemSt
 
 
 async def test_deletedir_but_dir_does_not_exist(fs_storage: FileSystemStorage):
-    await fs_storage.delete("user", "a")
+    await fs_storage.deletedir("user", "a")
+
+
+async def test_emptydir(file_factory, fs_storage: FileSystemStorage):
+    file_a = await file_factory("user/a/f.txt")
+    file_b = await file_factory("user/a/b/f.txt")
+    await fs_storage.emptydir("user", "a")
+    assert file_a.parent.exists()
+    assert not file_a.exists()
+    assert not file_b.exists()
+
+
+async def test_emptydir_but_it_is_a_file(file_factory, fs_storage: FileSystemStorage):
+    fullpath = await file_factory("user/a/f.txt")
+    await fs_storage.emptydir("user", "a/f.txt")
+    assert fullpath.exists()
+
+
+async def test_emptydir_but_dir_does_not_exist(fs_storage: FileSystemStorage):
+    await fs_storage.emptydir("user", "a")
 
 
 async def test_download(file_factory, fs_storage: FileSystemStorage):

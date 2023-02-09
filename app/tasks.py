@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from celery import Celery
 
-from app import actions, config, db, errors
+from app import config, errors
 from app.domain.entities import File
 from app.infrastructure.database.edgedb.db import EdgeDBDatabase
 from app.infrastructure.provider import Provider
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from app.app.infrastructure import IStorage
-    from app.entities import Namespace, RelocationPath
+    from app.entities import RelocationPath
     from app.typedefs import StrOrPath
 
 logger = logging.getLogger(__name__)
@@ -121,15 +121,22 @@ async def delete_immediately_batch(
 
 
 @asynctask
-async def empty_trash(namespace: Namespace) -> None:
+async def empty_trash(ns_path: StrOrPath) -> None:
     """
-    Delete all files and folders in the Trash folder within a target Namespace.
+    Deletes all files and folders in the Trash folder within a target Namespace.
 
     Args:
         namespace (Namespace): Namespace where Trash should be emptied.
     """
-    async with db.create_client() as conn:
-        await actions.empty_trash(conn, namespace)
+    storage = _create_storage()
+
+    async with _create_database() as database:
+        provider = Provider(database=database, storage=storage)
+        services = provider.service
+        try:
+            await services.namespace.empty_trash(ns_path)
+        except Exception:
+            logger.exception("Unexpectedly failed to empty trash folder")
 
 
 @asynctask
@@ -138,7 +145,7 @@ async def move_batch(
     relocations: Iterable[RelocationPath],
 ) -> list[FileTaskResult]:
     """
-    Move several files/folders to a different locations
+    Moves several files/folders to a different locations
 
     Args:
         ns_path (StrOrPath): Namespace, where files should be moved.
@@ -179,7 +186,7 @@ async def move_to_trash_batch(
     paths: Iterable[StrOrPath],
 ) -> list[FileTaskResult]:
     """
-    Move several files to trash asynchronously.
+    Moves several files to trash asynchronously.
 
     Args:
         ns_path (StrOrPath): Namespace, where files should be moved to trash

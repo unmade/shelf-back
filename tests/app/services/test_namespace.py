@@ -249,6 +249,62 @@ class TestDeleteFile:
             await namespace_service.delete_file(namespace.path, "f.txt")
 
 
+class TestEmptyTrash:
+    async def test(
+        self,
+        namespace_service: NamespaceService,
+        file_factory: FileFactory,
+        namespace: Namespace,
+    ):
+        ns_path = namespace.path
+        file_a = await file_factory(ns_path, "Trash/f.txt")
+        file_b = await file_factory(ns_path, "Trash/a/f.txt")
+
+        await namespace_service.empty_trash(ns_path)
+        assert not await namespace_service.db.file.exists_with_id(ns_path, file_a.id)
+        assert not await namespace_service.db.file.exists_with_id(ns_path, file_b.id)
+        assert not await namespace_service.storage.exists(ns_path, file_a.path)
+        assert not await namespace_service.storage.exists(ns_path, file_b.path)
+
+    async def test_updating_trash_size(
+        self,
+        namespace_service: NamespaceService,
+        file_factory: FileFactory,
+        namespace: Namespace,
+    ):
+        ns_path = namespace.path
+        await file_factory(ns_path, "Trash/f.txt")
+
+        # check parent size before emptying the trash
+        paths = [".", "trash"]
+        home, trash = await namespace_service.db.file.get_by_path_batch(ns_path, paths)
+        assert home.size > 0
+        assert trash.size > 0
+
+        # empty the trash
+        await namespace_service.empty_trash(ns_path)
+
+        # check parents were updated
+        paths = [".", "trash"]
+        home, trash = await namespace_service.db.file.get_by_path_batch(ns_path, paths)
+        assert home.size == 0
+        assert trash.size == 0
+
+    async def test_when_trash_is_empty(
+        self, namespace_service: NamespaceService, namespace: Namespace
+    ):
+        ns_path = namespace.path
+        ns_service = namespace_service
+        with (
+            mock.patch.object(ns_service.db.file, "delete_all_with_prefix") as db_mock,
+            mock.patch.object(ns_service.storage, "emptydir") as storage_mock,
+        ):
+            await namespace_service.empty_trash(ns_path)
+
+        db_mock.assert_not_awaited()
+        storage_mock.assert_not_awaited()
+
+
 class TestHasFileWithID:
     async def test(
         self, namespace: Namespace, file: File, namespace_service: NamespaceService
