@@ -49,6 +49,28 @@ async def _get_by_id(file_id: StrOrUUID) -> File:
     )
 
 
+class TestCountByPattern:
+    async def test(
+        self,
+        file_repo: FileRepository,
+        file_factory: FileFactory,
+        namespace: Namespace,
+    ):
+        ns_path = namespace.path
+        await file_factory(ns_path, "f (f).txt")
+        await file_factory(ns_path, "f (1).txt")
+        await file_factory(ns_path, "f (2).txt")
+        count = await file_repo.count_by_path_pattern(ns_path, "f \\(\\d+\\).txt")
+        assert count == 2
+
+    async def test_when_no_match_exists(
+        self, file_repo: FileRepository, namespace: Namespace
+    ):
+        ns_path = namespace.path
+        count = await file_repo.count_by_path_pattern(ns_path, "f \\(\\d+\\).txt")
+        assert count == 0
+
+
 class TestDelete:
     async def test(self, file_repo: FileRepository, file: File):
         deleted_file = await file_repo.delete(file.ns_path, file.path)

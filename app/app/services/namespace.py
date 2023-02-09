@@ -75,6 +75,7 @@ class NamespaceService:
         Returns:
             File: Saved file.
         """
+
         path = PurePath(path)
         try:
             parent = await self.db.file.get_by_path(ns_path, path.parent)
@@ -85,7 +86,7 @@ class NamespaceService:
             if not parent.is_folder():
                 raise errors.NotADirectory()
 
-        next_path = await self.db.file.next_path(ns_path, path)
+        next_path = await self.get_available_path(ns_path, path)
         mediatype = mediatypes.guess(next_path, content)
 
         dhash = hashes.dhash(content, mediatype=mediatype)
@@ -240,6 +241,30 @@ class NamespaceService:
             parents = [".", "trash"]
             await self.db.file.incr_size_batch(ns_path, parents, value=-trash.size)
         await self.storage.emptydir(ns_path, "trash")
+
+    async def get_available_path(self, ns_path: StrOrPath, path: StrOrPath) -> str:
+        """
+        Returns a path with modified name if the current one is already taken, otherwise
+        returns path unchanged.
+
+        For example, if path 'a/f.tar.gz' exists, then the next path will be as follows
+        'a/f (1).tar.gz'.
+
+        Args:
+            ns_path (StrOrPath): Namespace path where to look for a path.
+            path (StrOrPath): Target path.
+
+        Returns:
+            str: an available file path
+        """
+        if not await self.db.file.exists_at_path(ns_path, path):
+            return str(path)
+
+        suffix = "".join(PurePath(path).suffixes)
+        stem = str(path)[:len(str(path)) - len(suffix)]
+        pattern = f"{stem} \\([[:digit:]]+\\){suffix}"
+        count = await self.db.file.count_by_path_pattern(ns_path, pattern)
+        return f"{stem} ({count + 1}){suffix}"
 
     async def get_by_path(self, path: str) -> Namespace:
         return await self.db.namespace.get_by_path(path)

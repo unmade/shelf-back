@@ -18,6 +18,17 @@ class FileUpdate(TypedDict, total=False):
 
 
 class IFileRepository(Protocol):
+    async def count_by_path_pattern(self, ns_path: StrOrPath, pattern: str) -> int:
+        """
+        Counts the number of files matching the pattern.
+
+        Args:
+            ns_path (StrOrPath): Target namespace path.
+            pattern (str): Path pattern.
+
+        Returns:
+            int: Number of occurences that matches the pattern.
+        """
     async def delete(self, ns_path: StrOrPath, path: StrOrPath) -> File:
         """
         Deletes file at a given path.
@@ -106,22 +117,6 @@ class IFileRepository(Protocol):
             ns_path (str): Namespace.
             paths (Iterable[StrOrPath]): List of path which size will be incremented.
             value (int): value that will be added to the current file size.
-        """
-
-    async def next_path(self, ns_path: StrOrPath, path: StrOrPath) -> str:
-        """
-        Returns a path with modified name if the current one is already taken, otherwise
-        returns path unchanged.
-
-        For example, if path 'a/f.tar.gz' exists, then the next path will be as follows
-        'a/f (1).tar.gz'.
-
-        Args:
-            ns_path (StrOrPath): Namespace path where to look for a path.
-            path (StrOrPath): Target path.
-
-        Returns:
-            str: an available file path
         """
 
     async def replace_path_prefix(

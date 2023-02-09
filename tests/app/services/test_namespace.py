@@ -305,6 +305,57 @@ class TestEmptyTrash:
         storage_mock.assert_not_awaited()
 
 
+class TestGetAvailablePath:
+    @pytest.mark.parametrize(["name", "expected_name"], [
+        ("f.txt", "f (1).txt"),
+        ("f.tar.gz", "f (1).tar.gz"),
+        ("f (1).tar.gz", "f (1) (1).tar.gz"),
+    ])
+    async def test(
+        self,
+        namespace_service: NamespaceService,
+        file_factory: FileFactory,
+        namespace: Namespace,
+        name: str,
+        expected_name: str,
+    ):
+        ns_path = namespace.path
+        await file_factory(ns_path, f"a/b/{name}")
+
+        actual = await namespace_service.get_available_path(ns_path, f"a/b/{name}")
+        assert actual == f"a/b/{expected_name}"
+
+    async def test_available_path_is_sequential(
+        self,
+        namespace_service: NamespaceService,
+        file_factory: FileFactory,
+        namespace: Namespace,
+    ):
+        ns_path = namespace.path
+        await file_factory(ns_path, "f.tar.gz")
+        await file_factory(ns_path, "f (1).tar.gz")
+
+        path = await namespace_service.get_available_path(ns_path, "f.tar.gz")
+        assert path == "f (2).tar.gz"
+
+    async def test_case_insensitiveness(
+        self,
+        namespace_service: NamespaceService,
+        file_factory: FileFactory,
+        namespace: Namespace,
+    ):
+        ns_path = namespace.path
+        await file_factory(ns_path, "F.TAR.GZ")
+        path = await namespace_service.get_available_path(ns_path, "f.tar.gz")
+        assert path == "f (1).tar.gz"
+
+    async def test_returning_path_as_is(
+        self, namespace_service: NamespaceService, namespace: Namespace
+    ):
+        next_path = await namespace_service.get_available_path(namespace.path, "f.txt")
+        assert next_path == "f.txt"
+
+
 class TestHasFileWithID:
     async def test(
         self, namespace: Namespace, file: File, namespace_service: NamespaceService

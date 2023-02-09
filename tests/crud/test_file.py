@@ -552,43 +552,6 @@ async def test_list_folder_but_it_a_file(tx: DBTransaction, namespace: Namespace
         await crud.file.list_folder(tx, namespace.path, "f")
 
 
-@pytest.mark.parametrize(["name", "next_name"], [
-    ("f.txt", "f (1).txt"),
-    ("f.tar.gz", "f (1).tar.gz"),
-    ("f (1).tar.gz", "f (1) (1).tar.gz"),
-])
-async def test_next_path(tx: DBTransaction, namespace: Namespace, name, next_name):
-    await crud.file.create_folder(tx, namespace.path, "a/b")
-    await crud.file.create(tx, namespace.path, f"a/b/{name}")
-
-    next_path = await crud.file.next_path(tx, namespace.path, f"a/b/{name}")
-    assert next_path == f"a/b/{next_name}"
-    assert not await crud.file.exists(tx, namespace.path, next_name)
-
-
-async def test_next_path_is_sequential(tx: DBTransaction, namespace: Namespace):
-    await crud.file.create(tx, namespace.path, "f.tar.gz")
-    await crud.file.create(tx, namespace.path, "f (1).tar.gz")
-
-    next_path = await crud.file.next_path(tx, namespace.path, "f.tar.gz")
-    assert next_path == "f (2).tar.gz"
-    assert not await crud.file.exists(tx, namespace.path, "f (2).tar.gz")
-
-
-async def test_next_path_is_case_insensitive(tx: DBTransaction, namespace: Namespace):
-    await crud.file.create(tx, namespace.path, "F.TAR.GZ")
-    await crud.file.create(tx, namespace.path, "F (1).tar.gz")
-
-    next_path = await crud.file.next_path(tx, namespace.path, "f.tar.gz")
-    assert next_path == "f (2).tar.gz"
-    assert not await crud.file.exists(tx, namespace.path, "f (2).tar.gz")
-
-
-async def test_next_path_returns_path_as_is(tx: DBTransaction, namespace: Namespace):
-    next_path = await crud.file.next_path(tx, namespace.path, "f.txt")
-    assert next_path == "f.txt"
-
-
 async def test_inc_size_batch(tx: DBTransaction, namespace: Namespace):
     await crud.file.create_folder(tx, namespace.path, "a/b")
     await crud.file.create_folder(tx, namespace.path, "a/c")

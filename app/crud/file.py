@@ -609,39 +609,6 @@ async def list_folder(
     return [from_db(file) for file in files]
 
 
-async def next_path(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> str:
-    """
-    Return a path with modified name if current one already taken, otherwise return
-    path unchanged.
-
-    For example, if path 'a/f.tar.gz' exists, then next path will be 'a/f (1).tar.gz'.
-
-    Args:
-        conn (DBAnyConn): Database connection.
-        namespace (StrOrPath): Namespace to check for target path.
-        path (StrOrPath): Target path.
-
-    Returns:
-        str: Path with a modified name if current one already taken, otherwise return
-             path unchanged
-    """
-    if not await exists(conn, namespace, path):
-        return str(path)
-
-    suffix = "".join(PurePath(path).suffixes)
-    path_stem = str(path).rstrip(suffix)
-    count = await conn.query_required_single("""
-        SELECT count(
-            File
-            FILTER
-                re_test(str_lower(<str>$pattern), str_lower(.path))
-                AND
-                .namespace.path = <str>$namespace
-        )
-    """, namespace=str(namespace), pattern=f"{path_stem} \\([[:digit:]]+\\){suffix}")
-    return f"{path_stem} ({count + 1}){suffix}"
-
-
 async def inc_size_batch(
     conn: DBAnyConn,
     namespace: StrOrPath,
