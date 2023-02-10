@@ -133,18 +133,19 @@ class NamespaceService:
             Namespace: A freshly created namespace instance.
         """
         await self.storage.makedirs(path, "Trash")
-        namespace = await self.db.namespace.save(
+        ns = await self.db.namespace.save(
             Namespace(id=SENTINEL_ID, path=str(path), owner_id=owner_id)
         )
 
-        await self.db.folder.save(
-            Folder(id=SENTINEL_ID, ns_path=namespace.path, name="home", path=".")
-        )
-        await self.db.folder.save(
-            Folder(id=SENTINEL_ID, ns_path=namespace.path, name="Trash", path="Trash")
-        )
+        async for _ in self.db.atomic():
+            await self.db.folder.save(
+                Folder(id=SENTINEL_ID, ns_path=ns.path, name="home", path=".")
+            )
+            await self.db.folder.save(
+                Folder(id=SENTINEL_ID, ns_path=ns.path, name="Trash", path="Trash")
+            )
 
-        return namespace
+        return ns
 
     async def create_folder(self, ns_path: StrOrPath, path: StrOrPath) -> Folder:
         """

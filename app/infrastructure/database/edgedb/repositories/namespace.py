@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, cast
 
 import edgedb
 
-from app import crud, errors
+from app import errors
 from app.app.repositories import INamespaceRepository
 from app.domain.entities import Namespace
 
@@ -13,6 +13,14 @@ if TYPE_CHECKING:
     from app.typedefs import StrOrUUID
 
 __all__ = ["NamespaceRepository"]
+
+
+def _from_db(obj) -> Namespace:
+    return Namespace(
+        id=obj.id,
+        path=obj.path,
+        owner_id=obj.owner.id,
+    )
 
 
 class NamespaceRepository(INamespaceRepository):
@@ -39,7 +47,7 @@ class NamespaceRepository(INamespaceRepository):
             msg = f"Namespace with path={path} does not exists"
             raise errors.NamespaceNotFound(msg) from exc
 
-        return Namespace(id=obj.id, path=obj.path, owner_id=obj.owner.id)
+        return _from_db(obj)
 
     async def get_space_used_by_owner_id(self, owner_id: StrOrUUID) -> int:
         query = """
@@ -64,9 +72,21 @@ class NamespaceRepository(INamespaceRepository):
         return cast(int, value)
 
     async def save(self, namespace: Namespace) -> Namespace:
-        obj = await crud.namespace.create(
-            self.conn,
-            path=namespace.path,
-            owner_id=namespace.owner_id,
+        query = """
+            SELECT (
+                INSERT Namespace {
+                    path := <str>$path,
+                    owner := (
+                        SELECT
+                            User
+                        FILTER
+                            .id = <uuid>$owner_id
+                    )
+                }
+            ) { id, path, owner: { id } }
+        """
+
+        obj = await self.conn.query_required_single(
+            query, path=str(namespace.path), owner_id=namespace.owner_id
         )
-        return namespace.copy(update={"id": obj.id})
+        return _from_db(obj)

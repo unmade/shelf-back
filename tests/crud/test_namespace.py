@@ -8,17 +8,11 @@ import pytest
 from app import crud, errors
 
 if TYPE_CHECKING:
-    from app.entities import Namespace, User
+    from app.entities import Namespace
     from app.typedefs import DBTransaction
 
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
-
-
-async def test_create(tx: DBTransaction, user: User):
-    namespace = await crud.namespace.create(tx, user.username, user.id)
-    assert str(namespace.path) == user.username
-    assert namespace.owner == user
 
 
 async def test_get(tx: DBTransaction, namespace: Namespace):
