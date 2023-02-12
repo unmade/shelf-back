@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from app.app.services import NamespaceService, UserService
+from app.app.services import FileCoreService, NamespaceService, UserService
 from app.app.usecases import SignUp, UploadFile
 
 if TYPE_CHECKING:
@@ -25,7 +25,8 @@ class Service:
     __slots__ = ["namespace", "user"]
 
     def __init__(self, database: EdgeDBDatabase, storage: IStorage):
-        self.namespace = NamespaceService(database=database, storage=storage)
+        filecore = FileCoreService(database=database, storage=storage)
+        self.namespace = NamespaceService(database=database, filecore=filecore)
         self.user = UserService(database=database)
 
 

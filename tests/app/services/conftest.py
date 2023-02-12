@@ -8,7 +8,11 @@ import pytest
 from faker import Faker
 
 from app import security
-from app.app.services import NamespaceService, UserService
+from app.app.services import (
+    FileCoreService,
+    NamespaceService,
+    UserService,
+)
 from app.infrastructure.database.edgedb import EdgeDBDatabase
 from app.infrastructure.database.edgedb.db import db_context
 from app.infrastructure.storage import FileSystemStorage
@@ -83,10 +87,11 @@ def _db_or_tx(request: FixtureRequest):
 
 
 @pytest.fixture
-def namespace_service(_db_or_tx, tmp_path: Path):
+def namespace_service(_db_or_tx: EdgeDBDatabase, tmp_path: Path):
     """A namespace service instance."""
     storage = FileSystemStorage(tmp_path)
-    return NamespaceService(database=_db_or_tx, storage=storage)
+    filecore = FileCoreService(database=_db_or_tx, storage=storage)
+    return NamespaceService(database=_db_or_tx, filecore=filecore)
 
 
 @pytest.fixture
