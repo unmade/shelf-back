@@ -8,7 +8,7 @@ from unittest import mock
 import pytest
 
 from app import errors, taskgroups
-from app.domain.entities import SENTINEL_ID, Namespace
+from app.domain.entities import Namespace
 
 if TYPE_CHECKING:
     from app.app.services import NamespaceService
@@ -148,18 +148,12 @@ class TestCreateFolder:
             folder = await namespace_service.create_folder(namespace.path, folder.path)
 
     async def test_when_path_is_not_a_directory(
-        self, namespace: Namespace, namespace_service: NamespaceService
+        self,
+        namespace_service: NamespaceService,
+        namespace: Namespace,
+        file_factory: FileFactory,
     ):
-        await namespace_service.db.file.save(
-            File(
-                id=SENTINEL_ID,
-                ns_path=namespace.path,
-                name="f.txt",
-                path="f.txt",
-                size=0,
-                mediatype='plain/text',
-            )
-        )
+        await file_factory(namespace.path, "f.txt")
 
         with pytest.raises(errors.NotADirectory):
             await namespace_service.create_folder(namespace.path, "f.txt/folder")

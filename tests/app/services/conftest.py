@@ -8,7 +8,9 @@ import pytest
 from faker import Faker
 
 from app import security
+from app.app.repositories.fingerprint import IFingerprintRepository
 from app.app.services import (
+    DuplicateFinderService,
     FileCoreService,
     NamespaceService,
     UserService,
@@ -84,6 +86,13 @@ def _db_or_tx(request: FixtureRequest):
         yield request.getfixturevalue("_database")
     else:
         yield request.getfixturevalue("_tx_database")
+
+
+@pytest.fixture
+def dupefinder():
+    """A duplicate finder service instance."""
+    database = mock.MagicMock(fingerprint=mock.AsyncMock(IFingerprintRepository))
+    return DuplicateFinderService(database=database)
 
 
 @pytest.fixture

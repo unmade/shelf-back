@@ -4,12 +4,28 @@ from typing import TYPE_CHECKING, Protocol, TypeAlias
 
 if TYPE_CHECKING:
     from app.domain.entities import Fingerprint
+    from app.typedefs import StrOrPath
 
     MatchResult: TypeAlias = dict[Fingerprint, list[Fingerprint]]
 
 
 class IFingerprintRepository(Protocol):
-    async def save(self, fingerprint: Fingerprint) -> None:
+    async def intersect_all_with_prefix(
+        self, ns_path: StrOrPath, prefix: StrOrPath
+    ) -> MatchResult:
+        """
+        Finds all approximately matching fingerprints for files with path starting with
+        given prefix.
+
+        Args:
+            ns_path (StrOrPath): Target namespace.
+            path (StrOrPath): Folder path where to intersect fingerprints.
+
+        Returns:
+            MatchResult: Adjacency list containing fingerprints.
+        """
+
+    async def save(self, fingerprint: Fingerprint) -> Fingerprint:
         """
         Saves file fingerprint to the database.
 

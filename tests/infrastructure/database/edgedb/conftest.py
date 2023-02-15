@@ -7,16 +7,18 @@ import pytest
 from faker import Faker
 
 from app import mediatypes
-from app.domain.entities import SENTINEL_ID, Account, File, Namespace, User
+from app.domain.entities import SENTINEL_ID, Account, File, Fingerprint, Namespace, User
 from app.infrastructure.database.edgedb import EdgeDBDatabase
 from app.infrastructure.database.edgedb.db import db_context
 
 if TYPE_CHECKING:
     from typing import Protocol
+    from uuid import UUID
 
     from app.app.repositories import (
         IAccountRepository,
         IFileRepository,
+        IFingerprintRepository,
         INamespaceRepository,
         IUserRepository,
     )
@@ -24,6 +26,9 @@ if TYPE_CHECKING:
 
     class FileFactory(Protocol):
         async def __call__(self, ns_path: str, path: str | None = None) -> File: ...
+
+    class FingerprintFactory(Protocol):
+        async def __call__(self, file_id: UUID, value: int) -> Fingerprint: ...
 
     class FolderFactory(Protocol):
         async def __call__(self, ns_path: str, path: str | None = None) -> File: ...
@@ -78,6 +83,12 @@ def file_repo(_tx_database: EdgeDBDatabase):
 
 
 @pytest.fixture
+def fingerprint_repo(_tx_database: EdgeDBDatabase):
+    """An EdgeDB instance of IFingerprintRepository"""
+    return _tx_database.fingerprint
+
+
+@pytest.fixture
 def namespace_repo(_tx_database: EdgeDBDatabase):
     """An EdgeDB instance of INamespaceRepository"""
     return _tx_database.namespace
@@ -104,6 +115,15 @@ def file_factory(file_repo: IFileRepository) -> FileFactory:
                 size=10,
                 mediatype="plain/text",
             )
+        )
+    return factory
+
+
+@pytest.fixture
+def fingerprint_factory(fingerprint_repo: IFingerprintRepository) -> FingerprintFactory:
+    async def factory(file_id: UUID, value: int):
+        return await fingerprint_repo.save(
+            Fingerprint(file_id, value=value)
         )
     return factory
 
