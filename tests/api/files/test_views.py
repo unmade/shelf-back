@@ -38,7 +38,6 @@ if TYPE_CHECKING:
     from tests.factories import (
         FileFactory,
         FileMetadataFactory,
-        FingerprintFactory,
     )
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
@@ -368,55 +367,42 @@ class TestEmptyTrashCheck:
         task_result.assert_called_once_with(str(task_id))
 
 
-async def test_find_duplicates(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-    fingerprint_factory: FingerprintFactory,
-):
-    ns_path = namespace.path
+class TestFindDuplicates:
+    url = "/files/find_duplicates"
 
-    file_1 = await file_factory(ns_path, "f1.txt")
-    file_1_match = await file_factory(ns_path, "f1 (match).txt")
+    async def test(
+        self, client: TestClient, namespace: Namespace, ns_service: MagicMock
+    ):
+        # GIVEN
+        ns_path = str(namespace.path)
+        files = [_make_file(ns_path, f"{idx}.txt") for idx in range(4)]
+        ns_service.find_duplicates.return_value = [
+            [files[0], files[2]], [files[1], files[3]]
+        ]
+        payload = {"path": "."}
+        client.login(namespace.owner.id)
+        # WHEN
+        response = await client.post(self.url, json=payload)
+        # THEN
+        assert response.json()["path"] == "."
+        assert response.json()["count"] == 2
+        assert len(response.json()["items"][0]) == 2
+        assert len(response.json()["items"][1]) == 2
+        ns_service.find_duplicates.assert_awaited_once_with(namespace.path, ".", 5)
 
-    await fingerprint_factory(file_1.id, 56797, 56781, 18381, 58597)
-    await fingerprint_factory(file_1_match.id, 56797, 56797, 18381, 58597)
-
-    payload = {"path": "."}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/find_duplicates", json=payload)
-    assert response.json()["path"] == "."
-    assert response.json()["count"] == 1
-    assert len(response.json()["items"]) == 1
-    assert len(response.json()["items"][0]) == 2
-    names = {
-        response.json()["items"][0][0]["name"],
-        response.json()["items"][0][1]["name"],
-    }
-    assert names == {"f1.txt", "f1 (match).txt"}
-    assert response.status_code == 200
-
-
-async def test_find_duplicates_with_zero_distance(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-    fingerprint_factory: FingerprintFactory,
-):
-    ns_path = namespace.path
-
-    file_1 = await file_factory(ns_path, "f1.txt")
-    file_1_match = await file_factory(ns_path, "f1 (match).txt")
-
-    await fingerprint_factory(file_1.id, 56797, 56781, 18381, 58597)
-    await fingerprint_factory(file_1_match.id, 56797, 56797, 18381, 58597)
-
-    payload = {"path": ".", "max_distance": 0}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/find_duplicates", json=payload)
-    assert response.json()["path"] == "."
-    assert response.json()["count"] == 0
-    assert len(response.json()["items"]) == 0
+    async def test_when_result_is_empty(
+        self, client: TestClient, namespace: Namespace, ns_service: MagicMock
+    ):
+        # GIVEN
+        ns_service.find_duplicates.return_value = []
+        payload = {"path": "."}
+        client.login(namespace.owner.id)
+        # WHEN
+        response = await client.post(self.url, json=payload)
+        # THEN
+        assert response.json()["path"] == "."
+        assert response.json()["count"] == 0
+        ns_service.find_duplicates.assert_awaited_once_with(namespace.path, ".", 5)
 
 
 async def test_get_batch(

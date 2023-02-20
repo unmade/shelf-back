@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import itertools
 from io import BytesIO
 from uuid import UUID
 
@@ -10,7 +9,7 @@ from fastapi import APIRouter, Depends, Form, Query, Request, UploadFile
 from fastapi import File as FileParam
 from fastapi.responses import ORJSONResponse, Response, StreamingResponse
 
-from app import actions, config, crud, errors, mediatypes, tasks
+from app import config, crud, errors, mediatypes, tasks
 from app.api import deps, shortcuts
 from app.entities import Namespace, User
 from app.infrastructure.provider import Service, UseCase
@@ -202,22 +201,14 @@ def empty_trash_check(
 async def find_duplicates(
     request: Request,
     payload: FindDuplicatesRequest,
-    db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
+    services: Service = Depends(deps.services),
 ):
     """Find all duplicate files in a folder including all sub-folders."""
+    ns_path = namespace.path
     path, max_distance = payload.path, payload.max_distance
-    groups = await actions.find_duplicates(db_client, namespace, path, max_distance)
 
-    ids = itertools.chain.from_iterable(
-        (fp.file_id for fp in group)
-        for group in groups
-    )
-
-    files = {
-        file.id: file
-        for file in await crud.file.get_by_id_batch(db_client, namespace.path, ids=ids)
-    }
+    groups = await services.namespace.find_duplicates(ns_path, path, max_distance)
 
     # by returning response class directly we avoid pydantic checks
     # that way we speed up on a large volume of data
@@ -225,8 +216,8 @@ async def find_duplicates(
         "path": payload.path,
         "items": [
             [
-                FileSchema.from_entity(files[fp.file_id], request=request).dict()
-                for fp in group
+                FileSchema.from_entity(file, request=request).dict()
+                for file in group
             ]
             for group in groups
         ],
