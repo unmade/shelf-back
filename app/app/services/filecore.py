@@ -220,6 +220,21 @@ class FileCoreService:
         count = await self.db.file.count_by_path_pattern(ns_path, pattern)
         return f"{stem} ({count + 1}){suffix}"
 
+    async def get_by_id_batch(
+        self, ns_path: StrOrPath, ids: Iterable[StrOrUUID]
+    ) -> list[File]:
+        """
+        Returns all files with target IDs.
+
+        Args:
+            ns_path (StrOrPath): Namespace where files are located.
+            ids (Iterable[StrOrUUID]): Iterable of paths to look for.
+
+        Returns:
+            List[File]: Files with target IDs.
+        """
+        return await self.db.file.get_by_id_batch(ns_path, ids)
+
     async def move(
         self, ns_path: StrOrPath, at_path: StrOrPath, to_path: StrOrPath
     ) -> File:

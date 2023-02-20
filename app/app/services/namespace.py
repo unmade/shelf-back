@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import os
 from pathlib import PurePath
 from typing import IO, TYPE_CHECKING, Protocol
@@ -21,6 +22,7 @@ if TYPE_CHECKING:
     )
     from app.typedefs import StrOrPath, StrOrUUID
 
+    from .dupefinder import DuplicateFinderService
     from .filecore import FileCoreService
 
     class IServiceDatabase(IDatabase, Protocol):
@@ -32,10 +34,14 @@ __all__ = ["NamespaceService"]
 
 class NamespaceService:
     def __init__(
-        self, database: IServiceDatabase, filecore: FileCoreService
+        self,
+        database: IServiceDatabase,
+        filecore: FileCoreService,
+        dupefinder: DuplicateFinderService,
     ):
         self.db = database
         self.filecore = filecore
+        self.dupefinder = dupefinder
 
     async def add_file(
         self, ns_path: StrOrPath, path: StrOrPath, content: IO[bytes]
@@ -131,6 +137,37 @@ class NamespaceService:
             ns_path (StrOrPath): Namespace path where to empty the Trash folder.
         """
         await self.filecore.empty_folder(ns_path, "trash")
+
+    async def find_duplicates(
+        self, ns_path: StrOrPath, path: StrOrPath, max_distance: int = 5
+    ) -> list[list[File]]:
+        """
+        Finds all duplicate fingerprints in a folder, including sub-folders.
+
+        Args:
+            ns_path (StrOrPath): Target namespace path.
+            path (StrOrPath): Folder path where to search for fingerprints.
+            max_distance (int, optional): The maximum distance at which two fingerprints
+                are considered the same. Defaults to 5.
+
+        Returns:
+            list[list[File]]: List of lists of duplicate fingerprints.
+        """
+        groups = await self.dupefinder.find_in_folder(ns_path, path, max_distance)
+        ids = itertools.chain.from_iterable(
+            (fp.file_id for fp in group)
+            for group in groups
+        )
+
+        files = {
+            file.id: file
+            for file in await self.filecore.get_by_id_batch(ns_path, ids=ids)
+        }
+
+        return [
+            [files[fp.file_id] for fp in group]
+            for group in groups
+        ]
 
     async def get_by_path(self, path: str) -> Namespace:
         return await self.db.namespace.get_by_path(path)

@@ -76,7 +76,7 @@ class DuplicateFinderService:
         Finds all duplicate fingerprints in a folder, including sub-folders.
 
         Args:
-            ns_path (Namespace): Target namespace.
+            ns_path (StrOrPath): Target namespace.
             path (StrOrPath): Folder path where to search for fingerprints.
             max_distance (int, optional): The maximum distance at which two fingerprints
                 are considered the same. Defaults to 5.

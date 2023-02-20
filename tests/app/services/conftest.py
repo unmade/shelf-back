@@ -100,7 +100,10 @@ def namespace_service(_db_or_tx: EdgeDBDatabase, tmp_path: Path):
     """A namespace service instance."""
     storage = FileSystemStorage(tmp_path)
     filecore = FileCoreService(database=_db_or_tx, storage=storage)
-    return NamespaceService(database=_db_or_tx, filecore=filecore)
+    dupefinder = mock.MagicMock(DuplicateFinderService)
+    return NamespaceService(
+        database=_db_or_tx, filecore=filecore, dupefinder=dupefinder
+    )
 
 
 @pytest.fixture

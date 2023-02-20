@@ -1,18 +1,20 @@
 from __future__ import annotations
 
+import os.path
+import uuid
 from io import BytesIO
 from pathlib import PurePath
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from unittest import mock
 
 import pytest
 
 from app import errors, taskgroups
-from app.domain.entities import Namespace
+from app.domain.entities import File, Fingerprint, Namespace
 
 if TYPE_CHECKING:
     from app.app.services import NamespaceService
-    from app.domain.entities import File, User
+    from app.domain.entities import User
 
     from .conftest import BookmarkFactory, FileFactory, FolderFactory
 
@@ -298,6 +300,71 @@ class TestEmptyTrash:
 
         db_mock.assert_not_awaited()
         storage_mock.assert_not_awaited()
+
+
+class TestFindDuplicates:
+    def _make_file(self, ns_path: str, path: str, size: int = 10) -> File:
+        return File(
+            id=uuid.uuid4(),
+            ns_path=ns_path,
+            name=os.path.basename(path),
+            path=path,
+            size=size,
+            mediatype="image/jpeg",
+        )
+
+    @pytest.fixture
+    def ns_service(self):
+        from app.app.services import (
+            DuplicateFinderService,
+            FileCoreService,
+            NamespaceService,
+        )
+
+        return NamespaceService(
+            database=mock.MagicMock(),
+            filecore=mock.MagicMock(FileCoreService),
+            dupefinder=mock.MagicMock(DuplicateFinderService),
+        )
+
+    async def test(self, ns_service: NamespaceService):
+        # GIVEN
+        ns_path = "admin"
+        files = [self._make_file(ns_path, f"{idx}.txt") for idx in range(4)]
+        intersection = [
+            [
+                Fingerprint(file_id=files[0].id, value=14841886093006266496),
+                Fingerprint(file_id=files[2].id, value=14841886093006266496),
+            ],
+            [
+                Fingerprint(file_id=files[1].id, value=16493668159829433821),
+                Fingerprint(file_id=files[3].id, value=16493668159830482397),
+            ]
+        ]
+        dupefinder = cast(mock.MagicMock, ns_service.dupefinder)
+        filecore = cast(mock.MagicMock, ns_service.filecore)
+        dupefinder.find_in_folder.return_value = intersection
+        filecore.get_by_id_batch.return_value = files
+        # WHEN
+        duplicates = await ns_service.find_duplicates(ns_path, ".")
+        # THEN
+        assert duplicates == [[files[0], files[2]], [files[1], files[3]]]
+        dupefinder.find_in_folder.assert_awaited_once_with(ns_path, ".", 5)
+        filecore.get_by_id_batch.assert_awaited_once()
+
+    async def test_when_no_duplicates(self, ns_service: NamespaceService):
+        # GIVEN
+        ns_path = "admin"
+        dupefinder = cast(mock.MagicMock, ns_service.dupefinder)
+        filecore = cast(mock.MagicMock, ns_service.filecore)
+        dupefinder.find_in_folder.return_value = []
+        filecore.get_by_id_batch.return_value = []
+        # WHEN
+        duplicates = await ns_service.find_duplicates(ns_path, ".")
+        # THEN
+        assert duplicates == []
+        dupefinder.find_in_folder.assert_awaited_once_with(ns_path, ".", 5)
+        filecore.get_by_id_batch.assert_awaited_once()
 
 
 @pytest.mark.skip

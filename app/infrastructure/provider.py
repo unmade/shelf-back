@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from app.app.services import FileCoreService, NamespaceService, UserService
+from app.app.services import (
+    DuplicateFinderService,
+    FileCoreService,
+    NamespaceService,
+    UserService,
+)
 from app.app.usecases import SignUp, UploadFile
 
 if TYPE_CHECKING:
@@ -26,7 +31,10 @@ class Service:
 
     def __init__(self, database: EdgeDBDatabase, storage: IStorage):
         filecore = FileCoreService(database=database, storage=storage)
-        self.namespace = NamespaceService(database=database, filecore=filecore)
+        dupefinder = DuplicateFinderService(database=database)
+        self.namespace = NamespaceService(
+            database=database, filecore=filecore, dupefinder=dupefinder
+        )
         self.user = UserService(database=database)
 
 

@@ -128,6 +128,23 @@ class TestExistsWithID:
         assert exists is False
 
 
+class TestGetByIdBatch:
+    async def test(
+        self, file_repo: FileRepository, file_factory: FileFactory, namespace: Namespace
+    ):
+        files = [await file_factory(namespace.path) for _ in range(3)]
+        ids = [file.id for file in files]
+        result = await file_repo.get_by_id_batch(namespace.path, ids)
+        assert result == sorted(files, key=operator.attrgetter("path"))
+
+    async def test_when_some_file_does_not_exist(
+        self, file_repo: FileRepository, file: File,
+    ):
+        paths = [file.id, uuid.uuid4()]
+        result = await file_repo.get_by_id_batch(file.ns_path, paths)
+        assert result == [file]
+
+
 class TestGetByPath:
     async def test(self, file_repo: FileRepository, file: File):
         file_in_db = await file_repo.get_by_path(file.ns_path, file.path)

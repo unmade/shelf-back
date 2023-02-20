@@ -124,6 +124,27 @@ class FileRepository(IFileRepository):
         )
         return cast(bool, exists)
 
+    async def get_by_id_batch(
+        self, ns_path: StrOrPath, ids: Iterable[StrOrUUID]
+    ) -> list[File]:
+        query = """
+            SELECT
+                File {
+                    id, name, path, size, mtime, mediatype: { name },
+                }
+            FILTER
+                .id IN {array_unpack(<array<uuid>>$ids)}
+                AND
+                .namespace.path = <str>$namespace
+            ORDER BY
+                str_lower(.path) ASC
+        """
+        objs = await self.conn.query(
+            query, namespace=str(ns_path), ids=list(ids),
+        )
+
+        return [_from_db(str(ns_path), obj) for obj in objs]
+
     async def get_by_path(self, ns_path: StrOrPath, path: StrOrPath) -> File:
         query = """
             SELECT
@@ -260,7 +281,7 @@ class FileRepository(IFileRepository):
         except edgedb.ConstraintViolationError as exc:
             raise errors.FileAlreadyExists() from exc
 
-        return file.copy(update={"id": obj.id})
+        return _from_db(file.ns_path, obj)
 
     async def update(self, file_update: FileUpdate) -> File:
         hints = get_type_hints(FileUpdate)

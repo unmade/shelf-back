@@ -78,6 +78,20 @@ class IFileRepository(Protocol):
             bool: True if file/folder exists, False otherwise.
         """
 
+    async def get_by_id_batch(
+        self, ns_path: StrOrPath, ids: Iterable[StrOrUUID]
+    ) -> list[File]:
+        """
+        Returns all files with target IDs.
+
+        Args:
+            ns_path (StrOrPath): Namespace where files are located.
+            ids (Iterable[StrOrUUID]): Iterable of paths to look for.
+
+        Returns:
+            List[File]: Files with target IDs.
+        """
+
     async def get_by_path(self, ns_path: StrOrPath, path: StrOrPath) -> File:
         """
         Return a file at a target path.

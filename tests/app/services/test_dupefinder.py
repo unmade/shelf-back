@@ -24,7 +24,7 @@ class TestFindInFolder:
         ns_path = "admin"
         groups = await dupefinder.find_in_folder(ns_path, "myfolder")
         assert groups == _group.return_value
-        db: MagicMock = cast(mock.MagicMock, dupefinder.db)
+        db = cast(mock.MagicMock, dupefinder.db)
         db.fingerprint.intersect_all_with_prefix.assert_awaited_once_with(
             ns_path, prefix="myfolder/"
         )
