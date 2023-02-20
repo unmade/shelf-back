@@ -12,7 +12,7 @@ from unittest import mock
 import celery.states
 import pytest
 
-from app import config, errors
+from app import config, errors, mediatypes
 from app.api import shortcuts
 from app.api.files.exceptions import (
     DownloadNotFound,
@@ -23,7 +23,7 @@ from app.api.files.exceptions import (
     StorageQuotaExceeded,
     UploadFileTooLarge,
 )
-from app.domain.entities import File, Folder
+from app.domain.entities import File
 from app.entities import Exif
 from app.tasks import FileTaskResult
 
@@ -43,14 +43,16 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
 
 
-def _make_file(ns_path: str, path: str, size: int = 10) -> File:
+def _make_file(
+    ns_path: str, path: str, size: int = 10, mediatype: str = "plain/text"
+) -> File:
     return File(
         id=uuid.uuid4(),
         ns_path=ns_path,
         name=os.path.basename(path),
         path=path,
         size=size,
-        mediatype="plain/text",
+        mediatype=mediatype,
     )
 
 
@@ -69,11 +71,11 @@ class TestCreateFolder:
         path: str,
         expected_path: str,
     ):
-        folder = Folder(
-            id=uuid.uuid4(),
+        folder = _make_file(
             ns_path=str(namespace.path),
-            name=expected_path.split('/')[-1],
             path=expected_path,
+            size=0,
+            mediatype=mediatypes.FOLDER,
         )
         ns_service.create_folder.return_value = folder
         payload = {"path": path}

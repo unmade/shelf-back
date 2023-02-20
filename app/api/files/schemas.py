@@ -10,7 +10,6 @@ from pydantic import BaseModel, root_validator, validator
 from app import errors, thumbnails
 from app.config import TRASH_FOLDER_NAME
 from app.domain.entities import File as DomainFile
-from app.domain.entities import Folder
 
 from .exceptions import FileAlreadyDeleted, MalformedPath
 
@@ -66,7 +65,7 @@ class FileSchema(BaseModel):
     thumbnail_url: str | None
 
     @classmethod
-    def from_entity(cls, file: File | Folder | DomainFile, request: Request) -> Self:
+    def from_entity(cls, file: File | DomainFile, request: Request) -> Self:
         return cls.construct(
             id=file.id,  # type: ignore
             name=file.name,
@@ -80,7 +79,7 @@ class FileSchema(BaseModel):
 
     @staticmethod
     def _make_thumbnail_url(
-        request: Request, file: File | Folder | DomainFile
+        request: Request, file: File | DomainFile
     ) -> str | None:
         if thumbnails.is_supported(file.mediatype):
             return request.url_for("get_thumbnail", file_id=file.id)

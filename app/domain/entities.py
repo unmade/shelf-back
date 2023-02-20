@@ -12,7 +12,6 @@ from app import mediatypes, timezone
 __all__ = [
     "SENTINEL_ID",
     "Account",
-    "Folder",
     "Namespace",
     "User",
 ]
@@ -102,20 +101,6 @@ class Fingerprint:
             f"value={repr(self.value)}"
             ")"
         )
-
-
-class Folder(BaseModel):
-    id: UUID
-    ns_path: str
-    name: str
-    path: str
-    size: int = 0
-    mtime: float = Field(default_factory=mtime_factory)
-    mediatype: str = mediatypes.FOLDER
-
-    def is_hidden(self) -> bool:
-        """True if file name startswith '.', False othewise."""
-        return self.name.startswith(".")
 
 
 class Namespace(BaseModel):

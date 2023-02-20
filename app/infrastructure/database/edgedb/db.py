@@ -12,7 +12,6 @@ from app.app.repositories import (
     IContentMetadataRepository,
     IFileRepository,
     IFingerprintRepository,
-    IFolderRepository,
     INamespaceRepository,
     IUserRepository,
 )
@@ -22,7 +21,6 @@ from .repositories import (
     ContentMetadataRepository,
     FileRepository,
     FingerprintRepository,
-    FolderRepository,
     NamespaceRepository,
     UserRepository,
 )
@@ -37,7 +35,6 @@ class EdgeDBDatabase(IDatabase):
     account: IAccountRepository
     file: IFileRepository
     fingerprint: IFingerprintRepository
-    folder: IFolderRepository
     metadata: IContentMetadataRepository
     namespace: INamespaceRepository
     user: IUserRepository
@@ -58,7 +55,6 @@ class EdgeDBDatabase(IDatabase):
         db_context.set(self.client)
 
         self.account= AccountRepository(db_context=db_context)
-        self.folder = FolderRepository(db_context=db_context)
         self.file = FileRepository(db_context=db_context)
         self.fingerprint = FingerprintRepository(db_context=db_context)
         self.metadata = ContentMetadataRepository(db_context=db_context)
