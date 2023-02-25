@@ -5,7 +5,7 @@ import time
 from os.path import join as joinpath
 from os.path import normpath
 from pathlib import PurePath
-from typing import TYPE_CHECKING, Any, AsyncIterator, Iterable, Iterator, cast
+from typing import TYPE_CHECKING, AsyncIterator, Iterable, cast
 
 import edgedb
 
@@ -16,11 +16,6 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from app.typedefs import DBAnyConn, StrOrPath, StrOrUUID
-
-
-def _lowered(items: Iterable[Any]) -> Iterator[str]:
-    """Return an iterator of lower-cased strings."""
-    return (str(item).lower() for item in items)
 
 
 def from_db(obj: edgedb.Object) -> File:
@@ -128,69 +123,6 @@ async def create(
     return from_db(file)
 
 
-async def create_batch(
-    conn: DBAnyConn, namespace: StrOrPath, files: Iterable[File | None],
-) -> None:
-    """
-    Create files at once.
-
-    CAUTION:
-        - method doesn't update size of the parents
-        - method doesn't restore original casing
-        - method doesn't enforce parent path existence
-        - method doesn't create corresponding MediaTypes
-
-    Args:
-        conn (DBAnyConn): Database connection.
-        namespace (StrOrPath): Namespace where files will be created.
-        files (Iterable[File | None]): Iterable of files to create.
-
-    Raises:
-        errors.FileAlreadyExists: If some file already exists.
-    """
-
-    query = """
-        WITH
-            files := array_unpack(<array<json>>$files),
-            namespace := (
-                SELECT
-                    Namespace
-                FILTER
-                    .path = <str>$namespace
-                LIMIT 1
-            ),
-        FOR file IN {files}
-        UNION (
-            INSERT File {
-                name := <str>file['name'],
-                path := <str>file['path'],
-                size := <int64>file['size'],
-                mtime := <float64>file['mtime'],
-                mediatype := (
-                    SELECT
-                        MediaType
-                    FILTER
-                        .name = <str>file['mediatype']
-                ),
-                namespace := namespace,
-            }
-        )
-    """
-
-    params = {
-        "namespace": str(namespace),
-        "files": [file.json() for file in files if file is not None],
-    }
-
-    if not params["files"]:
-        return
-
-    try:
-        await conn.query(query, **params)
-    except edgedb.ConstraintViolationError as exc:
-        raise errors.FileAlreadyExists() from exc
-
-
 async def create_folder(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> None:
     """
     Create a folder with any missing parents of the target path.
@@ -220,85 +152,6 @@ async def create_folder(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) 
     for p in reversed(paths[:index]):
         with contextlib.suppress(errors.FileAlreadyExists, errors.MissingParent):
             await create(conn, namespace, p, mediatype=mediatypes.FOLDER)
-
-
-async def create_home_folder(conn: DBAnyConn, namespace: StrOrPath) -> File:
-    """
-    Create a home folder.
-
-    Args:
-        conn (DBAnyConn): Connection to a database.
-        namespace (StrOrPath): Namespace path where a file should be created.
-
-    Raises:
-        FileAlreadyExists: If file in a target path already exists.
-
-    Returns:
-        File: A freshly created home folder.
-    """
-    namespace = PurePath(namespace)
-
-    query = """
-        SELECT (
-            INSERT File {
-                name := <str>$name,
-                path := <str>$path,
-                size := 0,
-                mtime := <float64>$mtime,
-                mediatype := (
-                    INSERT MediaType {
-                        name := <str>$mediatype
-                    }
-                    UNLESS CONFLICT ON .name
-                    ELSE (
-                        SELECT
-                            MediaType
-                        FILTER
-                            .name = <str>$mediatype
-                    )
-                ),
-                namespace := (
-                    SELECT
-                        Namespace
-                    FILTER
-                        .path = <str>$namespace
-                    LIMIT 1
-                ),
-            }
-        ) { id, name, path, size, mtime, mediatype: { name } }
-    """
-
-    try:
-        file = await conn.query_required_single(
-            query,
-            name=namespace.name,
-            path=".",
-            mtime=time.time(),
-            mediatype=mediatypes.FOLDER,
-            namespace=str(namespace),
-        )
-    except edgedb.ConstraintViolationError as exc:
-        raise errors.FileAlreadyExists() from exc
-
-    return from_db(file)
-
-
-async def delete_all(conn: DBAnyConn, namespace: StrOrPath) -> None:
-    """
-    Delete all files in a given namespace.
-
-    Args:
-        conn (DBAnyConn): Database connection.
-        namespace (StrOrPath): Namespace to reset.
-    """
-    query = """
-        DELETE
-            File
-        FILTER
-            .namespace.path = <str>$namespace
-    """
-
-    await conn.query(query, namespace=str(namespace))
 
 
 async def exists(conn: DBAnyConn, namespace: StrOrPath, path: StrOrPath) -> bool:
@@ -638,57 +491,3 @@ async def inc_size_batch(
             size := .size + <int64>$size
         }
     """, namespace=str(namespace), paths=[str(p).lower() for p in paths], size=size)
-
-
-async def restore_all_folders_size(conn: DBAnyConn, namespace: StrOrPath) -> None:
-    """
-    Restore size of all folders in a given namespace
-
-    Args:
-        conn (DBAnyConn): Database connection.
-        namespace (StrOrPath): Namespace where a folder size should be restored.
-    """
-    ns_path = str(namespace)
-
-    home_folder_query = """
-        UPDATE File
-        FILTER
-            .namespace.path = <str>$ns_path
-            AND
-            .path = '.'
-        SET {
-            size := (SELECT sum((
-                SELECT detached File { size }
-                FILTER
-                    .namespace.path = <str>$ns_path
-                    AND
-                    .path LIKE '%'
-                    AND
-                    .path NOT LIKE '%/%'
-            ).size))
-        }
-    """
-
-    folder_query = """
-        WITH
-            Parent := File,
-        UPDATE File
-        FILTER
-            .namespace.path = <str>$ns_path
-            AND
-            .mediatype.name = <str>$mediatype
-        SET {
-            size := (SELECT sum((
-                SELECT Parent { size }
-                FILTER
-                    Parent.namespace = File.namespace
-                    AND
-                    Parent.path LIKE File.path ++ '/%'
-                    AND
-                    Parent.mediatype.name != <str>$mediatype
-            ).size))
-        }
-    """
-
-    await conn.query(folder_query, ns_path=ns_path, mediatype=mediatypes.FOLDER)
-    await conn.query(home_folder_query, ns_path=ns_path)

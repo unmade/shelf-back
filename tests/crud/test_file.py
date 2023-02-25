@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import operator
-import time
 import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -9,13 +8,12 @@ from typing import TYPE_CHECKING
 import pytest
 
 from app import crud, errors, taskgroups
-from app.entities import File
 from app.mediatypes import FOLDER, OCTET_STREAM
 
 if TYPE_CHECKING:
     from app.entities import Namespace
     from app.typedefs import DBClient, DBTransaction
-    from tests.factories import FileFactory, MediaTypeFactory, NamespaceFactory
+    from tests.factories import FileFactory, NamespaceFactory
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
@@ -71,11 +69,6 @@ async def test_create_is_case_insensitive(tx: DBTransaction, namespace: Namespac
     assert file.path == "A/f"  # original case of parent is preserved
 
 
-async def test_creates_home_folder(tx: DBTransaction, namespace: Namespace):
-    await crud.file.delete_all(tx, namespace.path)
-    await crud.file.create(tx, namespace.path, ".")
-
-
 async def test_create_but_parent_is_missing(tx: DBTransaction, namespace: Namespace):
     with pytest.raises(errors.MissingParent):
         await crud.file.create(tx, namespace.path, "New Folder/file")
@@ -94,112 +87,6 @@ async def test_create_but_parent_is_not_a_folder(
 async def test_create_but_file_already_exists(tx: DBTransaction, namespace: Namespace):
     with pytest.raises(errors.FileAlreadyExists):
         await crud.file.create(tx, namespace.path, ".")
-
-
-async def test_create_batch(
-    tx: DBTransaction, namespace: Namespace, mediatype_factory: MediaTypeFactory,
-):
-    await mediatype_factory(FOLDER)
-    await mediatype_factory(OCTET_STREAM)
-
-    a_size, f_size = 32, 16
-    files = [
-        File(
-            id=None,  # type: ignore
-            name="a",
-            path="a",
-            size=a_size,
-            mtime=time.time(),
-            mediatype=FOLDER,
-        ),
-        File(
-            id=None,  # type: ignore
-            name="f",
-            path="f",
-            size=f_size,
-            mtime=time.time(),
-            mediatype=OCTET_STREAM,
-        )
-    ]
-    await crud.file.create_batch(tx, namespace.path, files=files)
-
-    home = await crud.file.get(tx, namespace.path, ".")
-    assert home.size == 0
-
-    files = await crud.file.list_folder(tx, namespace.path, ".")
-    assert len(files) == 2
-
-    assert files[0].name == "a"
-    assert files[0].size == a_size
-    assert files[0].is_folder() is True
-    assert files[0].mediatype == FOLDER
-
-    assert files[1].name == "f"
-    assert files[1].size == f_size
-    assert files[1].is_folder() is False
-    assert files[1].mediatype == OCTET_STREAM
-
-
-async def test_create_batch_is_case_sensitive(
-    tx: DBTransaction,
-    namespace: Namespace,
-    mediatype_factory: MediaTypeFactory,
-):
-    await mediatype_factory(FOLDER)
-    await mediatype_factory(OCTET_STREAM)
-
-    await crud.file.create(tx, namespace.path, "A", mediatype=FOLDER)
-
-    to_create = [
-        File(
-            id=None,  # type: ignore
-            name="B",
-            path="A/B",
-            size=0,
-            mtime=time.time(),
-            mediatype=FOLDER,
-        ),
-        File(
-            id=None,  # type: ignore
-            name="f",
-            path="a/f",
-            size=8,
-            mtime=time.time(),
-            mediatype=OCTET_STREAM,
-        )
-    ]
-
-    await crud.file.create_batch(tx, namespace.path, files=to_create)
-    assert to_create[1].path == "a/f"
-
-    files = await crud.file.list_folder(tx, namespace.path, "A")
-    assert len(files) == 1
-    assert files[0].name == "B"
-    assert files[0].path == "A/B"
-
-    file = await crud.file.get(tx, namespace.path, "a/f")
-    assert file.name == "f"
-    assert file.path == "a/f"
-
-
-async def test_create_batch_but_file_already_exists(
-    tx: DBTransaction,
-    namespace: Namespace,
-):
-    file = await crud.file.create(tx, namespace.path, "f")
-
-    with pytest.raises(errors.FileAlreadyExists):
-        await crud.file.create_batch(tx, namespace.path, files=[file])
-
-
-async def test_create_batch_but_no_files_given():
-    # pass dummy DBTransaction, to check that method exists earlier with empty files
-    result = await crud.file.create_batch(
-        object(),  # type: ignore
-        "namespace",
-        files=[],
-    )
-    assert result is None
 
 
 async def test_create_folder(tx: DBTransaction, namespace: Namespace):
@@ -313,39 +200,6 @@ async def test_create_folder_but_path_is_not_a_directory(
 
     with pytest.raises(errors.NotADirectory):
         await crud.file.create_folder(tx, namespace.path, "data/file")
-
-
-async def test_create_home_folder(tx: DBTransaction, namespace: Namespace):
-    await tx.execute("DELETE File;")
-    home = await crud.file.create_home_folder(tx, namespace.path)
-    assert home.name == namespace.path.name
-    assert home.path == "."
-    assert home.size == 0
-    assert home.mediatype == FOLDER
-
-
-async def test_create_home_folder_but_it_already_exists(
-    tx: DBTransaction,
-    namespace: Namespace,
-):
-    with pytest.raises(errors.FileAlreadyExists):
-        await crud.file.create_home_folder(tx, namespace.path)
-
-
-async def test_delete_all(tx: DBTransaction, namespace: Namespace):
-    await crud.file.create_folder(tx, namespace.path, "a")
-    paths = ["x.txt", "a/f.txt", "Trash/f.txt"]
-    for path in paths:
-        await crud.file.create(tx, namespace.path, path)
-
-    await crud.file.delete_all(tx, namespace.path)
-
-    assert not await crud.file.exists(tx, namespace.path, "a")
-    for path in paths:
-        assert not await crud.file.exists(tx, namespace.path, path)
-
-    assert not await crud.file.exists(tx, namespace.path, "Trash")
-    assert not await crud.file.exists(tx, namespace.path, ".")
 
 
 @pytest.mark.parametrize(["a", "b"], [
@@ -590,58 +444,3 @@ async def test_inc_size_batch_but_size_is_zero():
         size=0,
     )
     assert result is None
-
-
-async def test_restore_all_folders_size(
-    tx: DBTransaction,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    await file_factory(namespace.path, path="a/b/f (1).txt", content=b"Hello,")
-    await file_factory(namespace.path, path="a/b/f (2).txt", content=b"World")
-    await file_factory(namespace.path, path="a/f (3).txt", content=b"!")
-    await file_factory(namespace.path, path="b/f (4).txt", content=b"")
-    await file_factory(namespace.path, path="b/f (5).txt", content=b"test")
-    await crud.file.create_folder(tx, namespace.path, path="b/c")
-
-    folders = await tx.query("""
-        SELECT (
-            UPDATE
-                File
-            FILTER
-                .namespace.path = <str>$ns_path
-                AND
-                .mediatype.name = <str>$mediatype
-            SET {
-                size := 0
-            }
-        ) { id, name, path, size }
-    """, ns_path=str(namespace.path), mediatype=FOLDER)
-
-    assert len(folders) == 6
-    for folder in folders:
-        assert folder.size == 0
-
-    await crud.file.restore_all_folders_size(tx, namespace.path)
-
-    home, trash, a, a_b, b, b_c = await tx.query("""
-        SELECT
-            File { id, name, path, size}
-        FILTER
-            .id IN {array_unpack(<array<uuid>>$ids)}
-        ORDER BY
-            .path
-    """, ids=[folder.id for folder in folders])
-
-    assert home.path == "."
-    assert home.size == 16
-    assert trash.path == "Trash"
-    assert trash.size == 0
-    assert a.path == "a"
-    assert a.size == 12
-    assert a_b.path == "a/b"
-    assert a_b.size == 11
-    assert b.path == "b"
-    assert b.size == 4
-    assert b_c.path == "b/c"
-    assert b_c.size == 0

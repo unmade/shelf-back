@@ -15,12 +15,13 @@ class FileUpdate(TypedDict, total=False):
     id: Required[UUID]
     name: str
     path: str
+    size: int
 
 
 class IFileRepository(Protocol):
     async def count_by_path_pattern(self, ns_path: StrOrPath, pattern: str) -> int:
         """
-        Counts the number of files matching the pattern.
+        Counts the number of files with path matching the pattern.
 
         Args:
             ns_path (StrOrPath): Target namespace path.
@@ -157,6 +158,14 @@ class IFileRepository(Protocol):
 
         Returns:
             File: Created file.
+        """
+
+    async def save_batch(self, files: Iterable[File]) -> None:
+        """
+        Save multiple files at once.
+
+        Args:
+            files (Iterable[File | None]): Iterable of files to be saved.
         """
 
     async def update(self, file_update: FileUpdate) -> File:

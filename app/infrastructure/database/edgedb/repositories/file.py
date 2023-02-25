@@ -54,6 +54,32 @@ class FileRepository(IFileRepository):
             )
         )
 
+    async def _create_missing_mediatypes(self, names: Iterable[str]) -> None:
+        """
+        Create all mediatypes that do not exist in the database.
+
+        Args:
+            names (Iterable[str]): Media types names to create.
+        """
+        query = """
+            WITH
+                mediatypes := {DISTINCT array_unpack(<array<str>>$names)},
+                missing := (
+                    SELECT
+                        mediatypes
+                    FILTER
+                        mediatypes NOT IN (SELECT MediaType { name }).name
+                )
+            FOR name in {missing}
+            UNION (
+                INSERT MediaType {
+                    name := name
+                }
+            )
+        """
+
+        await self.conn.query(query, names=list(names))
+
     async def delete(self, ns_path: StrOrPath, path: StrOrPath) -> File:
         query = """
             SELECT (
@@ -83,7 +109,7 @@ class FileRepository(IFileRepository):
             DELETE
                 File
             FILTER
-                .path ILIKE <str>$prefix ++ '/%'
+                .path ILIKE <str>$prefix ++ '%'
                 AND
                 .namespace.path = <str>$ns_path
         """
@@ -282,6 +308,44 @@ class FileRepository(IFileRepository):
             raise errors.FileAlreadyExists() from exc
 
         return _from_db(file.ns_path, obj)
+
+    async def save_batch(self, files: Iterable[File]) -> None:
+        query = """
+            WITH
+                files := array_unpack(<array<json>>$files),
+            FOR file IN {files}
+            UNION (
+                INSERT File {
+                    name := <str>file['name'],
+                    path := <str>file['path'],
+                    size := <int64>file['size'],
+                    mtime := <float64>file['mtime'],
+                    mediatype := (
+                        SELECT
+                            MediaType
+                        FILTER
+                            .name = <str>file['mediatype']
+                    ),
+                    namespace := (
+                        SELECT
+                            Namespace
+                        FILTER
+                            .path = <str>file['ns_path']
+                        LIMIT 1
+                    ),
+                }
+                UNLESS CONFLICT
+            )
+        """
+
+        files = list(files)
+        data = [file.json(exclude={"id"}) for file in files]
+        if not data:
+            return
+
+        mediatypes = [file.mediatype for file in files]
+        await self._create_missing_mediatypes(mediatypes)
+        await self.conn.query(query, files=data)
 
     async def update(self, file_update: FileUpdate) -> File:
         hints = get_type_hints(FileUpdate)

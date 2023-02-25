@@ -82,9 +82,11 @@ def createsuperuser(
 def reindex(namespace: str) -> None:
     """Reindex files in the storage for a given namespace."""
     async def _reindex():
-        async with db.create_client(max_concurrency=None) as db_client:
-            ns = await crud.namespace.get(db_client, namespace)
-            await actions.reindex(db_client, ns)
+        storage = _create_storage()
+        async with _create_database() as database:
+            provider = Provider(database=database, storage=storage)
+            services = provider.service
+            await services.namespace.reindex(namespace)
 
     asyncio.run(_reindex())
 

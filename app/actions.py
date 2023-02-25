@@ -2,12 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
-import itertools
-from collections import deque
 from io import BytesIO
 from typing import TYPE_CHECKING
 
-from app import crud, hashes, mediatypes, metadata, taskgroups
+from app import crud, hashes, metadata, taskgroups
 from app.entities import File, Namespace, SharedLink
 from app.infrastructure.storage import storage
 
@@ -63,62 +61,6 @@ async def get_thumbnail(
     file = await crud.file.get_by_id(db_client, file_id=file_id)
     thumbnail = await storage.thumbnail(ns_path, file.path, size=size)
     return file, thumbnail
-
-
-async def reindex(db_client: DBClient, namespace: Namespace) -> None:
-    """
-    Create files that are missing in the database, but present in the storage and remove
-    files that are present in the database, but missing in the storage.
-
-    Args:
-        db_client (DBClient): Database client.
-        namespace (Namespace): Namespace where files will be reindexed.
-    """
-    ns_path = str(namespace.path)
-    folders = deque(["."])
-    missing = []
-
-    # For now, it is faster to re-create all files from scratch
-    # than iterating through large directories looking for one missing/dangling file
-    await crud.file.delete_all(db_client, ns_path)
-    await crud.file.create_home_folder(db_client, ns_path)
-
-    while True:
-        try:
-            folder = folders.pop()
-        except IndexError:
-            break
-
-        for file in await storage.iterdir(ns_path, folder):
-            if file.is_dir():
-                folders.append(file.path)
-                size = 0
-                mediatype = mediatypes.FOLDER
-            else:
-                size = file.size
-                mediatype = mediatypes.guess(file.name, unsafe=True)
-
-            missing.append(
-                File(
-                    id=None,  # type: ignore
-                    name=file.name,
-                    path=file.path,
-                    size=size,
-                    mtime=file.mtime,
-                    mediatype=mediatype,
-                )
-            )
-
-    mediatype_names = {file.mediatype for file in missing}
-    await crud.mediatype.create_missing(db_client, names=mediatype_names)
-
-    chunk_size = min(len(missing), 500)
-    await taskgroups.gather(*(
-        crud.file.create_batch(db_client, ns_path, files=chunk)
-        for chunk in itertools.zip_longest(*[iter(missing)] * chunk_size)
-    ))
-
-    await crud.file.restore_all_folders_size(db_client, ns_path)
 
 
 async def reindex_files_content(db_client: DBClient, namespace: Namespace) -> None:

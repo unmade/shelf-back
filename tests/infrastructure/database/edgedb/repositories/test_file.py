@@ -14,7 +14,7 @@ from app.infrastructure.database.edgedb.db import db_context
 if TYPE_CHECKING:
     from app.domain.entities import Namespace
     from app.infrastructure.database.edgedb.repositories import FileRepository
-    from app.typedefs import StrOrUUID
+    from app.typedefs import StrOrPath, StrOrUUID
     from tests.infrastructure.database.edgedb.conftest import FileFactory, FolderFactory
 
 pytestmark = [pytest.mark.asyncio]
@@ -38,6 +38,31 @@ async def _get_by_id(file_id: StrOrUUID) -> File:
             .id = <uuid>$file_id
     """
     obj = await db_context.get().query_required_single(query, file_id=file_id)
+    return File.construct(
+        id=obj.id,
+        name=obj.name,
+        ns_path=obj.namespace.path,
+        path=obj.path,
+        size=obj.size,
+        mtime=obj.mtime,
+        mediatype=obj.mediatype.name,
+    )
+
+
+async def _get_by_path(ns_path: StrOrPath, path: StrOrPath) -> File:
+    query = """
+        SELECT
+            File {
+                id, name, path, size, mtime, mediatype: { name }, namespace: { path }
+            }
+        FILTER
+            .path = <str>$path
+            AND
+            .namespace.path = <str>$ns_path
+        LIMIT 1
+    """
+    conn = db_context.get()
+    obj = await conn.query_required_single(query, ns_path=str(ns_path), path=str(path))
     return File.construct(
         id=obj.id,
         name=obj.name,
@@ -96,7 +121,7 @@ class TestDeleteAllWithPrefix:
             await file_factory(ns_path, "a/b/c/f.txt"),
             await file_factory(ns_path, "a/b/c/d/f.txt"),
         ]
-        await file_repo.delete_all_with_prefix(ns_path, prefix=folder.path)
+        await file_repo.delete_all_with_prefix(ns_path, prefix=f"{folder.path}/")
         assert await _exists_with_id(folder.id)
         assert not await _exists_with_id(files[0].id)
         assert not await _exists_with_id(files[1].id)
@@ -283,6 +308,51 @@ class TestSave:
         )
         with pytest.raises(errors.FileAlreadyExists):
             await file_repo.save(file_to_save)
+
+
+class TestSaveBatch:
+    async def test(self, file_repo: FileRepository, namespace: Namespace):
+        await file_repo.save_batch([
+            File(
+                id=SENTINEL_ID,
+                name="folder",
+                ns_path=namespace.path,
+                path="folder",
+                size=10,
+                mtime=12.34,
+                mediatype="application/directory",
+            ),
+            File(
+                id=SENTINEL_ID,
+                name="f.txt",
+                ns_path=namespace.path,
+                path="folder/f.txt",
+                size=10,
+                mtime=12.35,
+                mediatype="plain/text",
+            ),
+        ])
+        folder = await _get_by_path(namespace.path, "folder")
+        assert folder.id != SENTINEL_ID
+        assert folder.mediatype == "application/directory"
+
+        file = await _get_by_path(namespace.path, "folder/f.txt")
+        assert file.id != SENTINEL_ID
+        assert file.mediatype == "plain/text"
+
+    async def test_when_file_at_path_already_exists(
+        self, file_repo: FileRepository, file: File
+    ):
+        file_to_save = File(
+            id=SENTINEL_ID,
+            name=file.name,
+            ns_path=file.ns_path,
+            path=file.path,
+            size=10,
+            mtime=12.34,
+            mediatype="plain/text",
+        )
+        await file_repo.save_batch([file_to_save])
 
 
 class TestUpdate:

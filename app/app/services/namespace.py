@@ -239,3 +239,22 @@ class NamespaceService:
             next_path = next_path.parent / f"{name} {timestamp}{next_path.suffix}"
 
         return await self.filecore.move(ns_path, path, next_path)
+
+    async def reindex(self, ns_path: StrOrPath) -> None:
+        """
+        Reindexes all files in the given namespace.
+
+        This method creates files that are missing in the database, but present in the
+        storage and removes files that are present in the database, but missing in the
+        storage.
+
+        Args:
+            ns_path (StrOrPath): Namespace path to reindex.
+
+        Raises:
+            errors.NamespaceNotFound: If namespace does not exist.
+            errors.NotADirectory: If given path does not exist.
+        """
+        # ensure namespace exists
+        await self.db.namespace.get_by_path(ns_path)
+        await self.filecore.reindex(ns_path, ".")

@@ -80,21 +80,12 @@ class TestCreateSuperuser:
 
 
 class TestReindex:
-    def test_reindex(self):
-        with (
-            mock.patch("app.crud.namespace.get") as get_namespace_mock,
-            mock.patch("app.actions.reindex") as reindex_mock,
-        ):
+    def test(self):
+        with mock.patch("app.app.services.NamespaceService.reindex") as reindex_mock:
             result = runner.invoke(cli, ["reindex", "admin"])
 
-        get_namespace_mock.assert_awaited_once()
-        namespace = get_namespace_mock.return_value
-
         assert result.exit_code == 0
-        assert reindex_mock.call_count == 1
-        assert len(reindex_mock.call_args[0]) == 2
-        assert isinstance(reindex_mock.call_args[0][0], edgedb.AsyncIOClient)
-        assert reindex_mock.call_args[0][1] == namespace
+        reindex_mock.assert_awaited_once_with("admin")
 
 
 class TestReindexContent:

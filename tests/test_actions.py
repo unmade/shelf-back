@@ -8,7 +8,6 @@ import pytest
 
 from app import actions, crud, errors
 from app.entities import Exif
-from app.infrastructure.storage import storage
 
 if TYPE_CHECKING:
 
@@ -122,76 +121,6 @@ async def test_get_thumbnail_but_file_is_not_thumbnailable(
     file = await file_factory(namespace.path)
     with pytest.raises(errors.ThumbnailUnavailable):
         await actions.get_thumbnail(db_client, namespace, file.id, size=64)
-
-
-async def test_reindex_creates_missing_files(
-    db_client: DBClient,
-    namespace: Namespace,
-    image_content: BytesIO,
-):
-    dummy_text = b"Dummy file"
-
-    # these files exist in the storage, but not in the database
-    await storage.makedirs(namespace.path, "a")
-    await storage.makedirs(namespace.path, "b")
-    await storage.save(namespace.path, "b/f.txt", content=BytesIO(dummy_text))
-    await storage.save(namespace.path, "im.jpeg", content=image_content)
-
-    await actions.reindex(db_client, namespace)
-
-    # ensure home size is correct
-    home = await crud.file.get(db_client, namespace.path, ".")
-    assert home.size == 1661
-
-    # ensure missing files in the database has been created
-    paths = ["a", "b", "b/f.txt", "im.jpeg"]
-    a, b, f, i = await crud.file.get_many(db_client, namespace.path, paths=paths)
-    assert a.is_folder()
-    assert a.size == 0
-    assert b.is_folder()
-    assert b.size == 10
-    assert f.size == len(dummy_text)
-    assert f.mediatype == "text/plain"
-    assert i.mediatype == "image/jpeg"
-    assert i.size == image_content.seek(0, 2)
-
-
-async def test_reindex_removes_dangling_files(
-    db_client: DBClient,
-    namespace: Namespace,
-):
-    # these files exist in the database, but not in the storage
-    await crud.file.create_folder(db_client, namespace.path, "c/d")
-    await crud.file.create(db_client, namespace.path, "c/d/f.txt", size=32)
-
-    await actions.reindex(db_client, namespace)
-
-    # ensure home size is updated
-    home = await crud.file.get(db_client, namespace.path, ".")
-    assert home.size == 0
-
-    # ensure stale files has been deleted
-    assert not await crud.file.exists(db_client, namespace.path, "c")
-    assert not await crud.file.exists(db_client, namespace.path, "c/d")
-    assert not await crud.file.exists(db_client, namespace.path, "c/d/f.txt")
-
-
-async def test_reindex_do_nothing_when_files_consistent(
-    db_client: DBClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    # these files exist both in the storage and in the database
-    file = await file_factory(namespace.path, path="e/g/f.txt")
-
-    await actions.reindex(db_client, namespace)
-
-    # ensure home size is correct
-    home = await crud.file.get(db_client, namespace.path, ".")
-    assert home.size == file.size
-
-    # ensure correct files remain the same
-    assert await crud.file.exists(db_client, namespace.path, "e/g/f.txt")
 
 
 async def test_reindex_files_content_restores_fingerprints(

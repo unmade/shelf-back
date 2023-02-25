@@ -10,7 +10,7 @@ from app.domain.entities import Namespace
 
 if TYPE_CHECKING:
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
-    from app.typedefs import StrOrUUID
+    from app.typedefs import StrOrPath, StrOrUUID
 
 __all__ = ["NamespaceRepository"]
 
@@ -31,7 +31,7 @@ class NamespaceRepository(INamespaceRepository):
     def conn(self) -> EdgeDBAnyConn:
         return self.db_context.get()
 
-    async def get_by_path(self, path: str) -> Namespace:
+    async def get_by_path(self, path: StrOrPath) -> Namespace:
         query = """
             SELECT
                 Namespace {
@@ -42,7 +42,7 @@ class NamespaceRepository(INamespaceRepository):
         """
 
         try:
-            obj = await self.conn.query_required_single(query, path=path)
+            obj = await self.conn.query_required_single(query, path=str(path))
         except edgedb.NoDataError as exc:
             msg = f"Namespace with path={path} does not exists"
             raise errors.NamespaceNotFound(msg) from exc

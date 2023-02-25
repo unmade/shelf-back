@@ -3,10 +3,11 @@ from __future__ import annotations
 import contextlib
 import itertools
 import os
+from collections import deque
 from pathlib import PurePath
 from typing import IO, TYPE_CHECKING, Any, Iterable, Iterator, Protocol
 
-from app import errors, hashes, mediatypes, metadata
+from app import errors, hashes, mediatypes, metadata, taskgroups
 from app.app.infrastructure import IDatabase
 from app.app.repositories.file import FileUpdate
 from app.domain.entities import (
@@ -169,7 +170,7 @@ class FileCoreService:
         async for _ in self.db.atomic():
             file = await self.db.file.delete(ns_path, path)
             if file.is_folder():
-                await self.db.file.delete_all_with_prefix(ns_path, prefix=file.path)
+                await self.db.file.delete_all_with_prefix(ns_path, prefix=f"{path}/")
             parents = PurePath(file.path).parents
             await self.db.file.incr_size_batch(ns_path, parents, value=-file.size)
 
@@ -184,9 +185,9 @@ class FileCoreService:
         if file.size == 0:
             return
 
+        paths = [*PurePath(path).parents, path]
         async for _ in self.db.atomic():
-            await self.db.file.delete_all_with_prefix(ns_path, path)
-            paths = [*PurePath(path).parents, path]
+            await self.db.file.delete_all_with_prefix(ns_path, f"{path}/")
             await self.db.file.incr_size_batch(ns_path, paths, value=-file.size)
         await self.storage.emptydir(ns_path, path)
 
@@ -313,82 +314,73 @@ class FileCoreService:
             await self.db.file.incr_size_batch(ns_path, to_increase, value=file.size)
         return updated_file
 
+    async def reindex(self, ns_path: StrOrPath, path: StrOrPath) -> None:
+        """
+        Creates files that are missing in the database, but present in the storage and
+        removes files that are present in the database, but missing in the storage
+        at a given path.
 
-# app/
-#     files/
-#         filecore/
-#             entities.py       -> File
-#             errors.py
-#             mediatypes.py
-#             repositories.py   -> FileRepository MediaTypeRepository
-#             service.py        -> FileService
-#         duplicates/
-#             errors.py
-#             repositories.py   -> FingerprintRepository
-#             service.py        -> DuplicateService
-#         hasher/
-#             chash.py
-#             dhash.py
-#         metadata/
-#             metadata/
-#                 image.py
-#                 pdf.py
-#             errors.py
-#             entities.py       -> FileMetadata Exif
-#             repositories.py   -> FileMetadataRepository
-#             service.py        -> FileMetadataService
-#         namespace/
-#             entities.py       -> Namespace
-#             errors.py
-#             repositories.py   -> NamespaceRepository
-#             service.py        -> NamespaceService
-#         thumbnails/
-#             thumbnailer/
-#                 image.py
-#                 pdf.py
-#             service.py        -> ThumbnailService.py
-#         manager.py            -> FileManager.py
+        The method doesn't guarantee to accurately re-calculate path parents sizes.
 
-# app/
-#     files/
-#         domain/
-#             file.py
-#             fingerprint.py
-#             mediatypes.py
-#             namespace.py
-#             metadata.py
-#         errors/
-#             file.py
-#             fingerprint.py
-#             namespace.py
-#             metadata.py
-#         repositories/
-#             file.py
-#             fingerprint.py
-#             mediatypes.py
-#             metadata.py
-#             namespace.py
-#         services/
-#             filecore.py
-#             duplicates.py
-#             metadata.py
-#             namespace.py
-#             thumbnail.py
-#         hasher/
-#             chash.py
-#             dhash.py
-#         metadata.py/
-#             image.py
-#         thumbnailer/
-#             image.py
-#             pdf.py
-#         service.py
+        Args:
+            ns_path (StrOrPath): Namespace path where files will be reindexed.
+            path (StrOrPath): Path to a folder that should be reindexed.
 
-#     users/
-#         repositories/
-#             user.py
-#             account.py
-#         services/
-#             user.py
-#         entities.py
-#         security.py
+        Raises:
+            errors.NotADirectory: If given path does not exist.
+        """
+        ns_path = str(ns_path)
+        # For now, it is faster to re-create all files from scratch
+        # than iterating through large directories looking for one missing/dangling file
+        prefix = "" if path == "." else f"{path}/"
+        await self.db.file.delete_all_with_prefix(ns_path, prefix)
+
+        root = None
+        with contextlib.suppress(errors.FileNotFound):
+            root = await self.db.file.get_by_path(ns_path, path)
+            if root.mediatype != mediatypes.FOLDER:
+                raise errors.NotADirectory() from None
+
+        missing: dict[str, File] = {}
+        total_size = 0
+        folders = deque([PurePath(path)])
+        while len(folders):
+            folder = folders.pop()
+            for file in await self.storage.iterdir(ns_path, folder):
+                if file.is_dir():
+                    folders.append(PurePath(file.path))
+                    size = 0
+                    mediatype = mediatypes.FOLDER
+                else:
+                    if (key := str(folder).lower()) in missing:
+                        missing[key].size += file.size
+                    for parent in folder.parents:
+                        if (key := str(parent).lower()) in missing:
+                            missing[key].size += file.size
+                    total_size += file.size
+                    size = file.size
+                    mediatype = mediatypes.guess(file.name, unsafe=True)
+
+                missing[file.path.lower()] = File(
+                    id=SENTINEL_ID,
+                    ns_path=ns_path,
+                    name=file.name,
+                    path=file.path,
+                    size=size,
+                    mtime=file.mtime,
+                    mediatype=mediatype,
+                )
+
+        chunk_size = min(len(missing), 500)
+        await taskgroups.gather(*(
+            self.db.file.save_batch((file for file in chunk if file is not None))
+            for chunk in itertools.zip_longest(*[iter(missing.values())] * chunk_size)
+        ))
+
+        # creating a folder after `storage.iterdir` do its job in case it fails
+        # with `errors.NotADirectory` error
+        if root is None:
+            root = await self.create_folder(ns_path, path)
+
+        file_update = FileUpdate(id=root.id, size=total_size)
+        await self.db.file.update(file_update)

@@ -21,6 +21,22 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
 
+@pytest.fixture
+def ns_service():
+    from app.app.repositories import INamespaceRepository
+    from app.app.services import (
+        DuplicateFinderService,
+        FileCoreService,
+        NamespaceService,
+    )
+
+    return NamespaceService(
+        database=mock.MagicMock(namespace=mock.MagicMock(INamespaceRepository)),
+        filecore=mock.MagicMock(FileCoreService),
+        dupefinder=mock.MagicMock(DuplicateFinderService),
+    )
+
+
 class TestAddFile:
     async def test(self, namespace: Namespace, namespace_service: NamespaceService):
         content = BytesIO(b"Dummy file")
@@ -311,20 +327,6 @@ class TestFindDuplicates:
             path=path,
             size=size,
             mediatype="image/jpeg",
-        )
-
-    @pytest.fixture
-    def ns_service(self):
-        from app.app.services import (
-            DuplicateFinderService,
-            FileCoreService,
-            NamespaceService,
-        )
-
-        return NamespaceService(
-            database=mock.MagicMock(),
-            filecore=mock.MagicMock(FileCoreService),
-            dupefinder=mock.MagicMock(DuplicateFinderService),
         )
 
     async def test(self, ns_service: NamespaceService):
@@ -658,3 +660,12 @@ class TestMoveFileToTrash:
     ):
         with pytest.raises(errors.FileNotFound):
             await namespace_service.move_file_to_trash(namespace.path, "f.txt")
+
+
+class TestReindex:
+    async def test(self, ns_service: NamespaceService):
+        db = cast(mock.MagicMock, ns_service.db)
+        filecore = cast(mock.MagicMock, ns_service.filecore)
+        await ns_service.reindex("admin")
+        db.namespace.get_by_path.assert_awaited_once_with("admin")
+        filecore.reindex.assert_awaited_once_with("admin", ".")

@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 
     from pytest import FixtureRequest
 
+    from app.app.infrastructure import IStorage
     from app.domain.entities import File, Namespace, User
     from app.infrastructure.database.edgedb.typedefs import EdgeDBTransaction
     from app.typedefs import StrOrUUID
@@ -89,6 +90,12 @@ def _db_or_tx(request: FixtureRequest):
 
 
 @pytest.fixture
+def _storage(tmp_path: Path):
+    """A storage instance."""
+    return FileSystemStorage(tmp_path)
+
+
+@pytest.fixture
 def dupefinder():
     """A duplicate finder service instance."""
     database = mock.MagicMock(fingerprint=mock.AsyncMock(IFingerprintRepository))
@@ -96,10 +103,14 @@ def dupefinder():
 
 
 @pytest.fixture
-def namespace_service(_db_or_tx: EdgeDBDatabase, tmp_path: Path):
+def filecore(_db_or_tx: EdgeDBDatabase, _storage: IStorage):
+    """A filecore service instance."""
+    return FileCoreService(database=_db_or_tx, storage=_storage)
+
+
+@pytest.fixture
+def namespace_service(_db_or_tx: EdgeDBDatabase, filecore: FileCoreService):
     """A namespace service instance."""
-    storage = FileSystemStorage(tmp_path)
-    filecore = FileCoreService(database=_db_or_tx, storage=storage)
     dupefinder = mock.MagicMock(DuplicateFinderService)
     return NamespaceService(
         database=_db_or_tx, filecore=filecore, dupefinder=dupefinder

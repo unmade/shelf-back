@@ -5,11 +5,11 @@ from typing import TYPE_CHECKING, Protocol
 from app.domain.entities import Namespace
 
 if TYPE_CHECKING:
-    from app.typedefs import StrOrUUID
+    from app.typedefs import StrOrPath, StrOrUUID
 
 
 class INamespaceRepository(Protocol):
-    async def get_by_path(self, path: str) -> Namespace:
+    async def get_by_path(self, path: StrOrPath) -> Namespace:
         """
         Returns namespace with a target path.
 
