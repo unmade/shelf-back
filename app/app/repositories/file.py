@@ -1,7 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable, Protocol, Required, TypedDict
-from uuid import UUID
+from typing import (
+    TYPE_CHECKING,
+    Iterable,
+    Protocol,
+    Required,
+    Sequence,
+    TypedDict,
+)
 
 from app.domain.entities import File
 
@@ -12,7 +18,7 @@ __all__ = ["IFileRepository", "FileUpdate"]
 
 
 class FileUpdate(TypedDict, total=False):
-    id: Required[UUID]
+    id: Required[str]
     name: str
     path: str
     size: int
@@ -134,6 +140,27 @@ class IFileRepository(Protocol):
             value (int): value that will be added to the current file size.
         """
 
+    async def list_by_mediatypes(
+        self,
+        ns_path: StrOrPath,
+        mediatypes: Sequence[str],
+        *,
+        offset: int,
+        limit: int = 25,
+    ) -> list[File]:
+        """
+        Lists all files of a given mediatypes.
+
+        Args:
+            ns_path (StrOrPath): Target namespace where files should be listed.
+            mediatypes (Iterable[str]): List of mediatypes that files should match.
+            offset (int): Skip this number of elements.
+            limit (int, optional): Include only the first element-count elements.
+
+        Returns:
+            list[File]: list of Files
+        """
+
     async def replace_path_prefix(
         self, ns_path: StrOrPath, prefix: StrOrPath, next_prefix: StrOrPath
     ) -> None:
@@ -165,7 +192,7 @@ class IFileRepository(Protocol):
         Save multiple files at once.
 
         Args:
-            files (Iterable[File | None]): Iterable of files to be saved.
+            files (Iterable[File]): Iterable of files to be saved.
         """
 
     async def update(self, file_update: FileUpdate) -> File:

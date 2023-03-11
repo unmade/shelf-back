@@ -4,8 +4,18 @@ import contextlib
 import itertools
 import os
 from collections import deque
+from io import BytesIO
 from pathlib import PurePath
-from typing import IO, TYPE_CHECKING, Any, Iterable, Iterator, Protocol
+from typing import (
+    IO,
+    TYPE_CHECKING,
+    Any,
+    AsyncIterator,
+    Iterable,
+    Iterator,
+    Protocol,
+    Sequence,
+)
 
 from app import errors, hashes, mediatypes, metadata, taskgroups
 from app.app.infrastructure import IDatabase
@@ -180,6 +190,14 @@ class FileCoreService:
 
         return file
 
+    def download(self, ns_path: StrOrPath, path: StrOrPath) -> BytesIO:
+        content = BytesIO()
+        chunks = self.storage.download(ns_path, path)
+        for chunk in chunks:
+            content.write(chunk)
+        content.seek(0)
+        return content
+
     async def empty_folder(self, ns_path: StrOrPath, path: StrOrPath) -> None:
         file = await self.db.file.get_by_path(ns_path, path)
         if file.size == 0:
@@ -235,6 +253,40 @@ class FileCoreService:
             List[File]: Files with target IDs.
         """
         return await self.db.file.get_by_id_batch(ns_path, ids)
+
+    async def iter_by_mediatypes(
+        self,
+        ns_path: StrOrPath,
+        mediatypes: Sequence[str],
+        *,
+        batch_size: int = 25,
+    ) -> AsyncIterator[list[File]]:
+        """
+        Iterates through all files of a given mediatypes in batches.
+
+        Args:
+            ns_path (StrOrPath): Target namespace where files should be listed.
+            mediatypes (Iterable[str]): List of mediatypes that files should match.
+            batch_size (int, optional): Batch size. Defaults to 25.
+
+        Returns:
+            AsyncIterator[list[File]]: None.
+
+        Yields:
+            Iterator[AsyncIterator[list[File]]]: Batch with files with a given
+                mediatypes.
+        """
+        limit = batch_size
+        offset = -limit
+
+        while True:
+            offset += limit
+            files = await self.db.file.list_by_mediatypes(
+                ns_path, mediatypes, offset=offset, limit=limit
+            )
+            if not files:
+                return
+            yield files
 
     async def move(
         self, ns_path: StrOrPath, at_path: StrOrPath, to_path: StrOrPath

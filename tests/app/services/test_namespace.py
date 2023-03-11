@@ -33,7 +33,18 @@ def ns_service():
     return NamespaceService(
         database=mock.MagicMock(namespace=mock.MagicMock(INamespaceRepository)),
         filecore=mock.MagicMock(FileCoreService),
-        dupefinder=mock.MagicMock(DuplicateFinderService),
+        dupefinder=mock.MagicMock(DuplicateFinderService, autospec=True),
+    )
+
+
+def _make_file(ns_path: str, path: str, size: int = 10) -> File:
+    return File(
+        id=uuid.uuid4(),
+        ns_path=ns_path,
+        name=os.path.basename(path),
+        path=path,
+        size=size,
+        mediatype="image/jpeg",
     )
 
 
@@ -319,20 +330,10 @@ class TestEmptyTrash:
 
 
 class TestFindDuplicates:
-    def _make_file(self, ns_path: str, path: str, size: int = 10) -> File:
-        return File(
-            id=uuid.uuid4(),
-            ns_path=ns_path,
-            name=os.path.basename(path),
-            path=path,
-            size=size,
-            mediatype="image/jpeg",
-        )
-
     async def test(self, ns_service: NamespaceService):
         # GIVEN
         ns_path = "admin"
-        files = [self._make_file(ns_path, f"{idx}.txt") for idx in range(4)]
+        files = [_make_file(ns_path, f"{idx}.txt") for idx in range(4)]
         intersection = [
             [
                 Fingerprint(file_id=files[0].id, value=14841886093006266496),
@@ -344,8 +345,8 @@ class TestFindDuplicates:
             ]
         ]
         dupefinder = cast(mock.MagicMock, ns_service.dupefinder)
-        filecore = cast(mock.MagicMock, ns_service.filecore)
         dupefinder.find_in_folder.return_value = intersection
+        filecore = cast(mock.MagicMock, ns_service.filecore)
         filecore.get_by_id_batch.return_value = files
         # WHEN
         duplicates = await ns_service.find_duplicates(ns_path, ".")
@@ -358,8 +359,8 @@ class TestFindDuplicates:
         # GIVEN
         ns_path = "admin"
         dupefinder = cast(mock.MagicMock, ns_service.dupefinder)
-        filecore = cast(mock.MagicMock, ns_service.filecore)
         dupefinder.find_in_folder.return_value = []
+        filecore = cast(mock.MagicMock, ns_service.filecore)
         filecore.get_by_id_batch.return_value = []
         # WHEN
         duplicates = await ns_service.find_duplicates(ns_path, ".")
@@ -669,3 +670,26 @@ class TestReindex:
         await ns_service.reindex("admin")
         db.namespace.get_by_path.assert_awaited_once_with("admin")
         filecore.reindex.assert_awaited_once_with("admin", ".")
+
+
+class TestReindexContents:
+    async def test_restoring_fingerprints(
+        self, ns_service: NamespaceService,
+    ):
+        # GIVEN
+        ns_path = "admin"
+        jpg_1 = _make_file(ns_path, "a/b/img (1).jpeg")
+        jpg_2 = _make_file(ns_path, "a/b/img (2).jpeg")
+
+        async def iter_by_mediatypes_result():
+            yield [jpg_1]
+            yield [jpg_2]
+
+        filecore = cast(mock.MagicMock, ns_service.filecore)
+        filecore.iter_by_mediatypes.return_value = iter_by_mediatypes_result()
+        dupefinder = cast(mock.MagicMock, ns_service.dupefinder)
+        # WHEN
+        await ns_service.reindex_contents(ns_path)
+        # THEN
+        tracker = dupefinder.track_batch.return_value.__aenter__.return_value
+        assert len(tracker.mock_calls) == 2

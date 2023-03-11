@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterable
 
 import edgedb
+import orjson
 
 from app import errors
 from app.app.repositories import IFingerprintRepository
@@ -132,3 +133,43 @@ class FingerprintRepository(IFingerprintRepository):
             raise errors.FileNotFound() from exc
 
         return fingerprint
+
+    async def save_batch(self, fingerprints: Iterable[Fingerprint]) -> None:
+        query = """
+            WITH
+                fingerprints := array_unpack(<array<json>>$fingerprints),
+            FOR fp IN {fingerprints}
+            UNION (
+                INSERT Fingerprint {
+                    part1 := <int32>fp['part1'],
+                    part2 := <int32>fp['part2'],
+                    part3 := <int32>fp['part3'],
+                    part4 := <int32>fp['part4'],
+                    file := (
+                        SELECT
+                            File
+                        FILTER
+                            .id = <uuid>fp['file_id']
+                    )
+                }
+                UNLESS CONFLICT
+            )
+        """
+
+        data = []
+        for fingerprint in fingerprints:
+            parts = _split_int8_by_int2(fingerprint.value)
+            data.append(
+                orjson.dumps({
+                    "file_id": str(fingerprint.file_id),
+                    "part1": parts[0],
+                    "part2": parts[1],
+                    "part3": parts[2],
+                    "part4": parts[3],
+                }).decode()
+            )
+
+        try:
+            await self.conn.query(query, fingerprints=data)
+        except edgedb.MissingRequiredError as exc:
+            raise errors.FileNotFound() from exc

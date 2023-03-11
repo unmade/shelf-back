@@ -89,7 +89,7 @@ class TestListBookmarks:
         await _save_bookmark(user_repo.conn, namespace.owner_id, file_a.id)
         await _save_bookmark(user_repo.conn, namespace.owner_id, file_b.id)
         bookmarks = await user_repo.list_bookmarks(namespace.owner_id)
-        assert sorted(bookmarks) == sorted([file_a.id, file_b.id])
+        assert sorted(str(v) for v in bookmarks) == sorted([file_a.id, file_b.id])
 
     async def test_when_no_bookmarks(self, user: User, user_repo: UserRepository):
         bookmarks = await user_repo.list_bookmarks(user.id)
@@ -112,7 +112,7 @@ class TestRemoveBookmark:
         await _save_bookmark(user_repo.conn, user_id, file_b.id)
         await user_repo.remove_bookmark(user_id, file_a.id)
         bookmarks = await _list_bookmarks_id(user_repo.conn, user_id)
-        assert bookmarks == [file_b.id]
+        assert bookmarks == [uuid.UUID(file_b.id)]
 
     async def test_removing_bookmark_twice(
         self, namespace: Namespace, file_factory: FileFactory, user_repo: UserRepository

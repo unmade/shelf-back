@@ -22,7 +22,6 @@ from app.tokens import AccessTokenPayload
 from tests.factories import (
     FileFactory,
     FileMetadataFactory,
-    FingerprintFactory,
     FolderFactory,
     MediaTypeFactory,
     NamespaceFactory,
@@ -300,12 +299,6 @@ def file_factory(db_client_or_tx: DBAnyConn) -> FileFactory:
 def file_metadata_factory(db_client_or_tx: DBAnyConn) -> FileMetadataFactory:
     """File metadata factory."""
     return FileMetadataFactory(db_client_or_tx)
-
-
-@pytest.fixture
-async def fingerprint_factory(db_client_or_tx: DBAnyConn) -> FingerprintFactory:
-    """Add fingerprint."""
-    return FingerprintFactory(db_client_or_tx)
 
 
 @pytest.fixture

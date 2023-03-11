@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest import mock
 
-import edgedb
 import pytest
 from typer.testing import CliRunner
 
@@ -12,6 +11,8 @@ from manage import cli
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
+
+pytestmark = [pytest.mark.asyncio]
 
 runner = CliRunner()
 
@@ -90,17 +91,9 @@ class TestReindex:
 
 class TestReindexContent:
     def test_reindex_content(self):
-        with (
-            mock.patch("app.crud.namespace.get") as get_namespace_mock,
-            mock.patch("app.actions.reindex_files_content") as reindex_mock,
-        ):
+        target = "app.app.services.NamespaceService.reindex_contents"
+        with mock.patch(target) as reindex_mock:
             result = runner.invoke(cli, ["reindex-content", "admin"])
 
-        get_namespace_mock.assert_awaited_once()
-        namespace = get_namespace_mock.return_value
-
         assert result.exit_code == 0
-        assert reindex_mock.call_count == 1
-        assert len(reindex_mock.call_args[0]) == 2
-        assert isinstance(reindex_mock.call_args[0][0], edgedb.AsyncIOClient)
-        assert reindex_mock.call_args[0][1] == namespace
+        reindex_mock.assert_awaited_once_with("admin")

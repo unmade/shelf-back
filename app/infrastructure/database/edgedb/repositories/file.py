@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable, cast, get_type_hints
+from typing import (
+    TYPE_CHECKING,
+    Iterable,
+    Sequence,
+    cast,
+    get_type_hints,
+)
 
 import edgedb
 
@@ -239,6 +245,38 @@ class FileRepository(IFileRepository):
             size=value,
         )
 
+    async def list_by_mediatypes(
+        self,
+        ns_path: StrOrPath,
+        mediatypes: Sequence[str],
+        *,
+        offset: int,
+        limit: int = 25,
+    ) -> list[File]:
+        query = """
+            SELECT
+                File {
+                    id, name, path, size, mtime, mediatype: { name },
+                }
+            FILTER
+                .namespace.path = <str>$namespace
+                AND
+                .mediatype.name IN {array_unpack(<array<str>>$mediatypes)}
+            OFFSET
+                <int64>$offset
+            LIMIT
+                <int64>$limit
+        """
+
+        files = await self.conn.query(
+            query,
+            namespace=str(ns_path),
+            mediatypes=mediatypes,
+            offset=offset,
+            limit=limit,
+        )
+        return [_from_db(str(ns_path), file) for file in files]
+
     async def replace_path_prefix(
         self, ns_path: StrOrPath, prefix: StrOrPath, next_prefix: StrOrPath
     ) -> None:
@@ -339,7 +377,7 @@ class FileRepository(IFileRepository):
         """
 
         files = list(files)
-        data = [file.json(exclude={"id"}) for file in files]
+        data = [file.json() for file in files]
         if not data:
             return
 

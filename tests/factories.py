@@ -13,7 +13,6 @@ from app.entities import (
     Exif,
     File,
     FileMetadata,
-    Fingerprint,
     Namespace,
     SharedLink,
     User,
@@ -84,40 +83,6 @@ class FileMetadataFactory:
                     }
                 ) { data, file: { id } }
             """, file_id=file_id, data=data.json())
-        )
-
-
-class FingerprintFactory:
-    __slots__ = ["_db_conn"]
-
-    def __init__(self, db_conn: DBAnyConn) -> None:
-        self._db_conn = db_conn
-
-    async def __call__(
-        self,
-        file_id: StrOrUUID,
-        part1: int,
-        part2: int,
-        part3: int,
-        part4: int,
-    ) -> Fingerprint:
-        return crud.fingerprint.from_db(
-            await self._db_conn.query_required_single("""
-                SELECT (
-                    INSERT Fingerprint {
-                        part1 := <int32>$part1,
-                        part2 := <int32>$part2,
-                        part3 := <int32>$part3,
-                        part4 := <int32>$part4,
-                        file := (
-                            SELECT
-                                File
-                            FILTER
-                                .id = <uuid>$file_id
-                        )
-                    }
-                ) { part1, part2, part3, part4, file: { id } }
-            """, file_id=file_id, part1=part1, part2=part2, part3=part3, part4=part4)
         )
 
 

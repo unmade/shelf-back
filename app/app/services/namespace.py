@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 import itertools
 import os
 from pathlib import PurePath
 from typing import IO, TYPE_CHECKING, Protocol
 
-from app import timezone
+from app import hashes, metadata, taskgroups, timezone
 from app.app.infrastructure import IDatabase
 from app.domain.entities import (
     SENTINEL_ID,
@@ -258,3 +259,32 @@ class NamespaceService:
         # ensure namespace exists
         await self.db.namespace.get_by_path(ns_path)
         await self.filecore.reindex(ns_path, ".")
+
+    async def reindex_contents(self, ns_path: StrOrPath) -> None:
+        """
+        Restores additional information about files, such as fingerprint and content
+        metadata.
+
+        Args:
+            ns_path (StrOrPath): Namespace path to reindex.
+        """
+        ns_path = str(ns_path)
+        batch_size = 500
+        types = tuple(hashes.SUPPORTED_TYPES | metadata.SUPPORTED_TYPES)
+        batches = self.filecore.iter_by_mediatypes(
+            ns_path, mediatypes=types, batch_size=batch_size
+        )
+
+        async for files in batches:
+            async with self.dupefinder.track_batch() as tracker:
+                await taskgroups.gather(*(
+                    self._reindex_content(file, tracker)
+                    for file in files
+                ))
+
+    async def _reindex_content(self, file, tracker):
+        loop = asyncio.get_running_loop()
+        content = await loop.run_in_executor(
+            None, self.filecore.download, file.ns_path, file.path
+        )
+        await tracker.add(file.id, content)

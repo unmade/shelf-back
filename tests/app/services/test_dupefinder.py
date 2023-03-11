@@ -7,6 +7,7 @@ from unittest import mock
 
 import pytest
 
+from app.app.services.dupefinder import _Tracker
 from app.domain.entities import Fingerprint
 
 if TYPE_CHECKING:
@@ -119,3 +120,26 @@ class TestTrack:
         dhash.assert_called_once_with(image_content, mediatype="image/jpeg")
         db: MagicMock = cast(mock.MagicMock, dupefinder.db)
         db.fingerprint.save.assert_not_awaited()
+
+
+@mock.patch("app.hashes.dhash")
+class TestTrackBatch:
+    async def test(
+        self,
+        dhash: MagicMock,
+        dupefinder: DuplicateFinderService,
+        image_content: IO[bytes],
+    ):
+        file_ids = [str(uuid.uuid4()), str(uuid.uuid4())]
+        dhash.return_value = 0
+        async with dupefinder.track_batch() as tracker:
+            await tracker.add(file_ids[0], image_content)
+            await tracker.add(file_ids[1], image_content)
+
+        expected = _Tracker()
+        expected._items = [
+            Fingerprint(file_ids[0], value=0),
+            Fingerprint(file_ids[1], value=0),
+        ]
+        db = cast(mock.MagicMock, dupefinder.db)
+        db.fingerprint.save_batch.assert_awaited_once_with(expected)

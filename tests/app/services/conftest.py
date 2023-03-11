@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from io import BytesIO
-from typing import TYPE_CHECKING
+from typing import IO, TYPE_CHECKING
 from unittest import mock
 
 import pytest
@@ -34,7 +34,13 @@ if TYPE_CHECKING:
         async def __call__(self, user_id: StrOrUUID, file_id: StrOrUUID) -> None: ...
 
     class FileFactory(Protocol):
-        async def __call__(self, ns_path: str, path: str | None = None) -> File: ...
+        async def __call__(
+            self,
+            ns_path: str,
+            path: str | None = None,
+            content: IO[bytes] | None = None,
+        ) -> File:
+            ...
 
     class FolderFactory(Protocol):
         async def __call__(self, ns_path: str, path: str | None = None) -> File: ...
@@ -159,8 +165,10 @@ def bookmark_factory(user_service: UserService):
 @pytest.fixture
 def file_factory(namespace_service: NamespaceService) -> FileFactory:
     """A factory to create a File instance saved to the DB and storage."""
-    async def factory(ns_path: str, path: str | None = None):
-        content = BytesIO(b"Dummy file")
+    async def factory(
+        ns_path: str, path: str | None = None, content: IO[bytes] | None = None
+    ):
+        content = content or BytesIO(b"Dummy file")
         if path is None:
             path = fake.unique.file_name(category="text", extension="txt")
         return await namespace_service.add_file(ns_path, path, content)

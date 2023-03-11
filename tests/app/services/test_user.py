@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from typing import TYPE_CHECKING
 from unittest import mock
 
@@ -19,7 +20,7 @@ class TestAddBookmark:
     async def test(self, user: User, file: File, user_service: UserService):
         await user_service.add_bookmark(user.id, file.id)
         bookmarks = await user_service.db.user.list_bookmarks(user.id)
-        assert bookmarks == [file.id]
+        assert bookmarks == [uuid.UUID(file.id)]
 
 
 class TestCreate:
@@ -85,7 +86,7 @@ class TestListBookmarks:
     async def test(self, user: User, file: File, user_service: UserService):
         await user_service.db.user.add_bookmark(user.id, file.id)
         bookmarks = await user_service.list_bookmarks(user.id)
-        assert bookmarks == [file.id]
+        assert bookmarks == [uuid.UUID(file.id)]
 
 
 class TestRemoveBook:

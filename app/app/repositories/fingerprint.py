@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol, TypeAlias
+from typing import TYPE_CHECKING, Iterable, Protocol, TypeAlias
 
 if TYPE_CHECKING:
     from app.domain.entities import Fingerprint
@@ -35,4 +35,12 @@ class IFingerprintRepository(Protocol):
         Raises:
             errors.FingerprintAlreadyExists: If fingerprint for a file already exists.
             errors.FileNotFound: If a file with specified file ID doesn't exist.
+        """
+
+    async def save_batch(self, fingerprints: Iterable[Fingerprint]) -> None:
+        """
+        Save multiple fingerprints at once.
+
+        Args:
+            fingerprints (Iterable[Fingerprint]): Iterable of fingerprints to save.
         """

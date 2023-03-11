@@ -13,7 +13,6 @@ from app.infrastructure.database.edgedb.db import db_context
 
 if TYPE_CHECKING:
     from typing import Protocol
-    from uuid import UUID
 
     from app.app.repositories import (
         IAccountRepository,
@@ -25,10 +24,13 @@ if TYPE_CHECKING:
     from app.infrastructure.database.edgedb.typedefs import EdgeDBTransaction
 
     class FileFactory(Protocol):
-        async def __call__(self, ns_path: str, path: str | None = None) -> File: ...
+        async def __call__(
+            self, ns_path: str, path: str | None = None, mediatype: str = "plain/text"
+        ) -> File:
+            ...
 
     class FingerprintFactory(Protocol):
-        async def __call__(self, file_id: UUID, value: int) -> Fingerprint: ...
+        async def __call__(self, file_id: str, value: int) -> Fingerprint: ...
 
     class FolderFactory(Protocol):
         async def __call__(self, ns_path: str, path: str | None = None) -> File: ...
@@ -103,7 +105,9 @@ def user_repo(_tx_database: EdgeDBDatabase):
 @pytest.fixture
 def file_factory(file_repo: IFileRepository) -> FileFactory:
     """A factory to create a saved File to the EdgeDB."""
-    async def factory(ns_path: str, path: str | None = None):
+    async def factory(
+        ns_path: str, path: str | None = None, mediatype: str = "plain/text"
+    ):
         if path is None:
             path = fake.unique.file_name(category="text", extension="txt")
         return await file_repo.save(
@@ -113,7 +117,7 @@ def file_factory(file_repo: IFileRepository) -> FileFactory:
                 name=os.path.basename(path),
                 path=path,
                 size=10,
-                mediatype="plain/text",
+                mediatype=mediatype,
             )
         )
     return factory
@@ -121,7 +125,7 @@ def file_factory(file_repo: IFileRepository) -> FileFactory:
 
 @pytest.fixture
 def fingerprint_factory(fingerprint_repo: IFingerprintRepository) -> FingerprintFactory:
-    async def factory(file_id: UUID, value: int):
+    async def factory(file_id: str, value: int):
         return await fingerprint_repo.save(
             Fingerprint(file_id, value=value)
         )

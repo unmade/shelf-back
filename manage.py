@@ -6,7 +6,7 @@ from pathlib import Path
 import typer
 import uvloop
 
-from app import actions, config, crud, db, errors
+from app import config, db, errors
 from app.infrastructure.database.edgedb.db import EdgeDBDatabase
 from app.infrastructure.provider import Provider
 from app.infrastructure.storage import FileSystemStorage, S3Storage
@@ -98,9 +98,11 @@ def reindex_content(namespace: str) -> None:
     metadata.
     """
     async def _reindex_content():
-        async with db.create_client(max_concurrency=None) as db_client:
-            ns = await crud.namespace.get(db_client, namespace)
-            await actions.reindex_files_content(db_client, ns)
+        storage = _create_storage()
+        async with _create_database() as database:
+            provider = Provider(database=database, storage=storage)
+            services = provider.service
+            await services.namespace.reindex_contents(namespace)
 
     asyncio.run(_reindex_content())
 

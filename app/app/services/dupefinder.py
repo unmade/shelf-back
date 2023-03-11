@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
+import contextlib
 from collections import defaultdict
-from typing import IO, TYPE_CHECKING, Protocol
+from typing import IO, TYPE_CHECKING, AsyncIterator, Protocol
 
 from app import hashes, mediatypes
 from app.domain.entities import Fingerprint
@@ -113,3 +115,38 @@ class DuplicateFinderService:
         await self.db.fingerprint.save(
             Fingerprint(file_id, value=dhash)
         )
+
+    @contextlib.asynccontextmanager
+    async def track_batch(self) -> AsyncIterator[_Tracker]:
+        tracker = _Tracker()
+        try:
+            yield tracker
+        finally:
+            await self.db.fingerprint.save_batch(tracker)
+
+
+class _Tracker:
+    def __init__(self):
+        self._items = []
+
+    async def add(self, file_id: str, content: IO[bytes]) -> None:
+        mediatype = mediatypes.guess("", content)
+        if mediatype not in hashes.SUPPORTED_TYPES:
+            return
+
+        loop = asyncio.get_running_loop()
+        dhash = await loop.run_in_executor(None, hashes.dhash, content, mediatype)
+        if dhash is None:
+            return
+
+        self._items.append(
+            Fingerprint(file_id, value=dhash)
+        )
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, _Tracker):
+            return self._items == other._items
+        return NotImplemented
+
+    def __iter__(self):
+        return iter(self._items)

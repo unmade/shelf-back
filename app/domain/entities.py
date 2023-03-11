@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 from uuid import UUID
 
 import orjson
 from pydantic import BaseModel, Field
 
 from app import mediatypes, timezone
+
+if TYPE_CHECKING:
+    from app.typedefs import StrOrUUID
+
 
 __all__ = [
     "SENTINEL_ID",
@@ -38,14 +42,36 @@ class Account(BaseModel):
     created_at: datetime = Field(default_factory=timezone.now)
 
 
-class File(BaseModel):
-    id: UUID
-    ns_path: str
-    name: str
-    path: str
-    size: int
-    mtime: float = Field(default_factory=mtime_factory)
-    mediatype: str
+class File:
+    __slots__ = ("id", "ns_path", "name", "path", "size", "mtime", "mediatype")
+
+    def __init__(
+        self,
+        *,
+        id: StrOrUUID,
+        ns_path: str,
+        name: str,
+        path: str,
+        size: int,
+        mediatype: str,
+        mtime: float | None = None,
+    ) -> None:
+        self.id = str(id)
+        self.ns_path = ns_path
+        self.name = name
+        self.path = path
+        self.size = size
+        self.mtime = mtime or mtime_factory()
+        self.mediatype = mediatype
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, File):
+            return NotImplemented
+
+        return all(
+            getattr(self, field) == getattr(other, field)
+            for field in self.__slots__
+        )
 
     def is_folder(self) -> bool:
         """True if file is a folder, False otherwise."""
@@ -54,6 +80,18 @@ class File(BaseModel):
     def is_hidden(self) -> bool:
         """True if file name startswith '.', False othewise."""
         return self.name.startswith(".")
+
+    def json(self) -> str:
+        """Dump instance to json."""
+        return orjson_dumps({
+            "id": str(self.id),
+            "ns_path": self.ns_path,
+            "name": self.name,
+            "path": self.path,
+            "size": self.size,
+            "mtime": self.mtime,
+            "mediatype": self.mediatype,
+        })
 
 
 class Exif(BaseModel):
@@ -81,8 +119,8 @@ class ContentMetadata(BaseModel):
 class Fingerprint:
     __slots__ = ("file_id", "value")
 
-    def __init__(self, file_id: UUID, value: int):
-        self.file_id = file_id
+    def __init__(self, file_id: StrOrUUID, value: int):
+        self.file_id = str(file_id)
         self.value = value
 
     def __eq__(self, other: Any) -> bool:

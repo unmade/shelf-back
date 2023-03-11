@@ -7,7 +7,8 @@ import pytest
 from faker import Faker
 
 from app import mediatypes
-from app.entities import File, Fingerprint
+from app.domain.entities import Fingerprint
+from app.entities import File
 
 fake = Faker()
 

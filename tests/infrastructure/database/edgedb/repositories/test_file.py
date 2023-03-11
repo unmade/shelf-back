@@ -38,7 +38,7 @@ async def _get_by_id(file_id: StrOrUUID) -> File:
             .id = <uuid>$file_id
     """
     obj = await db_context.get().query_required_single(query, file_id=file_id)
-    return File.construct(
+    return File(
         id=obj.id,
         name=obj.name,
         ns_path=obj.namespace.path,
@@ -63,7 +63,7 @@ async def _get_by_path(ns_path: StrOrPath, path: StrOrPath) -> File:
     """
     conn = db_context.get()
     obj = await conn.query_required_single(query, ns_path=str(ns_path), path=str(path))
-    return File.construct(
+    return File(
         id=obj.id,
         name=obj.name,
         ns_path=obj.namespace.path,
@@ -165,8 +165,8 @@ class TestGetByIdBatch:
     async def test_when_some_file_does_not_exist(
         self, file_repo: FileRepository, file: File,
     ):
-        paths = [file.id, uuid.uuid4()]
-        result = await file_repo.get_by_id_batch(file.ns_path, paths)
+        ids = [file.id, str(uuid.uuid4())]
+        result = await file_repo.get_by_id_batch(file.ns_path, ids)
         assert result == [file]
 
 
@@ -241,6 +241,38 @@ class TestIncrSizeBatch:
         # here we tesh early return in the function. The path 'a/b' does not exist and
         # if we were to hit the database we would fail with an error
         await file_repo.incr_size_batch("namespace", paths=["a/b"], value=0)
+
+
+class TestListByMediatypes:
+    async def test_list_by_mediatypes(
+        self, file_repo: FileRepository, file_factory: FileFactory, namespace: Namespace
+    ):
+        ns_path = namespace.path
+        await file_factory(ns_path, "f.txt", mediatype="plain/text")
+        jpg = await file_factory(ns_path, "jpgs/img.jpg", mediatype="image/jpeg")
+        png = await file_factory(ns_path, "pngs/img.png", mediatype="image/png")
+        mediatypes = ["image/jpeg", "image/png"]
+        files = await file_repo.list_by_mediatypes(ns_path, mediatypes, offset=0)
+        assert sorted(files, key=operator.attrgetter("mtime")) == [jpg, png]
+
+    async def test_list_by_mediatypes_with_limit_offset(
+        self, file_repo: FileRepository, file_factory: FileFactory, namespace: Namespace
+    ):
+        ns_path = namespace.path
+        jpg = await file_factory(ns_path, "jpgs/img.jpg", mediatype="image/jpeg")
+        png = await file_factory(ns_path, "pngs/img.png", mediatype="image/png")
+
+        mediatypes = ["image/jpeg", "image/png"]
+        files_a = await file_repo.list_by_mediatypes(
+            ns_path, mediatypes, offset=0, limit=1,
+        )
+        files_b = await file_repo.list_by_mediatypes(
+            ns_path, mediatypes, offset=1, limit=1,
+        )
+        assert len(files_a) == 1
+        assert len(files_b) == 1
+        actual = sorted([files_a[0], files_b[0]], key=operator.attrgetter("mtime"))
+        assert actual == [jpg, png]
 
 
 class TestReplacePathPrefix:

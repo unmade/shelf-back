@@ -7,6 +7,7 @@ import pytest
 
 from app import errors
 from app.domain.entities import Fingerprint
+from app.infrastructure.database.edgedb.db import db_context
 from app.infrastructure.database.edgedb.repositories.fingerprint import (
     _join_int2,
     _split_int8_by_int2,
@@ -16,10 +17,19 @@ if TYPE_CHECKING:
     from app.domain.entities import File
     from app.entities import Namespace
     from app.infrastructure.database.edgedb.repositories import FingerprintRepository
+    from app.typedefs import StrOrUUID
 
     from ..conftest import FileFactory, FingerprintFactory
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
+
+
+async def _get_by_file_id(file_id: StrOrUUID):
+    return await db_context.get().query_required_single("""
+        SELECT Fingerprint { part1, part2, part3, part4 }
+        FILTER .file.id = <uuid>$file_id
+    """, file_id=file_id)
+
 
 
 @pytest.mark.parametrize(["given", "expected"], [
@@ -36,43 +46,6 @@ def test_split_int8_by_int2(given, expected):
 ])
 def test_join_int2(given, expected):
     assert _join_int2(*reversed(given)) == expected
-
-
-class TestCreate:
-    async def test(
-        self,
-        fingerprint_repo: FingerprintRepository,
-        file: File,
-    ):
-        fp = Fingerprint(file.id, value=17289262673409605668)
-        await fingerprint_repo.save(fp)
-
-        fingerprint = await fingerprint_repo.conn.query_required_single("""
-            SELECT Fingerprint { part1, part2, part3, part4 }
-            FILTER .file.id = <uuid>$file_id
-        """, file_id=file.id)
-
-        assert fingerprint.part1 == 36
-        assert fingerprint.part2 == 36096
-        assert fingerprint.part3 == 52428
-        assert fingerprint.part4 == 61423
-
-    async def test_create_when_fingerprint_already_exists(
-        self,
-        fingerprint_repo: FingerprintRepository,
-        file: File,
-    ):
-        fp = Fingerprint(file.id, value=17289262673409605668)
-        await fingerprint_repo.save(fp)
-        with pytest.raises(errors.FingerprintAlreadyExists):
-            await fingerprint_repo.save(fp)
-
-    async def test_create_when_file_does_not_exist(
-        self, fingerprint_repo: FingerprintRepository
-    ):
-        fp = Fingerprint(file_id=uuid.uuid4(), value=24283937994761367101)
-        with pytest.raises(errors.FileNotFound):
-            await fingerprint_repo.save(fp)
 
 
 class TestIntersectAllWithPrefix:
@@ -135,3 +108,72 @@ class TestIntersectAllWithPrefix:
         # intersect in the folder 'b'
         intersection = await fingerprint_repo.intersect_all_with_prefix(ns_path, "b")
         assert intersection == {}
+
+
+class TestSave:
+    async def test(
+        self,
+        fingerprint_repo: FingerprintRepository,
+        file: File,
+    ):
+        fp = Fingerprint(file.id, value=17289262673409605668)
+        await fingerprint_repo.save(fp)
+
+        fingerprint = await _get_by_file_id(file.id)
+
+        assert fingerprint.part1 == 36
+        assert fingerprint.part2 == 36096
+        assert fingerprint.part3 == 52428
+        assert fingerprint.part4 == 61423
+
+    async def test_when_fingerprint_already_exists(
+        self,
+        fingerprint_repo: FingerprintRepository,
+        file: File,
+    ):
+        fp = Fingerprint(file.id, value=17289262673409605668)
+        await fingerprint_repo.save(fp)
+        with pytest.raises(errors.FingerprintAlreadyExists):
+            await fingerprint_repo.save(fp)
+
+    async def test_when_file_does_not_exist(
+        self, fingerprint_repo: FingerprintRepository
+    ):
+        fp = Fingerprint(file_id=uuid.uuid4(), value=24283937994761367101)
+        with pytest.raises(errors.FileNotFound):
+            await fingerprint_repo.save(fp)
+
+
+class TestSaveBatch:
+    async def test(
+        self,
+        fingerprint_repo: FingerprintRepository,
+        file_factory: FileFactory,
+        namespace: Namespace,
+    ):
+        ns_path = str(namespace.path)
+        files = [await file_factory(ns_path), await file_factory(ns_path)]
+        fingerprints = [
+            Fingerprint(files[0].id, value=17289262673409605668),
+            Fingerprint(files[1].id, value=24283937994761367101),
+        ]
+        await fingerprint_repo.save_batch(fingerprints)
+
+        fp_1 = await _get_by_file_id(fingerprints[0].file_id)
+        assert fp_1.part1 == 36
+        assert fp_1.part2 == 36096
+        assert fp_1.part3 == 52428
+        assert fp_1.part4 == 61423
+
+        fp_2 = await _get_by_file_id(fingerprints[1].file_id)
+        assert fp_2.part1 == 60989
+        assert fp_2.part2 == 50524
+        assert fp_2.part3 == 57585
+        assert fp_2.part4 == 20737
+
+    async def test_when_file_does_not_exist(
+        self, fingerprint_repo: FingerprintRepository
+    ):
+        fp = Fingerprint(file_id=uuid.uuid4(), value=24283937994761367101)
+        with pytest.raises(errors.FileNotFound):
+            await fingerprint_repo.save_batch([fp])

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import operator
 import os.path
 import uuid
 from io import BytesIO
-from typing import TYPE_CHECKING
+from typing import IO, TYPE_CHECKING
 
 import pytest
 
@@ -32,12 +33,48 @@ def _make_file(
     )
 
 
+class TestDownload:
+    def test(self, filecore: FileCoreService, file: File):
+        content = filecore.download(file.ns_path, file.path)
+        assert content.read() == b"Dummy file"
+
+
+class TestIterByMediatypes:
+    async def test_iter_by_mediatypes(
+        self,
+        filecore: FileCoreService,
+        file_factory: FileFactory,
+        namespace: Namespace,
+        image_content: IO[bytes],
+    ):
+        ns_path = str(namespace.path)
+        await file_factory(ns_path, "plain.txt")
+        jpg_1 = await file_factory(ns_path, "img (1).jpg", content=image_content)
+        jpg_2 = await file_factory(ns_path, "img (2).jpg", content=image_content)
+
+        mediatypes = ["image/jpeg"]
+        batches = filecore.iter_by_mediatypes(ns_path, mediatypes, batch_size=1)
+        result = [files async for files in batches]
+        assert len(result) == 2
+        actual = [*result[0], *result[1]]
+        assert sorted(actual, key=operator.attrgetter("mtime")) == [jpg_1, jpg_2]
+
+    async def test_iter_by_mediatypes_when_no_files(
+        self, filecore: FileCoreService, namespace: Namespace
+    ):
+        ns_path = namespace.path
+        mediatypes = ["image/jpeg", "image/png"]
+        batches = filecore.iter_by_mediatypes(ns_path, mediatypes, batch_size=1)
+        result = [files async for files in batches]
+        assert result == []
+
+
 class TestReindex:
     async def test_creating_missing_files(
         self,
         filecore: FileCoreService,
         namespace: Namespace,
-        image_content: BytesIO,
+        image_content: IO[bytes],
     ):
         # GIVEN
         db = filecore.db

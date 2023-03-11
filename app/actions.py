@@ -1,17 +1,12 @@
 from __future__ import annotations
 
-import asyncio
-import concurrent.futures
-from io import BytesIO
 from typing import TYPE_CHECKING
 
-from app import crud, hashes, metadata, taskgroups
+from app import crud
 from app.entities import File, Namespace, SharedLink
 from app.infrastructure.storage import storage
 
 if TYPE_CHECKING:
-    from app.app.infrastructure import IStorage
-    from app.entities import Exif
     from app.typedefs import DBClient, StrOrPath, StrOrUUID
 
 
@@ -61,78 +56,6 @@ async def get_thumbnail(
     file = await crud.file.get_by_id(db_client, file_id=file_id)
     thumbnail = await storage.thumbnail(ns_path, file.path, size=size)
     return file, thumbnail
-
-
-async def reindex_files_content(db_client: DBClient, namespace: Namespace) -> None:
-    """
-    Restore additional information about files, such as file fingerprint and content
-    metadata.
-
-    Args:
-        db_client (DBClient): Database client.
-        namespace (Namespace): Namespace where file information will be reindexed.
-    """
-    loop = asyncio.get_running_loop()
-
-    ns_path = str(namespace.path)
-    batch_size = 500
-    types = tuple(hashes.SUPPORTED_TYPES | metadata.SUPPORTED_TYPES)
-    batches = crud.file.iter_by_mediatypes(
-        db_client, ns_path, mediatypes=types, batch_size=batch_size
-    )
-
-    async for files in batches:
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            results = await taskgroups.gather(*(
-                asyncio.wait_for(
-                    loop.run_in_executor(
-                        executor,
-                        _reindex_content,
-                        storage,
-                        ns_path,
-                        file.path,
-                        file.mediatype,
-                    ),
-                    timeout=None,
-                )
-                for file in files
-            ))
-
-        # delete all fingerprints and metadata first
-        file_ids = [file.id for file in files]
-        await taskgroups.gather(
-            crud.fingerprint.delete_batch(db_client, file_ids=file_ids),
-            crud.metadata.delete_batch(db_client, file_ids=file_ids),
-        )
-
-        # create it from scratch
-        fps = ((path, dhash) for path, dhash, _ in results if dhash is not None)
-        data = ((path, meta) for path, _, meta in results if meta is not None)
-        await taskgroups.gather(
-            crud.fingerprint.create_batch(db_client, ns_path, fingerprints=fps),
-            crud.metadata.create_batch(db_client, ns_path, data=data),
-        )
-
-
-def _reindex_content(
-    storage: IStorage,
-    ns_path: StrOrPath,
-    path: StrOrPath,
-    mediatype: str,
-) -> tuple[StrOrPath, int | None, Exif | None]:
-    """
-    Download file content and calculate a d-hash for a file in a given path.
-
-    The `storage` argument is passed as a workaround to make test work correctly
-    when substituting `.location`.
-    """
-    content = BytesIO()
-    chunks = storage.download(ns_path, path)
-    for chunk in chunks:
-        content.write(chunk)
-    dhash = hashes.dhash(content, mediatype=mediatype)
-    meta = metadata.load(content, mediatype=mediatype)
-    return path, dhash, meta
 
 
 async def revoke_shared_link(db_client: DBClient, token: str) -> None:
