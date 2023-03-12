@@ -31,7 +31,6 @@ async def _get_by_file_id(file_id: StrOrUUID):
     """, file_id=file_id)
 
 
-
 @pytest.mark.parametrize(["given", "expected"], [
     [0, (0, 0, 0, 0)],
     [9_223_372_036_854_775_807, (65_535, 65_535, 65_535, 32_767)]

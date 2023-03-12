@@ -94,10 +94,7 @@ class FileCoreService:
                 await self.db.fingerprint.save(Fingerprint(file.id, value=dhash))
             if meta is not None:
                 await self.db.metadata.save(
-                    ContentMetadata(
-                        file_id=str(file.id),
-                        data=meta,  # type: ignore[arg-type]
-                    ),
+                    ContentMetadata(file_id=str(file.id), data=meta),
                 )
             await self.db.file.incr_size_batch(ns_path, path.parents, file.size)
 

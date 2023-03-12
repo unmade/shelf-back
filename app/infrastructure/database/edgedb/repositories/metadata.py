@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from app import crud
+import edgedb
+
+from app import errors
 from app.app.repositories import IContentMetadataRepository
 
 if TYPE_CHECKING:
@@ -21,8 +23,21 @@ class ContentMetadataRepository(IContentMetadataRepository):
         return self.db_context.get()
 
     async def save(self, metadata: ContentMetadata) -> None:
-        await crud.metadata.create(
-            self.conn,
-            metadata.file_id,
-            metadata.data,  # type: ignore[arg-type]
-        )
+        query = """
+            INSERT FileMetadata {
+                data := <json>$data,
+                file := (
+                    SELECT File
+                    FILTER .id = <uuid>$file_id
+                    LIMIT 1
+                )
+            }
+        """
+
+        file_id = metadata.file_id
+        data = metadata.data.json(exclude_none=True)
+
+        try:
+            await self.conn.query_required_single(query, file_id=file_id, data=data)
+        except edgedb.MissingRequiredError as exc:
+            raise errors.FileNotFound() from exc

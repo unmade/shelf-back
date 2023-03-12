@@ -90,7 +90,7 @@ class TestTrack:
         dupefinder: DuplicateFinderService,
         image_content: IO[bytes],
     ):
-        file_id = uuid.uuid4()
+        file_id = str(uuid.uuid4())
         dhash.return_value = 0
         await dupefinder.track(file_id, image_content)
         dhash.assert_called_once_with(image_content, mediatype="image/jpeg")
@@ -102,7 +102,7 @@ class TestTrack:
     async def test_when_mediatype_is_not_supported(
         self, dhash: MagicMock, dupefinder: DuplicateFinderService
     ):
-        file_id = uuid.uuid4()
+        file_id = str(uuid.uuid4())
         await dupefinder.track(file_id, BytesIO(b"Dummy content"))
         dhash.assert_not_called()
         db: MagicMock = cast(mock.MagicMock, dupefinder.db)
@@ -114,7 +114,7 @@ class TestTrack:
         dupefinder: DuplicateFinderService,
         image_content: IO[bytes],
     ):
-        file_id = uuid.uuid4()
+        file_id = str(uuid.uuid4())
         dhash.return_value = None
         await dupefinder.track(file_id, image_content)
         dhash.assert_called_once_with(image_content, mediatype="image/jpeg")

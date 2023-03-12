@@ -8,10 +8,11 @@ import pytest
 from faker import Faker
 
 from app import security
-from app.app.repositories.fingerprint import IFingerprintRepository
+from app.app.repositories import IContentMetadataRepository, IFingerprintRepository
 from app.app.services import (
     DuplicateFinderService,
     FileCoreService,
+    MetadataService,
     NamespaceService,
     UserService,
 )
@@ -112,6 +113,13 @@ def dupefinder():
 def filecore(_db_or_tx: EdgeDBDatabase, _storage: IStorage):
     """A filecore service instance."""
     return FileCoreService(database=_db_or_tx, storage=_storage)
+
+
+@pytest.fixture
+def metadata_service():
+    """A content metadata service instance."""
+    database = mock.MagicMock(metadata=mock.AsyncMock(IContentMetadataRepository))
+    return MetadataService(database=database)
 
 
 @pytest.fixture

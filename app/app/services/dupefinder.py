@@ -9,8 +9,6 @@ from app import hashes, mediatypes
 from app.domain.entities import Fingerprint
 
 if TYPE_CHECKING:
-    from uuid import UUID
-
     from app.app.repositories import IFingerprintRepository
     from app.app.repositories.fingerprint import MatchResult
     from app.typedefs import StrOrPath
@@ -92,12 +90,12 @@ class DuplicateFinderService:
         )
         return self._group(intersection, max_distance=max_distance)
 
-    async def track(self, file_id: UUID, content: IO[bytes]) -> None:
+    async def track(self, file_id: str, content: IO[bytes]) -> None:
         """
         Tracks fingerprints for a given file content.
 
         Args:
-            file_id (StrOrUUID): File ID.
+            file_id (str): File ID.
             content (IO[bytes]): File Content.
 
         Raises:

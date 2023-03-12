@@ -7,9 +7,9 @@ from .user import IUserRepository
 
 __all__ = [
     "IAccountRepository",
+    "IContentMetadataRepository",
     "IFileRepository",
     "IFingerprintRepository",
-    "IContentMetadataRepository",
     "INamespaceRepository",
     "IUserRepository",
 ]

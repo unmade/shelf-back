@@ -91,6 +91,12 @@ def fingerprint_repo(_tx_database: EdgeDBDatabase):
 
 
 @pytest.fixture
+def metadata_repo(_tx_database: EdgeDBDatabase):
+    """An EdgeDB instance of IContentMetadataRepository"""
+    return _tx_database.metadata
+
+
+@pytest.fixture
 def namespace_repo(_tx_database: EdgeDBDatabase):
     """An EdgeDB instance of INamespaceRepository"""
     return _tx_database.namespace

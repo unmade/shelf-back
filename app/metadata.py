@@ -7,7 +7,7 @@ from typing import IO, TYPE_CHECKING
 from PIL import ExifTags, Image, UnidentifiedImageError
 
 from app import mediatypes
-from app.entities import Exif
+from app.domain.entities import Exif
 
 if TYPE_CHECKING:
     from PIL.TiffImagePlugin import IFDRational
