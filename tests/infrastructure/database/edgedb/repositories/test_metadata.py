@@ -30,7 +30,7 @@ async def _get_by_file_id(file_id: StrOrUUID):
     """, file_id=file_id)
 
 
-class TestSaveBatch:
+class TestSave:
     async def test(
         self,
         metadata_repo: ContentMetadataRepository,
@@ -45,8 +45,7 @@ class TestSaveBatch:
         await metadata_repo.save(given)
         # THEN
         meta = await _get_by_file_id(file.id)
-        assert str(meta.file.id) == file.id
-        assert orjson.loads(meta.data) == {"type": "exif", "width": 1280, "height": 800}
+        assert orjson.loads(meta.data) == exif.dict(exclude_none=True)
 
     async def test_when_file_does_not_exist(
         self, metadata_repo: ContentMetadataRepository,
@@ -55,3 +54,35 @@ class TestSaveBatch:
         metadata = ContentMetadata(file_id=str(uuid.uuid4()), data=exif)
         with pytest.raises(errors.FileNotFound):
             await metadata_repo.save(metadata)
+
+
+class TestSaveBatch:
+    async def test(
+        self,
+        metadata_repo: ContentMetadataRepository,
+        file_factory: FileFactory,
+        namespace: Namespace,
+    ):
+        # GIVEN
+        ns_path = str(namespace.path)
+        files = [await file_factory(ns_path), await file_factory(ns_path)]
+        given = [
+            ContentMetadata(file_id=files[0].id, data=Exif(width=1280, height=800)),
+            ContentMetadata(file_id=files[1].id, data=Exif(width=1440, height=900)),
+        ]
+        # WHEN
+        await metadata_repo.save_batch(given)
+        # THEN
+        meta = await _get_by_file_id(files[0].id)
+        assert orjson.loads(meta.data) == given[0].data.dict(exclude_none=True)
+        meta = await _get_by_file_id(files[1].id)
+        assert orjson.loads(meta.data) == given[1].data.dict(exclude_none=True)
+
+    async def test_when_file_does_not_exist(
+        self,
+        metadata_repo: ContentMetadataRepository,
+    ):
+        exif = Exif(width=1280, height=800)
+        metadata = ContentMetadata(file_id=str(uuid.uuid4()), data=exif)
+        with pytest.raises(errors.FileNotFound):
+            await metadata_repo.save_batch([metadata])

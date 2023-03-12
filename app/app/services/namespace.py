@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 
     from .dupefinder import DuplicateFinderService
     from .filecore import FileCoreService
+    from .metadata import MetadataService
 
     class IServiceDatabase(IDatabase, Protocol):
         namespace: INamespaceRepository
@@ -39,10 +40,12 @@ class NamespaceService:
         database: IServiceDatabase,
         filecore: FileCoreService,
         dupefinder: DuplicateFinderService,
+        metadata: MetadataService,
     ):
         self.db = database
         self.filecore = filecore
         self.dupefinder = dupefinder
+        self.metadata = metadata
 
     async def add_file(
         self, ns_path: StrOrPath, path: StrOrPath, content: IO[bytes]
@@ -68,7 +71,12 @@ class NamespaceService:
         Returns:
             File: Saved file.
         """
-        return await self.filecore.create_file(ns_path, path, content)
+        file = await self.filecore.create_file(ns_path, path, content)
+        await taskgroups.gather(
+            self.dupefinder.track(file.id, content),
+            self.metadata.track(file.id, content),
+        )
+        return file
 
     async def create(self, path: StrOrPath, owner_id: UUID) -> Namespace:
         """
@@ -276,15 +284,22 @@ class NamespaceService:
         )
 
         async for files in batches:
-            async with self.dupefinder.track_batch() as tracker:
+            async with (
+                self.dupefinder.track_batch() as duperfinder_tracker,
+                self.metadata.track_batch() as metadata_tracker,
+            ):
                 await taskgroups.gather(*(
-                    self._reindex_content(file, tracker)
+                    self._reindex_content(
+                        file,
+                        trackers=[duperfinder_tracker, metadata_tracker],
+                    )
                     for file in files
                 ))
 
-    async def _reindex_content(self, file, tracker):
+    async def _reindex_content(self, file: File, trackers) -> None:
         loop = asyncio.get_running_loop()
         content = await loop.run_in_executor(
             None, self.filecore.download, file.ns_path, file.path
         )
-        await tracker.add(file.id, content)
+        for tracker in trackers:
+            await tracker.add(file.id, content)

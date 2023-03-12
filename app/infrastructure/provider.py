@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from app.app.services import (
     DuplicateFinderService,
     FileCoreService,
+    MetadataService,
     NamespaceService,
     UserService,
 )
@@ -32,8 +33,12 @@ class Service:
     def __init__(self, database: EdgeDBDatabase, storage: IStorage):
         filecore = FileCoreService(database=database, storage=storage)
         dupefinder = DuplicateFinderService(database=database)
+        metadata = MetadataService(database=database)
         self.namespace = NamespaceService(
-            database=database, filecore=filecore, dupefinder=dupefinder
+            database=database,
+            filecore=filecore,
+            dupefinder=dupefinder,
+            metadata=metadata,
         )
         self.user = UserService(database=database)
 

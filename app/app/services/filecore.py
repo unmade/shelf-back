@@ -17,29 +17,23 @@ from typing import (
     Sequence,
 )
 
-from app import errors, hashes, mediatypes, metadata, taskgroups
+from app import errors, mediatypes, taskgroups
 from app.app.infrastructure import IDatabase
 from app.app.repositories.file import FileUpdate
 from app.domain.entities import (
     SENTINEL_ID,
-    ContentMetadata,
     File,
-    Fingerprint,
 )
 
 if TYPE_CHECKING:
     from app.app.infrastructure.storage import IStorage
     from app.app.repositories import (
-        IContentMetadataRepository,
         IFileRepository,
-        IFingerprintRepository,
     )
     from app.typedefs import StrOrPath, StrOrUUID
 
     class IServiceDatabase(IDatabase, Protocol):
         file: IFileRepository
-        fingerprint: IFingerprintRepository
-        metadata: IContentMetadataRepository
 
 __all__ = ["FileCoreService"]
 
@@ -74,9 +68,6 @@ class FileCoreService:
         next_path = await self.get_available_path(ns_path, path)
         mediatype = mediatypes.guess(next_path, content)
 
-        dhash = hashes.dhash(content, mediatype=mediatype)
-        meta = metadata.load(content, mediatype=mediatype)
-
         storage_file = await self.storage.save(ns_path, next_path, content)
 
         async for _ in self.db.atomic(attempts=10):
@@ -90,12 +81,6 @@ class FileCoreService:
                     mediatype=mediatype,
                 ),
             )
-            if dhash is not None:
-                await self.db.fingerprint.save(Fingerprint(file.id, value=dhash))
-            if meta is not None:
-                await self.db.metadata.save(
-                    ContentMetadata(file_id=str(file.id), data=meta),
-                )
             await self.db.file.incr_size_batch(ns_path, path.parents, file.size)
 
         return file

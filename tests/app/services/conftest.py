@@ -125,9 +125,11 @@ def metadata_service():
 @pytest.fixture
 def namespace_service(_db_or_tx: EdgeDBDatabase, filecore: FileCoreService):
     """A namespace service instance."""
-    dupefinder = mock.MagicMock(DuplicateFinderService)
     return NamespaceService(
-        database=_db_or_tx, filecore=filecore, dupefinder=dupefinder
+        database=_db_or_tx,
+        filecore=filecore,
+        dupefinder=mock.MagicMock(DuplicateFinderService),
+        metadata=mock.MagicMock(MetadataService),
     )
 
 

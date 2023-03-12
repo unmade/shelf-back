@@ -4,11 +4,12 @@ import operator
 import os.path
 import uuid
 from io import BytesIO
+from pathlib import PurePath
 from typing import IO, TYPE_CHECKING
 
 import pytest
 
-from app import errors, mediatypes
+from app import errors, mediatypes, taskgroups
 from app.domain.entities import File
 
 if TYPE_CHECKING:
@@ -31,6 +32,96 @@ def _make_file(
         size=size,
         mediatype=mediatype,
     )
+
+
+class TestCreateFile:
+    async def test(self, filecore: FileCoreService, namespace: Namespace):
+        content = BytesIO(b"Dummy file")
+        file = await filecore.create_file(namespace.path, "f.txt", content)
+        assert file.name == "f.txt"
+        assert file.path == "f.txt"
+        assert file.size == 10
+        assert file.mediatype == 'text/plain'
+
+    async def test_saving_an_image(
+        self,
+        filecore: FileCoreService,
+        namespace: Namespace,
+        image_content: BytesIO,
+    ):
+        content = image_content
+        file = await filecore.create_file(namespace.path, "im.jpeg", content)
+        assert file.mediatype == "image/jpeg"
+
+    async def test_creating_missing_parents(
+        self, filecore: FileCoreService, namespace: Namespace,
+    ):
+        content = BytesIO(b"Dummy file")
+        file = await filecore.create_file(namespace.path, "a/b/f.txt", content)
+        assert file.name == "f.txt"
+        assert file.path == "a/b/f.txt"
+
+        paths = ["a", "a/b"]
+        db = filecore.db
+        a, b = await db.file.get_by_path_batch(namespace.path,  paths=paths)
+        assert a.path == "a"
+        assert b.path == "a/b"
+
+    async def test_parents_size_is_updated(
+        self, filecore: FileCoreService, namespace: Namespace
+    ):
+        content = BytesIO(b"Dummy file")
+        await filecore.create_file(namespace.path, "a/b/f.txt", content)
+        paths = [".", "a", "a/b"]
+        db = filecore.db
+        home, a, b = await db.file.get_by_path_batch(namespace.path, paths=paths)
+        assert home.size == 10
+        assert a.size == 10
+        assert b.size == 10
+
+    @pytest.mark.database(transaction=True)
+    async def test_saving_files_concurrently(
+        self, filecore: FileCoreService, namespace: Namespace,
+    ):
+        CONCURRENCY = 50
+        parent = PurePath("a/b/c")
+        paths = [parent / str(name) for name in range(CONCURRENCY)]
+        contents = [BytesIO(b"1") for _ in range(CONCURRENCY)]
+
+        await filecore.create_folder(namespace.path, parent)
+
+        await taskgroups.gather(*(
+            filecore.create_file(namespace.path, path, content)
+            for path, content in zip(paths, contents, strict=True)
+        ))
+
+        db = filecore.db
+        count = len(await db.file.get_by_path_batch(namespace.path, paths))
+        assert count == CONCURRENCY
+
+        home = await db.file.get_by_path(namespace.path, ".")
+        assert home.size == CONCURRENCY
+
+    async def test_when_file_path_already_taken(
+        self, filecore: FileCoreService, namespace: Namespace,
+    ):
+        content = BytesIO(b"Dummy file")
+        await filecore.create_file(namespace.path, "f.txt", content)
+        await filecore.create_file(namespace.path, "f.txt", content)
+
+        db = filecore.db
+        paths = ["f.txt", "f (1).txt"]
+        f_1, f = await db.file.get_by_path_batch(namespace.path, paths)
+        assert f.path == "f.txt"
+        assert f_1.path == "f (1).txt"
+
+    async def test_when_parent_path_is_file(
+        self, filecore: FileCoreService, namespace: Namespace,
+    ):
+        content = BytesIO(b"Dummy file")
+        await filecore.create_file(namespace.path, "f.txt", content)
+        with pytest.raises(errors.NotADirectory):
+            await filecore.create_file(namespace.path, "f.txt/f.txt", content)
 
 
 class TestDownload:

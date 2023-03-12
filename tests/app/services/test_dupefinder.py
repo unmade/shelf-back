@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import uuid
-from io import BytesIO
 from typing import IO, TYPE_CHECKING, cast
 from unittest import mock
 
@@ -98,15 +97,6 @@ class TestTrack:
         db.fingerprint.save.assert_awaited_once_with(
             Fingerprint(file_id, value=0)
         )
-
-    async def test_when_mediatype_is_not_supported(
-        self, dhash: MagicMock, dupefinder: DuplicateFinderService
-    ):
-        file_id = str(uuid.uuid4())
-        await dupefinder.track(file_id, BytesIO(b"Dummy content"))
-        dhash.assert_not_called()
-        db: MagicMock = cast(mock.MagicMock, dupefinder.db)
-        db.fingerprint.save.assert_not_awaited()
 
     async def test_when_dhash_is_none(
         self,

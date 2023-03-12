@@ -6,6 +6,7 @@ from unittest import mock
 
 import pytest
 
+from app.app.services.metadata import _Tracker
 from app.domain.entities import ContentMetadata
 
 if TYPE_CHECKING:
@@ -25,7 +26,6 @@ class TestTrack:
         image_content: IO[bytes],
     ):
         file_id = str(uuid.uuid4())
-        load_metadata.return_value
         await metadata_service.track(file_id, image_content)
         load_metadata.assert_called_once_with(image_content, mediatype="image/jpeg")
         db = cast(mock.MagicMock, metadata_service.db)
@@ -45,3 +45,25 @@ class TestTrack:
         load_metadata.assert_called_once_with(image_content, mediatype="image/jpeg")
         db = cast(mock.MagicMock, metadata_service.db)
         db.metadata.save.assert_not_awaited()
+
+
+@mock.patch("app.metadata.load")
+class TestTrackBatch:
+    async def test(
+        self,
+        load_metadata: MagicMock,
+        metadata_service: MetadataService,
+        image_content: IO[bytes],
+    ):
+        file_ids = [str(uuid.uuid4()), str(uuid.uuid4())]
+        async with metadata_service.track_batch() as tracker:
+            await tracker.add(file_ids[0], image_content)
+            await tracker.add(file_ids[1], image_content)
+
+        expected = _Tracker()
+        expected._items = [
+            ContentMetadata(file_id=file_ids[0], data=load_metadata.return_value),
+            ContentMetadata(file_id=file_ids[1], data=load_metadata.return_value),
+        ]
+        db = cast(mock.MagicMock, metadata_service.db)
+        db.metadata.save_batch.assert_awaited_once_with(expected)

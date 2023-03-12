@@ -3,13 +3,12 @@ from __future__ import annotations
 import os.path
 import uuid
 from io import BytesIO
-from pathlib import PurePath
 from typing import TYPE_CHECKING, cast
 from unittest import mock
 
 import pytest
 
-from app import errors, taskgroups
+from app import errors
 from app.domain.entities import File, Fingerprint, Namespace
 
 if TYPE_CHECKING:
@@ -27,13 +26,15 @@ def ns_service():
     from app.app.services import (
         DuplicateFinderService,
         FileCoreService,
+        MetadataService,
         NamespaceService,
     )
 
     return NamespaceService(
         database=mock.MagicMock(namespace=mock.MagicMock(INamespaceRepository)),
         filecore=mock.MagicMock(FileCoreService),
-        dupefinder=mock.MagicMock(DuplicateFinderService, autospec=True),
+        dupefinder=mock.MagicMock(DuplicateFinderService),
+        metadata=mock.MagicMock(MetadataService)
     )
 
 
@@ -49,93 +50,22 @@ def _make_file(ns_path: str, path: str, size: int = 10) -> File:
 
 
 class TestAddFile:
-    async def test(self, namespace: Namespace, namespace_service: NamespaceService):
+    async def test(self, ns_service: NamespaceService):
+        # GIVEN
+        ns_path = "admin"
         content = BytesIO(b"Dummy file")
-        file = await namespace_service.add_file(namespace.path, "f.txt", content)
-        assert file.name == "f.txt"
-        assert file.path == "f.txt"
-        assert file.size == 10
-        assert file.mediatype == 'text/plain'
-
-    async def test_saving_an_image(
-        self,
-        namespace: Namespace,
-        namespace_service: NamespaceService,
-        image_content: BytesIO,
-    ):
-        content = image_content
-        file = await namespace_service.add_file(namespace.path, "im.jpeg", content)
-        assert file.mediatype == "image/jpeg"
-
-    async def test_creating_missing_parents(
-        self, namespace: Namespace, namespace_service: NamespaceService
-    ):
-        content = BytesIO(b"Dummy file")
-        file = await namespace_service.add_file(namespace.path, "a/b/f.txt", content)
-        assert file.name == "f.txt"
-        assert file.path == "a/b/f.txt"
-
-        paths = ["a", "a/b"]
-        db = namespace_service.db
-        a, b = await db.file.get_by_path_batch(namespace.path,  paths=paths)
-        assert a.path == "a"
-        assert b.path == "a/b"
-
-    async def test_parents_size_is_updated(
-        self, namespace: Namespace, namespace_service: NamespaceService
-    ):
-        content = BytesIO(b"Dummy file")
-        await namespace_service.add_file(namespace.path, "a/b/f.txt", content)
-        paths = [".", "a", "a/b"]
-        db = namespace_service.db
-        home, a, b = await db.file.get_by_path_batch(namespace.path, paths=paths)
-        assert home.size == 10
-        assert a.size == 10
-        assert b.size == 10
-
-    @pytest.mark.database(transaction=True)
-    async def test_saving_files_concurrently(
-        self, namespace: Namespace, namespace_service: NamespaceService
-    ):
-        CONCURRENCY = 50
-        parent = PurePath("a/b/c")
-        paths = [parent / str(name) for name in range(CONCURRENCY)]
-        contents = [BytesIO(b"1") for _ in range(CONCURRENCY)]
-
-        await namespace_service.create_folder(namespace.path, parent)
-
-        await taskgroups.gather(*(
-            namespace_service.add_file(namespace.path, path, content)
-            for path, content in zip(paths, contents, strict=True)
-        ))
-
-        db = namespace_service.db
-        count = len(await db.file.get_by_path_batch(namespace.path, paths))
-        assert count == CONCURRENCY
-
-        home = await db.file.get_by_path(namespace.path, ".")
-        assert home.size == CONCURRENCY
-
-    async def test_when_file_path_already_taken(
-        self, namespace: Namespace, namespace_service: NamespaceService
-    ):
-        content = BytesIO(b"Dummy file")
-        await namespace_service.add_file(namespace.path, "f.txt", content)
-        await namespace_service.add_file(namespace.path, "f.txt", content)
-
-        db = namespace_service.db
-        paths = ["f.txt", "f (1).txt"]
-        f_1, f = await db.file.get_by_path_batch(namespace.path, paths)
-        assert f.path == "f.txt"
-        assert f_1.path == "f (1).txt"
-
-    async def test_when_parent_path_is_file(
-        self, namespace: Namespace, namespace_service: NamespaceService
-    ):
-        content = BytesIO(b"Dummy file")
-        await namespace_service.add_file(namespace.path, "f.txt", content)
-        with pytest.raises(errors.NotADirectory):
-            await namespace_service.add_file(namespace.path, "f.txt/f.txt", content)
+        file = _make_file(ns_path, "f.txt")
+        filecore = cast(mock.MagicMock, ns_service.filecore)
+        filecore.create_file.return_value = file
+        dupefinder = cast(mock.MagicMock, ns_service.dupefinder)
+        metadata = cast(mock.MagicMock, ns_service.metadata)
+        # WHEN
+        result = await ns_service.add_file(ns_path, "f.txt", content)
+        # THEN
+        assert result == file
+        filecore.create_file.assert_awaited_once_with(ns_path, file.path, content)
+        dupefinder.track.assert_awaited_once_with(file.id, content)
+        metadata.track.assert_awaited_once_with(file.id, content)
 
 
 class TestCreate:
@@ -688,8 +618,12 @@ class TestReindexContents:
         filecore = cast(mock.MagicMock, ns_service.filecore)
         filecore.iter_by_mediatypes.return_value = iter_by_mediatypes_result()
         dupefinder = cast(mock.MagicMock, ns_service.dupefinder)
+        meta_service = cast(mock.MagicMock, ns_service.metadata)
         # WHEN
         await ns_service.reindex_contents(ns_path)
         # THEN
-        tracker = dupefinder.track_batch.return_value.__aenter__.return_value
-        assert len(tracker.mock_calls) == 2
+        filecore.iter_by_mediatypes.assert_called_once()
+        dupefinder_tracker = dupefinder.track_batch.return_value.__aenter__.return_value
+        assert len(dupefinder_tracker.mock_calls) == 2
+        metadata_tracker = meta_service.track_batch.return_value.__aenter__.return_value
+        assert len(metadata_tracker.mock_calls) == 2

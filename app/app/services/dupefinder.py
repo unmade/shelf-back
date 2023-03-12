@@ -103,9 +103,6 @@ class DuplicateFinderService:
             errors.FileNotFound: If a file with specified file ID doesn't exist.
         """
         mediatype = mediatypes.guess("", content)
-        if mediatype not in hashes.SUPPORTED_TYPES:
-            return
-
         dhash = hashes.dhash(content, mediatype=mediatype)
         if dhash is None:
             return
@@ -128,11 +125,8 @@ class _Tracker:
         self._items = []
 
     async def add(self, file_id: str, content: IO[bytes]) -> None:
-        mediatype = mediatypes.guess("", content)
-        if mediatype not in hashes.SUPPORTED_TYPES:
-            return
-
         loop = asyncio.get_running_loop()
+        mediatype = mediatypes.guess("", content)
         dhash = await loop.run_in_executor(None, hashes.dhash, content, mediatype)
         if dhash is None:
             return
