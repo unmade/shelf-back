@@ -152,3 +152,9 @@ class User(BaseModel):
     username: str
     password: str
     superuser: bool = False
+
+
+class SharedLink(BaseModel):
+    id: UUID
+    file_id: str
+    token: str

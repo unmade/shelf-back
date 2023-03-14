@@ -8,12 +8,17 @@ import pytest
 from faker import Faker
 
 from app import security
-from app.app.repositories import IContentMetadataRepository, IFingerprintRepository
+from app.app.repositories import (
+    IContentMetadataRepository,
+    IFingerprintRepository,
+    ISharedLinkRepository,
+)
 from app.app.services import (
     DuplicateFinderService,
     FileCoreService,
     MetadataService,
     NamespaceService,
+    SharingService,
     UserService,
 )
 from app.infrastructure.database.edgedb import EdgeDBDatabase
@@ -131,6 +136,13 @@ def namespace_service(_db_or_tx: EdgeDBDatabase, filecore: FileCoreService):
         dupefinder=mock.MagicMock(DuplicateFinderService),
         metadata=mock.MagicMock(MetadataService),
     )
+
+
+@pytest.fixture
+def sharing_service():
+    """A sharing service instance."""
+    database = mock.MagicMock(shared_link=mock.AsyncMock(ISharedLinkRepository))
+    return SharingService(database=database)
 
 
 @pytest.fixture

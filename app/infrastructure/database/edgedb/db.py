@@ -13,6 +13,7 @@ from app.app.repositories import (
     IFileRepository,
     IFingerprintRepository,
     INamespaceRepository,
+    ISharedLinkRepository,
     IUserRepository,
 )
 
@@ -22,6 +23,7 @@ from .repositories import (
     FileRepository,
     FingerprintRepository,
     NamespaceRepository,
+    SharedLinkRepository,
     UserRepository,
 )
 
@@ -37,6 +39,7 @@ class EdgeDBDatabase(IDatabase):
     fingerprint: IFingerprintRepository
     metadata: IContentMetadataRepository
     namespace: INamespaceRepository
+    SharedLinkRepository: ISharedLinkRepository
     user: IUserRepository
 
     def __init__(
@@ -59,6 +62,7 @@ class EdgeDBDatabase(IDatabase):
         self.fingerprint = FingerprintRepository(db_context=db_context)
         self.metadata = ContentMetadataRepository(db_context=db_context)
         self.namespace = NamespaceRepository(db_context=db_context)
+        self.shared_link = SharedLinkRepository(db_context=db_context)
         self.user = UserRepository(db_context=db_context)
 
     async def __aenter__(self) -> Self:

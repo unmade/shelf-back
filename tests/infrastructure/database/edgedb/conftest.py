@@ -7,7 +7,15 @@ import pytest
 from faker import Faker
 
 from app import mediatypes
-from app.domain.entities import SENTINEL_ID, Account, File, Fingerprint, Namespace, User
+from app.domain.entities import (
+    SENTINEL_ID,
+    Account,
+    File,
+    Fingerprint,
+    Namespace,
+    SharedLink,
+    User,
+)
 from app.infrastructure.database.edgedb import EdgeDBDatabase
 from app.infrastructure.database.edgedb.db import db_context
 
@@ -19,6 +27,7 @@ if TYPE_CHECKING:
         IFileRepository,
         IFingerprintRepository,
         INamespaceRepository,
+        ISharedLinkRepository,
         IUserRepository,
     )
     from app.infrastructure.database.edgedb.typedefs import EdgeDBTransaction
@@ -34,6 +43,9 @@ if TYPE_CHECKING:
 
     class FolderFactory(Protocol):
         async def __call__(self, ns_path: str, path: str | None = None) -> File: ...
+
+    class SharedLinkFactory(Protocol):
+        async def __call__(self, file_id: str) -> SharedLink: ...
 
 fake = Faker()
 
@@ -100,6 +112,12 @@ def metadata_repo(_tx_database: EdgeDBDatabase):
 def namespace_repo(_tx_database: EdgeDBDatabase):
     """An EdgeDB instance of INamespaceRepository"""
     return _tx_database.namespace
+
+
+@pytest.fixture
+def shared_link_repo(_tx_database: EdgeDBDatabase):
+    """An EdgeDB instance of ISharedLinkRepository"""
+    return _tx_database.shared_link
 
 
 @pytest.fixture
@@ -187,6 +205,21 @@ async def namespace(user: User, namespace_repo: INamespaceRepository):
 async def file(namespace: Namespace, file_factory: FileFactory):
     """A File instance saved to the EdgeDB."""
     return await file_factory(namespace.path)
+
+
+@pytest.fixture
+async def shared_link(
+    shared_link_repo: ISharedLinkRepository, file: File
+) -> SharedLink:
+    """A SharedLink instance saved to the EdgeDB."""
+    return await shared_link_repo.save(
+        SharedLink(
+            id=SENTINEL_ID,
+            file_id=file.id,
+            token="ec67376f",
+        )
+    )
+
 
 
 @pytest.fixture
