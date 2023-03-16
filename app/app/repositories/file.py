@@ -85,6 +85,20 @@ class IFileRepository(Protocol):
             bool: True if file/folder exists, False otherwise.
         """
 
+    async def get_by_id(self, file_id: str) -> File:
+        """
+        Return a file by ID.
+
+        Args:
+            file_id (StrOrUUID): File ID.
+
+        Raises:
+            errors.FileNotFound: If file with a given ID does not exists.
+
+        Returns:
+            File: File with a target ID.
+        """
+
     async def get_by_id_batch(
         self, ns_path: StrOrPath, ids: Iterable[StrOrUUID]
     ) -> list[File]:

@@ -156,6 +156,22 @@ class FileRepository(IFileRepository):
         )
         return cast(bool, exists)
 
+    async def get_by_id(self, file_id: str) -> File:
+        query = """
+            SELECT
+                File {
+                    id, name, path, size, mtime, mediatype: { name },
+                    namespace: { path }
+                }
+            FILTER
+                .id = <uuid>$file_id
+        """
+        try:
+            obj = await self.conn.query_required_single(query, file_id=file_id)
+        except edgedb.NoDataError as exc:
+            raise errors.FileNotFound() from exc
+        return _from_db(obj.namespace.path, obj)
+
     async def get_by_id_batch(
         self, ns_path: StrOrPath, ids: Iterable[StrOrUUID]
     ) -> list[File]:

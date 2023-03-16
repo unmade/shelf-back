@@ -6,7 +6,7 @@ import os
 from pathlib import PurePath
 from typing import IO, TYPE_CHECKING, Protocol
 
-from app import hashes, metadata, taskgroups, timezone
+from app import errors, hashes, metadata, taskgroups, timezone
 from app.app.infrastructure import IDatabase
 from app.domain.entities import (
     SENTINEL_ID,
@@ -183,6 +183,30 @@ class NamespaceService:
 
     async def get_space_used_by_owner_id(self, owner_id: StrOrUUID) -> int:
         return await self.db.namespace.get_space_used_by_owner_id(owner_id)
+
+    async def get_file_thumbnail(
+        self, ns_path: StrOrPath, file_id: str, size: int
+    ) -> tuple[File, bytes]:
+        """
+        Generate in-memory thumbnail with preserved aspect ratio.
+
+        Args:
+            ns_path (ns_path): Namespace where a file is located.
+            file_id (StrOrUUID): Target file ID.
+            size (int): Thumbnail dimension.
+
+        Raises:
+            FileNotFound: If file with target ID does not exist.
+            IsADirectory: If file is a directory.
+            ThumbnailUnavailable: If file is not an image.
+
+        Returns:
+            tuple[File, bytes]: Tuple of file and thumbnail content.
+        """
+        if not await self.has_file_with_id(ns_path, file_id):
+            raise errors.FileNotFound()
+
+        return await self.filecore.thumbnail(file_id, size=size)
 
     async def has_file_with_id(self, ns_path: StrOrPath, file_id: StrOrUUID) -> bool:
         """

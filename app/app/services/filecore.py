@@ -418,3 +418,23 @@ class FileCoreService:
 
         file_update = FileUpdate(id=root.id, size=total_size)
         await self.db.file.update(file_update)
+
+    async def thumbnail(self, file_id: str, *, size: int) -> tuple[File, bytes]:
+        """
+        Generate in-memory thumbnail with preserved aspect ratio.
+
+        Args:
+            file_id (StrOrUUID): Target file ID.
+            size (int): Thumbnail dimension.
+
+        Raises:
+            FileNotFound: If file with this path does not exists.
+            IsADirectory: If file is a directory.
+            ThumbnailUnavailable: If file is not an image.
+
+        Returns:
+            tuple[File, bytes]: Tuple of file and thumbnail content.
+        """
+        file = await self.db.file.get_by_id(file_id)
+        thumbnail = await self.storage.thumbnail(file.ns_path, file.path, size=size)
+        return file, thumbnail

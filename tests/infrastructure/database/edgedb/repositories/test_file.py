@@ -153,6 +153,17 @@ class TestExistsWithID:
         assert exists is False
 
 
+class TestGetById:
+    async def test(self, file_repo: FileRepository, file: File):
+        result = await file_repo.get_by_id(file.id)
+        assert result == file
+
+    async def test_when_file_does_not_exist(self, file_repo: FileRepository):
+        file_id = str(uuid.uuid4())
+        with pytest.raises(errors.FileNotFound):
+            await file_repo.get_by_id(file_id)
+
+
 class TestGetByIdBatch:
     async def test(
         self, file_repo: FileRepository, file_factory: FileFactory, namespace: Namespace

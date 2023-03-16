@@ -360,6 +360,27 @@ class TestGetAvailablePath:
         assert next_path == "f.txt"
 
 
+class TestGetFileThumbnail:
+    async def test(self, ns_service: NamespaceService):
+        ns_path = "admin"
+        file_id = str(uuid.uuid4())
+        with mock.patch.object(ns_service, "has_file_with_id") as has_file_mock:
+            result = await ns_service.get_file_thumbnail(ns_path, file_id, size=32)
+            has_file_mock.assert_awaited_once_with(ns_path, file_id)
+
+        filecore = cast(mock.MagicMock, ns_service.filecore)
+        assert result == filecore.thumbnail.return_value
+
+    async def test_when_file_does_not_exist(self, ns_service: NamespaceService):
+        ns_path = "admin"
+        file_id = str(uuid.uuid4())
+        with (
+            mock.patch.object(ns_service, "has_file_with_id", return_value=False),
+            pytest.raises(errors.FileNotFound),
+        ):
+            await ns_service.get_file_thumbnail(ns_path, file_id, size=32)
+
+
 class TestHasFileWithID:
     async def test(
         self, namespace: Namespace, file: File, namespace_service: NamespaceService

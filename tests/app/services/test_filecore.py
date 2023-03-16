@@ -286,3 +286,17 @@ class TestReindex:
         with pytest.raises(errors.NotADirectory):
             await filecore.reindex(namespace.path, "a")
         assert not await filecore.db.file.exists_at_path(namespace.path, "a")
+
+
+class TestThumbnail:
+    async def test(
+        self,
+        filecore: FileCoreService,
+        file_factory: FileFactory,
+        namespace: Namespace,
+        image_content: IO[bytes],
+    ):
+        file = await file_factory(namespace.path, content=image_content)
+        filecache, thumbnail = await filecore.thumbnail(file.id, size=64)
+        assert filecache == file
+        assert isinstance(thumbnail, bytes)
