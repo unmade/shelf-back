@@ -5,7 +5,7 @@ import time
 from os.path import join as joinpath
 from os.path import normpath
 from pathlib import PurePath
-from typing import TYPE_CHECKING, AsyncIterator, Iterable, cast
+from typing import TYPE_CHECKING, Iterable, cast
 
 import edgedb
 
@@ -13,8 +13,6 @@ from app import errors, mediatypes
 from app.entities import File
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
     from app.typedefs import DBAnyConn, StrOrPath, StrOrUUID
 
 
@@ -319,87 +317,6 @@ async def get_many(
     )
 
     return [from_db(f) for f in files]
-
-
-async def iter_by_mediatypes(
-    conn: DBAnyConn,
-    namespace: StrOrPath,
-    mediatypes: Sequence[str],
-    *,
-    batch_size: int = 25,
-) -> AsyncIterator[list[File]]:
-    """
-    Iterate through files with a given mediatypes in batches.
-
-    Args:
-        conn (DBAnyConn): Database connection.
-        namespace (StrOrPath): Target namespace where files should be listed.
-        mediatypes (Iterable[str]): List of mediatypes that files should match.
-        size (int, optional): Batch size. Defaults to 25.
-
-    Returns:
-        AsyncIterator[list[File]]: None.
-
-    Yields:
-        Iterator[AsyncIterator[list[File]]]: Batch with files with a given mediatypes.
-    """
-    limit = batch_size
-    offset = -limit
-
-    while True:
-        offset += limit
-        files = await list_by_mediatypes(
-            conn, namespace, mediatypes, offset=offset, limit=limit
-        )
-        if not files:
-            return
-        yield files
-
-
-async def list_by_mediatypes(
-    conn: DBAnyConn,
-    namespace: StrOrPath,
-    mediatypes: Sequence[str],
-    *,
-    offset: int,
-    limit: int = 25,
-) -> list[File]:
-    """
-    List all files with a given mediatypes.
-
-    Args:
-        conn (DBAnyConn): Database connection.
-        namespace (StrOrPath): Target namespace where files should be listed.
-        mediatypes (Iterable[str]): List of mediatypes that files should match.
-        offset (int): Skip this number of elements.
-        limit (int, optional): Include only the first element-count elements.
-
-    Returns:
-        list[File]: list of Files
-    """
-    query = """
-        SELECT
-            File {
-                id, name, path, size, mtime, mediatype: { name },
-            }
-        FILTER
-            .namespace.path = <str>$namespace
-            AND
-            .mediatype.name IN {array_unpack(<array<str>>$mediatypes)}
-        OFFSET
-            <int64>$offset
-        LIMIT
-            <int64>$limit
-    """
-
-    files = await conn.query(
-        query,
-        namespace=str(namespace),
-        mediatypes=mediatypes,
-        offset=offset,
-        limit=limit,
-    )
-    return [from_db(file) for file in files]
 
 
 async def list_folder(
