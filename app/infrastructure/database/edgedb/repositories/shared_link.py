@@ -14,6 +14,10 @@ if TYPE_CHECKING:
 __all__ = ["SharedLinkRepository"]
 
 
+def _from_db(obj) -> SharedLink:
+    return SharedLink(id=obj.id, file_id=str(obj.file.id), token=obj.token)
+
+
 class SharedLinkRepository(ISharedLinkRepository):
     def __init__(self, db_context: EdgeDBContext):
         self.db_context = db_context
@@ -31,6 +35,37 @@ class SharedLinkRepository(ISharedLinkRepository):
         """
 
         await self.conn.query_single(query, token=token)
+
+    async def get_by_file_id(self, file_id: str) -> SharedLink:
+        query = """
+            SELECT
+                SharedLink { id, token, file: { id } }
+            FILTER
+                .file.id = <uuid>$file_id
+            LIMIT 1
+        """
+
+        try:
+            link = await self.conn.query_required_single(query, file_id=file_id)
+        except edgedb.NoDataError as exc:
+            raise errors.SharedLinkNotFound from exc
+
+        return _from_db(link)
+
+    async def get_by_token(self, token: str) -> SharedLink:
+        query = """
+            SELECT
+                SharedLink { id, token, file: { id } }
+            FILTER
+                .token = <str>$token
+        """
+
+        try:
+            link = await self.conn.query_required_single(query, token=token)
+        except edgedb.NoDataError as exc:
+            raise errors.SharedLinkNotFound from exc
+
+        return _from_db(link)
 
     async def save(self, shared_link: SharedLink) -> SharedLink:
         query = """

@@ -46,6 +46,36 @@ class TestDelete:
         assert not await _exists_by_token(shared_link.token)
 
 
+class TestGetByFileID:
+    async def test(
+        self, shared_link_repo: SharedLinkRepository, shared_link: SharedLink,
+    ):
+        link = await shared_link_repo.get_by_file_id(shared_link.file_id)
+        assert link == shared_link
+
+    async def test_when_link_does_not_exist(
+        self, shared_link_repo: SharedLinkRepository
+    ):
+        file_id = str(uuid.uuid4())
+        with pytest.raises(errors.SharedLinkNotFound):
+            await shared_link_repo.get_by_file_id(file_id)
+
+
+class TestGetByToken:
+    async def test(
+        self, shared_link_repo: SharedLinkRepository, shared_link: SharedLink
+    ):
+        link = await shared_link_repo.get_by_token(shared_link.token)
+        assert link == shared_link
+
+    async def test_when_link_does_not_exist(
+        self, shared_link_repo: SharedLinkRepository
+    ):
+        token = "shared-link-token"
+        with pytest.raises(errors.SharedLinkNotFound):
+            await shared_link_repo.get_by_token(token)
+
+
 class TestSave:
     async def test(self, shared_link_repo: SharedLinkRepository, file: File):
         link = SharedLink(id=SENTINEL_ID, file_id=file.id, token="secret")

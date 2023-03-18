@@ -20,7 +20,7 @@ class SharingService:
     def __init__(self, database: IServiceDatabase):
         self.db = database
 
-    async def get_or_create_shared_link(self, file_id: str) -> SharedLink:
+    async def create_link(self, file_id: str) -> SharedLink:
         """
         Creates a shared link for a file at a given path. If the link already exists,
         then existing link will be returned.
@@ -29,7 +29,7 @@ class SharingService:
             file_id (str): Target file ID to share.
 
         Raises:
-            FileNotFound: If file/folder with a given path does not exists.
+            FileNotFound: If file/folder with a given path does not exist.
 
         Returns:
             SharedLink: A shared link.
@@ -41,7 +41,37 @@ class SharingService:
         )
         return await self.db.shared_link.save(link)
 
-    async def revoke_shared_link(self, token: str) -> None:
+    async def get_link_by_file_id(self, file_id: str) -> SharedLink:
+        """
+        Returns shared link by a given file ID.
+
+        Args:
+            file_id (str): File ID.
+
+        Raises:
+            SharedLinkNotFound: If file/folder with a given path does not exist.
+
+        Returns:
+            SharedLink: A SharedLink.
+        """
+        return await self.db.shared_link.get_by_file_id(file_id)
+
+    async def get_link_by_token(self, token: str) -> SharedLink:
+        """
+        Returns shared link by a given token.
+
+        Args:
+            token (str): Target shared link token.
+
+        Raises:
+            SharedLinkNotFound: If a link with a given token does not exist.
+
+        Returns:
+            SharedLink: A SharedLink.
+        """
+        return await self.db.shared_link.get_by_token(token)
+
+    async def revoke_link(self, token: str) -> None:
         """
         Revokes shared link token.
 

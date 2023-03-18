@@ -25,7 +25,6 @@ from tests.factories import (
     FolderFactory,
     MediaTypeFactory,
     NamespaceFactory,
-    SharedLinkFactory,
     UserFactory,
 )
 
@@ -305,12 +304,6 @@ def file_metadata_factory(db_client_or_tx: DBAnyConn) -> FileMetadataFactory:
 async def folder_factory(db_client_or_tx: DBAnyConn) -> FolderFactory:
     """Create folder in the database and in the storage."""
     return FolderFactory(db_client_or_tx)
-
-
-@pytest.fixture
-async def shared_link_factory(db_client_or_tx: DBAnyConn) -> SharedLinkFactory:
-    """Create shared link for a file."""
-    return SharedLinkFactory(db_client_or_tx)
 
 
 @pytest.fixture

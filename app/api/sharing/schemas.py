@@ -9,7 +9,7 @@ from app import thumbnails
 if TYPE_CHECKING:
     from fastapi import Request
 
-    from app.entities import SharedLink
+    from app.domain.entities import File
 
 
 class SharedLinkFileSchema(BaseModel):
@@ -22,21 +22,21 @@ class SharedLinkFileSchema(BaseModel):
     thumbnail_url: str | None
 
     @classmethod
-    def from_entity(cls, link: SharedLink, request: Request) -> Self:
+    def from_entity(cls, file: File, token: str, request: Request) -> Self:
         return cls.construct(
-            id=link.file.id,
-            name=link.file.name,
-            size=link.file.size,
-            mtime=link.file.mtime,
-            mediatype=link.file.mediatype,
-            hidden=link.file.name.startswith('.'),
-            thumbnail_url=cls._make_thumbnail_url(link, request),
+            id=file.id,
+            name=file.name,
+            size=file.size,
+            mtime=file.mtime,
+            mediatype=file.mediatype,
+            hidden=file.name.startswith('.'),
+            thumbnail_url=cls._make_thumbnail_url(file, token, request),
         )
 
     @staticmethod
-    def _make_thumbnail_url(link: SharedLink, request: Request, ) -> str | None:
-        if thumbnails.is_supported(link.file.mediatype):
-            return request.url_for("get_shared_link_thumbnail", token=link.token)
+    def _make_thumbnail_url(file: File, token: str, request: Request) -> str | None:
+        if thumbnails.is_supported(file.mediatype):
+            return request.url_for("get_shared_link_thumbnail", token=token)
         return None
 
 

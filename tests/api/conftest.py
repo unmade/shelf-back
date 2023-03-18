@@ -22,6 +22,15 @@ def ns_service(app: FastAPI):
 def user_service(app: FastAPI):
     """A mock of a UserService instance."""
     service = app.state.provider.service
-    service_mock = mock.MagicMock(service.user)
-    with mock.patch.object(service, "user", service_mock) as mocked:
+    spec = mock.MagicMock(service.user)
+    with mock.patch.object(service, "user", spec) as mocked:
         yield mocked
+
+
+@pytest.fixture
+def sharing_manager(app: FastAPI):
+    """A mocked instance of a SharingManager."""
+    managers = app.state.provider.manager
+    spec = mock.MagicMock(managers.sharing)
+    with mock.patch.object(managers, "sharing", spec) as patch:
+        yield patch

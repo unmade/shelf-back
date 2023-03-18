@@ -1,67 +1,130 @@
 from __future__ import annotations
 
-import secrets
+import os.path
 import urllib.parse
+import uuid
 from typing import TYPE_CHECKING
+from unittest import mock
 
 import pytest
 
+from app import errors
 from app.api.files.exceptions import PathNotFound
 from app.api.sharing.exceptions import SharedLinkNotFound
-from app.cache import cache
+from app.domain.entities import File, SharedLink
 
 if TYPE_CHECKING:
-    from io import BytesIO
+    from unittest.mock import MagicMock
 
     from app.entities import Namespace
     from tests.conftest import TestClient
-    from tests.factories import FileFactory, SharedLinkFactory
 
-pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
+pytestmark = [pytest.mark.asyncio]
+
+
+def _make_file(ns_path: str, path: str) -> File:
+    return File(
+        id=uuid.uuid4(),
+        ns_path=ns_path,
+        name=os.path.basename(path),
+        path=path,
+        size=10,
+        mediatype="plain/text",
+    )
+
+
+def _make_sharing_link() -> SharedLink:
+    return SharedLink(
+        id=uuid.uuid4(),
+        file_id=str(uuid.uuid4()),
+        token=uuid.uuid4().hex,
+    )
 
 
 class TestCreateSharedLink:
+    url = "/sharing/create_shared_link"
+
+    @pytest.mark.database(transaction=True)
     async def test(
         self,
         client: TestClient,
         namespace: Namespace,
-        file_factory: FileFactory,
+        sharing_manager: MagicMock,
     ):
-        file = await file_factory(namespace.path)
-        payload = {"path": file.path}
+        # GIVEN
+        ns_path = str(namespace.path)
+        sharing_manager.create_link.return_value = _make_sharing_link()
+        payload = {"path": "f.txt"}
+        # WHEN
         client.login(namespace.owner.id)
-        response = await client.post("/sharing/create_shared_link", json=payload)
+        response = await client.post(self.url, json=payload)
+        # THEN
         assert "token" in response.json()
         assert response.status_code == 200
+        sharing_manager.create_link.assert_awaited_once_with(ns_path, "f.txt")
 
-    async def test_but_file_not_found(self, client: TestClient, namespace: Namespace):
+    @pytest.mark.database(transaction=True)
+    async def test_when_file_not_found(
+        self, client: TestClient, namespace: Namespace, sharing_manager: MagicMock
+    ):
+        # GIVEN
+        sharing_manager.create_link.side_effect = errors.FileNotFound
         payload = {"path": "im.jpeg"}
+        # WHEN
         client.login(namespace.owner.id)
-        response = await client.post("/sharing/create_shared_link", json=payload)
+        response = await client.post(self.url, json=payload)
+        # THEN
         assert response.json() == PathNotFound(path="im.jpeg").as_dict()
         assert response.status_code == 404
 
 
 class TestGetSharedLink:
+    url = "/sharing/get_shared_link"
+
+    @pytest.mark.database(transaction=True)
     async def test(
         self,
         client: TestClient,
         namespace: Namespace,
-        file_factory: FileFactory,
-        shared_link_factory: SharedLinkFactory,
+        sharing_manager: MagicMock,
     ):
-        file = await file_factory(namespace.path)
-        await shared_link_factory(file.id)
-        payload = {"path": file.path}
+        # GIVEN
+        ns_path = str(namespace.path)
+        sharing_manager.get_link.return_value = _make_sharing_link()
+        payload = {"path": "f.txt"}
+        # WHEN
         client.login(namespace.owner.id)
-        response = await client.post("/sharing/get_shared_link", json=payload)
+        response = await client.post(self.url, json=payload)
+        # THEN
         assert "token" in response.json()
         assert response.status_code == 200
+        sharing_manager.get_link.assert_awaited_once_with(ns_path, "f.txt")
 
-    async def test_but_link_not_found(self, client: TestClient, namespace: Namespace):
-        payload = {"path": "f.txt"}
+    @pytest.mark.database(transaction=True)
+    async def test_when_link_not_found(
+        self, client: TestClient, namespace: Namespace, sharing_manager: MagicMock
+    ):
+        # GIVEN
+        sharing_manager.get_link.side_effect = errors.FileNotFound
+        payload = {"path": "im.jpeg"}
+        # WHEN
         client.login(namespace.owner.id)
-        response = await client.post("/sharing/get_shared_link", json=payload)
+        response = await client.post(self.url, json=payload)
+        # THEN
+        assert response.json() == SharedLinkNotFound().as_dict()
+        assert response.status_code == 404
+
+    @pytest.mark.database(transaction=True)
+    async def test_when_file_not_found(
+        self, client: TestClient, namespace: Namespace, sharing_manager: MagicMock
+    ):
+        # GIVEN
+        sharing_manager.get_link.side_effect = errors.SharedLinkNotFound
+        payload = {"path": "im.jpeg"}
+        # WHEN
+        client.login(namespace.owner.id)
+        response = await client.post(self.url, json=payload)
+        # THEN
         assert response.json() == SharedLinkNotFound().as_dict()
         assert response.status_code == 404
 
@@ -69,75 +132,76 @@ class TestGetSharedLink:
 class TestGetSharedLinkDownloadUrl:
     url = "/sharing/get_shared_link_download_url"
 
+    @mock.patch("app.api.shortcuts.create_download_cache")
     async def test(
         self,
+        download_cache_mock,
         client: TestClient,
-        namespace: Namespace,
-        file_factory: FileFactory,
-        shared_link_factory: SharedLinkFactory,
+        sharing_manager: MagicMock,
     ):
-        file = await file_factory(namespace.path)
-        link = await shared_link_factory(file.id)
-        payload = {"token": link.token, "filename": file.name}
+        # GIVEN
+        download_key = uuid.uuid4().hex
+        download_cache_mock.return_value = download_key
+        payload = {"token": "link-token", "filename": "f.txt"}
+
+        # WHEN
         response = await client.post(self.url, json=payload)
+
+        # THEN
         download_url = response.json()["download_url"]
         assert download_url.startswith(str(client.base_url))
         assert response.status_code == 200
+
         parts = urllib.parse.urlsplit(download_url)
         qs = urllib.parse.parse_qs(parts.query)
-        assert len(qs["key"]) == 1
-        value = await cache.get(qs["key"][0])
-        assert value == f"{namespace.path}:{file.path}"
+        assert qs["key"] == [download_key]
 
-    async def test_but_link_not_found(self, client: TestClient):
-        token = secrets.token_hex()
-        payload = {"token": token, "filename": "f.txt"}
+        sharing_manager.get_shared_item.assert_awaited_once_with("link-token")
+        file = sharing_manager.get_shared_item.return_value
+        download_cache_mock.assert_awaited_once_with(file.ns_path, file.path)
+
+    async def test_when_link_not_found(
+        self, client: TestClient, sharing_manager: MagicMock
+    ):
+        # GIVEN
+        sharing_manager.get_shared_item.side_effect = errors.SharedLinkNotFound
+        payload = {"token": "link-token", "filename": "f.txt"}
+        # WHEN
         response = await client.post(self.url, json=payload)
+        # THEN
         assert response.json() == SharedLinkNotFound().as_dict()
         assert response.status_code == 404
+        sharing_manager.get_shared_item.assert_awaited_once_with(payload["token"])
 
 
 class TestGetSharedLinkFile:
-    async def test(
-        self,
-        client: TestClient,
-        namespace: Namespace,
-        file_factory: FileFactory,
-        shared_link_factory: SharedLinkFactory,
-    ):
-        file = await file_factory(namespace.path)
-        link = await shared_link_factory(file.id)
-        payload = {"token": link.token, "filename": file.name}
-        response = await client.post("/sharing/get_shared_link_file", json=payload)
-        assert response.json()["id"] == file.id
-        assert response.json()["thumbnail_url"] is None
-        assert response.status_code == 200
+    url = "/sharing/get_shared_link_file"
 
-    async def test_image_file(
-        self,
-        client: TestClient,
-        namespace: Namespace,
-        file_factory: FileFactory,
-        shared_link_factory: SharedLinkFactory,
-        image_content: BytesIO,
-    ):
-        file = await file_factory(namespace.path, "im.jpeg", content=image_content)
-        link = await shared_link_factory(file.id)
-        expected_thumbnail_url = f"/get_shared_link_thumbnail/{link.token}"
-        payload = {"token": link.token, "filename": file.name}
-        response = await client.post("/sharing/get_shared_link_file", json=payload)
+    async def test(self, client: TestClient, sharing_manager: MagicMock):
+        # GIVEN
+        ns_path, token, filename = "admin", "link-token", "f.txt"
+        file = _make_file(ns_path, filename)
+        sharing_manager.get_shared_item.return_value = file
+        payload = {"token": token, "filename": filename}
+        # WHEN
+        response = await client.post(self.url, json=payload)
+        # THEN
         assert response.json()["id"] == file.id
-        thumbnail_url = response.json()["thumbnail_url"]
-        assert thumbnail_url.startswith(str(client.base_url))
-        assert thumbnail_url.endswith(expected_thumbnail_url)
         assert response.status_code == 200
+        sharing_manager.get_shared_item.assert_awaited_once_with(payload["token"])
 
-    async def test_but_link_not_found(self, client: TestClient):
-        token = secrets.token_hex()
-        payload = {"token": token, "filename": "f.txt"}
-        response = await client.post("/sharing/get_shared_link_file", json=payload)
+    async def test_when_link_not_found(
+        self, client: TestClient, sharing_manager: MagicMock
+    ):
+        # GIVEN
+        sharing_manager.get_shared_item.side_effect = errors.SharedLinkNotFound
+        payload = {"token": "link-token", "filename": "f.txt"}
+        # WHEN
+        response = await client.post(self.url, json=payload)
+        # THEN
         assert response.json() == SharedLinkNotFound().as_dict()
         assert response.status_code == 404
+        sharing_manager.get_shared_item.assert_awaited_once_with(payload["token"])
 
 
 class TestGetSharedLinkThumbnail:
@@ -149,42 +213,52 @@ class TestGetSharedLinkThumbnail:
     async def test(
         self,
         client: TestClient,
-        namespace: Namespace,
-        image_content: BytesIO,
-        file_factory: FileFactory,
-        shared_link_factory: SharedLinkFactory,
+        sharing_manager: MagicMock,
         name: str,
         size: str,
     ):
-        file = await file_factory(namespace.path, path=name, content=image_content)
-        link = await shared_link_factory(file.id)
-        response = await client.get(self.url(token=link.token, size=size))
+        # GIVEN
+        ns_path, path, token = "admin", "f.txt", "link-token"
+        file = _make_file(ns_path, path)
+        sharing_manager.get_link_thumbnail.return_value = file, b"content"
+        # WHEN
+        response = await client.get(self.url(token=token, size=size))
+        # THEN
         assert response.content
         headers = response.headers
         filename = f"thumbnail-{size}.webp"
         assert headers["Content-Disposition"] == f'inline; filename="{filename}"'
-        assert int(headers["Content-Length"]) < file.size
+        assert int(headers["Content-Length"]) == 7
         assert headers["Content-Type"] == "image/webp"
         assert headers["Cache-Control"] == "private, max-age=31536000, no-transform"
 
-    async def test_but_link_not_found(self, client: TestClient):
-        token = secrets.token_hex()
+    async def test_when_link_not_found(
+        self, client: TestClient, sharing_manager: MagicMock
+    ):
+        # GIVEN
+        token = "link-token"
+        sharing_manager.get_link_thumbnail.side_effect = errors.SharedLinkNotFound
+        # WHEN
         response = await client.get(self.url(token=token))
+        # THEN
         assert response.json() == SharedLinkNotFound().as_dict()
         assert response.status_code == 404
 
 
 class TestRevokeSharedLink:
+    @pytest.mark.database(transaction=True)
     async def test(
         self,
         client: TestClient,
         namespace: Namespace,
-        file_factory: FileFactory,
-        shared_link_factory: SharedLinkFactory,
+        sharing_manager: MagicMock,
     ):
-        file = await file_factory(namespace.path)
-        link = await shared_link_factory(file.id)
-        payload = {"token": link.token, "filename": file.name}
+        # GIVEN
+        token, filename = "link-token", "f.txt"
+        # WHEN
+        payload = {"token": token, "filename": filename}
         client.login(namespace.owner.id)
+        # THEN
         response = await client.post("/sharing/revoke_shared_link", json=payload)
         assert response.status_code == 200
+        sharing_manager.revoke_link.assert_awaited_once_with(token)

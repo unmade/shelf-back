@@ -221,6 +221,21 @@ class FileCoreService:
         count = await self.db.file.count_by_path_pattern(ns_path, pattern)
         return f"{stem} ({count + 1}){suffix}"
 
+    async def get_by_id(self, file_id: str) -> File:
+        """
+        Return a file by ID.
+
+        Args:
+            file_id (StrOrUUID): File ID.
+
+        Raises:
+            errors.FileNotFound: If file with a given ID does not exists.
+
+        Returns:
+            File: File with a target ID.
+        """
+        return await self.db.file.get_by_id(file_id)
+
     async def get_by_id_batch(
         self, ns_path: StrOrPath, ids: Iterable[StrOrUUID]
     ) -> list[File]:
@@ -235,6 +250,22 @@ class FileCoreService:
             List[File]: Files with target IDs.
         """
         return await self.db.file.get_by_id_batch(ns_path, ids)
+
+    async def get_by_path(self, ns_path: StrOrPath, path: StrOrPath) -> File:
+        """
+        Return a file at a target path.
+
+        Args:
+            ns_path (StrOrPath): Namespace path where a file is located.
+            path (StrOrPath): Path to a file.
+
+        Raises:
+            FileNotFound: If a file with a target path does not exists.
+
+        Returns:
+            File: File with at a target path.
+        """
+        return await self.db.file.get_by_path(ns_path, path)
 
     async def iter_by_mediatypes(
         self,

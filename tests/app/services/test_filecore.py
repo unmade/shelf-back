@@ -130,6 +130,16 @@ class TestDownload:
         assert content.read() == b"Dummy file"
 
 
+class TestGetById:
+    async def test(self, filecore: FileCoreService, file: File):
+        assert await filecore.get_by_id(file.id) == file
+
+
+class TestGetByPath:
+    async def test(self, filecore: FileCoreService, file: File):
+        assert await filecore.get_by_path(file.ns_path, file.path) == file
+
+
 class TestIterByMediatypes:
     async def test_iter_by_mediatypes(
         self,

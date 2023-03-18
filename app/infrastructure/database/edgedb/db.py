@@ -39,7 +39,7 @@ class EdgeDBDatabase(IDatabase):
     fingerprint: IFingerprintRepository
     metadata: IContentMetadataRepository
     namespace: INamespaceRepository
-    SharedLinkRepository: ISharedLinkRepository
+    shared_link: ISharedLinkRepository
     user: IUserRepository
 
     def __init__(
