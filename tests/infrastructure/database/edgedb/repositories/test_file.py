@@ -168,7 +168,7 @@ class TestGetByIdBatch:
     async def test(
         self, file_repo: FileRepository, file_factory: FileFactory, namespace: Namespace
     ):
-        files = [await file_factory(namespace.path) for _ in range(3)]
+        files = [await file_factory(namespace.path, path=f"{i}.txt") for i in range(3)]
         ids = [file.id for file in files]
         result = await file_repo.get_by_id_batch(namespace.path, ids)
         assert result == sorted(files, key=operator.attrgetter("path"))

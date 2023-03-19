@@ -20,6 +20,7 @@ __all__ = [
 
 reusable_oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/sign_in", auto_error=False)
 
+
 async def db_client(request: Request) -> AsyncIOClient:
     return request.app.state.db_client  # type: ignore[no-any-return]
 

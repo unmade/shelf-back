@@ -82,7 +82,7 @@ class TestCreateSuperuser:
 
 class TestReindex:
     def test(self):
-        with mock.patch("app.app.services.NamespaceService.reindex") as reindex_mock:
+        with mock.patch("app.app.managers.NamespaceManager.reindex") as reindex_mock:
             result = runner.invoke(cli, ["reindex", "admin"])
 
         assert result.exit_code == 0
@@ -91,7 +91,7 @@ class TestReindex:
 
 class TestReindexContent:
     def test_reindex_content(self):
-        target = "app.app.services.NamespaceService.reindex_contents"
+        target = "app.app.managers.NamespaceManager.reindex_contents"
         with mock.patch(target) as reindex_mock:
             result = runner.invoke(cli, ["reindex-content", "admin"])
 

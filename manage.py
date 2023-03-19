@@ -85,8 +85,8 @@ def reindex(namespace: str) -> None:
         storage = _create_storage()
         async with _create_database() as database:
             provider = Provider(database=database, storage=storage)
-            services = provider.service
-            await services.namespace.reindex(namespace)
+            managers = provider.manager
+            await managers.namespace.reindex(namespace)
 
     asyncio.run(_reindex())
 
@@ -101,8 +101,8 @@ def reindex_content(namespace: str) -> None:
         storage = _create_storage()
         async with _create_database() as database:
             provider = Provider(database=database, storage=storage)
-            services = provider.service
-            await services.namespace.reindex_contents(namespace)
+            managers = provider.manager
+            await managers.namespace.reindex_contents(namespace)
 
     asyncio.run(_reindex_content())
 

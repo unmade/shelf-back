@@ -23,33 +23,41 @@ class TestAddBookmark:
         self,
         client: TestClient,
         namespace: Namespace,
-        ns_service: MagicMock,
+        ns_manager: MagicMock,
         user_service: MagicMock,
     ):
+        # GIVEN
+        ns_path = namespace.path
         user_id = str(namespace.owner.id)
         file_id = uuid.uuid4()
         payload = {"id": str(file_id)}
+        # WHEN
         response = await client.login(user_id).post(self.url, json=payload)
+        # THEN
         assert response.json() is None
         assert response.status_code == 200
-        ns_service.has_file_with_id.assert_awaited_once_with(namespace.path, file_id)
+        ns_manager.has_item_with_id.assert_awaited_once_with(ns_path, str(file_id))
         user_service.add_bookmark.assert_awaited_once_with(user_id, file_id)
 
     async def test_when_namespace_does_not_have_file(
         self,
         client: TestClient,
         namespace: Namespace,
-        ns_service: MagicMock,
+        ns_manager: MagicMock,
         user_service: MagicMock,
     ):
-        ns_service.has_file_with_id.return_value = False
+        # GIVEN
+        ns_path = namespace.path
         user_id = str(namespace.owner.id)
         file_id = uuid.uuid4()
         payload = {"id": str(file_id)}
+        ns_manager.has_item_with_id.return_value = False
+        # WHEN
         response = await client.login(user_id).post(self.url, json=payload)
+        # THEN
         assert response.json() == FileNotFound().as_dict()
         assert response.status_code == 404
-        ns_service.has_file_with_id.assert_awaited_once_with(namespace.path, file_id)
+        ns_manager.has_item_with_id.assert_awaited_once_with(ns_path, str(file_id))
         user_service.add_bookmark.assert_not_awaited()
 
 

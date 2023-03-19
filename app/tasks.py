@@ -86,7 +86,7 @@ async def delete_immediately_batch(
     paths: Iterable[StrOrPath],
 ) -> list[FileTaskResult]:
     """
-    Permanently deletes a file at given paths. If some is a folder, then it will be
+    Permanently deletes a file at given paths. If some file is a folder, then it will be
     deleted with all of its contents.
 
     Args:
@@ -102,13 +102,13 @@ async def delete_immediately_batch(
     results = []
     async with _create_database() as database:
         provider = Provider(database=database, storage=storage)
-        services = provider.service
+        managers = provider.manager
 
         for path in paths:
             file, err_code = None, None
 
             try:
-                file = await services.namespace.delete_file(ns_path, path)
+                file = await managers.namespace.delete_item(ns_path, path)
             except errors.FileNotFound:
                 err_code = errors.ErrorCode.file_not_found
             except Exception:
@@ -132,9 +132,9 @@ async def empty_trash(ns_path: StrOrPath) -> None:
 
     async with _create_database() as database:
         provider = Provider(database=database, storage=storage)
-        services = provider.service
+        managers = provider.manager
         try:
-            await services.namespace.empty_trash(ns_path)
+            await managers.namespace.empty_trash(ns_path)
         except Exception:
             logger.exception("Unexpectedly failed to empty trash folder")
 
@@ -161,14 +161,14 @@ async def move_batch(
     results = []
     async with _create_database() as database:
         provider = Provider(database=database, storage=storage)
-        services = provider.service
+        managers = provider.manager
 
         for relocation in relocations:
             path, next_path = relocation.from_path, relocation.to_path
             file, err_code = None, None
 
             try:
-                file = await services.namespace.move_file(ns_path, path, next_path)
+                file = await managers.namespace.move_item(ns_path, path, next_path)
             except errors.Error as exc:
                 err_code = exc.code
             except Exception:
@@ -201,13 +201,13 @@ async def move_to_trash_batch(
     results = []
     async with _create_database() as database:
         provider = Provider(database=database, storage=storage)
-        services = provider.service
+        managers = provider.manager
 
         for path in paths:
             file, err_code = None, None
 
             try:
-                file = await services.namespace.move_file_to_trash(ns_path, path)
+                file = await managers.namespace.move_item_to_trash(ns_path, path)
             except errors.Error as exc:
                 err_code = exc.code
             except Exception:

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 
 from app.api import deps
 from app.entities import Namespace
-from app.infrastructure.provider import Service
+from app.infrastructure.provider import Manager, Service
 
 from . import exceptions
 from .schemas import IDRequest, ListBookmarksResponse
@@ -17,10 +17,11 @@ async def add_bookmark(
     payload: IDRequest,
     namespace: Namespace = Depends(deps.namespace),
     user_id: str = Depends(deps.current_user_id),
+    managers: Manager = Depends(deps.managers),
     services: Service = Depends(deps.services),
 ) -> None:
     """Add a file to user bookmarks."""
-    if not await services.namespace.has_file_with_id(namespace.path, payload.id):
+    if not await managers.namespace.has_item_with_id(namespace.path, str(payload.id)):
         raise exceptions.FileNotFound()
     await services.user.add_bookmark(user_id, payload.id)
 

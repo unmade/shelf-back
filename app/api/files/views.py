@@ -12,7 +12,7 @@ from fastapi.responses import ORJSONResponse, Response, StreamingResponse
 from app import config, crud, errors, mediatypes, tasks
 from app.api import deps, shortcuts
 from app.entities import Namespace, User
-from app.infrastructure.provider import Service, UseCase
+from app.infrastructure.provider import Manager
 from app.infrastructure.storage import storage
 
 from . import exceptions
@@ -47,7 +47,7 @@ async def create_folder(
     request: Request,
     payload: PathRequest,
     namespace: Namespace = Depends(deps.namespace),
-    services: Service = Depends(deps.services),
+    managers: Manager = Depends(deps.managers),
 ) -> FileSchema:
     """
     Create a new folder with a target path.
@@ -57,7 +57,7 @@ async def create_folder(
     if not existed, and 'c' will be returned as a response.
     """
     try:
-        folder = await services.namespace.create_folder(namespace.path, payload.path)
+        folder = await managers.namespace.create_folder(namespace.path, payload.path)
     except errors.FileAlreadyExists as exc:
         raise exceptions.FileAlreadyExists(path=payload.path) from exc
     except errors.NotADirectory as exc:
@@ -202,13 +202,13 @@ async def find_duplicates(
     request: Request,
     payload: FindDuplicatesRequest,
     namespace: Namespace = Depends(deps.namespace),
-    services: Service = Depends(deps.services),
+    managers: Manager = Depends(deps.managers),
 ):
     """Find all duplicate files in a folder including all sub-folders."""
     ns_path = namespace.path
     path, max_distance = payload.path, payload.max_distance
 
-    groups = await services.namespace.find_duplicates(ns_path, path, max_distance)
+    groups = await managers.namespace.find_duplicates(ns_path, path, max_distance)
 
     # by returning response class directly we avoid pydantic checks
     # that way we speed up on a large volume of data
@@ -395,14 +395,15 @@ async def upload_file(
     file: UploadFile = FileParam(...),
     path: PathParam = Form(...),
     namespace: Namespace = Depends(deps.namespace),
-    usecases: UseCase = Depends(deps.usecases),
+    managers: Manager = Depends(deps.managers),
 ) -> FileSchema:
     """Upload file to the specified path."""
     filepath = path.__root__
     del path
 
+    ns_path = str(namespace.path)
     try:
-        upload = await usecases.upload_file(str(namespace.path), filepath, file.file)
+        upload = await managers.namespace.add_file(ns_path, filepath, file.file)
     except errors.FileTooLarge as exc:
         raise exceptions.UploadFileTooLarge() from exc
     except errors.MalformedPath as exc:

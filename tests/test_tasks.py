@@ -50,12 +50,12 @@ def test_celery_works():
 
 class TestDeleteImmediatelyBatch:
     @pytest.fixture
-    def delete_file(self):
-        target = "app.app.services.NamespaceService.delete_file"
+    def delete_item(self):
+        target = "app.app.managers.NamespaceManager.delete_item"
         with mock.patch(target) as patch:
             yield patch
 
-    def test(self, caplog: LogCaptureFixture, delete_file: MagicMock):
+    def test(self, caplog: LogCaptureFixture, delete_item: MagicMock):
         ns_path = "admin"
         side_effect = [
             _make_file(ns_path, "Trash/a.txt"),
@@ -63,7 +63,7 @@ class TestDeleteImmediatelyBatch:
             Exception,
             _make_file(ns_path, "Tras/f.txt"),
         ]
-        delete_file.side_effect = side_effect
+        delete_item.side_effect = side_effect
 
         paths = ["a.txt", "b.txt", "c.txt", "d.txt"]
         task = tasks.delete_immediately_batch.delay(ns_path, paths)
@@ -83,7 +83,7 @@ class TestDeleteImmediatelyBatch:
         assert results[3].file is not None
         assert results[3].file.path == side_effect[3].path
 
-        assert delete_file.await_count == 4
+        assert delete_item.await_count == 4
 
         msg = "Unexpectedly failed to delete a file"
         log_record = ("app.tasks", logging.ERROR, msg)
@@ -93,7 +93,7 @@ class TestDeleteImmediatelyBatch:
 class TestEmptyTrash:
     @pytest.fixture
     def empty_trash(self):
-        target = "app.app.services.NamespaceService.empty_trash"
+        target = "app.app.managers.NamespaceManager.empty_trash"
         with mock.patch(target) as patch:
             yield patch
 
@@ -118,14 +118,14 @@ class TestEmptyTrash:
 
 class TestMoveBatch:
     @pytest.fixture
-    def move_file(self):
-        target = "app.app.services.NamespaceService.move_file"
+    def move_item(self):
+        target = "app.app.managers.NamespaceManager.move_item"
         with mock.patch(target) as move_file_mock:
             yield move_file_mock
 
-    def test(self, caplog: LogCaptureFixture, move_file: MagicMock):
+    def test(self, caplog: LogCaptureFixture, move_item: MagicMock):
         ns_path = "admin"
-        move_file.side_effect = [
+        move_item.side_effect = [
             _make_file(ns_path, "folder/a.txt"),
             errors.MissingParent,
             Exception,
@@ -156,7 +156,7 @@ class TestMoveBatch:
         assert results[3].file is not None
         assert results[3].file.path == relocations[3].to_path
 
-        assert move_file.await_count == 4
+        assert move_item.await_count == 4
 
         msg = "Unexpectedly failed to move file"
         log_record = ("app.tasks", logging.ERROR, msg)
@@ -166,7 +166,7 @@ class TestMoveBatch:
 class TestMovetoTrashFile:
     @pytest.fixture
     def move_to_trash(self):
-        target = "app.app.services.NamespaceService.move_file_to_trash"
+        target = "app.app.managers.NamespaceManager.move_item_to_trash"
         with mock.patch(target) as move_file_mock:
             yield move_file_mock
 

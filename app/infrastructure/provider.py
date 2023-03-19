@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from app.app.managers import SharingManager
+from app.app.managers import NamespaceManager, SharingManager
 from app.app.services import (
     DuplicateFinderService,
     FileCoreService,
@@ -11,7 +11,7 @@ from app.app.services import (
     SharingService,
     UserService,
 )
-from app.app.usecases import SignUp, UploadFile
+from app.app.usecases import SignUp
 
 if TYPE_CHECKING:
     from app.app.infrastructure.storage import IStorage
@@ -32,30 +32,32 @@ class Provider:
     def __init__(self, database: EdgeDBDatabase, storage: IStorage):
         self.service = Service(database=database, storage=storage)
         self.manager = Manager(self.service)
-        self.usecase = UseCase(self.service)
+        self.usecase = UseCase(self.manager, self.service)
 
 
 class Service:
-    __slots__ = ["namespace", "user", "filecore", "sharing"]
+    __slots__ = ["dupefinder", "filecore", "metadata", "namespace", "sharing", "user"]
 
     def __init__(self, database: EdgeDBDatabase, storage: IStorage):
         self.filecore = FileCoreService(database=database, storage=storage)
-        dupefinder = DuplicateFinderService(database=database)
-        metadata = MetadataService(database=database)
-        self.namespace = NamespaceService(
-            database=database,
-            filecore=self.filecore,
-            dupefinder=dupefinder,
-            metadata=metadata,
-        )
+        self.dupefinder = DuplicateFinderService(database=database)
+        self.metadata = MetadataService(database=database)
+        self.namespace = NamespaceService(database=database)
         self.sharing = SharingService(database=database)
         self.user = UserService(database=database)
 
 
 class Manager:
-    __slots__ = ["sharing"]
+    __slots__ = ["namespace", "sharing"]
 
     def __init__(self, services: Service):
+        self.namespace = NamespaceManager(
+            dupefinder=services.dupefinder,
+            filecore=services.filecore,
+            metadata=services.metadata,
+            namespace=services.namespace,
+            user=services.user,
+        )
         self.sharing = SharingManager(
             filecore=services.filecore,
             sharing=services.sharing,
@@ -63,14 +65,10 @@ class Manager:
 
 
 class UseCase:
-    __slots__ = ["signup", "upload_file"]
+    __slots__ = ["signup"]
 
-    def __init__(self, services: Service):
+    def __init__(self, manager: Manager, services: Service):
         self.signup = SignUp(
-            namespace_service=services.namespace,
-            user_service=services.user,
-        )
-        self.upload_file = UploadFile(
-            namespace_service=services.namespace,
+            ns_manager=manager.namespace,
             user_service=services.user,
         )

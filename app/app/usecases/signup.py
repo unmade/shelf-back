@@ -3,15 +3,18 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from app.app.services import NamespaceService, UserService
+    from app.app.managers import NamespaceManager
+    from app.app.services import UserService
     from app.domain.entities import User
 
 __all__ = ["SignUp"]
 
 
 class SignUp:
-    def __init__(self, namespace_service: NamespaceService, user_service: UserService):
-        self.namespace_service = namespace_service
+    __slots__ = ["ns_manager", "user_service"]
+
+    def __init__(self, ns_manager: NamespaceManager, user_service: UserService):
+        self.ns_manager = ns_manager
         self.user_service = user_service
 
     async def __call__(
@@ -40,5 +43,5 @@ class SignUp:
             password,
             storage_quota=storage_quota,
         )
-        await self.namespace_service.create(user.username, owner_id=user.id)
+        await self.ns_manager.create_namespace(user.username, owner_id=user.id)
         return user

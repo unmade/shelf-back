@@ -128,14 +128,9 @@ def metadata_service():
 
 
 @pytest.fixture
-def namespace_service(_db_or_tx: EdgeDBDatabase, filecore: FileCoreService):
+def namespace_service(_db_or_tx: EdgeDBDatabase):
     """A namespace service instance."""
-    return NamespaceService(
-        database=_db_or_tx,
-        filecore=filecore,
-        dupefinder=mock.MagicMock(DuplicateFinderService),
-        metadata=mock.MagicMock(MetadataService),
-    )
+    return NamespaceService(database=_db_or_tx)
 
 
 @pytest.fixture
@@ -165,9 +160,9 @@ async def user(_hashed_password: str, user_service: UserService) -> User:
 
 
 @pytest.fixture
-async def file(namespace: Namespace, namespace_service: NamespaceService):
+async def file(namespace: Namespace, filecore: FileCoreService):
     content = BytesIO(b"Dummy file")
-    return await namespace_service.add_file(namespace.path, "f.txt", content)
+    return await filecore.create_file(namespace.path, "f.txt", content)
 
 
 @pytest.fixture
@@ -185,7 +180,7 @@ def bookmark_factory(user_service: UserService):
 
 
 @pytest.fixture
-def file_factory(namespace_service: NamespaceService) -> FileFactory:
+def file_factory(filecore: FileCoreService) -> FileFactory:
     """A factory to create a File instance saved to the DB and storage."""
     async def factory(
         ns_path: str, path: str | None = None, content: IO[bytes] | None = None
@@ -193,15 +188,15 @@ def file_factory(namespace_service: NamespaceService) -> FileFactory:
         content = content or BytesIO(b"Dummy file")
         if path is None:
             path = fake.unique.file_name(category="text", extension="txt")
-        return await namespace_service.add_file(ns_path, path, content)
+        return await filecore.create_file(ns_path, path, content)
     return factory
 
 
 @pytest.fixture
-def folder_factory(namespace_service: NamespaceService) -> FolderFactory:
+def folder_factory(filecore: FileCoreService) -> FolderFactory:
     """A factory to create a File instance saved to the DB and storage."""
     async def factory(ns_path: str, path: str | None = None):
         if path is None:
             path = fake.unique.file_name(category="text", extension="txt")
-        return await namespace_service.create_folder(ns_path, path)
+        return await filecore.create_folder(ns_path, path)
     return factory

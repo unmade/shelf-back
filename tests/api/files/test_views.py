@@ -28,9 +28,7 @@ from app.entities import Exif
 from app.tasks import FileTaskResult
 
 if TYPE_CHECKING:
-    from unittest.mock import AsyncMock, MagicMock
-
-    from fastapi import FastAPI
+    from unittest.mock import MagicMock
 
     from app.api.exceptions import APIError
     from app.entities import Namespace
@@ -67,7 +65,7 @@ class TestCreateFolder:
         self,
         client: TestClient,
         namespace: Namespace,
-        ns_service: MagicMock,
+        ns_manager: MagicMock,
         path: str,
         expected_path: str,
     ):
@@ -77,7 +75,7 @@ class TestCreateFolder:
             size=0,
             mediatype=mediatypes.FOLDER,
         )
-        ns_service.create_folder.return_value = folder
+        ns_manager.create_folder.return_value = folder
         payload = {"path": path}
         client.login(namespace.owner.id)
         response = await client.post("/files/create_folder", json=payload)
@@ -85,32 +83,33 @@ class TestCreateFolder:
         assert response.json()["name"] == folder.name
         assert response.json()["path"] == folder.path
         assert response.status_code == 200
-        ns_service.create_folder.assert_awaited_once_with(
+        ns_manager.create_folder.assert_awaited_once_with(
             namespace.path, expected_path
         )
 
     async def test_when_folder_exists(
-        self, client: TestClient, namespace: Namespace, ns_service: MagicMock
+        self, client: TestClient, namespace: Namespace, ns_manager: MagicMock
     ):
-        ns_service.create_folder.side_effect = errors.FileAlreadyExists
+        ns_path = namespace.path
+        ns_manager.create_folder.side_effect = errors.FileAlreadyExists
         payload = {"path": "Trash"}
         client.login(namespace.owner.id)
         response = await client.post("/files/create_folder", json=payload)
         assert response.json() == FileAlreadyExists(path='Trash').as_dict()
         assert response.status_code == 400
-        ns_service.create_folder.assert_awaited_once_with(namespace.path, "Trash")
+        ns_manager.create_folder.assert_awaited_once_with(ns_path, "Trash")
 
     async def test_when_parent_is_a_file(
-        self, client: TestClient, namespace: Namespace, ns_service: MagicMock
+        self, client: TestClient, namespace: Namespace, ns_manager: MagicMock
     ):
-        ns_service.create_folder.side_effect = errors.NotADirectory()
+        ns_manager.create_folder.side_effect = errors.NotADirectory()
         path = "file/folder"
         payload = {"path": path}
         client.login(namespace.owner.id)
         response = await client.post("/files/create_folder", json=payload)
         assert response.json() == NotADirectory(path="file/folder").as_dict()
         assert response.status_code == 400
-        ns_service.create_folder.assert_awaited_once_with(namespace.path, path)
+        ns_manager.create_folder.assert_awaited_once_with(namespace.path, path)
 
 
 class TestDeleteImmediatelyBatch:
@@ -373,12 +372,12 @@ class TestFindDuplicates:
     url = "/files/find_duplicates"
 
     async def test(
-        self, client: TestClient, namespace: Namespace, ns_service: MagicMock
+        self, client: TestClient, namespace: Namespace, ns_manager: MagicMock
     ):
         # GIVEN
-        ns_path = str(namespace.path)
-        files = [_make_file(ns_path, f"{idx}.txt") for idx in range(4)]
-        ns_service.find_duplicates.return_value = [
+        ns_path = namespace.path
+        files = [_make_file(str(ns_path), f"{idx}.txt") for idx in range(4)]
+        ns_manager.find_duplicates.return_value = [
             [files[0], files[2]], [files[1], files[3]]
         ]
         payload = {"path": "."}
@@ -390,13 +389,14 @@ class TestFindDuplicates:
         assert response.json()["count"] == 2
         assert len(response.json()["items"][0]) == 2
         assert len(response.json()["items"][1]) == 2
-        ns_service.find_duplicates.assert_awaited_once_with(namespace.path, ".", 5)
+        ns_manager.find_duplicates.assert_awaited_once_with(ns_path, ".", 5)
 
     async def test_when_result_is_empty(
-        self, client: TestClient, namespace: Namespace, ns_service: MagicMock
+        self, client: TestClient, namespace: Namespace, ns_manager: MagicMock
     ):
         # GIVEN
-        ns_service.find_duplicates.return_value = []
+        ns_path = namespace.path
+        ns_manager.find_duplicates.return_value = []
         payload = {"path": "."}
         client.login(namespace.owner.id)
         # WHEN
@@ -404,7 +404,7 @@ class TestFindDuplicates:
         # THEN
         assert response.json()["path"] == "."
         assert response.json()["count"] == 0
-        ns_service.find_duplicates.assert_awaited_once_with(namespace.path, ".", 5)
+        ns_manager.find_duplicates.assert_awaited_once_with(ns_path, ".", 5)
 
 
 async def test_get_batch(
@@ -671,12 +671,12 @@ class TestMoveToTrashBatch:
 class TestUpload:
     url = "/files/upload"
 
-    @pytest.fixture
-    def upload_file(self, app: FastAPI):
-        usecase = app.state.provider.usecase
-        upload_file_mock = mock.AsyncMock(usecase.upload_file)
-        with mock.patch.object(usecase, "upload_file", upload_file_mock) as mocked:
-            yield mocked
+    # @pytest.fixture
+    # def upload_file(self, app: FastAPI):
+    #     usecase = app.state.provider.usecase
+    #     upload_file_mock = mock.AsyncMock(usecase.upload_file)
+    #     with mock.patch.object(usecase, "upload_file", upload_file_mock) as mocked:
+    #         yield mocked
 
     @pytest.mark.parametrize(["path", "expected_path"], [
         (b"folder/file.txt", "folder/file.txt"),
@@ -686,14 +686,14 @@ class TestUpload:
         self,
         client: TestClient,
         namespace: Namespace,
-        upload_file: AsyncMock,
+        ns_manager: MagicMock,
         path: str,
         expected_path: str,
     ):
         ns_path = str(namespace.path)
         content = BytesIO(b"Dummy file")
         size = len(content.getvalue())
-        upload_file.return_value = _make_file(ns_path, expected_path, size=size)
+        ns_manager.add_file.return_value = _make_file(ns_path, expected_path, size=size)
         payload = {
             "file": content,
             "path": (None, path),
@@ -702,10 +702,10 @@ class TestUpload:
         response = await client.post(self.url, files=payload)  # type: ignore
         assert response.status_code == 200
         assert response.json()["path"] == expected_path
-        assert upload_file.await_args is not None
-        assert len(upload_file.await_args.args) == 3
-        assert upload_file.await_args.args[:2] == (ns_path, expected_path)
-        assert isinstance(upload_file.await_args.args[2], SpooledTemporaryFile)
+        assert ns_manager.add_file.await_args is not None
+        assert len(ns_manager.add_file.await_args.args) == 3
+        assert ns_manager.add_file.await_args.args[:2] == (ns_path, expected_path)
+        assert isinstance(ns_manager.add_file.await_args.args[2], SpooledTemporaryFile)
 
     @pytest.mark.parametrize(["path", "error", "expected_error"], [
         ("Trash", errors.MalformedPath("Bad path"), MalformedPath("Bad path")),
@@ -717,12 +717,12 @@ class TestUpload:
         self,
         client: TestClient,
         namespace: Namespace,
-        upload_file: AsyncMock,
+        ns_manager: MagicMock,
         path: str,
         error: errors.Error,
         expected_error: APIError,
     ):
-        upload_file.side_effect = error
+        ns_manager.add_file.side_effect = error
         payload = {
             "file": BytesIO(b"Dummy file"),
             "path": (None, path.encode()),
@@ -731,4 +731,4 @@ class TestUpload:
         response = await client.post(self.url, files=payload)  # type: ignore
         assert response.json() == expected_error.as_dict()
         assert response.status_code == 400
-        upload_file.assert_awaited_once()
+        ns_manager.add_file.assert_awaited_once()
