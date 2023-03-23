@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from io import BytesIO
 from uuid import UUID
 
 import celery.states
@@ -9,11 +8,10 @@ from fastapi import APIRouter, Depends, Form, Query, Request, UploadFile
 from fastapi import File as FileParam
 from fastapi.responses import ORJSONResponse, Response, StreamingResponse
 
-from app import config, crud, errors, mediatypes, tasks
+from app import crud, errors, mediatypes, tasks
 from app.api import deps, shortcuts
 from app.entities import Namespace, User
 from app.infrastructure.provider import Manager
-from app.infrastructure.storage import storage
 
 from . import exceptions
 from .schemas import (
@@ -98,7 +96,8 @@ def delete_immediately_check(
 
 @router.get("/download")
 async def download(
-    key: str = Query(None), db_client: AsyncIOClient = Depends(deps.db_client),
+    key: str = Query(None),
+    managers: Manager = Depends(deps.managers),
 ):
     """
     Download a file or a folder.
@@ -111,32 +110,30 @@ async def download(
         raise exceptions.DownloadNotFound()
 
     try:
-        file = await crud.file.get(db_client, value.ns_path, value.path)
+        file, content = await managers.namespace.download(value.ns_path, value.path)
     except errors.FileNotFound as exc:
         raise exceptions.PathNotFound(path=value.path) from exc
 
     filename = file.name.encode("utf-8").decode("latin-1")
-    if file.is_folder():
+    if content.zipped:
         headers = {
             "Content-Disposition": f'attachment; filename="{filename}.zip"',
             "Content-Type": "attachment/zip",
         }
-        storage_download = storage.downloaddir
     else:
         headers = {
             "Content-Disposition": f'attachment; filename="{filename}"',
             "Content-Length": str(file.size),
             "Content-Type": file.mediatype,
         }
-        storage_download = storage.download
-    return StreamingResponse(storage_download(*value), headers=headers)
+    return StreamingResponse(content, headers=headers)
 
 
 @router.post("/download")
 async def download_xhr(
     payload: PathRequest,
-    db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
+    managers: Manager = Depends(deps.managers),
 ):
     """
     Download a file or a folder.
@@ -144,35 +141,24 @@ async def download_xhr(
     This endpoint is useful to download files with XHR. Folders will be downloaded as a
     ZIP archive."""
     try:
-        file = await crud.file.get(db_client, namespace.path, payload.path)
+        file, content = await managers.namespace.download(namespace.path, payload.path)
     except errors.FileNotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
 
     filename = file.name.encode("utf-8").decode("latin-1")
-    if file.is_folder():
+    if content.zipped:
         headers = {
             "Content-Disposition": f'attachment; filename="{filename}.zip"',
             "Content-Type": "attachment/zip",
         }
-        storage_download = storage.downloaddir
     else:
         headers = {
             "Content-Disposition": f'attachment; filename="{filename}"',
             "Content-Length": str(file.size),
             "Content-Type": file.mediatype,
         }
-        storage_download = storage.download
 
-    attachment = storage_download(namespace.path, payload.path)
-    if file.is_folder() or file.size > config.APP_MAX_DOWNLOAD_WITHOUT_STREAMING:
-        return StreamingResponse(attachment, headers=headers)
-
-    buffer = BytesIO()
-    for chunk in attachment:
-        buffer.write(chunk)
-    buffer.seek(0)
-
-    return Response(buffer.read(), headers=headers)
+    return StreamingResponse(content, headers=headers)
 
 
 @router.post("/empty_trash")

@@ -251,6 +251,20 @@ class TestDelete:
             await filecore.delete(namespace.path, "f.txt")
 
 
+class TestDownload:
+    async def test_on_file(self, filecore: FileCoreService, file: File):
+        with mock.patch.object(filecore, "storage", autospec=True) as storage_mock:
+            content = await filecore.download(file.id)
+        storage_mock.download.assert_awaited_once_with(file.ns_path, file.path)
+        assert content == storage_mock.download.return_value
+
+    async def test_on_folder(self, filecore, folder: File):
+        with mock.patch.object(filecore, "storage", autospec=True) as storage_mock:
+            content = await filecore.download(folder.id)
+        storage_mock.downloaddir.assert_awaited_once_with(folder.ns_path, folder.path)
+        assert content == storage_mock.downloaddir.return_value
+
+
 class TestEmptyFolder:
     async def test(
         self,
@@ -295,28 +309,15 @@ class TestEmptyFolder:
         assert outer.size == 0
         assert inner.size == 0
 
-    async def test_when_folder_is_empty(
-        self,
-        filecore: FileCoreService,
-        folder_factory: FolderFactory,
-        namespace: Namespace,
-    ):
-        ns_path = namespace.path
-        await folder_factory(ns_path, "folder")
+    async def test_when_folder_is_empty(self, filecore: FileCoreService, folder: File):
         with (
             mock.patch.object(filecore.db.file, "delete_all_with_prefix") as db_mock,
             mock.patch.object(filecore.storage, "emptydir") as storage_mock,
         ):
-            await filecore.empty_folder(ns_path, "folder")
+            await filecore.empty_folder(folder.ns_path, folder.path)
 
         db_mock.assert_not_awaited()
         storage_mock.assert_not_awaited()
-
-
-class TestDownload:
-    def test(self, filecore: FileCoreService, file: File):
-        content = filecore.download(file.ns_path, file.path)
-        assert content.read() == b"Dummy file"
 
 
 class TestGetAvailablePath:

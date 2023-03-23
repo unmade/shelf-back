@@ -4,7 +4,6 @@ import contextlib
 import itertools
 import os
 from collections import deque
-from io import BytesIO
 from pathlib import PurePath
 from typing import (
     IO,
@@ -26,10 +25,8 @@ from app.domain.entities import (
 )
 
 if TYPE_CHECKING:
-    from app.app.infrastructure.storage import IStorage
-    from app.app.repositories import (
-        IFileRepository,
-    )
+    from app.app.infrastructure.storage import ContentReader, IStorage
+    from app.app.repositories import IFileRepository
     from app.typedefs import StrOrPath, StrOrUUID
 
     class IServiceDatabase(IDatabase, Protocol):
@@ -172,13 +169,13 @@ class FileCoreService:
 
         return file
 
-    def download(self, ns_path: StrOrPath, path: StrOrPath) -> BytesIO:
-        content = BytesIO()
-        chunks = self.storage.download(ns_path, path)
-        for chunk in chunks:
-            content.write(chunk)
-        content.seek(0)
-        return content
+    async def download(self, file_id: StrOrUUID) -> ContentReader:
+        file = await self.get_by_id(str(file_id))
+        if file.is_folder():
+            download_func = self.storage.downloaddir
+        else:
+            download_func = self.storage.download
+        return await download_func(file.ns_path, file.path)
 
     async def empty_folder(self, ns_path: StrOrPath, path: StrOrPath) -> None:
         file = await self.db.file.get_by_path(ns_path, path)

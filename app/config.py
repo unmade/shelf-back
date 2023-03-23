@@ -51,12 +51,6 @@ ACCESS_TOKEN_EXPIRE = timedelta(
 
 APP_NAME = os.getenv("APP_NAME", "Shelf")
 APP_DEBUG = _get_bool("APP_DEBUG")
-APP_MAX_DOWNLOAD_WITHOUT_STREAMING = int(
-    os.getenv(
-        "APP_MAX_DOWNLOAD_WITHOUT_STREAMING_IN_BYTES",
-        5 * _MB,
-    )
-)
 APP_SECRET_KEY = os.environ["APP_SECRET_KEY"]
 APP_VERSION = os.getenv("APP_VERSION", "dev")
 
@@ -79,7 +73,7 @@ FEATURES_SIGN_UP_DISABLED = _get_bool("FEATURES_SIGN_UP_DISABLED")
 FEATURES_UPLOAD_FILE_MAX_SIZE = int(
     os.getenv(
         "FEATURES_UPLOAD_FILE_MAX_SIZE_IN_BYTES",
-        default=100 * _MB,
+        default=10000 * _MB,
     )
 )
 

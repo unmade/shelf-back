@@ -152,26 +152,6 @@ def _hashed_password():
 
 
 @pytest.fixture
-async def user(_hashed_password: str, user_service: UserService) -> User:
-    """A user instance."""
-    # mock password hashing to speed up test setup
-    with mock.patch("app.security.make_password", return_value=_hashed_password):
-        return await user_service.create("admin", "root")
-
-
-@pytest.fixture
-async def file(namespace: Namespace, filecore: FileCoreService):
-    content = BytesIO(b"Dummy file")
-    return await filecore.create_file(namespace.path, "f.txt", content)
-
-
-@pytest.fixture
-async def namespace(user: User, namespace_service: NamespaceService):
-    """A namespace owned by `user` fixture."""
-    return await namespace_service.create(user.username, owner_id=user.id)
-
-
-@pytest.fixture
 def bookmark_factory(user_service: UserService):
     """A factory to bookmark a file by ID for a given user ID."""
     async def factory(user_id: StrOrUUID, file_id: StrOrUUID) -> None:
@@ -200,3 +180,29 @@ def folder_factory(filecore: FileCoreService) -> FolderFactory:
             path = fake.unique.file_name(category="text", extension="txt")
         return await filecore.create_folder(ns_path, path)
     return factory
+
+
+@pytest.fixture
+async def user(_hashed_password: str, user_service: UserService) -> User:
+    """A user instance."""
+    # mock password hashing to speed up test setup
+    with mock.patch("app.security.make_password", return_value=_hashed_password):
+        return await user_service.create("admin", "root")
+
+
+@pytest.fixture
+async def namespace(user: User, namespace_service: NamespaceService):
+    """A namespace owned by `user` fixture."""
+    return await namespace_service.create(user.username, owner_id=user.id)
+
+
+@pytest.fixture
+async def file(namespace: Namespace, file_factory: FileFactory):
+    """A file stored in the `namespace` fixture"""
+    return await file_factory(namespace.path, "f.txt")
+
+
+@pytest.fixture
+async def folder(namespace: Namespace, folder_factory: FolderFactory):
+    """A folder stored in the `namespace` fixture"""
+    return await folder_factory(namespace.path, "folder")

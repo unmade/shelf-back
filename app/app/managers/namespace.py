@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import itertools
 import os.path
 from pathlib import PurePath
@@ -9,6 +8,7 @@ from typing import IO, TYPE_CHECKING
 from app import config, errors, hashes, metadata, taskgroups, timezone
 
 if TYPE_CHECKING:
+    from app.app.infrastructure.storage import ContentReader
     from app.app.services import (
         DuplicateFinderService,
         FileCoreService,
@@ -143,6 +143,13 @@ class NamespaceManager:
             "Can't delete Home or Trash folder."
         )
         return await self.filecore.delete(ns_path, path)
+
+    async def download(
+        self, ns_path: StrOrPath, path: StrOrPath
+    ) -> tuple[File, ContentReader]:
+        file = await self.filecore.get_by_path(ns_path, path)
+        content = await self.filecore.download(file.id)
+        return file, content
 
     async def empty_trash(self, ns_path: StrOrPath) -> None:
         """
@@ -309,21 +316,18 @@ class NamespaceManager:
 
         async for files in batches:
             async with (
-                self.dupefinder.track_batch() as duperfinder_tracker,
+                self.dupefinder.track_batch() as dupefinder_tracker,
                 self.metadata.track_batch() as metadata_tracker,
             ):
                 await taskgroups.gather(*(
                     self._reindex_content(
                         file,
-                        trackers=[duperfinder_tracker, metadata_tracker],
+                        trackers=[dupefinder_tracker, metadata_tracker],
                     )
                     for file in files
                 ))
 
     async def _reindex_content(self, file: File, trackers) -> None:
-        loop = asyncio.get_running_loop()
-        content = await loop.run_in_executor(
-            None, self.filecore.download, file.ns_path, file.path
-        )
+        content_reader = await self.filecore.download(file.id)
         for tracker in trackers:
-            await tracker.add(file.id, content)
+            await tracker.add(file.id, await content_reader.stream())

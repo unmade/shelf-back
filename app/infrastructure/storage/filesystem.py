@@ -6,14 +6,15 @@ import glob
 import os
 import os.path
 import shutil
-from typing import IO, TYPE_CHECKING, Iterator, cast
+from typing import IO, TYPE_CHECKING, AsyncIterator, Iterator
 
 import stream_zip
 from asgiref.sync import sync_to_async
 
 from app import errors, thumbnails
-from app.app.infrastructure.storage import IStorage, StorageFile
+from app.app.infrastructure.storage import ContentReader, IStorage, StorageFile
 
+from ._compat import iter_async
 from ._datastructures import StreamZipFile
 
 if TYPE_CHECKING:
@@ -30,16 +31,6 @@ class FileSystemStorage(IStorage):
     def _joinpath(path: StrOrPath, *paths: StrOrPath) -> str:
         """Join two or more paths and return a normalize path."""
         return os.path.normpath(os.path.join(path, *paths))
-
-    @staticmethod
-    def _readchunks(path: StrOrPath) -> Iterator[bytes]:
-        chunk_size = 4096
-        with open(path, 'rb') as f:
-            has_content = True
-            while has_content:
-                chunk = f.read(chunk_size)
-                has_content = len(chunk) == chunk_size
-                yield chunk
 
     def _from_entry(self, ns_path: StrOrPath, entry: os.DirEntry[str]) -> StorageFile:
         ns_path = str(ns_path)
@@ -88,18 +79,26 @@ class FileSystemStorage(IStorage):
                 else:
                     os.unlink(entry.path)
 
-    def download(self, ns_path: StrOrPath, path: StrOrPath) -> Iterator[bytes]:
+    async def download(self, ns_path: StrOrPath, path) -> ContentReader:
         fullpath = self._joinpath(self.location, ns_path, path)
-        file = self._from_path(ns_path, fullpath)
+        try:
+            file = self._from_path(ns_path, fullpath)
+        except FileNotFoundError as exc:
+            raise errors.FileNotFound() from exc
+
         if file.is_dir():
             raise errors.FileNotFound()
-        return self._readchunks(fullpath)
 
-    def downloaddir(self, ns_path: StrOrPath, path: StrOrPath) -> Iterator[bytes]:
-        return cast(
-            Iterator[bytes],
-            stream_zip.stream_zip(self._downloaddir_iter(ns_path, path))
-        )
+        return ContentReader(self._download_iter(fullpath), zipped=False)
+
+    async def _download_iter(self, fullpath: StrOrPath) -> AsyncIterator[bytes]:
+        with open(fullpath, "rb", buffering=4096) as f:
+            for chunk in f:
+                yield chunk
+
+    async def downloaddir(self, ns_path: StrOrPath, path: StrOrPath) -> ContentReader:
+        archive = stream_zip.stream_zip(self._downloaddir_iter(ns_path, path))
+        return ContentReader(iter_async(archive), zipped=True)
 
     def _downloaddir_iter(
         self,

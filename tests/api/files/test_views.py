@@ -12,7 +12,7 @@ from unittest import mock
 import celery.states
 import pytest
 
-from app import config, errors, mediatypes
+from app import errors, mediatypes
 from app.api import shortcuts
 from app.api.files.exceptions import (
     DownloadNotFound,
@@ -23,6 +23,7 @@ from app.api.files.exceptions import (
     StorageQuotaExceeded,
     UploadFileTooLarge,
 )
+from app.app.infrastructure.storage import ContentReader
 from app.domain.entities import File
 from app.entities import Exif
 from app.tasks import FileTaskResult
@@ -52,6 +53,13 @@ def _make_file(
         size=size,
         mediatype=mediatype,
     )
+
+
+def _make_content_reader(content: bytes, *, zipped: bool) -> ContentReader:
+    async def content_iter():
+        yield content
+
+    return ContentReader(content_iter(), zipped=zipped)
 
 
 class TestCreateFolder:
@@ -202,111 +210,162 @@ class TestDeleteImmediatelyBatchCheck:
         task_result.assert_called_once_with(str(task_id))
 
 
-@pytest.mark.parametrize("path", ["f.txt", "ф.txt"])
-async def test_download_file(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-    path: str,
-):
-    content = b"Hello, World!"
-    file = await file_factory(namespace.path, path=path, content=content)
-    key = await shortcuts.create_download_cache(namespace.path, file.path)
-    client.login(namespace.owner.id)
-    response = await client.get(f"/files/download?key={key}")
-    assert response.status_code == 200
-    assert response.headers["Content-Length"] == str(len(content))
-    assert response.headers["Content-Type"] == "text/plain"
-    assert response.content == content
+class TestDownload:
+    def url(self, key: str) -> str:
+        return f"/files/download?key={key}"
+
+    async def test(
+        self, client: TestClient, ns_manager: MagicMock, namespace: Namespace,
+    ):
+        # GIVEN
+        file = _make_file(str(namespace.path), "f.txt")
+        content_reader = _make_content_reader(b"Hello, World!", zipped=False)
+        ns_manager.download.return_value = file, content_reader
+        key = await shortcuts.create_download_cache(namespace.path, file.path)
+        # WHEN
+        client.login(namespace.owner.id)
+        response = await client.get(self.url(key))
+        # THEN
+        assert response.status_code == 200
+        assert response.headers["Content-Disposition"] == 'attachment; filename="f.txt"'
+        assert response.headers["Content-Length"] == str(file.size)
+        assert response.headers["Content-Type"] == "plain/text"
+        assert response.content == b"Hello, World!"
+        ns_manager.download.assert_awaited_once_with(str(namespace.path), file.path)
+
+    async def test_when_content_reader_is_zipped(
+        self, client: TestClient, ns_manager: MagicMock, namespace: Namespace,
+    ):
+        # GIVEN
+        file = _make_file(str(namespace.path), "f.txt")
+        content_reader = _make_content_reader(b"Hello, World!", zipped=True)
+        ns_manager.download.return_value = file, content_reader
+        key = await shortcuts.create_download_cache(namespace.path, file.path)
+        # WHEN
+        client.login(namespace.owner.id)
+        response = await client.get(self.url(key))
+        # THEN
+        assert response.status_code == 200
+        assert "Content-Length" not in response.headers
+        assert response.headers["Content-Type"] == "attachment/zip"
+        assert response.content == b"Hello, World!"
+        ns_manager.download.assert_awaited_once_with(str(namespace.path), file.path)
+
+    async def test_when_path_has_non_latin_characters(
+        self, client: TestClient, ns_manager: MagicMock, namespace: Namespace,
+    ):
+        # GIVEN
+        file = _make_file(str(namespace.path), "ф.txt")
+        content_reader = _make_content_reader(b"Hello, World!", zipped=False)
+        ns_manager.download.return_value = file, content_reader
+        key = await shortcuts.create_download_cache(namespace.path, file.path)
+        # WHEN
+        client.login(namespace.owner.id)
+        response = await client.get(self.url(key))
+        # THEN
+        assert response.status_code == 200
+        assert response.headers["Content-Disposition"] == 'attachment; filename="ф.txt"'
+        ns_manager.download.assert_awaited_once_with(str(namespace.path), file.path)
+
+    async def test_download_but_key_is_invalid(
+        self, client: TestClient, ns_manager: MagicMock
+    ):
+        key = secrets.token_urlsafe()
+        response = await client.get(self.url(key))
+        assert response.status_code == 404
+        assert response.json() == DownloadNotFound().as_dict()
+        ns_manager.download.assert_not_awaited()
+
+    async def test_download_but_file_not_found(
+        self, client: TestClient, ns_manager: MagicMock, namespace: Namespace
+    ):
+        # GIVEN
+        path = "f.txt"
+        key = await shortcuts.create_download_cache(namespace.path, path)
+        ns_manager.download.side_effect = errors.FileNotFound
+        # WHEN
+        client.login(namespace.owner.id)
+        response = await client.get(self.url(key))
+        # THEN
+        assert response.json() == PathNotFound(path=path).as_dict()
+        assert response.status_code == 404
+        ns_manager.download.assert_awaited_once_with(str(namespace.path), path)
 
 
-async def test_download_folder(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    await file_factory(namespace.path, path="a/b/c/d.txt")
-    key = await shortcuts.create_download_cache(namespace.path, "a")
-    client.login(namespace.owner.id)
-    response = await client.get(f"/files/download?key={key}")
-    assert response.status_code == 200
-    assert response.headers["Content-Type"] == "attachment/zip"
-    assert response.content
+class TestDownloadXHR:
+    url = "/files/download"
 
+    # Use lambda to prevent long names in pytest output
+    async def test(
+        self,
+        client: TestClient,
+        ns_manager: MagicMock,
+        namespace: Namespace,
+    ):
+        # GIVEN
+        file = _make_file(str(namespace.path), "f.txt")
+        content_reader = _make_content_reader(b"Hello, World!", zipped=False)
+        ns_manager.download.return_value = file, content_reader
+        payload = {"path": file.path}
+        # WHEN
+        client.login(namespace.owner.id)
+        response = await client.post(self.url, json=payload)
+        # THEN
+        assert response.status_code == 200
+        assert response.headers["Content-Disposition"] == 'attachment; filename="f.txt"'
+        assert response.headers["Content-Length"] == str(file.size)
+        assert response.headers["Content-Type"] == "plain/text"
+        assert response.content == b"Hello, World!"
+        ns_manager.download.assert_awaited_once_with(namespace.path, file.path)
 
-async def test_download_but_key_is_invalid(client: TestClient):
-    key = secrets.token_urlsafe()
-    response = await client.get(f"/files/download?key={key}")
-    assert response.status_code == 404
-    assert response.json() == DownloadNotFound().as_dict()
+    async def test_when_content_reader_is_zipped(
+        self, client: TestClient, ns_manager: MagicMock, namespace: Namespace,
+    ):
+        # GIVEN
+        file = _make_file(str(namespace.path), "f.txt")
+        content_reader = _make_content_reader(b"Hello, World!", zipped=True)
+        ns_manager.download.return_value = file, content_reader
+        payload = {"path": file.path}
+        # WHEN
+        client.login(namespace.owner.id)
+        response = await client.post(self.url, json=payload)
+        # THEN
+        assert response.status_code == 200
+        assert "Content-Length" not in response.headers
+        assert response.headers["Content-Type"] == "attachment/zip"
+        assert response.content == b"Hello, World!"
+        ns_manager.download.assert_awaited_once_with(namespace.path, file.path)
 
+    async def test_when_path_has_non_latin_characters(
+        self, client: TestClient, ns_manager: MagicMock, namespace: Namespace,
+    ):
+        # GIVEN
+        file = _make_file(str(namespace.path), "ф.txt")
+        content_reader = _make_content_reader(b"Hello, World!", zipped=False)
+        ns_manager.download.return_value = file, content_reader
+        payload = {"path": file.path}
+        # WHEN
+        client.login(namespace.owner.id)
+        response = await client.post(self.url, json=payload)
+        # THEN
+        assert response.status_code == 200
+        assert response.headers["Content-Disposition"] == 'attachment; filename="ф.txt"'
+        ns_manager.download.assert_awaited_once_with(namespace.path, file.path)
 
-async def test_download_but_file_not_found(client: TestClient, namespace: Namespace):
-    key = await shortcuts.create_download_cache(namespace.path, "f.txt")
-    client.login(namespace.owner.id)
-    response = await client.get(f"/files/download?key={key}")
-    assert response.json() == PathNotFound(path="f.txt").as_dict()
-    assert response.status_code == 404
-
-
-# Use lambda to prevent long names in pytest output
-@pytest.mark.parametrize("content_factory", [
-    lambda: b"Hello, World!",
-    lambda: b"1" * config.APP_MAX_DOWNLOAD_WITHOUT_STREAMING + b"1",
-])
-async def test_download_file_with_post(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-    content_factory,
-):
-    content = content_factory()
-    file = await file_factory(namespace.path, content=content)
-    payload = {"path": file.path}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/download", json=payload)
-    assert response.status_code == 200
-    assert response.headers["Content-Type"] == "text/plain"
-    assert response.headers["Content-Length"] == str(len(content))
-    assert response.content == content
-
-
-async def test_download_file_with_non_latin_name_with_post(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    file = await file_factory(namespace.path, path="файл.txt")
-    payload = {"path": file.path}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/download", json=payload)
-    assert response.status_code == 200
-
-
-async def test_download_folder_with_post(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    await file_factory(namespace.path, path="a/b/c/d.txt")
-    payload = {"path": "a"}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/download", json=payload)
-    assert response.status_code == 200
-    assert response.headers["Content-Type"] == "attachment/zip"
-    assert "Content-Length" not in response.headers
-    assert response.content
-
-
-async def test_download_with_post_but_file_not_found(
-    client: TestClient,
-    namespace: Namespace,
-):
-    payload = {"path": "f.txt"}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/download", json=payload)
-    assert response.json() == PathNotFound(path="f.txt").as_dict()
-    assert response.status_code == 404
+    async def test_download_but_file_not_found(
+        self, client: TestClient, ns_manager: MagicMock, namespace: Namespace
+    ):
+        # GIVEN
+        path = "f.txt"
+        ns_manager.download.side_effect = errors.FileNotFound
+        payload = {"path": path}
+        # WHEN
+        client.login(namespace.owner.id)
+        response = await client.post(self.url, json=payload)
+        # THEN
+        assert response.json() == PathNotFound(path=path).as_dict()
+        assert response.status_code == 404
+        ns_manager.download.assert_awaited_once_with(namespace.path, path)
 
 
 class TestEmptyTrash:

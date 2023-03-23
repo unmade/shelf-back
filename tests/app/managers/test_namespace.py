@@ -178,6 +178,20 @@ class TestDeleteItem:
         assert str(excinfo.value) == "Can't delete Home or Trash folder."
 
 
+class TestDownload:
+    async def test(self, ns_manager: NamespaceManager):
+        # GIVEN
+        ns_path, path = "admin", "f.txt"
+        filecore = cast(mock.MagicMock, ns_manager.filecore)
+        # WHEN
+        result = await ns_manager.download(ns_path, path)
+        # THEN
+        expected = (filecore.get_by_path.return_value, filecore.download.return_value)
+        assert result == expected
+        filecore.get_by_path.assert_called_once_with(ns_path, path)
+        filecore.download.assert_called_once_with(filecore.get_by_path.return_value.id)
+
+
 class TestEmptyTrash:
     async def test(self, ns_manager: NamespaceManager):
         # GIVEN

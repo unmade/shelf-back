@@ -1,12 +1,34 @@
 from __future__ import annotations
 
 import abc
-from typing import IO, TYPE_CHECKING, Iterator, Protocol
+from io import BytesIO
+from typing import IO, TYPE_CHECKING, AsyncIterator, Iterator, Protocol
 
 if TYPE_CHECKING:
     from app.typedefs import StrOrPath
 
-__all__ = ["IStorage", "StorageFile"]
+__all__ = ["ContentReader", "IStorage", "StorageFile"]
+
+
+class ContentReader:
+    __slots__ = ["content_iterator", "zipped"]
+
+    def __init__(self, content_iterator: AsyncIterator[bytes], *, zipped):
+        self.content_iterator = content_iterator
+        self.zipped = zipped
+
+    def __aiter__(self) -> AsyncIterator[bytes]:
+        return self.content_iterator
+
+    async def __anext__(self) -> bytes:
+        return await anext(self.content_iterator)
+
+    async def stream(self) -> IO[bytes]:
+        buffer = BytesIO()
+        async for chunk in self:
+            buffer.write(chunk)
+        buffer.seek(0)
+        return buffer
 
 
 class StorageFile:
@@ -89,7 +111,7 @@ class IStorage(Protocol):
         """
 
     @abc.abstractmethod
-    def download(self, ns_path: StrOrPath, path: StrOrPath) -> Iterator[bytes]:
+    async def download(self, ns_path: StrOrPath, path: StrOrPath) -> ContentReader:
         """
         Return an iterator over a file content.
 
@@ -101,11 +123,11 @@ class IStorage(Protocol):
             FileNotFound: If path not found or path is a directory.
 
         Yields:
-            Iterator[bytes]: Iterator to a file content.
+            ContentReader: Iterator over a file content.
         """
 
     @abc.abstractmethod
-    def downloaddir(self, ns_path: StrOrPath, path: StrOrPath) -> Iterator[bytes]:
+    async def downloaddir(self, ns_path: StrOrPath, path: StrOrPath) -> ContentReader:
         """
         Return an iterator over a zipped folder content.
 
@@ -114,7 +136,7 @@ class IStorage(Protocol):
             path (StrOrPath): File pathname relative to namespace.
 
         Yields:
-            Iterator[bytes]: Iterator to a file content.
+            ContentReader: Iterator over a file content.
         """
 
     @abc.abstractmethod

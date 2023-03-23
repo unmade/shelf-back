@@ -105,48 +105,61 @@ async def test_emptydir_but_dir_does_not_exist(fs_storage: FileSystemStorage):
     await fs_storage.emptydir("user", "a")
 
 
-async def test_download(file_factory, fs_storage: FileSystemStorage):
-    await file_factory("user/f.txt")
-    buffer = BytesIO()
-    for chunk in fs_storage.download("user", "f.txt"):
-        buffer.write(chunk)
-    buffer.seek(0)
-    assert buffer.read() == b"I'm Dummy File!"
+class TestDownload:
+    async def test(self, file_factory, fs_storage: FileSystemStorage):
+        # GIVEN
+        await file_factory("user/f.txt")
+        # WHEN
+        content_reader = await fs_storage.download("user", "f.txt")
+        # THEN
+        assert content_reader.zipped is False
+        content = await content_reader.stream()
+        assert content.read() == b"I'm Dummy File!"
+
+    async def test_when_it_is_a_dir(self, file_factory, fs_storage: FileSystemStorage):
+        await file_factory("user/a/f.txt")
+        with pytest.raises(errors.FileNotFound):
+            await fs_storage.download("user", "a")
+
+    async def test_when_file_does_not_exist(self, fs_storage: FileSystemStorage):
+        with pytest.raises(errors.FileNotFound):
+            await fs_storage.download("user", "f.txt")
 
 
-async def test_download_but_it_is_a_dir(file_factory, fs_storage: FileSystemStorage):
-    await file_factory("user/a/f.txt")
-    with pytest.raises(errors.FileNotFound):
-        fs_storage.download("user", "a")
+class TestDownloadDir:
+    async def test(self, file_factory, fs_storage: FileSystemStorage):
+        # GIVEN
+        await file_factory("user/a/x.txt", content=BytesIO(b"Hello"))
+        await file_factory("user/a/y.txt", content=BytesIO(b"World"))
+        await file_factory("user/a/c/f.txt", content=BytesIO(b"!"))
+        await file_factory("user/b/z.txt")
+
+        # WHEN
+        content_reader = await fs_storage.downloaddir("user", "a")
+
+        # THEN
+        assert content_reader.zipped is True
+        content = await content_reader.stream()
+
+        with ZipFile(content, "r") as archive:
+            assert set(archive.namelist()) == {"x.txt", "y.txt", "c/f.txt"}
+            assert archive.read("x.txt") == b"Hello"
+            assert archive.read("y.txt") == b"World"
+            assert archive.read("c/f.txt") == b"!"
 
 
-async def test_downloaddir(file_factory, fs_storage: FileSystemStorage):
-    await file_factory("user/a/x.txt", content=BytesIO(b"Hello"))
-    await file_factory("user/a/y.txt", content=BytesIO(b"World"))
-    await file_factory("user/a/c/f.txt", content=BytesIO(b"!"))
-    await file_factory("user/b/z.txt")
+    async def test_on_empty_dir(self, file_factory, fs_storage: FileSystemStorage):
+        await file_factory("user/empty_dir/", content=b"")
+        reader = await fs_storage.downloaddir("user", "empty_dir")
+        content = await reader.stream()
+        with ZipFile(content, "r") as archive:
+            assert archive.namelist() == []
 
-    buffer = BytesIO()
-    for chunk in fs_storage.downloaddir("user", "a"):
-        buffer.write(chunk)
-    buffer.seek(0)
-
-    with ZipFile(buffer, "r") as archive:
-        assert set(archive.namelist()) == {"x.txt", "y.txt", "c/f.txt"}
-        assert archive.read("x.txt") == b"Hello"
-        assert archive.read("y.txt") == b"World"
-        assert archive.read("c/f.txt") == b"!"
-
-
-async def test_downloaddir_on_empty_dir(file_factory, fs_storage: FileSystemStorage):
-    await file_factory("user/empty_dir/", content=b"")
-    buffer = BytesIO()
-    for chunk in fs_storage.downloaddir("user", "empty_dir"):
-        buffer.write(chunk)
-    buffer.seek(0)
-
-    with ZipFile(buffer, "r") as archive:
-        assert archive.namelist() == []
+    async def test_when_dir_does_not_exist(self, fs_storage: FileSystemStorage):
+        content_reader = await fs_storage.downloaddir("user", "empty_dir")
+        content = await content_reader.stream()
+        with ZipFile(content, "r") as archive:
+            assert archive.namelist() == []
 
 
 async def test_exists(file_factory, fs_storage: FileSystemStorage):

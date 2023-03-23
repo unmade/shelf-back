@@ -4,7 +4,7 @@ import datetime
 import os
 import os.path
 from io import BytesIO
-from typing import IO, TYPE_CHECKING, Iterator, cast
+from typing import IO, TYPE_CHECKING, Iterator
 
 import boto3
 import stream_zip
@@ -13,11 +13,14 @@ from botocore.client import Config
 from botocore.exceptions import ClientError
 
 from app import config, errors, thumbnails
-from app.app.infrastructure.storage import IStorage, StorageFile
+from app.app.infrastructure.storage import ContentReader, IStorage, StorageFile
 
+from ._compat import iter_async
 from ._datastructures import StreamZipFile
 
 if TYPE_CHECKING:
+    from botocore.response import StreamingBody
+
     from app.typedefs import StrOrPath
 
 __all__ = ["S3Storage"]
@@ -46,15 +49,6 @@ class S3Storage(IStorage):
     def bucket(self):
         return self.s3.Bucket(self.bucket_name)
 
-    @staticmethod
-    def _readchunks(stream) -> Iterator[bytes]:
-        chunk_size = 4096
-        has_content = True
-        while has_content:
-            chunk = stream.read(chunk_size)
-            has_content = len(chunk) == chunk_size
-            yield chunk
-
     @sync_to_async
     def delete(self, ns_path: StrOrPath, path: StrOrPath) -> None:
         key = self._joinpath(ns_path, path)
@@ -68,7 +62,12 @@ class S3Storage(IStorage):
     async def emptydir(self, ns_path: StrOrPath, path: StrOrPath) -> None:
         await self.deletedir(ns_path, path)
 
-    def download(self, ns_path: StrOrPath, path: StrOrPath) -> Iterator[bytes]:
+    async def download(self, ns_path: StrOrPath, path: StrOrPath) -> ContentReader:
+        stream = await self._download(ns_path, path)
+        return ContentReader(iter_async(stream.iter_chunks(4096)), zipped=False)
+
+    @sync_to_async
+    def _download(self, ns_path: StrOrPath, path: StrOrPath) -> StreamingBody:
         key = self._joinpath(ns_path, path)
 
         try:
@@ -78,13 +77,11 @@ class S3Storage(IStorage):
                 raise errors.FileNotFound() from exc
             raise
 
-        return self._readchunks(obj["Body"])
+        return obj["Body"]
 
-    def downloaddir(self, ns_path: StrOrPath, path: StrOrPath) -> Iterator[bytes]:
-        return cast(
-            Iterator[bytes],
-            stream_zip.stream_zip(self._downloaddir_iter(ns_path, path))
-        )
+    async def downloaddir(self, ns_path: StrOrPath, path: StrOrPath) -> ContentReader:
+        archive = stream_zip.stream_zip(self._downloaddir_iter(ns_path, path))
+        return ContentReader(iter_async(archive), zipped=True)
 
     def _downloaddir_iter(
         self,
