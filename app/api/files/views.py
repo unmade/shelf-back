@@ -254,19 +254,16 @@ async def get_download_url(
 @router.post("/get_content_metadata")
 async def get_content_metadata(
     payload: PathRequest,
-    db_client: AsyncIOClient = Depends(deps.db_client),
+    managers: Manager = Depends(deps.managers),
     namespace: Namespace = Depends(deps.namespace),
 ) -> GetContentMetadataResponse:
     """Return content metadata for a given file."""
     try:
-        file = await crud.file.get(db_client, namespace.path, payload.path)
+        meta = await managers.namespace.get_file_metadata(namespace.path, payload.path)
     except errors.FileNotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
-
-    try:
-        meta = await crud.metadata.get(db_client, file.id)
-    except errors.FileMetadataNotFound:
-        return GetContentMetadataResponse(file_id=file.id, data=None)
+    except errors.FileMetadataNotFound as exc:
+        raise exceptions.FileContentMetadataNotFound(path=payload.path) from exc
     return GetContentMetadataResponse.from_entity(meta)
 
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 import orjson
@@ -64,28 +64,6 @@ class File:
             "mtime": self.mtime,
             "mediatype": self.mediatype,
         })
-
-
-class Exif(BaseModel):
-    type: Literal["exif"] = "exif"
-    make: str | None = None
-    model: str | None = None
-    fnumber: str | None = None
-    exposure: str | None = None
-    iso: str | None = None
-    dt_original: float | None = None
-    dt_digitized: float | None = None
-    height: int | None = None
-    width: int | None = None
-
-    class Config:
-        json_loads = orjson.loads
-        json_dumps = orjson_dumps
-
-
-class FileMetadata(BaseModel):
-    file_id: str
-    data: Exif
 
 
 class RelocationPath(BaseModel):

@@ -7,7 +7,7 @@ from io import BytesIO
 import pytest
 
 from app import metadata
-from app.entities import Exif
+from app.domain.entities import Exif
 
 
 def test_load_metadata_for_image(image_content_with_exif: BytesIO):

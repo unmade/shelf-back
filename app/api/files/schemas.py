@@ -9,6 +9,7 @@ from pydantic import BaseModel, root_validator, validator
 
 from app import errors, thumbnails
 from app.config import TRASH_FOLDER_NAME
+from app.domain.entities import ContentMetadata
 from app.domain.entities import File as DomainFile
 
 from .exceptions import FileAlreadyDeleted, MalformedPath
@@ -16,7 +17,7 @@ from .exceptions import FileAlreadyDeleted, MalformedPath
 if TYPE_CHECKING:
     from fastapi import Request
 
-    from app.entities import File, FileMetadata
+    from app.entities import File
     from app.tasks import FileTaskResult
 
 
@@ -183,7 +184,7 @@ class GetContentMetadataResponse(BaseModel):
     data: DataExif | None
 
     @classmethod
-    def from_entity(cls, entity: FileMetadata) -> Self:
+    def from_entity(cls, entity: ContentMetadata) -> Self:
         if entity.data is None:
             return cls(file_id=entity.file_id, data=None)
         return cls(

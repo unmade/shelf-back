@@ -244,6 +244,21 @@ class TestFindDuplicates:
         filecore.get_by_id_batch.assert_awaited_once()
 
 
+class TestGetFileMetadata:
+    async def test(self, ns_manager: NamespaceManager):
+        # GIVEN
+        ns_path, path = "admin", "home"
+        filecore = cast(mock.MagicMock, ns_manager.filecore)
+        metadata = cast(mock.MagicMock, ns_manager.metadata)
+        # WHEN
+        result = await ns_manager.get_file_metadata(ns_path, path)
+        # THEN
+        assert result == metadata.get_by_file_id.return_value
+        filecore.get_by_path.assert_awaited_once_with(ns_path, path)
+        file = filecore.get_by_path.return_value
+        metadata.get_by_file_id.assert_awaited_once_with(file.id)
+
+
 class TestListFolder:
     async def test(self, ns_manager: NamespaceManager):
         # GIVEN

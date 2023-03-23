@@ -9,16 +9,14 @@ from faker import Faker
 
 from app import config, crud, mediatypes, security
 from app.entities import (
-    Exif,
     File,
-    FileMetadata,
     Namespace,
     User,
 )
 from app.infrastructure.storage import storage
 
 if TYPE_CHECKING:
-    from app.typedefs import DBAnyConn, StrOrPath, StrOrUUID
+    from app.typedefs import DBAnyConn, StrOrPath
 
 fake = Faker()
 
@@ -52,35 +50,6 @@ class FileFactory:
             path,
             size=file.size,
             mediatype=mediatypes.guess(path, content)
-        )
-
-
-class FileMetadataFactory:
-    __slots__ = ["_db_conn"]
-
-    def __init__(self, db_conn: DBAnyConn) -> None:
-        self._db_conn = db_conn
-
-    async def __call__(
-        self,
-        file_id: StrOrUUID,
-        data: Exif,
-    ) -> FileMetadata:
-        return crud.metadata.from_db(
-            await self._db_conn.query_required_single("""
-                SELECT (
-                    INSERT FileMetadata {
-                        data := <json>$data,
-                        file := (
-                            SELECT
-                                File
-                            FILTER
-                                .id = <uuid>$file_id
-                            LIMIT 1
-                        ),
-                    }
-                ) { data, file: { id } }
-            """, file_id=file_id, data=data.json())
         )
 
 

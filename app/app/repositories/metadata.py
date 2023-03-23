@@ -7,7 +7,21 @@ if TYPE_CHECKING:
 
 
 class IContentMetadataRepository(Protocol):
-    async def save(self, metadata: ContentMetadata) -> None:
+    async def get_by_file_id(self, file_id: str) -> ContentMetadata:
+        """
+        Get metadata associated with a given File ID.
+
+        Args:
+            file_id (str): Target File ID.
+
+        Raises:
+            FileMetadataNotFound: If FileMetada for a given file ID does not exist.
+
+        Returns:
+            ContentMetadata: File content metadata.
+        """
+
+    async def save(self, metadata: ContentMetadata) -> ContentMetadata:
         """
         Save file metadata to the database.
 
@@ -16,6 +30,9 @@ class IContentMetadataRepository(Protocol):
 
         Raises:
             errors.FileNotFound: If a file with specified ID doesn't exist.
+
+        Returns:
+            ContentMetadata: File content metadata.
         """
 
     async def save_batch(self, metadatas: Iterable[ContentMetadata]) -> None:

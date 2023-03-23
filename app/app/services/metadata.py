@@ -22,6 +22,21 @@ class MetadataService:
     def __init__(self, database: IServiceDatabase):
         self.db = database
 
+    async def get_by_file_id(self, file_id: str) -> ContentMetadata:
+        """
+        Get metadata associated with a given File ID.
+
+        Args:
+            file_id (str): Target File ID.
+
+        Raises:
+            FileMetadataNotFound: If FileMetada for a given file ID does not exist.
+
+        Returns:
+            ContentMetadata: File content metadata.
+        """
+        return await self.db.metadata.get_by_file_id(file_id)
+
     async def track(self, file_id: str, content: IO[bytes]) -> None:
         """
         Tracks file content metadata.

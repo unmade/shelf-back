@@ -7,12 +7,19 @@ import orjson
 
 from app import errors
 from app.app.repositories import IContentMetadataRepository
+from app.domain.entities import ContentMetadata
 
 if TYPE_CHECKING:
-    from app.domain.entities import ContentMetadata
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
 
 __all__ = ["ContentMetadataRepository"]
+
+
+def _from_db(obj) -> ContentMetadata:
+    return ContentMetadata(
+        file_id=str(obj.file.id),
+        data=orjson.loads(obj.data),
+    )
 
 
 class ContentMetadataRepository(IContentMetadataRepository):
@@ -23,7 +30,23 @@ class ContentMetadataRepository(IContentMetadataRepository):
     def conn(self) -> EdgeDBAnyConn:
         return self.db_context.get()
 
-    async def save(self, metadata: ContentMetadata) -> None:
+    async def get_by_file_id(self, file_id: str) -> ContentMetadata:
+        query = """
+            SELECT
+                FileMetadata { data, file: { id } }
+            FILTER
+                .file.id = <uuid>$file_id
+            LIMIT 1
+        """
+
+        try:
+            obj = await self.conn.query_required_single(query, file_id=file_id)
+        except edgedb.NoDataError as exc:
+            raise errors.FileMetadataNotFound() from exc
+
+        return _from_db(obj)
+
+    async def save(self, metadata: ContentMetadata) -> ContentMetadata:
         query = """
             INSERT FileMetadata {
                 data := <json>$data,
@@ -42,6 +65,8 @@ class ContentMetadataRepository(IContentMetadataRepository):
             await self.conn.query_required_single(query, file_id=file_id, data=data)
         except edgedb.MissingRequiredError as exc:
             raise errors.FileNotFound() from exc
+
+        return metadata
 
     async def save_batch(self, metadatas: Iterable[ContentMetadata]):
         query = """

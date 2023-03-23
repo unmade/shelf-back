@@ -16,7 +16,7 @@ if TYPE_CHECKING:
         NamespaceService,
         UserService,
     )
-    from app.domain.entities import File, Namespace
+    from app.domain.entities import ContentMetadata, File, Namespace
     from app.typedefs import StrOrPath
 
 __all__ = ["NamespaceManager"]
@@ -191,11 +191,31 @@ class NamespaceManager:
             for group in groups
         ]
 
+    async def get_file_metadata(
+        self, ns_path: StrOrPath, path: StrOrPath
+    ) -> ContentMetadata:
+        """
+        Returns a file content metadata.
+
+        Args:
+            ns_path (StrOrPath): Namespace path where file located.
+            path (StrOrPath): File path
+
+        Raises:
+            FileNotFound: If file with target ID does not exist.
+            FileMetadataNotFound: If file metadata does not exist.
+
+        Returns:
+            ContentMetadata: A file content metadata
+        """
+        file = await self.filecore.get_by_path(ns_path, path)
+        return await self.metadata.get_by_file_id(file.id)
+
     async def get_file_thumbnail(
         self, ns_path: StrOrPath, file_id: str, size: int
     ) -> tuple[File, bytes]:
         """
-        Generate in-memory thumbnail with preserved aspect ratio.
+        Generates in-memory thumbnail with preserved aspect ratio.
 
         Args:
             ns_path (ns_path): Namespace where a file is located.

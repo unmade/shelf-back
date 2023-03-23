@@ -10,6 +10,8 @@ from app import mediatypes
 from app.domain.entities import (
     SENTINEL_ID,
     Account,
+    ContentMetadata,
+    Exif,
     File,
     Fingerprint,
     Namespace,
@@ -24,6 +26,7 @@ if TYPE_CHECKING:
 
     from app.app.repositories import (
         IAccountRepository,
+        IContentMetadataRepository,
         IFileRepository,
         IFingerprintRepository,
         INamespaceRepository,
@@ -208,15 +211,25 @@ async def file(namespace: Namespace, file_factory: FileFactory):
 
 
 @pytest.fixture
-async def shared_link(
-    shared_link_repo: ISharedLinkRepository, file: File
-) -> SharedLink:
+async def shared_link(shared_link_repo: ISharedLinkRepository, file: File):
     """A SharedLink instance saved to the EdgeDB."""
     return await shared_link_repo.save(
         SharedLink(
             id=SENTINEL_ID,
             file_id=file.id,
             token="ec67376f",
+        )
+    )
+
+
+@pytest.fixture
+async def content_metadata(metadata_repo: IContentMetadataRepository, file: File):
+    """A ContentMetadata instance saved to the EdgeDB."""
+    exif = Exif(width=1280, height=800)
+    return await metadata_repo.save(
+        ContentMetadata(
+            file_id=file.id,
+            data=exif,
         )
     )
 

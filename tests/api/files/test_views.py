@@ -17,6 +17,7 @@ from app.api import shortcuts
 from app.api.files.exceptions import (
     DownloadNotFound,
     FileAlreadyExists,
+    FileContentMetadataNotFound,
     MalformedPath,
     NotADirectory,
     PathNotFound,
@@ -24,8 +25,7 @@ from app.api.files.exceptions import (
     UploadFileTooLarge,
 )
 from app.app.infrastructure.storage import ContentReader
-from app.domain.entities import File
-from app.entities import Exif
+from app.domain.entities import ContentMetadata, Exif, File
 from app.tasks import FileTaskResult
 
 if TYPE_CHECKING:
@@ -36,7 +36,6 @@ if TYPE_CHECKING:
     from tests.conftest import TestClient
     from tests.factories import (
         FileFactory,
-        FileMetadataFactory,
     )
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
@@ -149,7 +148,7 @@ class TestDeleteImmediatelyBatch:
 
     @pytest.mark.parametrize("path", [".", "Trash"])
     async def test_when_path_is_malformed(
-        self, client: TestClient, namespace: Namespace, path
+        self, client: TestClient, namespace: Namespace, path: str
     ):
         payload = {"items": [{"path": path}]}
         client.login(namespace.owner.id)
@@ -513,46 +512,63 @@ async def test_get_download_url_but_file_not_found(
     assert response.status_code == 404
 
 
-async def test_get_content_metadata(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-    file_metadata_factory: FileMetadataFactory,
-):
-    file = await file_factory(namespace.path, "img.jpg")
-    exif = Exif(width=1280, height=800)
-    await file_metadata_factory(file.id, data=exif)
-    payload = {"path": file.path}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/get_content_metadata", json=payload)
-    assert response.json()["file_id"] == file.id
-    assert response.json()["data"] == exif.dict()
-    assert response.status_code == 200
+class TestGetContentMetadata:
+    url = "/files/get_content_metadata"
 
+    async def test(
+        self,
+        client: TestClient,
+        ns_manager: MagicMock,
+        namespace: Namespace,
+    ):
+        # GIVEN
+        file_id, path = str(uuid.uuid4()), "img.jpeg"
+        exif = Exif(width=1280, height=800)
+        metadata = ContentMetadata(file_id=file_id, data=exif)
+        ns_manager.get_file_metadata.return_value = metadata
+        payload = {"path": path}
+        # WHEN
+        client.login(namespace.owner.id)
+        response = await client.post(self.url, json=payload)
+        # THEN
+        assert response.json()["file_id"] == file_id
+        assert response.json()["data"] == exif.dict()
+        assert response.status_code == 200
+        ns_manager.get_file_metadata.assert_awaited_once_with(namespace.path, path)
 
-async def test_get_content_metadata_on_a_file_with_no_meta(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    file = await file_factory(namespace.path, "img.jpg")
-    payload = {"path": file.path}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/get_content_metadata", json=payload)
-    assert response.json()["file_id"] == file.id
-    assert response.json()["data"] is None
-    assert response.status_code == 200
+    async def test_when_file_has_no_metadata(
+        self,
+        client: TestClient,
+        ns_manager: MagicMock,
+        namespace: Namespace,
+    ):
+        # GIVEN
+        path = "img.jpeg"
+        ns_manager.get_file_metadata.side_effect = errors.FileMetadataNotFound
+        payload = {"path": path}
+        # WHEN
+        client.login(namespace.owner.id)
+        response = await client.post("/files/get_content_metadata", json=payload)
+        # THEN
+        assert response.json() == FileContentMetadataNotFound(path=path).as_dict()
+        assert response.status_code == 404
 
-
-async def test_get_content_metadata_but_file_not_found(
-    client: TestClient,
-    namespace: Namespace,
-):
-    payload = {"path": "wrong/path"}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/get_content_metadata", json=payload)
-    assert response.json() == PathNotFound(path="wrong/path").as_dict()
-    assert response.status_code == 404
+    async def test_when_file_not_found(
+        self,
+        client: TestClient,
+        ns_manager: MagicMock,
+        namespace: Namespace,
+    ):
+        # GIVEN
+        path = "wrong/path"
+        ns_manager.get_file_metadata.side_effect = errors.FileNotFound
+        payload = {"path": path}
+        # WHEN
+        client.login(namespace.owner.id)
+        response = await client.post("/files/get_content_metadata", json=payload)
+        # THEN
+        assert response.json() == PathNotFound(path=path).as_dict()
+        assert response.status_code == 404
 
 
 @pytest.mark.parametrize("name", ["im.jpeg", "изо.jpeg"])
@@ -619,7 +635,7 @@ class TestListFolder:
         assert response.status_code == 404
         assert response.json() == PathNotFound(path="wrong/path").as_dict()
 
-    async def test_whenpath_is_not_a_folder(
+    async def test_when_path_is_not_a_folder(
         self,
         client: TestClient,
         ns_manager: MagicMock,

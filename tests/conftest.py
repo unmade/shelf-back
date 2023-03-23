@@ -21,7 +21,6 @@ from app.tasks import CeleryConfig
 from app.tokens import AccessTokenPayload
 from tests.factories import (
     FileFactory,
-    FileMetadataFactory,
     FolderFactory,
     MediaTypeFactory,
     NamespaceFactory,
@@ -292,12 +291,6 @@ async def account(app: FastAPI, user: User, db_client_or_tx: DBAnyConn):
 def file_factory(db_client_or_tx: DBAnyConn) -> FileFactory:
     """Create dummy file, put it in a storage and save to database."""
     return FileFactory(db_client_or_tx)
-
-
-@pytest.fixture
-def file_metadata_factory(db_client_or_tx: DBAnyConn) -> FileMetadataFactory:
-    """File metadata factory."""
-    return FileMetadataFactory(db_client_or_tx)
 
 
 @pytest.fixture

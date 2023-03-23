@@ -48,6 +48,16 @@ class FileAlreadyExists(FilesError):
         return self.message.format(name=path.name, parent=path.parent)
 
 
+class FileContentMetadataNotFound(FilesError):
+    status_code = 404
+    code = "CONTENT_METADATA_NOT_FOUND"
+    code_verbose = "No metadata"
+    default_message = "File at path {path} doesn't have any associated metadata"
+
+    def get_message(self, path: StrOrPath) -> str:
+        return self.message.format(path=path)
+
+
 class IsADirectory(FilesError):
     status_code = 400
     code = "IS_A_DIRECTORY"
