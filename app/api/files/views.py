@@ -303,8 +303,8 @@ async def get_thumbnail(
 async def list_folder(
     request: Request,
     payload: PathRequest,
-    db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
+    managers: Manager = Depends(deps.managers),
 ):
     """
     List content of a folder with a given path.
@@ -312,7 +312,7 @@ async def list_folder(
     Note, that Trash folder is never present in a result.
     """
     try:
-        files = await crud.file.list_folder(db_client, namespace.path, payload.path)
+        files = await managers.namespace.list_folder(namespace.path, payload.path)
     except errors.FileNotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
     except errors.NotADirectory as exc:

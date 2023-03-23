@@ -286,6 +286,57 @@ class TestListByMediatypes:
         assert actual == [jpg, png]
 
 
+class TestListWithPrefix:
+    async def test(
+        self,
+        file_repo: FileRepository,
+        file_factory: FileFactory,
+        folder_factory: FolderFactory,
+        namespace: Namespace
+    ):
+        # GIVEN
+        ns_path = namespace.path
+        await folder_factory(ns_path, "home")
+        await file_factory(ns_path, "home/f.txt")
+        await folder_factory(ns_path, "home/folder")
+        await file_factory(ns_path, "home/folder/f.txt")
+        # WHEN
+        files = await file_repo.list_with_prefix(ns_path, "home/")
+        # THEN
+        assert len(files) == 2
+        assert files[0].path == "home/folder"
+        assert files[1].path == "home/f.txt"
+
+    async def test_listing_top_level(
+        self,
+        file_repo: FileRepository,
+        file_factory: FileFactory,
+        folder_factory: FolderFactory,
+        namespace: Namespace
+    ):
+        # GIVEN
+        ns_path = namespace.path
+        await folder_factory(ns_path, "home")
+        await file_factory(ns_path, "home/f.txt")
+        await folder_factory(ns_path, "home/folder")
+        await file_factory(ns_path, "home/folder/f.txt")
+        # WHEN
+        files = await file_repo.list_with_prefix(ns_path, "")
+        # THEN
+        assert len(files) == 1
+        assert files[0].path == "home"
+
+    async def test_when_folder_does_not_exist(
+        self, file_repo: FileRepository, namespace: Namespace
+    ):
+        # GIVEN
+        ns_path = namespace.path
+        # WHEN
+        files = await file_repo.list_with_prefix(ns_path, "home/")
+        # THEN
+        assert len(files) == 0
+
+
 class TestReplacePathPrefix:
     async def test(
         self, file_repo: FileRepository, file_factory: FileFactory, namespace: Namespace

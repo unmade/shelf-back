@@ -228,6 +228,29 @@ class NamespaceManager:
         """
         return await self.filecore.exists_with_id(ns_path, file_id)
 
+    async def list_folder(self, ns_path: StrOrPath, path: StrOrPath) -> list[File]:
+        """
+        Lists all files in the folder at a given path.
+
+        Use "." to list all files and folders in the home folder. Note, that Trash
+        folder will not be present in the response.
+
+        Args:
+            ns_path (StrOrPath): Namespace path where a folder located.
+            path (StrOrPath): Path to a folder in the target namespace.
+
+        Raises:
+            FileNotFound: If folder at this path does not exists.
+            NotADirectory: If path points to a file.
+
+        Returns:
+            List[File]: List of all files/folders in a folder with a target path.
+        """
+        files = await self.filecore.list_folder(ns_path, path)
+        if path == ".":
+            return [file for file in files if file.path.lower() not in {".", "trash"}]
+        return files
+
     async def move_item(
         self, ns_path: StrOrPath, path: StrOrPath, next_path: StrOrPath
     ) -> File:

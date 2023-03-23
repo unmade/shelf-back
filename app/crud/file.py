@@ -319,66 +319,6 @@ async def get_many(
     return [from_db(f) for f in files]
 
 
-async def list_folder(
-    conn: DBAnyConn,
-    namespace: StrOrPath,
-    path: StrOrPath,
-    *,
-    with_trash: bool = False,
-) -> list[File]:
-    """
-    Return folder contents.
-
-    To list home folder, use '.'.
-
-    Args:
-        conn (DBAnyConn): Database connection.
-        namespace (StrOrPath): Namespace where a folder located.
-        path (StrOrPath): Path to a folder in this namespace.
-        with_trash (bool, optional): Whether to include Trash folder. Defaults to False.
-
-    Raises:
-        FileNotFound: If folder at this path does not exists.
-        NotADirectory: If path points to a file.
-
-    Returns:
-        List[File]: List of all files/folders in a folder with a target path.
-    """
-    path = str(path)
-
-    parent = await get(conn, namespace, path)
-    if not parent.mediatype == mediatypes.FOLDER:
-        raise errors.NotADirectory()
-
-    filter_clause = ""
-    if path == ".":
-        filter_clause = "AND .path != '.'"
-        if not with_trash:
-            filter_clause += " AND .path != 'Trash'"
-
-    query = f"""
-        SELECT
-            File {{
-                id, name, path, size, mtime, mediatype: {{ name }},
-            }}
-        FILTER
-            .namespace.path = <str>$namespace
-            AND
-            .path LIKE <str>$path ++ '%'
-            AND
-            .path NOT LIKE <str>$path ++ '%/%'
-            {filter_clause}
-        ORDER BY
-            .mediatype.name = '{mediatypes.FOLDER}' DESC
-        THEN
-            str_lower(.path) ASC
-    """
-
-    path = "" if path == "." else f"{path}/"
-    files = await conn.query(query, namespace=str(namespace), path=path)
-    return [from_db(file) for file in files]
-
-
 async def inc_size_batch(
     conn: DBAnyConn,
     namespace: StrOrPath,

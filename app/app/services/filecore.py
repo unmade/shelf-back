@@ -298,6 +298,30 @@ class FileCoreService:
                 return
             yield files
 
+    async def list_folder(self, ns_path: StrOrPath, path: StrOrPath) -> list[File]:
+        """
+        Lists all files in the folder at a given path.
+
+        Use "." to list top-level files and folders.
+
+        Args:
+            ns_path (StrOrPath): Namespace path where a folder located.
+            path (StrOrPath): Path to a folder in the target namespace.
+
+        Raises:
+            FileNotFound: If folder at this path does not exists.
+            NotADirectory: If path points to a file.
+
+        Returns:
+            List[File]: List of all files/folders in a folder with a target path.
+        """
+        folder = await self.get_by_path(ns_path, path)
+        if not folder.is_folder():
+            raise errors.NotADirectory()
+
+        prefix = "" if path == "." else f"{path}/"
+        return await self.db.file.list_with_prefix(ns_path, prefix)
+
     async def move(
         self, ns_path: StrOrPath, at_path: StrOrPath, to_path: StrOrPath
     ) -> File:

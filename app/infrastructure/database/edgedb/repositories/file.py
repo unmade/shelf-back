@@ -10,7 +10,7 @@ from typing import (
 
 import edgedb
 
-from app import errors
+from app import errors, mediatypes
 from app.app.repositories import IFileRepository
 from app.app.repositories.file import FileUpdate
 from app.domain.entities import File
@@ -292,6 +292,29 @@ class FileRepository(IFileRepository):
             limit=limit,
         )
         return [_from_db(str(ns_path), file) for file in files]
+
+    async def list_with_prefix(
+        self, ns_path: StrOrPath, prefix: StrOrPath
+    ) -> list[File]:
+        query = f"""
+            SELECT
+                File {{
+                    id, name, path, size, mtime, mediatype: {{ name }},
+                }}
+            FILTER
+                .namespace.path = <str>$ns_path
+                AND
+                .path LIKE <str>$prefix ++ '%'
+                AND
+                .path NOT LIKE <str>$prefix ++ '%/%'
+            ORDER BY
+                .mediatype.name = '{mediatypes.FOLDER}' DESC
+            THEN
+                str_lower(.path) ASC
+        """
+
+        objs = await self.conn.query(query, ns_path=str(ns_path), prefix=str(prefix))
+        return [_from_db(str(ns_path), obj) for obj in objs]
 
     async def replace_path_prefix(
         self, ns_path: StrOrPath, prefix: StrOrPath, next_prefix: StrOrPath

@@ -575,51 +575,65 @@ async def test_get_thumbnail(
     assert headers["Cache-Control"] == "private, max-age=31536000, no-transform"
 
 
-async def test_list_folder(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-    image_content: BytesIO,
-):
-    img = await file_factory(namespace.path, path="im.jpeg", content=image_content)
-    thumbnail_url = f"{client.base_url}/files/get_thumbnail/{img.id}"
-    await file_factory(namespace.path, path="file.txt")
-    await file_factory(namespace.path, path="folder/file.txt")
-    payload = {"path": "."}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/list_folder", json=payload)
-    assert response.status_code == 200
-    assert response.json()["path"] == "."
-    assert response.json()["count"] == 3
-    assert response.json()["items"][0]["name"] == "folder"
-    assert response.json()["items"][0]["thumbnail_url"] is None
-    assert response.json()["items"][1]["name"] == "file.txt"
-    assert response.json()["items"][1]["thumbnail_url"] is None
-    assert response.json()["items"][2]["name"] == "im.jpeg"
-    assert response.json()["items"][2]["thumbnail_url"] == thumbnail_url
+class TestListFolder:
+    url = "/files/list_folder"
 
+    async def test(
+        self, client: TestClient, ns_manager: MagicMock, namespace: Namespace,
+    ):
+        # GIVEN
+        ns_path = str(namespace.path)
+        files = [
+            _make_file(ns_path, "folder", mediatype="application/directory"),
+            _make_file(ns_path, "f.txt"),
+            _make_file(ns_path, "im.jpeg", mediatype="image/jpeg"),
+        ]
+        ns_manager.list_folder.return_value = files
+        payload = {"path": "."}
+        # WHEN
+        client.login(namespace.owner.id)
+        response = await client.post(self.url, json=payload)
+        # THEN
+        ns_manager.list_folder.assert_awaited_once_with(namespace.path, payload["path"])
+        assert response.status_code == 200
+        assert response.json()["path"] == "."
+        assert response.json()["count"] == 3
+        assert response.json()["items"][0]["name"] == "folder"
+        assert response.json()["items"][0]["thumbnail_url"] is None
+        assert response.json()["items"][1]["name"] == "f.txt"
+        assert response.json()["items"][1]["thumbnail_url"] is None
+        assert response.json()["items"][2]["name"] == "im.jpeg"
+        assert response.json()["items"][2]["thumbnail_url"] is not None
 
-async def test_list_folder_but_path_does_not_exists(
-    client: TestClient,
-    namespace: Namespace,
-):
-    payload = {"path": "wrong/path"}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/list_folder", json=payload)
-    assert response.status_code == 404
-    assert response.json() == PathNotFound(path="wrong/path").as_dict()
+    async def test_when_path_does_not_exists(
+        self, client: TestClient, ns_manager: MagicMock, namespace: Namespace,
+    ):
+        # GIVEN
+        ns_manager.list_folder.side_effect = errors.FileNotFound
+        payload = {"path": "wrong/path"}
+        # WHEN
+        client.login(namespace.owner.id)
+        response = await client.post(self.url, json=payload)
+        # THEN
+        ns_manager.list_folder.assert_awaited_once_with(namespace.path, payload["path"])
+        assert response.status_code == 404
+        assert response.json() == PathNotFound(path="wrong/path").as_dict()
 
-
-async def test_list_folder_but_path_is_not_a_folder(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    file = await file_factory(namespace.path, path="f.txt")
-    payload = {"path": file.path}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/list_folder", json=payload)
-    assert response.json() == NotADirectory(path="f.txt").as_dict()
+    async def test_whenpath_is_not_a_folder(
+        self,
+        client: TestClient,
+        ns_manager: MagicMock,
+        namespace: Namespace,
+    ):
+        # GIVEN
+        ns_manager.list_folder.side_effect = errors.NotADirectory
+        payload = {"path": "f.txt"}
+        # WHEN
+        client.login(namespace.owner.id)
+        response = await client.post(self.url, json=payload)
+        # THEN
+        ns_manager.list_folder.assert_awaited_once_with(namespace.path, payload["path"])
+        assert response.json() == NotADirectory(path="f.txt").as_dict()
 
 
 class TestMoveBatch:

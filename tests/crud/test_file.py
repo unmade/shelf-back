@@ -303,53 +303,6 @@ async def test_get_many_is_case_insensitive(tx: DBTransaction, namespace: Namesp
     assert len(files) == 3
 
 
-async def test_list_folder(tx: DBTransaction, namespace: Namespace):
-    await crud.file.create_folder(tx, namespace.path, "a/c")
-    await crud.file.create(tx, namespace.path, "a/b")
-    files = await crud.file.list_folder(tx, namespace.path, "a")
-    assert len(files) == 2
-    assert files[0].path == "a/c"  # folders listed first
-    assert files[1].path == "a/b"
-
-
-async def test_list_folder_excluding_trash(tx: DBTransaction, namespace: Namespace):
-    files = await crud.file.list_folder(tx, namespace.path, ".")
-    assert files == []
-
-
-async def test_list_home_with_trash(tx: DBTransaction, namespace: Namespace):
-    files = await crud.file.list_folder(tx, namespace.path, ".", with_trash=True)
-    assert files[0].path == "Trash"
-
-
-async def test_list_folder_is_case_insensitive(tx: DBTransaction, namespace: Namespace):
-    await crud.file.create_folder(tx, namespace.path, "A/b")
-    await crud.file.create_folder(tx, namespace.path, "A/C")
-    await crud.file.create(tx, namespace.path, "a/F")
-    files = await crud.file.list_folder(tx, namespace.path, "A")
-    assert files[0].path == "A/b"  # folders listed first
-    assert files[1].path == "A/C"
-    assert files[2].path == "A/F"
-    assert len(files) == 3
-
-
-async def test_list_folder_but_it_is_empty(tx: DBTransaction, namespace: Namespace):
-    await crud.file.create_folder(tx, namespace.path, "a")
-    files = await crud.file.list_folder(tx, namespace.path, "a")
-    assert files == []
-
-
-async def test_list_folder_but_it_not_found(tx: DBTransaction, namespace: Namespace):
-    with pytest.raises(errors.FileNotFound):
-        await crud.file.list_folder(tx, namespace.path, "a")
-
-
-async def test_list_folder_but_it_a_file(tx: DBTransaction, namespace: Namespace):
-    await crud.file.create(tx, namespace.path, "f")
-    with pytest.raises(errors.NotADirectory):
-        await crud.file.list_folder(tx, namespace.path, "f")
-
-
 async def test_inc_size_batch(tx: DBTransaction, namespace: Namespace):
     await crud.file.create_folder(tx, namespace.path, "a/b")
     await crud.file.create_folder(tx, namespace.path, "a/c")

@@ -423,6 +423,54 @@ class TestIterByMediatypes:
         assert result == []
 
 
+class TestListFolder:
+    async def test(
+        self,
+        filecore: FileCoreService,
+        file_factory: FileFactory,
+        folder_factory: FolderFactory,
+        namespace: Namespace,
+    ):
+        # GIVEN
+        ns_path = namespace.path
+        await folder_factory(ns_path, "home")
+        await file_factory(ns_path, "home/f.txt")
+        # WHEN
+        files = await filecore.list_folder(ns_path, "home")
+        # THEN
+        assert len(files) == 1
+        assert files[0].path == "home/f.txt"
+
+    async def test_listing_top_level(
+        self,
+        filecore: FileCoreService,
+        file_factory: FileFactory,
+        folder_factory: FolderFactory,
+        namespace: Namespace,
+    ):
+        # GIVEN
+        ns_path = namespace.path
+        await folder_factory(ns_path, "home")
+        await file_factory(ns_path, "home/f.txt")
+        # WHEN
+        files = await filecore.list_folder(ns_path, ".")
+        # THEN
+        assert len(files) == 2
+        assert files[0].path == "."
+        assert files[1].path == "home"
+
+    async def test_when_path_is_a_file(self, filecore: FileCoreService, file: File):
+        with pytest.raises(errors.NotADirectory):
+            await filecore.list_folder(file.ns_path, file.path)
+
+    async def test_when_path_does_not_exist(
+        self, filecore: FileCoreService, namespace: Namespace
+    ):
+        with pytest.raises(errors.FileNotFound):
+            await filecore.list_folder(namespace.path, "home")
+
+
+
 class TestMoveFile:
     async def test_moving_a_file(
         self,

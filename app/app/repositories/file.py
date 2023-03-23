@@ -175,6 +175,20 @@ class IFileRepository(Protocol):
             list[File]: list of Files
         """
 
+    async def list_with_prefix(
+        self, ns_path: StrOrPath, prefix: StrOrPath
+    ) -> list[File]:
+        """
+        Lists all files with a path starting with a given prefix.
+
+        Args:
+            ns_path (StrOrPath): Target namespace where files should be listed.
+            prefix (StrOrPath): Target prefix.
+
+        Returns:
+            list[File]: List of all files/folders with a target prefix.
+        """
+
     async def replace_path_prefix(
         self, ns_path: StrOrPath, prefix: StrOrPath, next_prefix: StrOrPath
     ) -> None:
