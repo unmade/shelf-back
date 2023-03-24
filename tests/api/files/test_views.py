@@ -37,9 +37,6 @@ if TYPE_CHECKING:
     from app.entities import Namespace
     from app.typedefs import StrOrPath
     from tests.conftest import TestClient
-    from tests.factories import (
-        FileFactory,
-    )
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
 
@@ -468,51 +465,75 @@ class TestFindDuplicates:
         ns_manager.find_duplicates.assert_awaited_once_with(ns_path, ".", 5)
 
 
-async def test_get_batch(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    files = [
-        await file_factory(namespace.path, path=f"{i}.txt")
-        for i in range(3)
-    ]
-    payload = {"ids": [file.id for file in files[::2]]}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/get_batch", json=payload)
-    assert response.json()["count"] == 2
-    assert len(response.json()["items"]) == 2
-    assert response.json()["items"][0]["id"] == files[0].id
-    assert response.json()["items"][1]["id"] == files[2].id
-    assert response.status_code == 200
+class TestGetBatch:
+    async def test(
+        self,
+        client: TestClient,
+        ns_manager: MagicMock,
+        namespace: Namespace,
+    ):
+        # GIVEN
+        files = [
+            _make_file(namespace.path, f"{idx}.txt")
+            for idx in range(2)
+        ]
+        ns_manager.filecore.get_by_id_batch = mock.AsyncMock(return_value=files)
+        payload = {"ids": [file.id for file in files]}
+        # WHEN
+        client.login(namespace.owner.id)
+        response = await client.post("/files/get_batch", json=payload)
+        # THEN
+        ns_manager.filecore.get_by_id_batch.assert_awaited_once_with(
+            namespace.path, [uuid.UUID(id) for id in payload["ids"]]
+        )
+        assert response.json()["count"] == 2
+        assert len(response.json()["items"]) == 2
+        assert response.json()["items"][0]["id"] == files[0].id
+        assert response.json()["items"][1]["id"] == files[1].id
+        assert response.status_code == 200
 
 
-async def test_get_download_url(
-    client: TestClient,
-    namespace: Namespace,
-    file_factory: FileFactory,
-):
-    file = await file_factory(namespace.path)
-    payload = {"path": file.path}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/get_download_url", json=payload)
-    download_url = response.json()["download_url"]
-    assert download_url.startswith(str(client.base_url))
-    assert response.status_code == 200
-    parts = urllib.parse.urlsplit(download_url)
-    qs = urllib.parse.parse_qs(parts.query)
-    assert len(qs["key"]) == 1
+class TestGetDownloadURL:
+    url = "/files/get_download_url"
 
+    async def test(
+        self,
+        client: TestClient,
+        ns_manager: MagicMock,
+        namespace: Namespace,
+    ):
+        # GIVEN
+        ns_path, path = namespace.path, "f.txt"
+        file = _make_file(ns_path, path)
+        payload = {"path": file.path}
+        # WHEN
+        client.login(namespace.owner.id)
+        response = await client.post(self.url, json=payload)
+        # THEN
+        ns_manager.get_item_at_path.assert_awaited_once_with(ns_path, path)
+        download_url = response.json()["download_url"]
+        assert download_url.startswith(str(client.base_url))
+        assert response.status_code == 200
+        parts = urllib.parse.urlsplit(download_url)
+        qs = urllib.parse.parse_qs(parts.query)
+        assert len(qs["key"]) == 1
 
-async def test_get_download_url_but_file_not_found(
-    client: TestClient,
-    namespace: Namespace,
-):
-    payload = {"path": "wrong/path"}
-    client.login(namespace.owner.id)
-    response = await client.post("/files/get_download_url", json=payload)
-    assert response.json() == PathNotFound(path="wrong/path").as_dict()
-    assert response.status_code == 404
+    async def test_when_file_not_found(
+        self,
+        client: TestClient,
+        ns_manager: MagicMock,
+        namespace: Namespace,
+    ):
+        # GIVEN
+        path = "wrong/path"
+        ns_manager.get_item_at_path.side_effect = errors.FileNotFound
+        payload = {"path": path}
+        # WHEN
+        client.login(namespace.owner.id)
+        response = await client.post(self.url, json=payload)
+        # THEN
+        assert response.json() == PathNotFound(path="wrong/path").as_dict()
+        assert response.status_code == 404
 
 
 class TestGetContentMetadata:

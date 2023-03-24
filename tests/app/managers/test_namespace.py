@@ -295,6 +295,18 @@ class TestGetFileThumbnail:
         filecore.thumbnail.assert_awaited_once_with(file.id, size=32)
 
 
+class TestGetItemAtPath:
+    async def test(self, ns_manager: NamespaceManager):
+        # GIVEN
+        ns_path, path = "admin", "f.txt"
+        filecore = cast(mock.MagicMock, ns_manager.filecore)
+        # WHEN
+        result = await ns_manager.get_item_at_path(ns_path, path)
+        # THEN
+        assert result == filecore.get_by_path.return_value
+        filecore.get_by_path.assert_awaited_once_with(ns_path, path)
+
+
 class TestHasFileWithID:
     async def test(self, ns_manager: NamespaceManager):
         # GIVEN
@@ -304,6 +316,7 @@ class TestHasFileWithID:
         result = await ns_manager.has_item_with_id(ns_path, file_id)
         # THEN
         assert result == filecore.exists_with_id.return_value
+        filecore.exists_with_id.assert_awaited_once_with(ns_path, file_id)
 
 
 class TestListFolder:

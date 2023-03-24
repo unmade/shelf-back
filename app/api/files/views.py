@@ -3,12 +3,11 @@ from __future__ import annotations
 from uuid import UUID
 
 import celery.states
-from edgedb import AsyncIOClient
 from fastapi import APIRouter, Depends, Form, Query, Request, UploadFile
 from fastapi import File as FileParam
 from fastapi.responses import ORJSONResponse, Response, StreamingResponse
 
-from app import crud, errors, mediatypes, tasks
+from app import errors, mediatypes, tasks
 from app.api import deps, shortcuts
 from app.entities import Namespace, User
 from app.infrastructure.provider import Manager
@@ -211,15 +210,16 @@ async def find_duplicates(
     })
 
 
-@router.post("/get_batch", response_model=GetBatchResponse)
+@router.post("/get_batch", response_model=GetBatchResponse, deprecated=True)
 async def get_batch(
     request: Request,
     payload: GetBatchRequest,
-    db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
+    managers: Manager = Depends(deps.managers),
 ):
     """Return all files with specified IDs."""
-    files = await crud.file.get_by_id_batch(db_client, namespace.path, payload.ids)
+    ns_path = namespace.path
+    files = await managers.namespace.filecore.get_by_id_batch(ns_path, payload.ids)
 
     # by returning response class directly we avoid pydantic checks
     # that way we speed up on a large volume of data
@@ -236,12 +236,12 @@ async def get_batch(
 async def get_download_url(
     request: Request,
     payload: PathRequest,
-    db_client: AsyncIOClient = Depends(deps.db_client),
     namespace: Namespace = Depends(deps.namespace),
+    managers: Manager = Depends(deps.managers),
 ) -> GetDownloadUrlResponse:
     """Return a link to download requested file or folder."""
     try:
-        file = await crud.file.get(db_client, namespace.path, payload.path)
+        file = await managers.namespace.get_item_at_path(namespace.path, payload.path)
     except errors.FileNotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
 

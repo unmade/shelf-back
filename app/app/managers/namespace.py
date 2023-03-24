@@ -238,6 +238,9 @@ class NamespaceManager:
             raise errors.FileNotFound()
         return file, thumbnail
 
+    async def get_item_at_path(self, ns_path: StrOrPath, path: StrOrPath) -> File:
+        return await self.filecore.get_by_path(ns_path, path)
+
     async def has_item_with_id(self, ns_path: StrOrPath, file_id: str) -> bool:
         """
         Checks whether a file with a given ID exists in the target namespace.
