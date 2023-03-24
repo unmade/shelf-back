@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from app.app.services import FileCoreService, SharingService
 
@@ -28,7 +28,10 @@ class SharingManager:
 
     async def get_link_thumbnail(self, token: str, *, size: int) -> tuple[File, bytes]:
         link = await self.sharing.get_link_by_token(token)
-        return await self.filecore.thumbnail(link.file_id, size=size)
+        return cast(
+            tuple[File, bytes],
+            await self.filecore.thumbnail(link.file_id, size=size),
+        )
 
     async def get_shared_item(self, token: str) -> File:
         link = await self.sharing.get_link_by_token(token)

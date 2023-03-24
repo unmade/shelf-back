@@ -19,6 +19,7 @@ from typing import (
 from app import errors, mediatypes, taskgroups
 from app.app.infrastructure import IDatabase
 from app.app.repositories.file import FileUpdate
+from app.cache import disk_cache
 from app.domain.entities import (
     SENTINEL_ID,
     File,
@@ -38,6 +39,12 @@ __all__ = ["FileCoreService"]
 def _lowered(items: Iterable[Any]) -> Iterator[str]:
     """Return an iterator of lower-cased strings."""
     return (str(item).lower() for item in items)
+
+
+def _make_thumbnail_ttl(*args, size: int, **kwargs) -> str:
+    if size < 128:
+        return "7d"
+    return "24h"
 
 
 class FileCoreService:
@@ -471,6 +478,7 @@ class FileCoreService:
         file_update = FileUpdate(id=root.id, size=total_size)
         await self.db.file.update(file_update)
 
+    @disk_cache(key="{file_id}:{size}", ttl=_make_thumbnail_ttl)
     async def thumbnail(self, file_id: str, *, size: int) -> tuple[File, bytes]:
         """
         Generate in-memory thumbnail with preserved aspect ratio.

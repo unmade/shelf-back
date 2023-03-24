@@ -18,10 +18,12 @@ from app.api.files.exceptions import (
     DownloadNotFound,
     FileAlreadyExists,
     FileContentMetadataNotFound,
+    IsADirectory,
     MalformedPath,
     NotADirectory,
     PathNotFound,
     StorageQuotaExceeded,
+    ThumbnailUnavailable,
     UploadFileTooLarge,
 )
 from app.app.infrastructure.storage import ContentReader
@@ -33,6 +35,7 @@ if TYPE_CHECKING:
 
     from app.api.exceptions import APIError
     from app.entities import Namespace
+    from app.typedefs import StrOrPath
     from tests.conftest import TestClient
     from tests.factories import (
         FileFactory,
@@ -42,13 +45,13 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
 
 
 def _make_file(
-    ns_path: str, path: str, size: int = 10, mediatype: str = "plain/text"
+    ns_path: StrOrPath, path: StrOrPath, size: int = 10, mediatype: str = "plain/text"
 ) -> File:
     return File(
         id=uuid.uuid4(),
-        ns_path=ns_path,
+        ns_path=str(ns_path),
         name=os.path.basename(path),
-        path=path,
+        path=str(path),
         size=size,
         mediatype=mediatype,
     )
@@ -571,24 +574,81 @@ class TestGetContentMetadata:
         assert response.status_code == 404
 
 
-@pytest.mark.parametrize("name", ["im.jpeg", "изо.jpeg"])
-async def test_get_thumbnail(
-    client: TestClient,
-    namespace: Namespace,
-    image_content: BytesIO,
-    file_factory: FileFactory,
-    name: str,
-):
-    file = await file_factory(namespace.path, path=name, content=image_content)
-    mtime = file.mtime
-    client.login(namespace.owner.id)
-    response = await client.get(f"/files/get_thumbnail/{file.id}?size=xs&mtime={mtime}")
-    assert response.content
-    headers = response.headers
-    assert headers["Content-Disposition"] == f'inline; filename="{file.name}"'
-    assert int(headers["Content-Length"]) < file.size
-    assert headers["Content-Type"] == "image/webp"
-    assert headers["Cache-Control"] == "private, max-age=31536000, no-transform"
+class TestGetThumbnail:
+    def url(self, file_id: str, *, size: str = "xs") -> str:
+        return f"/files/get_thumbnail/{file_id}?size=xs"
+
+    async def test(
+        self,
+        client: TestClient,
+        ns_manager: MagicMock,
+        namespace: Namespace,
+        image_content: BytesIO,
+    ):
+        # GIVEN
+        path = "im.jpeg"
+        file, thumbnail = _make_file(namespace.path, path), image_content.getvalue()
+        ns_manager.get_file_thumbnail.return_value = file, thumbnail
+        # WHEN
+        client.login(namespace.owner.id)
+        response = await client.get(self.url(file.id))
+        # THEN
+        assert response.content
+        headers = response.headers
+        assert response.status_code == 200
+        assert headers["Content-Disposition"] == 'inline; filename="im.jpeg"'
+        assert headers["Content-Length"] == '1651'
+        assert headers["Content-Type"] == "image/webp"
+        assert headers["Cache-Control"] == "private, max-age=31536000, no-transform"
+        ns_manager.get_file_thumbnail.assert_awaited_once_with(
+            namespace.path, file.id, size=64
+        )
+
+    async def test_when_path_has_non_latin_characters(
+        self,
+        client: TestClient,
+        ns_manager: MagicMock,
+        namespace: Namespace,
+        image_content: BytesIO,
+    ):
+        # GIVEN
+        path = "изо.jpeg"
+        file, thumbnail = _make_file(namespace.path, path), image_content.getvalue()
+        ns_manager.get_file_thumbnail.return_value = file, thumbnail
+        # WHEN
+        client.login(namespace.owner.id)
+        response = await client.get(self.url(file.id))
+        # THEN
+        assert response.content
+        headers = response.headers
+        assert response.status_code == 200
+        assert headers["Content-Disposition"] == 'inline; filename="изо.jpeg"'
+        ns_manager.get_file_thumbnail.assert_awaited_once_with(
+            namespace.path, file.id, size=64
+        )
+
+    @pytest.mark.parametrize(["error", "expected_error_cls"], [
+        (errors.FileNotFound(), PathNotFound),
+        (errors.IsADirectory(), IsADirectory),
+        (errors.ThumbnailUnavailable(), ThumbnailUnavailable),
+    ])
+    async def test_reraising_app_errors_to_api_errors(
+        self,
+        client: TestClient,
+        ns_manager: MagicMock,
+        namespace: Namespace,
+        error,
+        expected_error_cls,
+    ):
+        # GIVEN
+        file_id = str(uuid.uuid4())
+        ns_manager.get_file_thumbnail.side_effect = error
+        # WHEN
+        client.login(namespace.owner.id)
+        response = await client.get(self.url(file_id))
+        # THEN
+        assert response.status_code == expected_error_cls.status_code
+        assert response.json() == expected_error_cls(path=file_id).as_dict()
 
 
 class TestListFolder:

@@ -259,6 +259,53 @@ class TestGetFileMetadata:
         metadata.get_by_file_id.assert_awaited_once_with(file.id)
 
 
+class TestGetFileThumbnail:
+    async def test(self, ns_manager: NamespaceManager):
+        # GIVEN
+        ns_path, path = "admin", "img.jpeg"
+        file, thumbnail = _make_file(ns_path, path), mock.ANY
+        filecore = cast(mock.MagicMock, ns_manager.filecore)
+        filecore.thumbnail.return_value = file, thumbnail
+        # WHEN
+        result = await ns_manager.get_file_thumbnail(ns_path, file.id, size=32)
+        # THEN
+        assert result == filecore.thumbnail.return_value
+        filecore.thumbnail.assert_awaited_once_with(file.id, size=32)
+
+    async def test_when_file_does_not_exist(self, ns_manager: NamespaceManager):
+        # GIVEN
+        ns_path = "admin"
+        file_id = str(uuid.uuid4())
+        filecore = cast(mock.MagicMock, ns_manager.filecore)
+        filecore.thumbnail.side_effect = errors.FileNotFound
+        # WHEN/THEN
+        with pytest.raises(errors.FileNotFound):
+            await ns_manager.get_file_thumbnail(ns_path, file_id, size=32)
+        filecore.thumbnail.assert_awaited_once_with(file_id, size=32)
+
+    async def test_when_file_in_the_other_namespace(self, ns_manager: NamespaceManager):
+        # GIVEN
+        ns_path, path = "admin", "img.jpeg"
+        file, thumbnail = _make_file(ns_path, path), mock.ANY
+        filecore = cast(mock.MagicMock, ns_manager.filecore)
+        filecore.thumbnail.return_value = file, thumbnail
+        # WHEN/THEN
+        with pytest.raises(errors.FileNotFound):
+            await ns_manager.get_file_thumbnail("user", file.id, size=32)
+        filecore.thumbnail.assert_awaited_once_with(file.id, size=32)
+
+
+class TestHasFileWithID:
+    async def test(self, ns_manager: NamespaceManager):
+        # GIVEN
+        ns_path, file_id = "admin", str(uuid.uuid4())
+        filecore = cast(mock.MagicMock, ns_manager.filecore)
+        # WHEN
+        result = await ns_manager.has_item_with_id(ns_path, file_id)
+        # THEN
+        assert result == filecore.exists_with_id.return_value
+
+
 class TestListFolder:
     async def test(self, ns_manager: NamespaceManager):
         # GIVEN
@@ -335,41 +382,6 @@ class TestMoveItemToTrash:
             ns_path, PurePath("Trash/f.txt")
         )
         filecore.move.assert_awaited_once_with(ns_path, path, next_path)
-
-
-class TestGetFileThumbnail:
-    async def test(self, ns_manager: NamespaceManager):
-        # GIVEN
-        ns_path = "admin"
-        file_id = str(uuid.uuid4())
-        filecore = cast(mock.MagicMock, ns_manager.filecore)
-        # WHEN
-        result = await ns_manager.get_file_thumbnail(ns_path, file_id, size=32)
-        # WHEN
-        filecore.exists_with_id.assert_awaited_once_with(ns_path, file_id)
-        filecore.thumbnail.assert_awaited_once_with(file_id, size=32)
-        assert result == filecore.thumbnail.return_value
-
-    async def test_when_file_does_not_exist(self, ns_manager: NamespaceManager):
-        # GIVEN
-        ns_path = "admin"
-        file_id = str(uuid.uuid4())
-        filecore = cast(mock.MagicMock, ns_manager.filecore)
-        filecore.exists_with_id.return_value = False
-        # WHEN/THEN
-        with pytest.raises(errors.FileNotFound):
-            await ns_manager.get_file_thumbnail(ns_path, file_id, size=32)
-
-
-class TestHasFileWithID:
-    async def test(self, ns_manager: NamespaceManager):
-        # GIVEN
-        ns_path, file_id = "admin", str(uuid.uuid4())
-        filecore = cast(mock.MagicMock, ns_manager.filecore)
-        # WHEN
-        result = await ns_manager.has_item_with_id(ns_path, file_id)
-        # THEN
-        assert result == filecore.exists_with_id.return_value
 
 
 class TestReindex:

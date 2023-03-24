@@ -271,18 +271,20 @@ async def get_content_metadata(
 async def get_thumbnail(
     file_id: UUID,
     size: ThumbnailSize,
-    mtime: float,
-    db_client: AsyncIOClient = Depends(deps.db_client),
+    managers: Manager = Depends(deps.managers),
     namespace: Namespace = Depends(deps.namespace),
 ):
     """Get thumbnail for an image file."""
-    file, thumbnail = await shortcuts.get_cached_thumbnail(
-        db_client,
-        namespace,
-        file_id,
-        size=size.asint(),
-        mtime=mtime,
-    )
+    try:
+        file, thumbnail = await managers.namespace.get_file_thumbnail(
+            namespace.path, str(file_id), size=size.asint()
+        )
+    except errors.FileNotFound as exc:
+        raise exceptions.PathNotFound(path=str(file_id)) from exc
+    except errors.IsADirectory as exc:
+        raise exceptions.IsADirectory(path=str(file_id)) from exc
+    except errors.ThumbnailUnavailable as exc:
+        raise exceptions.ThumbnailUnavailable(path=str(file_id)) from exc
 
     filename = file.name.encode("utf-8").decode("latin-1")
 

@@ -11,6 +11,7 @@ from unittest import mock
 import pytest
 
 from app import errors, mediatypes, taskgroups
+from app.cache import disk_cache
 from app.domain.entities import File
 
 if TYPE_CHECKING:
@@ -779,3 +780,24 @@ class TestThumbnail:
         filecache, thumbnail = await filecore.thumbnail(file.id, size=64)
         assert filecache == file
         assert isinstance(thumbnail, bytes)
+
+    async def test_cache_hits(
+        self,
+        filecore: FileCoreService,
+        file_factory: FileFactory,
+        namespace: Namespace,
+        image_content: IO[bytes],
+    ):
+        # GIVEN
+        file = await file_factory(namespace.path, content=image_content)
+        with disk_cache.detect as detector:
+            # WHEN hits for the first time
+            result1 = await filecore.thumbnail(file.id, size=64)
+            # THEN cache miss
+            assert detector.calls == {}
+            # WHEN hits for the second time
+            result2 = await filecore.thumbnail(file.id, size=64)
+            # THEN cache hit
+            call = [{'ttl': 604800, 'name': 'simple', 'template': '{file_id}:{size}'}]
+            assert list(detector.calls.values()) == [call]
+            assert result1 == result2

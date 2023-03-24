@@ -230,10 +230,13 @@ class NamespaceManager:
         Returns:
             tuple[File, bytes]: Tuple of file and thumbnail content.
         """
-        if not await self.filecore.exists_with_id(ns_path, file_id):
+        file, thumbnail = await self.filecore.thumbnail(file_id, size=size)
+        # normally we would check if file exists before calling `filecore.thumbnail`,
+        # but since thumbnail is cached it is faster to hit cache and then
+        # check if file belongs to a namespace
+        if str(file.ns_path) != str(ns_path):
             raise errors.FileNotFound()
-
-        return await self.filecore.thumbnail(file_id, size=size)
+        return file, thumbnail
 
     async def has_item_with_id(self, ns_path: StrOrPath, file_id: str) -> bool:
         """
