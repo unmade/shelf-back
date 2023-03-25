@@ -34,11 +34,11 @@ if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
     from app.api.exceptions import APIError
-    from app.entities import Namespace
+    from app.domain.entities import Namespace
     from app.typedefs import StrOrPath
-    from tests.conftest import TestClient
+    from tests.api.conftest import TestClient
 
-pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
+pytestmark = [pytest.mark.asyncio]
 
 
 def _make_file(
@@ -76,6 +76,7 @@ class TestCreateFolder:
         path: str,
         expected_path: str,
     ):
+        # GIVEN
         folder = _make_file(
             ns_path=str(namespace.path),
             path=expected_path,
@@ -84,8 +85,10 @@ class TestCreateFolder:
         )
         ns_manager.create_folder.return_value = folder
         payload = {"path": path}
-        client.login(namespace.owner.id)
+        # WHEN
+        client.mock_namespace(namespace)
         response = await client.post("/files/create_folder", json=payload)
+        # THEN
         assert response.json()["id"] == str(folder.id)
         assert response.json()["name"] == folder.name
         assert response.json()["path"] == folder.path
@@ -100,7 +103,7 @@ class TestCreateFolder:
         ns_path = namespace.path
         ns_manager.create_folder.side_effect = errors.FileAlreadyExists
         payload = {"path": "Trash"}
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post("/files/create_folder", json=payload)
         assert response.json() == FileAlreadyExists(path='Trash').as_dict()
         assert response.status_code == 400
@@ -112,7 +115,7 @@ class TestCreateFolder:
         ns_manager.create_folder.side_effect = errors.NotADirectory()
         path = "file/folder"
         payload = {"path": path}
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post("/files/create_folder", json=payload)
         assert response.json() == NotADirectory(path="file/folder").as_dict()
         assert response.status_code == 400
@@ -137,7 +140,7 @@ class TestDeleteImmediatelyBatch:
                 {"path": f"{i}.txt"} for i in range(3)
             ]
         }
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
 
         task_id = response.json()["async_task_id"]
@@ -151,7 +154,7 @@ class TestDeleteImmediatelyBatch:
         self, client: TestClient, namespace: Namespace, path: str
     ):
         payload = {"items": [{"path": path}]}
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         message = f"Path '{path}' is a special path and can't be deleted"
         assert response.json() == MalformedPath(message).as_dict()
@@ -171,7 +174,7 @@ class TestDeleteImmediatelyBatchCheck:
     ):
         task_id = uuid.uuid4()
         payload = {"async_task_id": str(task_id)}
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         assert response.json()["status"] == 'pending'
         assert response.json()["result"] is None
@@ -192,7 +195,7 @@ class TestDeleteImmediatelyBatchCheck:
         )
         payload = {"async_task_id": str(task_id)}
 
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
 
         assert response.json()["status"] == 'completed'
@@ -222,7 +225,7 @@ class TestDownload:
         ns_manager.download.return_value = file, content_reader
         key = await shortcuts.create_download_cache(namespace.path, file.path)
         # WHEN
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.get(self.url(key))
         # THEN
         assert response.status_code == 200
@@ -241,7 +244,7 @@ class TestDownload:
         ns_manager.download.return_value = file, content_reader
         key = await shortcuts.create_download_cache(namespace.path, file.path)
         # WHEN
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.get(self.url(key))
         # THEN
         assert response.status_code == 200
@@ -259,7 +262,7 @@ class TestDownload:
         ns_manager.download.return_value = file, content_reader
         key = await shortcuts.create_download_cache(namespace.path, file.path)
         # WHEN
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.get(self.url(key))
         # THEN
         assert response.status_code == 200
@@ -283,7 +286,7 @@ class TestDownload:
         key = await shortcuts.create_download_cache(namespace.path, path)
         ns_manager.download.side_effect = errors.FileNotFound
         # WHEN
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.get(self.url(key))
         # THEN
         assert response.json() == PathNotFound(path=path).as_dict()
@@ -307,7 +310,7 @@ class TestDownloadXHR:
         ns_manager.download.return_value = file, content_reader
         payload = {"path": file.path}
         # WHEN
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
         assert response.status_code == 200
@@ -326,7 +329,7 @@ class TestDownloadXHR:
         ns_manager.download.return_value = file, content_reader
         payload = {"path": file.path}
         # WHEN
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
         assert response.status_code == 200
@@ -344,7 +347,7 @@ class TestDownloadXHR:
         ns_manager.download.return_value = file, content_reader
         payload = {"path": file.path}
         # WHEN
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
         assert response.status_code == 200
@@ -359,7 +362,7 @@ class TestDownloadXHR:
         ns_manager.download.side_effect = errors.FileNotFound
         payload = {"path": path}
         # WHEN
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
         assert response.json() == PathNotFound(path=path).as_dict()
@@ -380,7 +383,7 @@ class TestEmptyTrash:
     ):
         expected_task_id = uuid.uuid4()
         empty_trash.delay.return_value = mock.Mock(id=expected_task_id)
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url)
         task_id = response.json()["async_task_id"]
         assert task_id == str(expected_task_id)
@@ -401,7 +404,7 @@ class TestEmptyTrashCheck:
     ):
         task_id = uuid.uuid4()
         payload = {"async_task_id": str(task_id)}
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         assert response.json()["status"] == 'pending'
         assert response.json()["result"] is None
@@ -418,7 +421,7 @@ class TestEmptyTrashCheck:
         )
         payload = {"async_task_id": str(task_id)}
 
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
 
         assert response.json()["status"] == 'completed'
@@ -439,7 +442,7 @@ class TestFindDuplicates:
             [files[0], files[2]], [files[1], files[3]]
         ]
         payload = {"path": "."}
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         # WHEN
         response = await client.post(self.url, json=payload)
         # THEN
@@ -456,7 +459,7 @@ class TestFindDuplicates:
         ns_path = namespace.path
         ns_manager.find_duplicates.return_value = []
         payload = {"path": "."}
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         # WHEN
         response = await client.post(self.url, json=payload)
         # THEN
@@ -480,7 +483,7 @@ class TestGetBatch:
         ns_manager.filecore.get_by_id_batch = mock.AsyncMock(return_value=files)
         payload = {"ids": [file.id for file in files]}
         # WHEN
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post("/files/get_batch", json=payload)
         # THEN
         ns_manager.filecore.get_by_id_batch.assert_awaited_once_with(
@@ -507,7 +510,7 @@ class TestGetDownloadURL:
         file = _make_file(ns_path, path)
         payload = {"path": file.path}
         # WHEN
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
         ns_manager.get_item_at_path.assert_awaited_once_with(ns_path, path)
@@ -529,7 +532,7 @@ class TestGetDownloadURL:
         ns_manager.get_item_at_path.side_effect = errors.FileNotFound
         payload = {"path": path}
         # WHEN
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
         assert response.json() == PathNotFound(path="wrong/path").as_dict()
@@ -552,7 +555,7 @@ class TestGetContentMetadata:
         ns_manager.get_file_metadata.return_value = metadata
         payload = {"path": path}
         # WHEN
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
         assert response.json()["file_id"] == file_id
@@ -571,7 +574,7 @@ class TestGetContentMetadata:
         ns_manager.get_file_metadata.side_effect = errors.FileMetadataNotFound
         payload = {"path": path}
         # WHEN
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post("/files/get_content_metadata", json=payload)
         # THEN
         assert response.json() == FileContentMetadataNotFound(path=path).as_dict()
@@ -588,7 +591,7 @@ class TestGetContentMetadata:
         ns_manager.get_file_metadata.side_effect = errors.FileNotFound
         payload = {"path": path}
         # WHEN
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post("/files/get_content_metadata", json=payload)
         # THEN
         assert response.json() == PathNotFound(path=path).as_dict()
@@ -611,7 +614,7 @@ class TestGetThumbnail:
         file, thumbnail = _make_file(namespace.path, path), image_content.getvalue()
         ns_manager.get_file_thumbnail.return_value = file, thumbnail
         # WHEN
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.get(self.url(file.id))
         # THEN
         assert response.content
@@ -637,7 +640,7 @@ class TestGetThumbnail:
         file, thumbnail = _make_file(namespace.path, path), image_content.getvalue()
         ns_manager.get_file_thumbnail.return_value = file, thumbnail
         # WHEN
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.get(self.url(file.id))
         # THEN
         assert response.content
@@ -665,7 +668,7 @@ class TestGetThumbnail:
         file_id = str(uuid.uuid4())
         ns_manager.get_file_thumbnail.side_effect = error
         # WHEN
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.get(self.url(file_id))
         # THEN
         assert response.status_code == expected_error_cls.status_code
@@ -688,7 +691,7 @@ class TestListFolder:
         ns_manager.list_folder.return_value = files
         payload = {"path": "."}
         # WHEN
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
         ns_manager.list_folder.assert_awaited_once_with(namespace.path, payload["path"])
@@ -709,7 +712,7 @@ class TestListFolder:
         ns_manager.list_folder.side_effect = errors.FileNotFound
         payload = {"path": "wrong/path"}
         # WHEN
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
         ns_manager.list_folder.assert_awaited_once_with(namespace.path, payload["path"])
@@ -726,7 +729,7 @@ class TestListFolder:
         ns_manager.list_folder.side_effect = errors.NotADirectory
         payload = {"path": "f.txt"}
         # WHEN
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
         ns_manager.list_folder.assert_awaited_once_with(namespace.path, payload["path"])
@@ -750,7 +753,7 @@ class TestMoveBatch:
                 for i in range(3)
             ]
         }
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post("/files/move_batch", json=payload)
 
         task_id = response.json()["async_task_id"]
@@ -772,7 +775,7 @@ class TestMoveBatchCheck:
     ):
         task_id = uuid.uuid4()
         payload = {"async_task_id": str(task_id)}
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         assert response.json()["status"] == 'pending'
         assert response.json()["result"] is None
@@ -793,7 +796,7 @@ class TestMoveBatchCheck:
         )
         payload = {"async_task_id": str(task_id)}
 
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
 
         assert response.json()["status"] == 'completed'
@@ -828,7 +831,7 @@ class TestMoveToTrashBatch:
                 {"path": f"{i}.txt"} for i in range(3)
             ]
         }
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
 
         task_id = response.json()["async_task_id"]
@@ -868,7 +871,7 @@ class TestUpload:
             "file": content,
             "path": (None, path),
         }
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url, files=payload)  # type: ignore
         assert response.status_code == 200
         assert response.json()["path"] == expected_path
@@ -897,7 +900,7 @@ class TestUpload:
             "file": BytesIO(b"Dummy file"),
             "path": (None, path.encode()),
         }
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url, files=payload)  # type: ignore
         assert response.json() == expected_error.as_dict()
         assert response.status_code == 400

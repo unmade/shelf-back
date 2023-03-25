@@ -10,15 +10,12 @@ from urllib.parse import urlsplit, urlunsplit
 import edgedb
 import pytest
 from faker import Faker
-from httpx import AsyncClient
 from PIL import Image
 
 from app import config, db
 from app.domain.entities import SENTINEL_ID, Account
 from app.infrastructure.database.edgedb import EdgeDBDatabase
-from app.main import create_app
 from app.tasks import CeleryConfig
-from app.tokens import AccessTokenPayload
 from tests.factories import (
     FileFactory,
     FolderFactory,
@@ -35,22 +32,11 @@ if TYPE_CHECKING:
 
     from app.entities import Namespace, User
     from app.infrastructure.database.edgedb.repositories import AccountRepository
-    from app.typedefs import DBAnyConn, DBClient, StrOrUUID
+    from app.typedefs import DBAnyConn, DBClient
 
 fake = Faker()
 
 pytest_plugins = ["pytester"]
-
-
-class TestClient(AsyncClient):
-    def login(self, user_id: StrOrUUID) -> TestClient:
-        """
-        Authenticates given user by creating access token and setting it as
-        the Authorization header.
-        """
-        token = AccessTokenPayload.create(str(user_id)).encode()
-        self.headers.update({"Authorization": f"Bearer {token}"})
-        return self
 
 
 def pytest_addoption(parser):
@@ -72,19 +58,6 @@ def reuse_db(pytestconfig):
     the test run.
     """
     return pytestconfig.getoption("reuse_db", False)
-
-
-@pytest.fixture
-def app():
-    """Application fixture."""
-    return create_app()
-
-
-@pytest.fixture
-async def client(app):
-    """Test client fixture to make requests against app endpoints."""
-    async with TestClient(app=app, base_url="http://test") as cli:
-        yield cli
 
 
 @pytest.fixture(scope='session')
@@ -345,6 +318,12 @@ def user_factory(db_client_or_tx: DBAnyConn) -> UserFactory:
 @pytest.fixture
 async def user(user_factory: UserFactory) -> User:
     """A User instance."""
+    return await user_factory()
+
+
+@pytest.fixture
+async def db_user(user_factory: UserFactory) -> User:
+    """A temporary alias for `user` fixture."""
     return await user_factory()
 
 

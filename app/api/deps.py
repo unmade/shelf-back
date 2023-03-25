@@ -5,7 +5,8 @@ from fastapi import Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 
 from app import crud, errors
-from app.entities import Namespace, User
+from app.domain.entities import Namespace
+from app.entities import User
 from app.infrastructure.provider import Manager, Service, UseCase
 from app.tokens import AccessTokenPayload, InvalidToken
 
@@ -64,7 +65,8 @@ async def namespace(
     # If namespace is not found, we should fail, so don't catch NamespaceNotFound here.
     # We should fail because the system is in the inconsistent state - user exists,
     # but doesn't have a namespace
-    return await crud.namespace.get_by_owner(db_client, user_id)
+    ns = await crud.namespace.get_by_owner(db_client, user_id)
+    return Namespace(id=ns.id, path=str(ns.path), owner_id=ns.owner.id)
 
 
 async def usecases(request: Request) -> UseCase:

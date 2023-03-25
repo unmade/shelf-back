@@ -10,10 +10,10 @@ from app.api.users.exceptions import FileNotFound
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
-    from app.entities import Namespace
-    from tests.conftest import TestClient
+    from app.domain.entities import Namespace, User
+    from tests.api.conftest import TestClient
 
-pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
+pytestmark = [pytest.mark.asyncio]
 
 
 class TestAddBookmark:
@@ -28,11 +28,12 @@ class TestAddBookmark:
     ):
         # GIVEN
         ns_path = namespace.path
-        user_id = str(namespace.owner.id)
+        user_id = namespace.owner_id
         file_id = uuid.uuid4()
         payload = {"id": str(file_id)}
         # WHEN
-        response = await client.login(user_id).post(self.url, json=payload)
+        client.mock_namespace(namespace)
+        response = await client.post(self.url, json=payload)
         # THEN
         assert response.json() is None
         assert response.status_code == 200
@@ -48,12 +49,12 @@ class TestAddBookmark:
     ):
         # GIVEN
         ns_path = namespace.path
-        user_id = str(namespace.owner.id)
         file_id = uuid.uuid4()
         payload = {"id": str(file_id)}
         ns_manager.has_item_with_id.return_value = False
         # WHEN
-        response = await client.login(user_id).post(self.url, json=payload)
+        client.mock_namespace(namespace)
+        response = await client.post(self.url, json=payload)
         # THEN
         assert response.json() == FileNotFound().as_dict()
         assert response.status_code == 404
@@ -65,19 +66,27 @@ class TestListBookmarks:
     url = "/users/bookmarks/list"
 
     async def test(
-        self, client: TestClient, namespace: Namespace, user_service: MagicMock
+        self, client: TestClient, user: User, user_service: MagicMock
     ):
+        # GIVEN
         bookmarks = [uuid.uuid4(), uuid.uuid4()]
         user_service.list_bookmarks.return_value = bookmarks
-        response = await client.login(namespace.owner.id).get(self.url)
+        # WHEN
+        client.mock_user(user)
+        response = await client.get(self.url)
+        # THEN
         assert response.json()["items"] == [str(bookmark) for bookmark in bookmarks]
         assert response.status_code == 200
 
     async def test_when_no_bookmarks(
-        self, client: TestClient, namespace: Namespace, user_service: MagicMock
+        self, client: TestClient, user: User, user_service: MagicMock
     ):
+        # GIVEN
         user_service.list_bookmarks.return_value = []
-        response = await client.login(namespace.owner.id).get("/users/bookmarks/list")
+        # WHEN
+        client.mock_user(user)
+        response = await client.get("/users/bookmarks/list")
+        # THEN
         assert response.json() == {"items": []}
         assert response.status_code == 200
 
@@ -86,12 +95,15 @@ class TestRemoveBookmark:
     url = "/users/bookmarks/remove"
 
     async def test_remove_bookmark(
-        self, client: TestClient, namespace: Namespace, user_service: MagicMock,
+        self, client: TestClient, user: User, user_service: MagicMock,
     ):
-        user_id = str(namespace.owner.id)
+        # GIVEN
         file_id = uuid.uuid4()
         payload = {"id": str(file_id)}
-        response = await client.login(user_id).post(self.url, json=payload)
+        # WHEN
+        client.mock_user(user)
+        response = await client.post(self.url, json=payload)
+        # THEN
         assert response.json() is None
         assert response.status_code == 200
-        user_service.remove_bookmark.assert_awaited_once_with(user_id, file_id)
+        user_service.remove_bookmark.assert_awaited_once_with(user.id, file_id)

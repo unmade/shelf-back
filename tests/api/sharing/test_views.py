@@ -16,8 +16,8 @@ from app.domain.entities import File, SharedLink
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
-    from app.entities import Namespace
-    from tests.conftest import TestClient
+    from app.domain.entities import Namespace
+    from tests.api.conftest import TestClient
 
 pytestmark = [pytest.mark.asyncio]
 
@@ -44,7 +44,6 @@ def _make_sharing_link() -> SharedLink:
 class TestCreateSharedLink:
     url = "/sharing/create_shared_link"
 
-    @pytest.mark.database(transaction=True)
     async def test(
         self,
         client: TestClient,
@@ -56,14 +55,13 @@ class TestCreateSharedLink:
         sharing_manager.create_link.return_value = _make_sharing_link()
         payload = {"path": "f.txt"}
         # WHEN
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
         assert "token" in response.json()
         assert response.status_code == 200
         sharing_manager.create_link.assert_awaited_once_with(ns_path, "f.txt")
 
-    @pytest.mark.database(transaction=True)
     async def test_when_file_not_found(
         self, client: TestClient, namespace: Namespace, sharing_manager: MagicMock
     ):
@@ -71,7 +69,7 @@ class TestCreateSharedLink:
         sharing_manager.create_link.side_effect = errors.FileNotFound
         payload = {"path": "im.jpeg"}
         # WHEN
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
         assert response.json() == PathNotFound(path="im.jpeg").as_dict()
@@ -81,7 +79,6 @@ class TestCreateSharedLink:
 class TestGetSharedLink:
     url = "/sharing/get_shared_link"
 
-    @pytest.mark.database(transaction=True)
     async def test(
         self,
         client: TestClient,
@@ -93,14 +90,13 @@ class TestGetSharedLink:
         sharing_manager.get_link.return_value = _make_sharing_link()
         payload = {"path": "f.txt"}
         # WHEN
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
         assert "token" in response.json()
         assert response.status_code == 200
         sharing_manager.get_link.assert_awaited_once_with(ns_path, "f.txt")
 
-    @pytest.mark.database(transaction=True)
     async def test_when_link_not_found(
         self, client: TestClient, namespace: Namespace, sharing_manager: MagicMock
     ):
@@ -108,13 +104,12 @@ class TestGetSharedLink:
         sharing_manager.get_link.side_effect = errors.FileNotFound
         payload = {"path": "im.jpeg"}
         # WHEN
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
         assert response.json() == SharedLinkNotFound().as_dict()
         assert response.status_code == 404
 
-    @pytest.mark.database(transaction=True)
     async def test_when_file_not_found(
         self, client: TestClient, namespace: Namespace, sharing_manager: MagicMock
     ):
@@ -122,7 +117,7 @@ class TestGetSharedLink:
         sharing_manager.get_link.side_effect = errors.SharedLinkNotFound
         payload = {"path": "im.jpeg"}
         # WHEN
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
         assert response.json() == SharedLinkNotFound().as_dict()
@@ -246,7 +241,6 @@ class TestGetSharedLinkThumbnail:
 
 
 class TestRevokeSharedLink:
-    @pytest.mark.database(transaction=True)
     async def test(
         self,
         client: TestClient,
@@ -257,7 +251,7 @@ class TestRevokeSharedLink:
         token, filename = "link-token", "f.txt"
         # WHEN
         payload = {"token": token, "filename": filename}
-        client.login(namespace.owner.id)
+        client.mock_namespace(namespace)
         # THEN
         response = await client.post("/sharing/revoke_shared_link", json=payload)
         assert response.status_code == 200

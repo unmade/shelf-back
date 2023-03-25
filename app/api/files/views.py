@@ -9,7 +9,7 @@ from fastapi.responses import ORJSONResponse, Response, StreamingResponse
 
 from app import errors, mediatypes, tasks
 from app.api import deps, shortcuts
-from app.entities import Namespace, User
+from app.domain.entities import Namespace
 from app.infrastructure.provider import Manager
 
 from . import exceptions
@@ -78,7 +78,7 @@ def delete_immediately_batch(
 def delete_immediately_check(
     request: Request,
     payload: AsyncTaskID,
-    _: User = Depends(deps.current_user),
+    _: Namespace = Depends(deps.namespace),
 ) -> DeleteImmediatelyBatchCheckResponse:
     response_model = DeleteImmediatelyBatchCheckResponse
     task = tasks.celery_app.AsyncResult(str(payload.async_task_id))
@@ -172,7 +172,7 @@ def empty_trash(
 @router.post("/empty_trash/check")
 def empty_trash_check(
     payload: AsyncTaskID,
-    _: User = Depends(deps.current_user),
+    _: Namespace = Depends(deps.namespace),
 ) -> EmptyTrashCheckResponse:
     """Return empty_trash status."""
     response_model = EmptyTrashCheckResponse
@@ -343,7 +343,7 @@ def move_batch(
 def move_batch_check(
     request: Request,
     payload: AsyncTaskID,
-    _: User = Depends(deps.current_user),
+    _: Namespace = Depends(deps.namespace),
 ) -> MoveBatchCheckResponse:
     """Return move_batch status and a list of results."""
     response_model = MoveBatchCheckResponse

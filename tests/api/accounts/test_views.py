@@ -7,11 +7,10 @@ import pytest
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
-    from app.domain.entities import Account
-    from app.entities import User
-    from tests.conftest import TestClient
+    from app.domain.entities import Account, User
+    from tests.api.conftest import TestClient
 
-pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
+pytestmark = [pytest.mark.asyncio]
 
 
 class TestGetCurrent:
@@ -22,8 +21,12 @@ class TestGetCurrent:
         user: User,
         user_service: MagicMock,
     ):
+        # GIVEN
         user_service.get_account.return_value = account
-        response = await client.login(user.id).get("/accounts/get_current")
+        # WHEN
+        client.mock_user(user)
+        response = await client.get("/accounts/get_current")
+        # THEN
         data = response.json()
         assert data["username"] == account.username
         assert data["email"] == account.email
@@ -42,11 +45,14 @@ class TestGetSpaceUsage:
         ns_service: MagicMock,
         user_service: MagicMock,
     ):
-        user_id = str(user.id)
+        # GIVEN
         user_service.get_account.return_value = account
         ns_service.get_space_used_by_owner_id.return_value = 256
-        response = await client.login(user_id).get("/accounts/get_space_usage")
+        # WHEN
+        client.mock_user(user)
+        response = await client.get("/accounts/get_space_usage")
+        # THEN
         assert response.json() == {"quota": account.storage_quota, "used": 256}
         assert response.status_code == 200
-        user_service.get_account.assert_awaited_once_with(user_id)
-        ns_service.get_space_used_by_owner_id.assert_awaited_once_with(user_id)
+        user_service.get_account.assert_awaited_once_with(user.id)
+        ns_service.get_space_used_by_owner_id.assert_awaited_once_with(user.id)
