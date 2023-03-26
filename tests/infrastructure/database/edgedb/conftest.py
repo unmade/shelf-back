@@ -33,7 +33,7 @@ if TYPE_CHECKING:
         INamespaceRepository,
         ISharedLinkRepository,
     )
-    from app.app.repositories import IAccountRepository, IUserRepository
+    from app.app.users.repositories import IAccountRepository, IUserRepository
     from app.infrastructure.database.edgedb.typedefs import EdgeDBTransaction
 
     class FileFactory(Protocol):

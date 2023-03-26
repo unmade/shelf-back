@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING
 
 import edgedb
 
-from app.app.repositories import IUserRepository
 from app.app.users.domain import User
+from app.app.users.repositories import IUserRepository
 
 if TYPE_CHECKING:
     from uuid import UUID

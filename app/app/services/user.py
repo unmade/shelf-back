@@ -5,8 +5,8 @@ from uuid import UUID
 
 from app import security
 from app.app.infrastructure.database import IDatabase
-from app.app.repositories import IAccountRepository, IUserRepository
 from app.app.users.domain import SENTINEL_ID, Account, User
+from app.app.users.repositories import IAccountRepository, IUserRepository
 
 if TYPE_CHECKING:
     from app.typedefs import StrOrUUID

@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from app.app.files.domain import File
-    from app.app.repositories import IUserRepository
+    from app.app.users.repositories import IUserRepository
     from app.infrastructure.database.edgedb.repositories import UserRepository
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn
     from app.typedefs import StrOrUUID

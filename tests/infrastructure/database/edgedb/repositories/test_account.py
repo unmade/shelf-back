@@ -10,7 +10,7 @@ from dateutil import tz
 from app.app.users.domain import SENTINEL_ID, Account, User
 
 if TYPE_CHECKING:
-    from app.app.repositories import IAccountRepository
+    from app.app.users.repositories import IAccountRepository
 
 pytestmark = [pytest.mark.asyncio]
 

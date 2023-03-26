@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING
 
 import edgedb
 
-from app.app.repositories import IAccountRepository
 from app.app.users.domain import Account, User
+from app.app.users.repositories import IAccountRepository
 
 if TYPE_CHECKING:
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext

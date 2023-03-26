@@ -14,7 +14,7 @@ from app.app.files.repositories import (
     ISharedLinkRepository,
 )
 from app.app.infrastructure import IDatabase
-from app.app.repositories import IAccountRepository, IUserRepository
+from app.app.users.repositories import IAccountRepository, IUserRepository
 
 from .repositories import (
     AccountRepository,
