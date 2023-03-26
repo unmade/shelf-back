@@ -9,6 +9,20 @@ if TYPE_CHECKING:
 
 
 class INamespaceRepository(Protocol):
+    async def get_by_owner_id(self, owner_id: StrOrUUID) -> Namespace:
+        """
+        Returns a namespace with a given owner ID.
+
+        Args:
+            owner_id (StrOrUUID): Namespace owner ID.
+
+        Raises:
+            errors.NamespaceNotFound: If namespace with a given owner ID does not exist.
+
+        Returns:
+            Namespace: A namespace with a target owner ID.
+        """
+
     async def get_by_path(self, path: StrOrPath) -> Namespace:
         """
         Returns namespace with a target path.

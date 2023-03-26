@@ -68,6 +68,17 @@ class TestAddBookmark:
         assert len(bookmarks) == 0
 
 
+class TestGetByID:
+    async def test(self, user: User, user_repo: UserRepository):
+        retrieved_user = await user_repo.get_by_id(user.id)
+        assert retrieved_user == user
+
+    async def test_when_user_does_not_exist(self, user_repo: UserRepository):
+        user_id = uuid.uuid4()
+        with pytest.raises(errors.UserNotFound):
+            await user_repo.get_by_id(user_id)
+
+
 class TestGetByUsername:
     async def test(self, user: User, user_repo: UserRepository):
         retrieved_user = await user_repo.get_by_username(user.username)

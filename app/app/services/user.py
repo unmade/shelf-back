@@ -104,6 +104,21 @@ class UserService:
         """
         return await self.db.account.get_by_user_id(user_id)
 
+    async def get_by_id(self, user_id: StrOrUUID) -> User:
+        """
+        Returns a user with a given user ID.
+
+        Args:
+            user_id (StrOrUUID): User ID to search for.
+
+        Raises:
+            UserNotFound: If user with a target user ID does not exist.
+
+        Returns:
+            User: a User instance.
+        """
+        return await self.db.user.get_by_id(user_id)
+
     async def list_bookmarks(self, user_id: StrOrUUID) -> list[UUID]:
         """
         Lists bookmarks for a given user ID.

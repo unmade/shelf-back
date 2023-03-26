@@ -4,9 +4,8 @@ from edgedb import AsyncIOClient
 from fastapi import Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 
-from app import crud, errors
-from app.domain.entities import Namespace
-from app.entities import User
+from app import errors
+from app.domain.entities import Namespace, User
 from app.infrastructure.provider import Manager, Service, UseCase
 from app.tokens import AccessTokenPayload, InvalidToken
 
@@ -14,63 +13,10 @@ from . import exceptions
 
 __all__ = [
     "current_user",
-    "current_user_id",
-    "db_client",
-    "superuser",
+    "namespace",
 ]
 
 reusable_oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/sign_in", auto_error=False)
-
-
-async def db_client(request: Request) -> AsyncIOClient:
-    return request.app.state.db_client  # type: ignore[no-any-return]
-
-
-def token_payload(token: str | None = Depends(reusable_oauth2)) -> AccessTokenPayload:
-    """Return payload from authentication token."""
-    if token is None:
-        raise exceptions.MissingToken() from None
-
-    try:
-        return AccessTokenPayload.decode(token)
-    except InvalidToken as exc:
-        raise exceptions.InvalidToken() from exc
-
-
-async def current_user_id(
-    db_client: AsyncIOClient = Depends(db_client),
-    payload: AccessTokenPayload = Depends(token_payload),
-) -> str:
-    """Get user_id from a token payload."""
-    if not await crud.user.exists(db_client, user_id=payload.sub):
-        raise exceptions.UserNotFound()
-    return payload.sub
-
-
-async def current_user(
-    db_client: AsyncIOClient = Depends(db_client),
-    payload: AccessTokenPayload = Depends(token_payload),
-) -> User:
-    """Get user from a token payload."""
-    try:
-        return await crud.user.get_by_id(db_client, user_id=payload.sub)
-    except errors.UserNotFound as exc:
-        raise exceptions.UserNotFound() from exc
-
-
-async def namespace(
-    db_client: AsyncIOClient = Depends(db_client),
-    user_id: str = Depends(current_user_id),
-) -> Namespace:
-    # If namespace is not found, we should fail, so don't catch NamespaceNotFound here.
-    # We should fail because the system is in the inconsistent state - user exists,
-    # but doesn't have a namespace
-    ns = await crud.namespace.get_by_owner(db_client, user_id)
-    return Namespace(id=ns.id, path=str(ns.path), owner_id=ns.owner.id)
-
-
-async def usecases(request: Request) -> UseCase:
-    return request.app.state.provider.usecase  # type: ignore[no-any-return]
 
 
 async def services(request: Request) -> Service:
@@ -81,8 +27,42 @@ async def managers(request: Request) -> Manager:
     return request.app.state.provider.manager  # type: ignore[no-any-return]
 
 
-async def superuser(user: User = Depends(current_user)) -> User:
-    """Get superuser from a token payload."""
-    if not user.superuser:
-        raise exceptions.PermissionDenied()
-    return user
+async def usecases(request: Request) -> UseCase:
+    return request.app.state.provider.usecase  # type: ignore[no-any-return]
+
+
+async def db_client(request: Request) -> AsyncIOClient:
+    return request.app.state.db_client  # type: ignore[no-any-return]
+
+
+def token_payload(token: str | None = Depends(reusable_oauth2)) -> AccessTokenPayload:
+    """Returns payload from authentication token."""
+    if token is None:
+        raise exceptions.MissingToken() from None
+
+    try:
+        return AccessTokenPayload.decode(token)
+    except InvalidToken as exc:
+        raise exceptions.InvalidToken() from exc
+
+
+async def current_user(
+    payload: AccessTokenPayload = Depends(token_payload),
+    services: Service = Depends(services),
+) -> User:
+    """Returns user from a token payload."""
+    try:
+        return await services.user.get_by_id(payload.sub)
+    except errors.UserNotFound as exc:
+        raise exceptions.UserNotFound() from exc
+
+
+async def namespace(
+    user: User = Depends(current_user),
+    services: Service = Depends(services),
+) -> Namespace:
+    """Returns a namespace for a user from a token payload."""
+    # If namespace is not found, we should fail, so don't catch NamespaceNotFound here.
+    # We should fail because the system is in the inconsistent state - user exists,
+    # but doesn't have a namespace
+    return await services.namespace.get_by_owner_id(user.id)

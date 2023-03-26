@@ -40,13 +40,9 @@ class TestClient(AsyncClient):
         return self
 
     def mock_user(self, user: User):
-        async def get_current_user_id():
-            return user.id
-
         async def get_current_user():
             return user
 
-        self.app.dependency_overrides[deps.current_user_id] = get_current_user_id
         self.app.dependency_overrides[deps.current_user] = get_current_user
         return self
 

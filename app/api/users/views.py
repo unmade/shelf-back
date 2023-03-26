@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from app.api import deps
-from app.domain.entities import Namespace
+from app.domain.entities import Namespace, User
 from app.infrastructure.provider import Manager, Service
 
 from . import exceptions
@@ -27,19 +27,19 @@ async def add_bookmark(
 
 @router.get("/bookmarks/list")
 async def list_bookmarks(
-    user_id: str = Depends(deps.current_user_id),
+    user: User = Depends(deps.current_user),
     services: Service = Depends(deps.services),
 ) -> ListBookmarksResponse:
     """List user bookmarks."""
-    bookmarks = await services.user.list_bookmarks(user_id)
+    bookmarks = await services.user.list_bookmarks(user.id)
     return ListBookmarksResponse(items=bookmarks)
 
 
 @router.post("/bookmarks/remove")
 async def remove_bookmark(
     payload: IDRequest,
-    user_id: str = Depends(deps.current_user_id),
+    user: User = Depends(deps.current_user),
     services: Service = Depends(deps.services),
 ) -> None:
     """Remove a file from user bookmarks."""
-    await services.user.remove_bookmark(user_id, payload.id)
+    await services.user.remove_bookmark(user.id, payload.id)

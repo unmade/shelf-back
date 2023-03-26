@@ -43,6 +43,21 @@ class NamespaceService:
             Namespace(id=SENTINEL_ID, path=str(path), owner_id=owner_id)
         )
 
+    async def get_by_owner_id(self, owner_id: StrOrUUID) -> Namespace:
+        """
+        Returns a namespace with a given owner ID.
+
+        Args:
+            owner_id (StrOrUUID): Namespace owner ID.
+
+        Raises:
+            errors.NamespaceNotFound: If namespace with a given owner ID does not exist.
+
+        Returns:
+            Namespace: A namespace with a target owner ID.
+        """
+        return await self.db.namespace.get_by_owner_id(owner_id)
+
     async def get_by_path(self, path: str) -> Namespace:
         """
         Returns namespace with a target path.
@@ -51,7 +66,7 @@ class NamespaceService:
             path (StrOrPath): Namespace path.
 
         Raises:
-            errors.NamespaceNotFound: If namespace with a target path does not exists.
+            errors.NamespaceNotFound: If namespace with a target path does not exist.
 
         Returns:
             Namespace: Namespace with a target path.

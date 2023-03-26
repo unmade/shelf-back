@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os.path
+import uuid
 from typing import TYPE_CHECKING
 
 import pytest
@@ -20,6 +21,17 @@ pytestmark = [pytest.mark.asyncio]
 
 def _make_namespace(path: str, owner_id: UUID) -> Namespace:
     return Namespace(id=SENTINEL_ID, path=path, owner_id=owner_id)
+
+
+class TestGetByOwnerID:
+    async def test(self, namespace_repo: INamespaceRepository, namespace: Namespace):
+        retrieved_ns = await namespace_repo.get_by_owner_id(namespace.owner_id)
+        assert retrieved_ns == namespace
+
+    async def test_when_does_not_exist(self, namespace_repo: INamespaceRepository):
+        owner_id = uuid.uuid4()
+        with pytest.raises(errors.NamespaceNotFound):
+            await namespace_repo.get_by_owner_id(owner_id)
 
 
 class TestGetByPath:

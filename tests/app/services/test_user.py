@@ -82,6 +82,12 @@ class TestCreate:
         assert security.verify_password(given["password"], user.password)
 
 
+class TestGetByID:
+    async def test(self, user: User, user_service: UserService):
+        retrieved_user = await user_service.get_by_id(user.id)
+        assert retrieved_user == user
+
+
 class TestListBookmarks:
     async def test(self, user: User, file: File, user_service: UserService):
         await user_service.db.user.add_bookmark(user.id, file.id)

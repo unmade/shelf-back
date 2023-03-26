@@ -31,6 +31,23 @@ class NamespaceRepository(INamespaceRepository):
     def conn(self) -> EdgeDBAnyConn:
         return self.db_context.get()
 
+    async def get_by_owner_id(self, owner_id: StrOrUUID) -> Namespace:
+        query = """
+            SELECT
+                Namespace {
+                    id, path, owner: { id }
+                }
+            FILTER
+                .owner.id = <uuid>$owner_id
+            LIMIT 1
+        """
+        try:
+            obj = await self.conn.query_required_single(query, owner_id=owner_id)
+        except edgedb.NoDataError as exc:
+            msg = f"Namespace with owner_id={owner_id} does not exists"
+            raise errors.NamespaceNotFound(msg) from exc
+        return _from_db(obj)
+
     async def get_by_path(self, path: StrOrPath) -> Namespace:
         query = """
             SELECT

@@ -43,6 +43,18 @@ class TestCreate:
         )
 
 
+class TestGetByOwnerID:
+    async def test(self, ns_service: NamespaceService):
+        # GIVEN
+        owner_id = uuid.uuid4()
+        db = cast(mock.MagicMock, ns_service.db)
+        # WHEN
+        result = await ns_service.get_by_owner_id(owner_id)
+        # THEN
+        assert result == db.namespace.get_by_owner_id.return_value
+        db.namespace.get_by_owner_id.assert_awaited_once_with(owner_id)
+
+
 class TestGetByPath:
     async def test(self, ns_service: NamespaceService):
         # GIVEN

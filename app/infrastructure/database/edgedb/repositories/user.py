@@ -17,6 +17,15 @@ if TYPE_CHECKING:
 __all__ = ["UserRepository"]
 
 
+def _from_db(obj) -> User:
+    return User.construct(
+        id=obj.id,
+        username=obj.username,
+        password=obj.password,
+        superuser=obj.superuser,
+    )
+
+
 class UserRepository(IUserRepository):
     def __init__(self, db_context: EdgeDBContext):
         self.db_context = db_context
@@ -61,12 +70,20 @@ class UserRepository(IUserRepository):
             obj = await self.conn.query_required_single(query, username=username)
         except edgedb.NoDataError as exc:
             raise errors.UserNotFound() from exc
-        return User.construct(
-            id=obj.id,
-            username=obj.username,
-            password=obj.password,
-            superuser=obj.superuser,
-        )
+        return _from_db(obj)
+
+    async def get_by_id(self, user_id: StrOrUUID) -> User:
+        query = """
+            SELECT
+                User { id, username, password, superuser }
+            FILTER
+                .id = <uuid>$user_id
+        """
+        try:
+            obj = await self.conn.query_required_single(query, user_id=user_id)
+        except edgedb.NoDataError as exc:
+            raise errors.UserNotFound() from exc
+        return _from_db(obj)
 
     async def list_bookmarks(self, user_id: StrOrUUID) -> list[UUID]:
         query = """
