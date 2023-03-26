@@ -5,8 +5,8 @@ from unittest import mock
 import pytest
 
 from app.app.managers import NamespaceManager
-from app.app.services import UserService
 from app.app.usecases import SignUp
+from app.app.users.services import UserService
 
 pytestmark = [pytest.mark.asyncio]
 

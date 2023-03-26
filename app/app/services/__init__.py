@@ -3,7 +3,6 @@ from .filecore import FileCoreService
 from .metadata import MetadataService
 from .namespace import NamespaceService
 from .sharing import SharingService
-from .user import UserService
 
 __all__ = [
     "DuplicateFinderService",
@@ -11,5 +10,4 @@ __all__ = [
     "MetadataService",
     "NamespaceService",
     "SharingService",
-    "UserService",
 ]

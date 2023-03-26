@@ -11,8 +11,8 @@ from app.app.services import (
     MetadataService,
     NamespaceService,
     SharingService,
-    UserService,
 )
+from app.app.users.services import UserService
 
 
 @pytest.fixture

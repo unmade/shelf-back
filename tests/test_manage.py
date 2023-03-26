@@ -35,7 +35,7 @@ class TestCreateSuperuser:
 
     @pytest.fixture
     def create_user(self):
-        target = "app.app.services.UserService.create"
+        target = "app.app.users.services.UserService.create"
         with mock.patch(target) as patch:
             yield patch
 

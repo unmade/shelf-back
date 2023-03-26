@@ -16,8 +16,8 @@ if TYPE_CHECKING:
         FileCoreService,
         MetadataService,
         NamespaceService,
-        UserService,
     )
+    from app.app.users.services import UserService
     from app.typedefs import StrOrPath
 
 __all__ = ["NamespaceManager"]

@@ -19,8 +19,8 @@ from app.app.services import (
     MetadataService,
     NamespaceService,
     SharingService,
-    UserService,
 )
+from app.app.users.services import UserService
 from app.infrastructure.database.edgedb import EdgeDBDatabase
 from app.infrastructure.database.edgedb.db import db_context
 from app.infrastructure.storage import FileSystemStorage
@@ -142,8 +142,10 @@ def sharing_service():
 
 
 @pytest.fixture
-def user_service(_db_or_tx: EdgeDBDatabase) -> UserService:
+def user_service(_db_or_tx: EdgeDBDatabase):
     """A user service instance."""
+    from app.app.users.services import UserService
+
     return UserService(database=_db_or_tx)
 
 

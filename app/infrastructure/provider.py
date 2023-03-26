@@ -9,9 +9,9 @@ from app.app.services import (
     MetadataService,
     NamespaceService,
     SharingService,
-    UserService,
 )
 from app.app.usecases import SignUp
+from app.app.users.services import UserService
 
 if TYPE_CHECKING:
     from app.app.infrastructure.storage import IStorage
