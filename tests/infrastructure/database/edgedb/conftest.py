@@ -16,7 +16,7 @@ from app.app.files.domain import (
     Namespace,
     SharedLink,
 )
-from app.domain.entities import (
+from app.app.users.domain import (
     Account,
     User,
 )

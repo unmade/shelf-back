@@ -5,10 +5,10 @@ from unittest import mock
 
 import pytest
 
-from app import errors, timezone
+from app import timezone
 from app.api import deps, exceptions
 from app.app.services import NamespaceService, UserService
-from app.domain.entities import User
+from app.app.users.domain import User
 from app.tokens import AccessTokenPayload, InvalidToken
 
 if TYPE_CHECKING:
@@ -37,7 +37,7 @@ class TestCurrentUser:
         self, payload: AccessTokenPayload, services: MagicMock
     ):
         # GIVEN
-        services.user.get_by_id.side_effect = errors.UserNotFound
+        services.user.get_by_id.side_effect = User.NotFound
         # WHEN/THEN
         with pytest.raises(exceptions.UserNotFound):
             await deps.current_user(payload=payload, services=services)

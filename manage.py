@@ -6,7 +6,8 @@ from pathlib import Path
 import typer
 import uvloop
 
-from app import config, db, errors
+from app import config, db
+from app.app.users.domain import User
 from app.infrastructure.database.edgedb.db import EdgeDBDatabase
 from app.infrastructure.provider import Provider
 from app.infrastructure.storage import FileSystemStorage, S3Storage
@@ -66,7 +67,7 @@ def createsuperuser(
             services = provider.service
             try:
                 user = await services.user.create(username, password, superuser=True)
-            except errors.UserAlreadyExists:
+            except User.AlreadyExists:
                 if not exist_ok:
                     raise
                 typer.echo("User already exists, skipping...")

@@ -6,7 +6,7 @@ from unittest import mock
 import pytest
 from typer.testing import CliRunner
 
-from app import errors
+from app.app.users.domain import User
 from manage import cli
 
 if TYPE_CHECKING:
@@ -52,7 +52,7 @@ class TestCreateSuperuser:
     def test_when_user_already_exists(
         self, create_namespace: MagicMock, create_user: MagicMock
     ):
-        create_user.side_effect = errors.UserAlreadyExists("Username is taken")
+        create_user.side_effect = User.AlreadyExists("Username is taken")
         params = ["john", "password", "password"]
         result = runner.invoke(cli, "createsuperuser", input="\n".join(params))
         assert result.exit_code == 1
@@ -61,7 +61,7 @@ class TestCreateSuperuser:
         create_namespace.assert_not_awaited()
 
     def test_exists_ok_flag(self, create_namespace: MagicMock, create_user: MagicMock):
-        create_user.side_effect = errors.UserAlreadyExists("Username is taken")
+        create_user.side_effect = User.AlreadyExists("Username is taken")
         input_ = "\n".join(["john", "password", "password"])
         result = runner.invoke(cli, "createsuperuser --exist-ok", input=input_)
         assert result.exit_code == 0

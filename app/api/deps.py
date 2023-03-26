@@ -4,9 +4,8 @@ from edgedb import AsyncIOClient
 from fastapi import Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 
-from app import errors
 from app.app.files.domain import Namespace
-from app.domain.entities import User
+from app.app.users.domain import User
 from app.infrastructure.provider import Manager, Service, UseCase
 from app.tokens import AccessTokenPayload, InvalidToken
 
@@ -54,7 +53,7 @@ async def current_user(
     """Returns user from a token payload."""
     try:
         return await services.user.get_by_id(payload.sub)
-    except errors.UserNotFound as exc:
+    except User.NotFound as exc:
         raise exceptions.UserNotFound() from exc
 
 

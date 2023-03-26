@@ -5,9 +5,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from app import errors
 from app.app.files.domain import SENTINEL_ID, Namespace
-from app.domain.entities import User
+from app.app.users.domain import User
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -57,7 +56,7 @@ class TestAddBookmark:
         self, file: File, user_repo: UserRepository
     ):
         user_id = uuid.uuid4()
-        with pytest.raises(errors.UserNotFound):
+        with pytest.raises(User.NotFound):
             await user_repo.add_bookmark(user_id, file.id)
 
     async def test_when_file_does_not_exist(
@@ -76,7 +75,7 @@ class TestGetByID:
 
     async def test_when_user_does_not_exist(self, user_repo: UserRepository):
         user_id = uuid.uuid4()
-        with pytest.raises(errors.UserNotFound):
+        with pytest.raises(User.NotFound):
             await user_repo.get_by_id(user_id)
 
 
@@ -87,7 +86,7 @@ class TestGetByUsername:
 
     async def test_when_user_does_not_exist(self, user_repo: UserRepository):
         username = "admin"
-        with pytest.raises(errors.UserNotFound):
+        with pytest.raises(User.NotFound):
             await user_repo.get_by_username(username)
 
 
@@ -109,7 +108,7 @@ class TestListBookmarks:
 
     async def test_when_user_does_not_exist(self, user_repo: UserRepository):
         user_id = uuid.uuid4()
-        with pytest.raises(errors.UserNotFound):
+        with pytest.raises(User.NotFound):
             await user_repo.list_bookmarks(user_id)
 
 
@@ -139,7 +138,7 @@ class TestRemoveBookmark:
 
     async def test_when_user_does_not_exist(self, user_repo: UserRepository):
         user_id, file_id = uuid.uuid4(), uuid.uuid4()
-        with pytest.raises(errors.UserNotFound):
+        with pytest.raises(User.NotFound):
             await user_repo.remove_bookmark(user_id, file_id)
 
 
@@ -156,7 +155,7 @@ class TestSave:
         user = User(id=SENTINEL_ID, username="admin", password="psswd")
         await user_repo.save(user)
 
-        with pytest.raises(errors.UserAlreadyExists) as excinfo:
+        with pytest.raises(User.AlreadyExists) as excinfo:
             await user_repo.save(user)
 
         assert str(excinfo.value) == "Username 'admin' is taken"

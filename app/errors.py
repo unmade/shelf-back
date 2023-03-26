@@ -31,11 +31,3 @@ class StorageQuotaExceeded(Error):
 
 class ThumbnailUnavailable(Exception):
     pass
-
-
-class UserNotFound(Exception):
-    pass
-
-
-class UserAlreadyExists(Exception):
-    pass

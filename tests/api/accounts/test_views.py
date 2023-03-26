@@ -7,7 +7,7 @@ import pytest
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
-    from app.domain.entities import Account, User
+    from app.app.users.domain import Account, User
     from tests.api.conftest import TestClient
 
 pytestmark = [pytest.mark.asyncio]

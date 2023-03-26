@@ -12,7 +12,7 @@ import pytest
 
 from app import errors
 from app.app.files.domain import File, Fingerprint
-from app.domain.entities import Account
+from app.app.users.domain import Account
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock

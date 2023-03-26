@@ -5,20 +5,20 @@ from unittest import mock
 
 import pytest
 
-from app import config, errors, tokens
+from app import config, tokens
 from app.api.auth.exceptions import (
     InvalidCredentials,
     SignUpDisabled,
     UserAlreadyExists,
 )
 from app.api.exceptions import InvalidToken
+from app.app.users.domain import User
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
     from fastapi import FastAPI
 
-    from app.domain.entities import User
     from tests.api.conftest import TestClient
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
@@ -108,7 +108,7 @@ class TestSignUp:
             "password": "Password1",
             "confirm_password": "Password1",
         }
-        signup.side_effect = errors.UserAlreadyExists("Username 'johndoe' is taken")
+        signup.side_effect = User.AlreadyExists("Username 'johndoe' is taken")
         response = await client.post("/auth/sign_up", json=payload)
         message = str(signup.side_effect)
         assert response.json() == UserAlreadyExists(message).as_dict()

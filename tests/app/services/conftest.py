@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 
     from app.app.files.domain import File, Namespace
     from app.app.infrastructure import IStorage
-    from app.domain.entities import User
+    from app.app.users.domain import User
     from app.infrastructure.database.edgedb.typedefs import EdgeDBTransaction
     from app.typedefs import StrOrUUID
 

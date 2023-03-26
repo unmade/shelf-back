@@ -6,7 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 if TYPE_CHECKING:
-    from app.domain.entities import Account
+    from app.app.users.domain import Account
 
 
 class AccountSchema(BaseModel):

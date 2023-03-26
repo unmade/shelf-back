@@ -7,7 +7,7 @@ from unittest import mock
 import pytest
 
 from app import security
-from app.domain.entities import Account, User
+from app.app.users.domain import Account, User
 
 if TYPE_CHECKING:
     from app.app.files.domain import File

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from app.app.managers import NamespaceManager
     from app.app.services import UserService
-    from app.domain.entities import User
+    from app.app.users.domain import User
 
 __all__ = ["SignUp"]
 

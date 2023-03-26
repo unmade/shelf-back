@@ -4,9 +4,8 @@ from typing import TYPE_CHECKING
 
 import edgedb
 
-from app import errors
 from app.app.repositories import IAccountRepository
-from app.domain.entities import Account
+from app.app.users.domain import Account, User
 
 if TYPE_CHECKING:
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
@@ -38,7 +37,7 @@ class AccountRepository(IAccountRepository):
             obj = await self.conn.query_required_single(query, user_id=user_id)
         except edgedb.NoDataError as exc:
             message = f"No account for user with id: {user_id}"
-            raise errors.UserNotFound(message) from exc
+            raise User.NotFound(message) from exc
 
         return Account.construct(
             id=obj.id,
@@ -80,6 +79,6 @@ class AccountRepository(IAccountRepository):
                 created_at=account.created_at,
             )
         except edgedb.ConstraintViolationError as exc:
-            raise errors.UserAlreadyExists(f"Email '{account.email}' is taken") from exc
+            raise User.AlreadyExists(f"Email '{account.email}' is taken") from exc
 
         return account.copy(update={"id": obj.id})

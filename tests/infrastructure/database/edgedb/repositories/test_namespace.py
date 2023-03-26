@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from app.app.repositories import IFileRepository, INamespaceRepository
-    from app.domain.entities import User
+    from app.app.users.domain import User
 
 
 pytestmark = [pytest.mark.asyncio]

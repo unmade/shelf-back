@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol
 
-from app.domain.entities import User
+from app.app.users.domain import User
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -22,7 +22,7 @@ class IUserRepository(Protocol):
             file_id (StrOrUUID): Target file ID.
 
         Raises:
-            errors.UserNotFound: If User with a target user_id does not exists.
+            User.NotFound: If User with a target user_id does not exists.
         """
 
     async def get_by_username(self, username: str) -> User:
@@ -33,7 +33,7 @@ class IUserRepository(Protocol):
             username (str): User username.
 
         Raises:
-            errors.UserNotFound: If User with a target username does not exists.
+            User.NotFound: If User with a target username does not exists.
 
         Returns:
             User: a User instance.
@@ -47,7 +47,7 @@ class IUserRepository(Protocol):
             user_id (StrOrUUID): User ID to search for.
 
         Raises:
-            UserNotFound: If user with a target user ID does not exist.
+            User.NotFound: If user with a target user ID does not exist.
 
         Returns:
             User: a User instance.
@@ -61,7 +61,7 @@ class IUserRepository(Protocol):
             user_id (StrOrUUID): User ID to list bookmarks for.
 
         Raises:
-            errors.UserNotFound: If User with given ID does not exist.
+            User.NotFound: If User with given ID does not exist.
 
         Returns:
             list[UUID]: List of resource IDs bookmarked by user.
@@ -76,7 +76,7 @@ class IUserRepository(Protocol):
             file_id (StrOrUUID): Target file ID.
 
         Raises:
-            errors.UserNotFound: If User with a target user_id does not exists.
+            User.NotFound: If User with a target user_id does not exists.
         """
 
     async def save(self, user: User) -> User:
@@ -87,7 +87,7 @@ class IUserRepository(Protocol):
             user (User): a user instance to create.
 
         Raises:
-            UserAlreadyExists: If user with a target username already exists.
+            User.AlreadyExists: If user with a target username already exists.
 
         Returns:
             User: a freshly created user instance.

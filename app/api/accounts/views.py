@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from app.api import deps
-from app.domain.entities import User
+from app.app.users.domain import User
 from app.infrastructure.provider import Service
 
 from .schemas import (

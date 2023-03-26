@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol
 
-from app.domain.entities import Account
+from app.app.users.domain import Account
 
 if TYPE_CHECKING:
     from app.typedefs import StrOrUUID
@@ -17,7 +17,7 @@ class IAccountRepository(Protocol):
             user_id (StrOrUUID): User ID to return an account for.
 
         Raises:
-            errors.UserNotFound: If account for given user ID does not exists.
+            User.NotFound: If account for given user ID does not exists.
 
         Returns:
             Account: an Account instance.
@@ -31,7 +31,7 @@ class IAccountRepository(Protocol):
             account (Account): account instance to save.
 
         Raises:
-            errors.UserAlreadyExists: If email is already taken.
+            User.AlreadyExists: If email is already taken.
 
         Returns:
             Account: Created account.

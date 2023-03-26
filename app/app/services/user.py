@@ -3,10 +3,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol
 from uuid import UUID
 
-from app import errors, security
+from app import security
 from app.app.infrastructure.database import IDatabase
 from app.app.repositories import IAccountRepository, IUserRepository
-from app.domain.entities import SENTINEL_ID, Account, User
+from app.app.users.domain import SENTINEL_ID, Account, User
 
 if TYPE_CHECKING:
     from app.typedefs import StrOrUUID
@@ -32,7 +32,7 @@ class UserService:
             file_id (StrOrUUID): Target file ID.
 
         Raises:
-            errors.UserNotFound: If User with a target user_id does not exist.
+            User.NotFound: If User with a target user_id does not exist.
             File.NotFound: If File with a target file_id does not exist.
         """
         await self.db.user.add_bookmark(user_id=user_id, file_id=file_id)
@@ -97,7 +97,7 @@ class UserService:
             user_id (StrOrUUID): User ID to return an account for.
 
         Raises:
-            errors.UserNotFound: If account for given user ID does not exists.
+            User.NotFound: If account for given user ID does not exists.
 
         Returns:
             Account: an Account instance.
@@ -112,7 +112,7 @@ class UserService:
             user_id (StrOrUUID): User ID to search for.
 
         Raises:
-            UserNotFound: If user with a target user ID does not exist.
+            User.NotFound: If user with a target user ID does not exist.
 
         Returns:
             User: a User instance.
@@ -127,7 +127,7 @@ class UserService:
             user_id (str): User ID to list bookmarks for.
 
         Raises:
-            errors.UserNotFound: If User with given ID does not exist.
+            User.NotFound: If User with given ID does not exist.
 
         Returns:
             list[UUID]: List of resource IDs bookmarked by user.
@@ -143,7 +143,7 @@ class UserService:
             file_id (StrOrUUID): Target file ID.
 
         Raises:
-            errors.UserNotFound: If User with a target user_id does not exists.
+            User.NotFound: If User with a target user_id does not exists.
         """
         await self.db.user.remove_bookmark(user_id, file_id)
 
@@ -160,7 +160,7 @@ class UserService:
         """
         try:
             user = await self.db.user.get_by_username(username.lower().strip())
-        except errors.UserNotFound:
+        except User.NotFound:
             return None
         if not security.verify_password(password, user.password):
             return None

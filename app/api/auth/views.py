@@ -3,9 +3,10 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Header
 from fastapi.security import OAuth2PasswordRequestForm
 
-from app import config, errors, tokens
+from app import config, tokens
 from app.api import deps
 from app.api.exceptions import InvalidToken
+from app.app.users.domain import User
 from app.infrastructure.provider import Service, UseCase
 
 from . import exceptions
@@ -45,7 +46,7 @@ async def sign_up(
             payload.password,
             storage_quota=config.STORAGE_QUOTA,
         )
-    except errors.UserAlreadyExists as exc:
+    except User.AlreadyExists as exc:
         raise exceptions.UserAlreadyExists(str(exc)) from exc
 
     access_token, refresh_token = await tokens.create_tokens(str(user.id))

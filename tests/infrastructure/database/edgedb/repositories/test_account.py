@@ -7,8 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 from dateutil import tz
 
-from app import errors
-from app.domain.entities import SENTINEL_ID, Account, User
+from app.app.users.domain import SENTINEL_ID, Account, User
 
 if TYPE_CHECKING:
     from app.app.repositories import IAccountRepository
@@ -25,7 +24,7 @@ class TestGetByUserID:
 
     async def test_when_account_does_not_exist(self, account_repo: IAccountRepository):
         user_id = uuid.uuid4()
-        with pytest.raises(errors.UserNotFound):
+        with pytest.raises(User.NotFound):
             await account_repo.get_by_user_id(user_id)
 
 
@@ -55,6 +54,6 @@ class TestSave:
             last_name="Doe",
         )
         await account_repo.save(account)
-        with pytest.raises(errors.UserAlreadyExists) as excinfo:
+        with pytest.raises(User.AlreadyExists) as excinfo:
             await account_repo.save(account)
         assert str(excinfo.value) == "Email 'johndoe@example.com' is taken"

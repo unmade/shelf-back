@@ -4,9 +4,8 @@ from typing import TYPE_CHECKING
 
 import edgedb
 
-from app import errors
 from app.app.repositories import IUserRepository
-from app.domain.entities import User
+from app.app.users.domain import User
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -56,7 +55,7 @@ class UserRepository(IUserRepository):
                 query, user_id=user_id, file_id=file_id,
             )
         except edgedb.NoDataError as exc:
-            raise errors.UserNotFound(f"No user with id: '{user_id}'") from exc
+            raise User.NotFound(f"No user with id: '{user_id}'") from exc
 
     async def get_by_username(self, username: str) -> User:
         query = """
@@ -69,7 +68,7 @@ class UserRepository(IUserRepository):
         try:
             obj = await self.conn.query_required_single(query, username=username)
         except edgedb.NoDataError as exc:
-            raise errors.UserNotFound() from exc
+            raise User.NotFound() from exc
         return _from_db(obj)
 
     async def get_by_id(self, user_id: StrOrUUID) -> User:
@@ -82,7 +81,7 @@ class UserRepository(IUserRepository):
         try:
             obj = await self.conn.query_required_single(query, user_id=user_id)
         except edgedb.NoDataError as exc:
-            raise errors.UserNotFound() from exc
+            raise User.NotFound() from exc
         return _from_db(obj)
 
     async def list_bookmarks(self, user_id: StrOrUUID) -> list[UUID]:
@@ -96,7 +95,7 @@ class UserRepository(IUserRepository):
         try:
             user = await self.conn.query_required_single(query, user_id=user_id)
         except edgedb.NoDataError as exc:
-            raise errors.UserNotFound(f"No user with id: '{user_id}'") from exc
+            raise User.NotFound(f"No user with id: '{user_id}'") from exc
 
         return [entry.id for entry in user.bookmarks]
 
@@ -122,7 +121,7 @@ class UserRepository(IUserRepository):
                 query, user_id=user_id, file_id=file_id
             )
         except edgedb.NoDataError as exc:
-            raise errors.UserNotFound() from exc
+            raise User.NotFound() from exc
 
     async def save(self, user: User) -> User:
         query = """
@@ -144,6 +143,6 @@ class UserRepository(IUserRepository):
             )
         except edgedb.ConstraintViolationError as exc:
             message = f"Username '{user.username}' is taken"
-            raise errors.UserAlreadyExists(message) from exc
+            raise User.AlreadyExists(message) from exc
 
         return user.copy(update={"id": obj.id})
