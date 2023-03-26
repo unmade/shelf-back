@@ -11,7 +11,7 @@ from app.app.files.domain import SENTINEL_ID, SharedLink
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
-    from app.app.services import SharingService
+    from app.app.files.services import SharingService
 
 pytestmark = [pytest.mark.asyncio]
 

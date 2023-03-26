@@ -29,7 +29,7 @@ def setUp():
 class TestCreateSuperuser:
     @pytest.fixture
     def create_namespace(self):
-        target = "app.app.services.NamespaceService.create"
+        target = "app.app.files.services.NamespaceService.create"
         with mock.patch(target) as patch:
             yield patch
 

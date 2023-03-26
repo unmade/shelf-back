@@ -13,7 +13,7 @@ from app.app.files.repositories import (
     IFingerprintRepository,
     ISharedLinkRepository,
 )
-from app.app.services import (
+from app.app.files.services import (
     DuplicateFinderService,
     FileCoreService,
     MetadataService,

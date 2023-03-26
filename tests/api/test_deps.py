@@ -7,7 +7,7 @@ import pytest
 
 from app import timezone
 from app.api import deps, exceptions
-from app.app.services import NamespaceService
+from app.app.files.services import NamespaceService
 from app.app.users.domain import User
 from app.app.users.services import UserService
 from app.tokens import AccessTokenPayload, InvalidToken

@@ -7,12 +7,12 @@ from unittest import mock
 import pytest
 
 from app.app.files.domain import ContentMetadata
-from app.app.services.metadata import _Tracker
+from app.app.files.services.metadata import _Tracker
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
-    from app.app.services import MetadataService
+    from app.app.files.services import MetadataService
 
 pytestmark = [pytest.mark.asyncio]
 

@@ -9,7 +9,7 @@ import pytest
 from app.app.files.domain import SENTINEL_ID, Namespace
 
 if TYPE_CHECKING:
-    from app.app.services import NamespaceService
+    from app.app.files.services import NamespaceService
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
@@ -17,7 +17,7 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 @pytest.fixture
 def ns_service():
     from app.app.files.repositories import INamespaceRepository
-    from app.app.services import (
+    from app.app.files.services import (
         NamespaceService,
     )
 

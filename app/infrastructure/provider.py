@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from app.app.managers import NamespaceManager, SharingManager
-from app.app.services import (
+from app.app.files.services import (
     DuplicateFinderService,
     FileCoreService,
     MetadataService,
     NamespaceService,
     SharingService,
 )
+from app.app.managers import NamespaceManager, SharingManager
 from app.app.usecases import SignUp
 from app.app.users.services import UserService
 

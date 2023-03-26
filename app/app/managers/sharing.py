@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 from app.app.files.domain import File
-from app.app.services import FileCoreService, SharingService
+from app.app.files.services import FileCoreService, SharingService
 
 if TYPE_CHECKING:
     from app.app.files.domain import SharedLink

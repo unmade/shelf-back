@@ -4,14 +4,14 @@ from unittest import mock
 
 import pytest
 
-from app.app.managers import NamespaceManager, SharingManager
-from app.app.services import (
+from app.app.files.services import (
     DuplicateFinderService,
     FileCoreService,
     MetadataService,
     NamespaceService,
     SharingService,
 )
+from app.app.managers import NamespaceManager, SharingManager
 from app.app.users.services import UserService
 
 

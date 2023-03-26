@@ -10,13 +10,13 @@ from app.app.files.domain import File
 
 if TYPE_CHECKING:
     from app.app.files.domain import ContentMetadata, Namespace
-    from app.app.infrastructure.storage import ContentReader
-    from app.app.services import (
+    from app.app.files.services import (
         DuplicateFinderService,
         FileCoreService,
         MetadataService,
         NamespaceService,
     )
+    from app.app.infrastructure.storage import ContentReader
     from app.app.users.services import UserService
     from app.typedefs import StrOrPath
 

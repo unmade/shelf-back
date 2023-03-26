@@ -7,19 +7,19 @@ from unittest import mock
 import pytest
 
 from app.app.files.domain import Fingerprint
-from app.app.services.dupefinder import _Tracker
+from app.app.files.services.dupefinder import _Tracker
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
     from app.app.files.repositories.fingerprint import MatchResult
-    from app.app.services import DuplicateFinderService
+    from app.app.files.services import DuplicateFinderService
 
 pytestmark = [pytest.mark.asyncio]
 
 
 class TestFindInFolder:
-    @mock.patch("app.app.services.DuplicateFinderService._group")
+    @mock.patch("app.app.files.services.DuplicateFinderService._group")
     async def test(self, _group, dupefinder: DuplicateFinderService):
         ns_path = "admin"
         groups = await dupefinder.find_in_folder(ns_path, "myfolder")

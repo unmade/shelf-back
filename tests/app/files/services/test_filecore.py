@@ -16,7 +16,7 @@ from app.cache import disk_cache
 
 if TYPE_CHECKING:
     from app.app.files.domain import Namespace
-    from app.app.services import FileCoreService
+    from app.app.files.services import FileCoreService
 
     from .conftest import BookmarkFactory, FileFactory, FolderFactory
 
