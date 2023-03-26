@@ -9,8 +9,8 @@ from app import hashes, mediatypes
 from app.app.files.domain import Fingerprint
 
 if TYPE_CHECKING:
-    from app.app.repositories import IFingerprintRepository
-    from app.app.repositories.fingerprint import MatchResult
+    from app.app.files.repositories import IFingerprintRepository
+    from app.app.files.repositories.fingerprint import MatchResult
     from app.typedefs import StrOrPath
 
     class IServiceDatabase(Protocol):

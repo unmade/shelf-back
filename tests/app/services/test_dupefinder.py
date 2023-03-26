@@ -12,7 +12,7 @@ from app.app.services.dupefinder import _Tracker
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
-    from app.app.repositories.fingerprint import MatchResult
+    from app.app.files.repositories.fingerprint import MatchResult
     from app.app.services import DuplicateFinderService
 
 pytestmark = [pytest.mark.asyncio]

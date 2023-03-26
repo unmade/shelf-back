@@ -8,7 +8,7 @@ from app import mediatypes, metadata
 from app.app.files.domain import ContentMetadata
 
 if TYPE_CHECKING:
-    from app.app.repositories.metadata import IContentMetadataRepository
+    from app.app.files.repositories.metadata import IContentMetadataRepository
 
     class IServiceDatabase(Protocol):
         metadata: IContentMetadataRepository

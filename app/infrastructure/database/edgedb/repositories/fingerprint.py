@@ -6,10 +6,10 @@ import edgedb
 import orjson
 
 from app.app.files.domain import File, Fingerprint
-from app.app.repositories import IFingerprintRepository
+from app.app.files.repositories import IFingerprintRepository
 
 if TYPE_CHECKING:
-    from app.app.repositories.fingerprint import MatchResult
+    from app.app.files.repositories.fingerprint import MatchResult
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
     from app.typedefs import StrOrPath
 

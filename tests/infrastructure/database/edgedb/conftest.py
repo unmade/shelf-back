@@ -26,15 +26,14 @@ from app.infrastructure.database.edgedb.db import db_context
 if TYPE_CHECKING:
     from typing import Protocol
 
-    from app.app.repositories import (
-        IAccountRepository,
+    from app.app.files.repositories import (
         IContentMetadataRepository,
         IFileRepository,
         IFingerprintRepository,
         INamespaceRepository,
         ISharedLinkRepository,
-        IUserRepository,
     )
+    from app.app.repositories import IAccountRepository, IUserRepository
     from app.infrastructure.database.edgedb.typedefs import EdgeDBTransaction
 
     class FileFactory(Protocol):

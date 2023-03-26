@@ -8,7 +8,7 @@ import pytest
 from faker import Faker
 
 from app import security
-from app.app.repositories import (
+from app.app.files.repositories import (
     IContentMetadataRepository,
     IFingerprintRepository,
     ISharedLinkRepository,

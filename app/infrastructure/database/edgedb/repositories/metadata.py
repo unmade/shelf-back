@@ -6,7 +6,7 @@ import edgedb
 import orjson
 
 from app.app.files.domain import ContentMetadata, File
-from app.app.repositories import IContentMetadataRepository
+from app.app.files.repositories import IContentMetadataRepository
 
 if TYPE_CHECKING:
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext

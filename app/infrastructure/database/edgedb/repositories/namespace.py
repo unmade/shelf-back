@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, cast
 import edgedb
 
 from app.app.files.domain import Namespace
-from app.app.repositories import INamespaceRepository
+from app.app.files.repositories import INamespaceRepository
 
 if TYPE_CHECKING:
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext

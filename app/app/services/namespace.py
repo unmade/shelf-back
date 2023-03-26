@@ -8,9 +8,7 @@ from app.app.infrastructure import IDatabase
 if TYPE_CHECKING:
     from uuid import UUID
 
-    from app.app.repositories import (
-        INamespaceRepository,
-    )
+    from app.app.files.repositories import INamespaceRepository
     from app.typedefs import StrOrPath, StrOrUUID
 
     class IServiceDatabase(IDatabase, Protocol):

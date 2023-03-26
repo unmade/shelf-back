@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, cast
 import pytest
 
 from app.app.files.domain import SENTINEL_ID, File
-from app.app.repositories.file import FileUpdate
+from app.app.files.repositories.file import FileUpdate
 from app.infrastructure.database.edgedb.db import db_context
 
 if TYPE_CHECKING:

@@ -12,7 +12,7 @@ from app.app.files.domain import SENTINEL_ID, File, Namespace
 if TYPE_CHECKING:
     from uuid import UUID
 
-    from app.app.repositories import IFileRepository, INamespaceRepository
+    from app.app.files.repositories import IFileRepository, INamespaceRepository
     from app.app.users.domain import User
 
 

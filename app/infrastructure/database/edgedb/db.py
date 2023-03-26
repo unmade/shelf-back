@@ -6,16 +6,15 @@ from typing import TYPE_CHECKING, AsyncIterator, Self
 import edgedb
 from edgedb.asyncio_client import AsyncIOIteration
 
-from app.app.infrastructure import IDatabase
-from app.app.repositories import (
-    IAccountRepository,
+from app.app.files.repositories import (
     IContentMetadataRepository,
     IFileRepository,
     IFingerprintRepository,
     INamespaceRepository,
     ISharedLinkRepository,
-    IUserRepository,
 )
+from app.app.infrastructure import IDatabase
+from app.app.repositories import IAccountRepository, IUserRepository
 
 from .repositories import (
     AccountRepository,

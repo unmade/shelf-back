@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import edgedb
 
 from app.app.files.domain import File, SharedLink
-from app.app.repositories import ISharedLinkRepository
+from app.app.files.repositories import ISharedLinkRepository
 
 if TYPE_CHECKING:
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext

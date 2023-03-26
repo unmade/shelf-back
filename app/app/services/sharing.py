@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Protocol
 from app.app.files.domain import SENTINEL_ID, SharedLink
 
 if TYPE_CHECKING:
-    from app.app.repositories.shared_link import ISharedLinkRepository
+    from app.app.files.repositories import ISharedLinkRepository
 
     class IServiceDatabase(Protocol):
         shared_link: ISharedLinkRepository

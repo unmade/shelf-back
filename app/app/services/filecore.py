@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING
 
 from app import mediatypes, taskgroups
 from app.app.files.domain import SENTINEL_ID, File
+from app.app.files.repositories.file import FileUpdate
 from app.app.infrastructure import IDatabase
-from app.app.repositories.file import FileUpdate
 from app.cache import disk_cache
 
 if TYPE_CHECKING:
@@ -24,8 +24,8 @@ if TYPE_CHECKING:
         Sequence,
     )
 
+    from app.app.files.repositories import IFileRepository
     from app.app.infrastructure.storage import ContentReader, IStorage
-    from app.app.repositories import IFileRepository
     from app.typedefs import StrOrPath, StrOrUUID
 
     class IServiceDatabase(IDatabase, Protocol):

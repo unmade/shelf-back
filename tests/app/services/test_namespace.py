@@ -16,7 +16,7 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
 @pytest.fixture
 def ns_service():
-    from app.app.repositories import INamespaceRepository
+    from app.app.files.repositories import INamespaceRepository
     from app.app.services import (
         NamespaceService,
     )

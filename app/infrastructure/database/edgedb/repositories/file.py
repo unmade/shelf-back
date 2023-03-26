@@ -12,8 +12,8 @@ import edgedb
 
 from app import mediatypes
 from app.app.files.domain import File
-from app.app.repositories import IFileRepository
-from app.app.repositories.file import FileUpdate
+from app.app.files.repositories import IFileRepository
+from app.app.files.repositories.file import FileUpdate
 from app.infrastructure.database.edgedb import autocast
 
 if TYPE_CHECKING:
