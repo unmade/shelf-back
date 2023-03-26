@@ -7,8 +7,7 @@ import pytest
 from faker import Faker
 
 from app import mediatypes
-from app.domain.entities import Fingerprint
-from app.entities import File
+from app.domain.entities import File, Fingerprint
 
 fake = Faker()
 
@@ -18,11 +17,13 @@ def file_factory():
     def _file_factory(
         path: str | None = None,
         mediatype: str | None = None,
+        ns_path: str | None = None,
     ) -> File:
         pathname = path or fake.file_path(depth=3)
 
         return File(
             id=str(fake.uuid4()),
+            ns_path=ns_path or fake.file_path(depth=1),
             name=PurePath(pathname).name,
             path=str(pathname),
             size=fake.pyint(),
@@ -37,6 +38,7 @@ def test_compare_two_equal_files(file_factory) -> None:
     a: File = file_factory()
     b = File(
         id=a.id,
+        ns_path=a.ns_path,
         name=a.name,
         path=a.path,
         size=a.size,

@@ -6,6 +6,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from celery import Celery
+from pydantic import BaseModel
 
 from app import config, errors
 from app.domain.entities import File
@@ -17,12 +18,16 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from app.app.infrastructure import IStorage
-    from app.entities import RelocationPath
     from app.typedefs import StrOrPath
 
 logger = logging.getLogger(__name__)
 
 celery_app = Celery(__name__)
+
+
+class RelocationPath(BaseModel):
+    from_path: str
+    to_path: str
 
 
 class FileTaskResult:

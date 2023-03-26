@@ -18,8 +18,8 @@ if TYPE_CHECKING:
 
     from fastapi import FastAPI
 
-    from app.entities import User
-    from tests.conftest import TestClient
+    from app.domain.entities import User
+    from tests.api.conftest import TestClient
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
 

@@ -13,26 +13,13 @@ from faker import Faker
 from PIL import Image
 
 from app import config, db
-from app.domain.entities import SENTINEL_ID, Account
 from app.infrastructure.database.edgedb import EdgeDBDatabase
 from app.tasks import CeleryConfig
-from tests.factories import (
-    FileFactory,
-    FolderFactory,
-    MediaTypeFactory,
-    NamespaceFactory,
-    UserFactory,
-)
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from fastapi import FastAPI
     from pytest import FixtureRequest
-
-    from app.entities import Namespace, User
-    from app.infrastructure.database.edgedb.repositories import AccountRepository
-    from app.typedefs import DBAnyConn, DBClient
 
 fake = Faker()
 
@@ -173,53 +160,6 @@ def session_sync_client(setup_test_db):
         yield client
 
 
-@pytest.fixture
-async def db_client(request: FixtureRequest, session_db_client: DBClient):
-    """Yield a function-scoped database client."""
-    marker = request.node.get_closest_marker("database")
-    if not marker:
-        raise RuntimeError("Access to database without `database` marker!")
-
-    if not marker.kwargs.get("transaction", False):
-        raise RuntimeError("Use `transaction=True` to access database client")
-
-    yield session_db_client
-
-
-@pytest.fixture
-async def tx(request: FixtureRequest, session_db_client: DBClient):
-    """Yield a transaction and rollback it after each test."""
-    marker = request.node.get_closest_marker("database")
-    if not marker:
-        raise RuntimeError("Access to database without `database` marker!")
-
-    if marker.kwargs.get("transaction", False):
-        raise RuntimeError("Can't use `tx` fixture with `transaction=True` option")
-
-    async for transaction in session_db_client.transaction():
-        transaction._managed = True
-        try:
-            yield transaction
-        finally:
-            await transaction._exit(Exception, None)
-
-
-@pytest.fixture
-def db_client_or_tx(request: FixtureRequest):
-    """
-    Yield either a `tx` or a `db_client` fixture depending on `pytest.mark.database`
-    params.
-    """
-    marker = request.node.get_closest_marker("database")
-    if not marker:
-        raise RuntimeError("Access to database without `database` marker!")
-
-    if marker.kwargs.get("transaction", False):
-        yield request.getfixturevalue("db_client")
-    else:
-        yield request.getfixturevalue("tx")
-
-
 @pytest.fixture(autouse=True)
 def flush_db_if_needed(request: FixtureRequest):
     """Flush database after each tests."""
@@ -242,37 +182,6 @@ def flush_db_if_needed(request: FixtureRequest):
 
 
 @pytest.fixture
-async def account(app: FastAPI, user: User, db_client_or_tx: DBAnyConn):
-    """An Account instance."""
-    account_repo: AccountRepository = app.state.provider.service.user.db.account
-    token = account_repo.db_context.set(db_client_or_tx)
-    try:
-        return await account_repo.save(
-            Account(
-                id=SENTINEL_ID,
-                username=user.username,
-                email=fake.email(),
-                first_name=fake.first_name(),
-                last_name=fake.last_name(),
-            )
-        )
-    finally:
-        account_repo.db_context.reset(token)
-
-
-@pytest.fixture
-def file_factory(db_client_or_tx: DBAnyConn) -> FileFactory:
-    """Create dummy file, put it in a storage and save to database."""
-    return FileFactory(db_client_or_tx)
-
-
-@pytest.fixture
-async def folder_factory(db_client_or_tx: DBAnyConn) -> FolderFactory:
-    """Create folder in the database and in the storage."""
-    return FolderFactory(db_client_or_tx)
-
-
-@pytest.fixture
 def image_content() -> BytesIO:
     """Create a sample in-memory image."""
     buffer = BytesIO()
@@ -286,48 +195,3 @@ def image_content() -> BytesIO:
 def image_content_with_exif() -> BytesIO:
     name = "exif_iphone_with_hdr_on.jpeg"
     return BytesIO(resources.files("tests.data.images").joinpath(name).read_bytes())
-
-
-@pytest.fixture
-def mediatype_factory(db_client_or_tx: DBAnyConn) -> MediaTypeFactory:
-    """Create a new media type."""
-    return MediaTypeFactory(db_client_or_tx)
-
-
-@pytest.fixture
-def namespace_factory(db_client_or_tx: DBAnyConn) -> NamespaceFactory:
-    """
-    Create a Namespace with home and trash directories both in the database
-    and in the storage.
-    """
-    return NamespaceFactory(db_client_or_tx)
-
-
-@pytest.fixture
-async def namespace(namespace_factory: NamespaceFactory) -> Namespace:
-    """A Namespace instance with a home and trash directories."""
-    return await namespace_factory()
-
-
-@pytest.fixture
-def user_factory(db_client_or_tx: DBAnyConn) -> UserFactory:
-    """Create a new user in the database."""
-    return UserFactory(db_client_or_tx)
-
-
-@pytest.fixture
-async def user(user_factory: UserFactory) -> User:
-    """A User instance."""
-    return await user_factory()
-
-
-@pytest.fixture
-async def db_user(user_factory: UserFactory) -> User:
-    """A temporary alias for `user` fixture."""
-    return await user_factory()
-
-
-@pytest.fixture
-async def superuser(user_factory: UserFactory) -> User:
-    """A User instance as a superuser."""
-    return await user_factory(superuser=True)

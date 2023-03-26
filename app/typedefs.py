@@ -6,11 +6,9 @@ if TYPE_CHECKING:
     from pathlib import PurePath
     from uuid import UUID
 
-    from edgedb.asyncio_client import AsyncIOClient, AsyncIOIteration
+    from edgedb.asyncio_client import AsyncIOClient
 
 DBClient: TypeAlias = AsyncIOClient
-DBTransaction: TypeAlias = AsyncIOIteration
-DBAnyConn: TypeAlias = DBClient | DBTransaction
 
 StrOrPath: TypeAlias = str | PurePath
 StrOrUUID: TypeAlias = str | UUID

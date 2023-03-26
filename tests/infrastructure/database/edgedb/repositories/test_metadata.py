@@ -11,7 +11,7 @@ from app.domain.entities import ContentMetadata, Exif
 from app.infrastructure.database.edgedb.db import db_context
 
 if TYPE_CHECKING:
-    from app.entities import File, Namespace
+    from app.domain.entities import File, Namespace
     from app.infrastructure.database.edgedb.repositories import (
         ContentMetadataRepository,
     )

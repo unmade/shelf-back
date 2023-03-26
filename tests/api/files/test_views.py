@@ -844,13 +844,6 @@ class TestMoveToTrashBatch:
 class TestUpload:
     url = "/files/upload"
 
-    # @pytest.fixture
-    # def upload_file(self, app: FastAPI):
-    #     usecase = app.state.provider.usecase
-    #     upload_file_mock = mock.AsyncMock(usecase.upload_file)
-    #     with mock.patch.object(usecase, "upload_file", upload_file_mock) as mocked:
-    #         yield mocked
-
     @pytest.mark.parametrize(["path", "expected_path"], [
         (b"folder/file.txt", "folder/file.txt"),
         (b"./f.txt", "f.txt"),

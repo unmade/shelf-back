@@ -14,8 +14,7 @@ from app.infrastructure.database.edgedb.repositories.fingerprint import (
 )
 
 if TYPE_CHECKING:
-    from app.domain.entities import File
-    from app.entities import Namespace
+    from app.domain.entities import File, Namespace
     from app.infrastructure.database.edgedb.repositories import FingerprintRepository
     from app.typedefs import StrOrUUID
 

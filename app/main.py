@@ -38,7 +38,6 @@ def create_app() -> FastAPI:
     )
 
     database = _create_database()
-    app.state.db_client = database.client  # keep compatibility with old code
     app.state.provider = Provider(
         database=database,
         storage=_create_storage(),

@@ -7,7 +7,7 @@ import pytest
 from app import config
 
 if TYPE_CHECKING:
-    from tests.conftest import TestClient
+    from tests.api.conftest import TestClient
 
 pytestmark = [pytest.mark.asyncio]
 

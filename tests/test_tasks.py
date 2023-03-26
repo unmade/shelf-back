@@ -9,7 +9,7 @@ from unittest import mock
 import pytest
 
 from app import errors, tasks
-from app.entities import RelocationPath
+from app.tasks import RelocationPath
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock

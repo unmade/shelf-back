@@ -139,7 +139,6 @@ class UserService:
         Removes a file from user bookmarks.
 
         Args:
-            conn (DBAnyConn): Database connection.
             user_id (StrOrUUID): Target user ID.
             file_id (StrOrUUID): Target file ID.
 

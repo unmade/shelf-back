@@ -6,7 +6,7 @@ from app import errors, mediatypes
 from app.api import deps, shortcuts
 from app.api.files.exceptions import PathNotFound
 from app.api.files.schemas import PathRequest, ThumbnailSize
-from app.entities import Namespace
+from app.domain.entities import Namespace
 from app.infrastructure.provider import Manager
 
 from .exceptions import SharedLinkNotFound
