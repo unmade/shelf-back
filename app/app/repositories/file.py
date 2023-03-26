@@ -9,7 +9,7 @@ from typing import (
     TypedDict,
 )
 
-from app.domain.entities import File
+from app.app.files.domain import File
 
 if TYPE_CHECKING:
     from app.typedefs import StrOrPath, StrOrUUID
@@ -45,7 +45,7 @@ class IFileRepository(Protocol):
             paths (StrOrPath): Path to be deleted.
 
         Raises:
-            FileNotFound: If a file at a target path does not exists.
+            File.NotFound: If a file at a target path does not exists.
 
         Returns:
             File: Deleted file.
@@ -93,7 +93,7 @@ class IFileRepository(Protocol):
             file_id (StrOrUUID): File ID.
 
         Raises:
-            errors.FileNotFound: If file with a given ID does not exists.
+            File.NotFound: If file with a given ID does not exists.
 
         Returns:
             File: File with a target ID.
@@ -122,7 +122,7 @@ class IFileRepository(Protocol):
             path (StrOrPath): Path to a file.
 
         Raises:
-            FileNotFound: If a file with a target path does not exists.
+            File.NotFound: If a file with a target path does not exists.
 
         Returns:
             File: File with at a target path.
@@ -209,7 +209,7 @@ class IFileRepository(Protocol):
             file (File): a File to be saved.
 
         Raises:
-            FileAlreadyExists: If a file in a target path already exists.
+            File.AlreadyExists: If a file in a target path already exists.
 
         Returns:
             File: Created file.
@@ -231,7 +231,7 @@ class IFileRepository(Protocol):
             file (FileUpdate): a file fields to be updated with new values.
 
         Raises:
-            FileNotFound: if a file with given ID does not exists.
+            File.NotFound: if a file with given ID does not exists.
 
         Returns:
             File: Updated file.

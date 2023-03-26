@@ -6,8 +6,8 @@ from unittest import mock
 
 import pytest
 
+from app.app.files.domain import Fingerprint
 from app.app.services.dupefinder import _Tracker
-from app.domain.entities import Fingerprint
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock

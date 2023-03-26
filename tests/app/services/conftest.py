@@ -31,8 +31,9 @@ if TYPE_CHECKING:
 
     from pytest import FixtureRequest
 
+    from app.app.files.domain import File, Namespace
     from app.app.infrastructure import IStorage
-    from app.domain.entities import File, Namespace, User
+    from app.domain.entities import User
     from app.infrastructure.database.edgedb.typedefs import EdgeDBTransaction
     from app.typedefs import StrOrUUID
 

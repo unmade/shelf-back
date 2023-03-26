@@ -5,8 +5,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from app import errors
-from app.domain.entities import Fingerprint
+from app.app.files.domain import File, Fingerprint
 from app.infrastructure.database.edgedb.db import db_context
 from app.infrastructure.database.edgedb.repositories.fingerprint import (
     _join_int2,
@@ -14,7 +13,7 @@ from app.infrastructure.database.edgedb.repositories.fingerprint import (
 )
 
 if TYPE_CHECKING:
-    from app.domain.entities import File, Namespace
+    from app.app.files.domain import Namespace
     from app.infrastructure.database.edgedb.repositories import FingerprintRepository
     from app.typedefs import StrOrUUID
 
@@ -131,14 +130,14 @@ class TestSave:
     ):
         fp = Fingerprint(file.id, value=17289262673409605668)
         await fingerprint_repo.save(fp)
-        with pytest.raises(errors.FingerprintAlreadyExists):
+        with pytest.raises(Fingerprint.AlreadyExists):
             await fingerprint_repo.save(fp)
 
     async def test_when_file_does_not_exist(
         self, fingerprint_repo: FingerprintRepository
     ):
         fp = Fingerprint(file_id=uuid.uuid4(), value=24283937994761367101)
-        with pytest.raises(errors.FileNotFound):
+        with pytest.raises(File.NotFound):
             await fingerprint_repo.save(fp)
 
 
@@ -173,5 +172,5 @@ class TestSaveBatch:
         self, fingerprint_repo: FingerprintRepository
     ):
         fp = Fingerprint(file_id=uuid.uuid4(), value=24283937994761367101)
-        with pytest.raises(errors.FileNotFound):
+        with pytest.raises(File.NotFound):
             await fingerprint_repo.save_batch([fp])

@@ -15,7 +15,7 @@ from .exceptions import FileAlreadyDeleted, MalformedPath
 if TYPE_CHECKING:
     from fastapi import Request
 
-    from app.domain.entities import ContentMetadata, File
+    from app.app.files.domain import ContentMetadata, File
     from app.tasks import FileTaskResult
 
 

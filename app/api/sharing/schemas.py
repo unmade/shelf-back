@@ -9,7 +9,7 @@ from app import thumbnails
 if TYPE_CHECKING:
     from fastapi import Request
 
-    from app.domain.entities import File
+    from app.app.files.domain import File
 
 
 class SharedLinkFileSchema(BaseModel):

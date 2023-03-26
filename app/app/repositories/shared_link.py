@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from app.domain.entities import SharedLink
+from app.app.files.domain import SharedLink
 
 
 class ISharedLinkRepository(Protocol):
@@ -22,7 +22,7 @@ class ISharedLinkRepository(Protocol):
             file_id (str): File ID.
 
         Raises:
-            SharedLinkNotFound: If file/folder with a given path does not exist.
+            SharedLink.NotFound: If file/folder with a given path does not exist.
 
         Returns:
             SharedLink: A SharedLink.
@@ -36,7 +36,7 @@ class ISharedLinkRepository(Protocol):
             token (str): Link token.
 
         Raises:
-            SharedLinkNotFound: If a link with a given token does not exist.
+            SharedLink.NotFound: If a link with a given token does not exist.
 
         Returns:
             SharedLink: A SharedLink.
@@ -50,7 +50,7 @@ class ISharedLinkRepository(Protocol):
             shared_link (SharedLink): A shared link instance to save.
 
         Raises:
-            errors.FileNotFound: If file in a given path does not exist.
+            File.NotFound: If file in a given path does not exist.
 
         Returns:
             SharedLink: Shared link.

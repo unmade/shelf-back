@@ -26,15 +26,15 @@ from app.api.files.exceptions import (
     ThumbnailUnavailable,
     UploadFileTooLarge,
 )
+from app.app.files.domain import ContentMetadata, Exif, File
 from app.app.infrastructure.storage import ContentReader
-from app.domain.entities import ContentMetadata, Exif, File
 from app.tasks import FileTaskResult
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
     from app.api.exceptions import APIError
-    from app.domain.entities import Namespace
+    from app.app.files.domain import Namespace
     from app.typedefs import StrOrPath
     from tests.api.conftest import TestClient
 
@@ -101,7 +101,7 @@ class TestCreateFolder:
         self, client: TestClient, namespace: Namespace, ns_manager: MagicMock
     ):
         ns_path = namespace.path
-        ns_manager.create_folder.side_effect = errors.FileAlreadyExists
+        ns_manager.create_folder.side_effect = File.AlreadyExists
         payload = {"path": "Trash"}
         client.mock_namespace(namespace)
         response = await client.post("/files/create_folder", json=payload)
@@ -112,7 +112,7 @@ class TestCreateFolder:
     async def test_when_parent_is_a_file(
         self, client: TestClient, namespace: Namespace, ns_manager: MagicMock
     ):
-        ns_manager.create_folder.side_effect = errors.NotADirectory()
+        ns_manager.create_folder.side_effect = File.NotADirectory()
         path = "file/folder"
         payload = {"path": path}
         client.mock_namespace(namespace)
@@ -190,7 +190,7 @@ class TestDeleteImmediatelyBatchCheck:
             status=celery.states.SUCCESS,
             result=[
                 FileTaskResult(file=_make_file(ns_path, "f.txt"), err_code=None),
-                FileTaskResult(file=None, err_code=errors.ErrorCode.file_not_found),
+                FileTaskResult(file=None, err_code=File.NotFound.code),
             ]
         )
         payload = {"async_task_id": str(task_id)}
@@ -284,7 +284,7 @@ class TestDownload:
         # GIVEN
         path = "f.txt"
         key = await shortcuts.create_download_cache(namespace.path, path)
-        ns_manager.download.side_effect = errors.FileNotFound
+        ns_manager.download.side_effect = File.NotFound
         # WHEN
         client.mock_namespace(namespace)
         response = await client.get(self.url(key))
@@ -359,7 +359,7 @@ class TestDownloadXHR:
     ):
         # GIVEN
         path = "f.txt"
-        ns_manager.download.side_effect = errors.FileNotFound
+        ns_manager.download.side_effect = File.NotFound
         payload = {"path": path}
         # WHEN
         client.mock_namespace(namespace)
@@ -529,7 +529,7 @@ class TestGetDownloadURL:
     ):
         # GIVEN
         path = "wrong/path"
-        ns_manager.get_item_at_path.side_effect = errors.FileNotFound
+        ns_manager.get_item_at_path.side_effect = File.NotFound
         payload = {"path": path}
         # WHEN
         client.mock_namespace(namespace)
@@ -571,7 +571,7 @@ class TestGetContentMetadata:
     ):
         # GIVEN
         path = "img.jpeg"
-        ns_manager.get_file_metadata.side_effect = errors.FileMetadataNotFound
+        ns_manager.get_file_metadata.side_effect = ContentMetadata.NotFound
         payload = {"path": path}
         # WHEN
         client.mock_namespace(namespace)
@@ -588,7 +588,7 @@ class TestGetContentMetadata:
     ):
         # GIVEN
         path = "wrong/path"
-        ns_manager.get_file_metadata.side_effect = errors.FileNotFound
+        ns_manager.get_file_metadata.side_effect = File.NotFound
         payload = {"path": path}
         # WHEN
         client.mock_namespace(namespace)
@@ -652,8 +652,8 @@ class TestGetThumbnail:
         )
 
     @pytest.mark.parametrize(["error", "expected_error_cls"], [
-        (errors.FileNotFound(), PathNotFound),
-        (errors.IsADirectory(), IsADirectory),
+        (File.NotFound(), PathNotFound),
+        (File.IsADirectory(), IsADirectory),
         (errors.ThumbnailUnavailable(), ThumbnailUnavailable),
     ])
     async def test_reraising_app_errors_to_api_errors(
@@ -709,7 +709,7 @@ class TestListFolder:
         self, client: TestClient, ns_manager: MagicMock, namespace: Namespace,
     ):
         # GIVEN
-        ns_manager.list_folder.side_effect = errors.FileNotFound
+        ns_manager.list_folder.side_effect = File.NotFound
         payload = {"path": "wrong/path"}
         # WHEN
         client.mock_namespace(namespace)
@@ -726,7 +726,7 @@ class TestListFolder:
         namespace: Namespace,
     ):
         # GIVEN
-        ns_manager.list_folder.side_effect = errors.NotADirectory
+        ns_manager.list_folder.side_effect = File.NotADirectory
         payload = {"path": "f.txt"}
         # WHEN
         client.mock_namespace(namespace)
@@ -791,7 +791,7 @@ class TestMoveBatchCheck:
             status=celery.states.SUCCESS,
             result=[
                 FileTaskResult(file=_make_file(ns_path, "f.txt"), err_code=None),
-                FileTaskResult(file=None, err_code=errors.ErrorCode.file_not_found),
+                FileTaskResult(file=None, err_code=File.NotFound.code),
             ]
         )
         payload = {"async_task_id": str(task_id)}
@@ -874,9 +874,9 @@ class TestUpload:
         assert isinstance(ns_manager.add_file.await_args.args[2], SpooledTemporaryFile)
 
     @pytest.mark.parametrize(["path", "error", "expected_error"], [
-        ("Trash", errors.MalformedPath("Bad path"), MalformedPath("Bad path")),
-        ("f.txt/file", errors.NotADirectory(), NotADirectory(path="f.txt/file")),
-        ("f.txt", errors.FileTooLarge(), UploadFileTooLarge()),
+        ("Trash", File.MalformedPath("Bad path"), MalformedPath("Bad path")),
+        ("f.txt/file", File.NotADirectory(), NotADirectory(path="f.txt/file")),
+        ("f.txt", File.TooLarge(), UploadFileTooLarge()),
         ("f.txt", errors.StorageQuotaExceeded(), StorageQuotaExceeded()),
     ])
     async def test_reraising_app_errors_to_api_errors(
@@ -885,7 +885,7 @@ class TestUpload:
         namespace: Namespace,
         ns_manager: MagicMock,
         path: str,
-        error: errors.Error,
+        error: Exception,
         expected_error: APIError,
     ):
         ns_manager.add_file.side_effect = error

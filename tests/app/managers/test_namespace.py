@@ -11,7 +11,8 @@ from unittest import mock
 import pytest
 
 from app import errors
-from app.domain.entities import Account, File, Fingerprint
+from app.app.files.domain import File, Fingerprint
+from app.domain.entities import Account
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
@@ -88,7 +89,7 @@ class TestAddFile:
 
     async def test_when_adding_to_trash_folder(self, ns_manager: NamespaceManager):
         ns_path, path, content = "admin", "Trash/f.txt", BytesIO(b"Dummy Content!")
-        with pytest.raises(errors.MalformedPath):
+        with pytest.raises(File.MalformedPath):
             await ns_manager.add_file(ns_path, path, content)
 
     async def test_when_max_upload_size_limit_is_exceeded(
@@ -97,7 +98,7 @@ class TestAddFile:
         ns_path, path, content = "admin", "f.txt", BytesIO(b"Dummy Content!")
         with (
             mock.patch("app.config.FEATURES_UPLOAD_FILE_MAX_SIZE", 5),
-            pytest.raises(errors.FileTooLarge),
+            pytest.raises(File.TooLarge),
         ):
             await ns_manager.add_file(ns_path, path, content)
 
@@ -277,9 +278,9 @@ class TestGetFileThumbnail:
         ns_path = "admin"
         file_id = str(uuid.uuid4())
         filecore = cast(mock.MagicMock, ns_manager.filecore)
-        filecore.thumbnail.side_effect = errors.FileNotFound
+        filecore.thumbnail.side_effect = File.NotFound
         # WHEN/THEN
-        with pytest.raises(errors.FileNotFound):
+        with pytest.raises(File.NotFound):
             await ns_manager.get_file_thumbnail(ns_path, file_id, size=32)
         filecore.thumbnail.assert_awaited_once_with(file_id, size=32)
 
@@ -290,7 +291,7 @@ class TestGetFileThumbnail:
         filecore = cast(mock.MagicMock, ns_manager.filecore)
         filecore.thumbnail.return_value = file, thumbnail
         # WHEN/THEN
-        with pytest.raises(errors.FileNotFound):
+        with pytest.raises(File.NotFound):
             await ns_manager.get_file_thumbnail("user", file.id, size=32)
         filecore.thumbnail.assert_awaited_once_with(file.id, size=32)
 

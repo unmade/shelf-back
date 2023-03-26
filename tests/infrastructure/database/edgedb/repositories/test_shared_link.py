@@ -5,12 +5,10 @@ from typing import TYPE_CHECKING, cast
 
 import pytest
 
-from app import errors
-from app.domain.entities import SENTINEL_ID, SharedLink
+from app.app.files.domain import SENTINEL_ID, File, SharedLink
 from app.infrastructure.database.edgedb.db import db_context
 
 if TYPE_CHECKING:
-    from app.domain.entities import File
     from app.infrastructure.database.edgedb.repositories import SharedLinkRepository
 
 pytestmark = [pytest.mark.asyncio]
@@ -57,7 +55,7 @@ class TestGetByFileID:
         self, shared_link_repo: SharedLinkRepository
     ):
         file_id = str(uuid.uuid4())
-        with pytest.raises(errors.SharedLinkNotFound):
+        with pytest.raises(SharedLink.NotFound):
             await shared_link_repo.get_by_file_id(file_id)
 
 
@@ -72,7 +70,7 @@ class TestGetByToken:
         self, shared_link_repo: SharedLinkRepository
     ):
         token = "shared-link-token"
-        with pytest.raises(errors.SharedLinkNotFound):
+        with pytest.raises(SharedLink.NotFound):
             await shared_link_repo.get_by_token(token)
 
 
@@ -95,5 +93,5 @@ class TestSave:
     ):
         file_id = str(uuid.uuid4())
         link = SharedLink(id=SENTINEL_ID, file_id=file_id, token="secret")
-        with pytest.raises(errors.FileNotFound):
+        with pytest.raises(File.NotFound):
             await shared_link_repo.save(link)

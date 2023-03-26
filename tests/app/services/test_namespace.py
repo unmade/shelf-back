@@ -6,7 +6,7 @@ from unittest import mock
 
 import pytest
 
-from app.domain.entities import SENTINEL_ID, Namespace
+from app.app.files.domain import SENTINEL_ID, Namespace
 
 if TYPE_CHECKING:
     from app.app.services import NamespaceService

@@ -12,6 +12,7 @@ import stream_zip
 from asgiref.sync import sync_to_async
 
 from app import errors, thumbnails
+from app.app.files.domain import File
 from app.app.infrastructure.storage import ContentReader, IStorage, StorageFile
 
 from ._compat import iter_async
@@ -84,10 +85,10 @@ class FileSystemStorage(IStorage):
         try:
             file = self._from_path(ns_path, fullpath)
         except FileNotFoundError as exc:
-            raise errors.FileNotFound() from exc
+            raise File.NotFound() from exc
 
         if file.is_dir():
-            raise errors.FileNotFound()
+            raise File.NotFound()
 
         return ContentReader(self._download_iter(fullpath), zipped=False)
 
@@ -131,7 +132,7 @@ class FileSystemStorage(IStorage):
         try:
             return os.lstat(fullpath).st_mtime
         except FileNotFoundError as exc:
-            raise errors.FileNotFound() from exc
+            raise File.NotFound() from exc
 
     @sync_to_async
     def iterdir(self, ns_path: StrOrPath, path: StrOrPath) -> Iterator[StorageFile]:
@@ -139,9 +140,9 @@ class FileSystemStorage(IStorage):
         try:
             entries = os.scandir(dir_path)
         except FileNotFoundError as exc:
-            raise errors.FileNotFound() from exc
+            raise File.NotFound() from exc
         except NotADirectoryError as exc:
-            raise errors.NotADirectory() from exc
+            raise File.NotADirectory() from exc
 
         for entry in entries:
             try:
@@ -160,9 +161,9 @@ class FileSystemStorage(IStorage):
         try:
             os.makedirs(fullpath, exist_ok=True)
         except FileExistsError as exc:
-            raise errors.FileAlreadyExists() from exc
+            raise File.AlreadyExists() from exc
         except NotADirectoryError as exc:
-            raise errors.NotADirectory() from exc
+            raise File.NotADirectory() from exc
 
     @sync_to_async
     def move(
@@ -174,7 +175,7 @@ class FileSystemStorage(IStorage):
         from_fullpath = self._joinpath(self.location, ns_path, from_path)
         to_fullpath = self._joinpath(self.location, ns_path, to_path)
         if os.path.isdir(from_fullpath):
-            raise errors.FileNotFound() from None
+            raise File.NotFound() from None
 
         parent = os.path.dirname(to_fullpath)
         if not os.path.exists(parent):
@@ -206,9 +207,9 @@ class FileSystemStorage(IStorage):
         try:
             shutil.move(source, destination)
         except FileNotFoundError as exc:
-            raise errors.FileNotFound() from exc
+            raise File.NotFound() from exc
         except NotADirectoryError as exc:
-            raise errors.NotADirectory() from exc
+            raise File.NotADirectory() from exc
 
     @sync_to_async
     def save(
@@ -224,7 +225,7 @@ class FileSystemStorage(IStorage):
             with open(fullpath, "wb") as buffer:
                 shutil.copyfileobj(content, buffer)
         except NotADirectoryError as exc:
-            raise errors.NotADirectory() from exc
+            raise File.NotADirectory() from exc
 
         return self._from_path(ns_path, fullpath)
 
@@ -234,7 +235,7 @@ class FileSystemStorage(IStorage):
         try:
             return os.lstat(fullpath).st_size
         except FileNotFoundError as exc:
-            raise errors.FileNotFound() from exc
+            raise File.NotFound() from exc
 
     @sync_to_async
     def thumbnail(self, ns_path: StrOrPath, path: StrOrPath, size: int) -> bytes:
@@ -243,9 +244,9 @@ class FileSystemStorage(IStorage):
             with open(fullpath, 'rb') as content:
                 return thumbnails.thumbnail(content, size=size)
         except FileNotFoundError as exc:
-            raise errors.FileNotFound() from exc
+            raise File.NotFound() from exc
         except IsADirectoryError as exc:
-            raise errors.IsADirectory(f"Path '{path}' is a directory") from exc
+            raise File.IsADirectory(f"Path '{path}' is a directory") from exc
         except errors.ThumbnailUnavailable as exc:
             msg = f"Can't generate thumbnail for a file: '{path}'"
             raise errors.ThumbnailUnavailable(msg) from exc

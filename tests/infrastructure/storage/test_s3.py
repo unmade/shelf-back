@@ -11,6 +11,7 @@ from botocore.exceptions import ClientError
 from botocore.stub import Stubber
 
 from app import errors
+from app.app.files.domain import File
 from app.infrastructure.storage.s3 import S3Storage
 
 if TYPE_CHECKING:
@@ -172,11 +173,11 @@ class TestDownload:
 
     async def test_when_it_is_a_dir(self, file_factory, s3_storage: S3Storage):
         await file_factory("user/a/f.txt")
-        with pytest.raises(errors.FileNotFound):
+        with pytest.raises(File.NotFound):
             await s3_storage.download("user", "a")
 
     async def test_when_file_does_not_exist(self, s3_storage: S3Storage):
-        with pytest.raises(errors.FileNotFound):
+        with pytest.raises(File.NotFound):
             await s3_storage.download("user", "f.txt")
 
     async def test_when_client_raises_error(self, s3_storage: S3Storage):
@@ -247,7 +248,7 @@ async def test_get_modified(file_factory, s3_storage: S3Storage):
 
 
 async def test_get_modified_time_but_file_does_not_exist(s3_storage: S3Storage):
-    with pytest.raises(errors.FileNotFound):
+    with pytest.raises(File.NotFound):
         await s3_storage.get_modified_time("user", "f.txt")
 
 
@@ -321,12 +322,12 @@ async def test_move(file_factory, s3_storage: S3Storage):
 async def test_move_but_it_is_a_dir(file_factory, s3_storage: S3Storage):
     await file_factory("user/a/x.txt")
 
-    with pytest.raises(errors.FileNotFound):
+    with pytest.raises(File.NotFound):
         await s3_storage.move("user", "a", "b")
 
 
 async def test_move_but_source_does_not_exist(s3_storage: S3Storage):
-    with pytest.raises(errors.FileNotFound):
+    with pytest.raises(File.NotFound):
         await s3_storage.move("user", "x.txt", "y.txt")
 
 
@@ -449,7 +450,7 @@ async def test_size(file_factory, s3_storage: S3Storage):
 
 
 async def test_size_but_file_does_not_exist(s3_storage: S3Storage):
-    with pytest.raises(errors.FileNotFound):
+    with pytest.raises(File.NotFound):
         await s3_storage.size("user", "f.txt")
 
 
@@ -477,7 +478,7 @@ async def test_thumbnail_but_file_is_not_an_image(file_factory, s3_storage: S3St
 
 
 async def test_thumbnail_but_path_does_not_exist(s3_storage: S3Storage):
-    with pytest.raises(errors.FileNotFound):
+    with pytest.raises(File.NotFound):
         await s3_storage.thumbnail("user", "im.jpg", size=128)
 
 

@@ -6,13 +6,12 @@ from typing import TYPE_CHECKING, cast
 
 import pytest
 
-from app import errors
+from app.app.files.domain import SENTINEL_ID, File
 from app.app.repositories.file import FileUpdate
-from app.domain.entities import SENTINEL_ID, File
 from app.infrastructure.database.edgedb.db import db_context
 
 if TYPE_CHECKING:
-    from app.domain.entities import Namespace
+    from app.app.files.domain import Namespace
     from app.infrastructure.database.edgedb.repositories import FileRepository
     from app.typedefs import StrOrPath, StrOrUUID
     from tests.infrastructure.database.edgedb.conftest import FileFactory, FolderFactory
@@ -103,7 +102,7 @@ class TestDelete:
         assert not await _exists_with_id(file.id)
 
     async def test_when_does_not_exist(self, file_repo: FileRepository):
-        with pytest.raises(errors.FileNotFound):
+        with pytest.raises(File.NotFound):
             await file_repo.delete("admin", "f.txt")
 
 
@@ -160,7 +159,7 @@ class TestGetById:
 
     async def test_when_file_does_not_exist(self, file_repo: FileRepository):
         file_id = str(uuid.uuid4())
-        with pytest.raises(errors.FileNotFound):
+        with pytest.raises(File.NotFound):
             await file_repo.get_by_id(file_id)
 
 
@@ -190,7 +189,7 @@ class TestGetByPath:
         self, namespace: Namespace, file_repo: FileRepository
     ):
         path = "f.txt"
-        with pytest.raises(errors.FileNotFound):
+        with pytest.raises(File.NotFound):
             await file_repo.get_by_path(namespace.path, path)
 
 
@@ -198,7 +197,7 @@ class TestGetByPathBatch:
     async def test(
         self, file_repo: FileRepository, file_factory: FileFactory, namespace: Namespace
     ):
-        files = [await file_factory(namespace.path) for _ in range(3)]
+        files = [await file_factory(namespace.path, f"{idx}.txt") for idx in range(3)]
         paths = [file.path for file in files]
         result = await file_repo.get_by_path_batch(namespace.path, paths)
         assert result == sorted(files, key=operator.attrgetter("path"))
@@ -400,7 +399,7 @@ class TestSave:
             mtime=12.34,
             mediatype="plain/text",
         )
-        with pytest.raises(errors.FileAlreadyExists):
+        with pytest.raises(File.AlreadyExists):
             await file_repo.save(file_to_save)
 
 

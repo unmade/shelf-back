@@ -5,27 +5,25 @@ import itertools
 import os
 from collections import deque
 from pathlib import PurePath
-from typing import (
-    IO,
-    TYPE_CHECKING,
-    Any,
-    AsyncIterator,
-    Iterable,
-    Iterator,
-    Protocol,
-    Sequence,
-)
+from typing import TYPE_CHECKING
 
-from app import errors, mediatypes, taskgroups
+from app import mediatypes, taskgroups
+from app.app.files.domain import SENTINEL_ID, File
 from app.app.infrastructure import IDatabase
 from app.app.repositories.file import FileUpdate
 from app.cache import disk_cache
-from app.domain.entities import (
-    SENTINEL_ID,
-    File,
-)
 
 if TYPE_CHECKING:
+    from typing import (
+        IO,
+        Any,
+        AsyncIterator,
+        Iterable,
+        Iterator,
+        Protocol,
+        Sequence,
+    )
+
     from app.app.infrastructure.storage import ContentReader, IStorage
     from app.app.repositories import IFileRepository
     from app.typedefs import StrOrPath, StrOrUUID
@@ -62,12 +60,12 @@ class FileCoreService:
         path = PurePath(path)
         try:
             parent = await self.db.file.get_by_path(ns_path, path.parent)
-        except errors.FileNotFound:
-            with contextlib.suppress(errors.FileAlreadyExists):
+        except File.NotFound:
+            with contextlib.suppress(File.AlreadyExists):
                 await self.create_folder(ns_path, str(path.parent))
         else:
             if not parent.is_folder():
-                raise errors.NotADirectory()
+                raise File.NotADirectory()
 
         next_path = await self.get_available_path(ns_path, path)
         mediatype = mediatypes.guess(next_path, content)
@@ -98,8 +96,8 @@ class FileCoreService:
             path (StrOrPath): Path to a folder to create.
 
         Raises:
-            FileAlreadyExists: If folder with this path already exists.
-            NotADirectory: If one of the path parents is not a directory.
+            File.AlreadyExists: If folder with this path already exists.
+            File.NotADirectory: If one of the path parents is not a directory.
 
         Returns:
             File: Created folder.
@@ -112,9 +110,9 @@ class FileCoreService:
         parents = await self.db.file.get_by_path_batch(ns_path, paths)
         if parents:
             if any(not file.is_folder() for file in parents):
-                raise errors.NotADirectory()
+                raise File.NotADirectory()
             if parents[-1].path.lower() == str(path).lower():
-                raise errors.FileAlreadyExists()
+                raise File.AlreadyExists()
 
             paths_lower = [str(p).lower() for p in paths]
             index = paths_lower.index(parents[-1].path.lower())
@@ -134,8 +132,8 @@ class FileCoreService:
             # parallel calls can create folder at the same path. Consider, for example,
             # when the first call tries to create a folder at path 'a/b/c/f' and
             # the second call tries to create at path 'a/b/c/d/f'. To solve that,
-            # simply ignore FileAlreadyExists error.
-            with contextlib.suppress(errors.FileAlreadyExists):
+            # simply ignore File.AlreadyExists error.
+            with contextlib.suppress(File.AlreadyExists):
                 await self.db.file.save(
                     File(
                         id=SENTINEL_ID,
@@ -158,7 +156,7 @@ class FileCoreService:
             path (StrOrPath): Path to a file/folder to delete.
 
         Raises:
-            FileNotFound: If a file/folder with a given path does not exists.
+            File.NotFound: If a file/folder with a given path does not exists.
 
         Returns:
             File: Deleted file.
@@ -233,7 +231,7 @@ class FileCoreService:
             file_id (StrOrUUID): File ID.
 
         Raises:
-            errors.FileNotFound: If file with a given ID does not exists.
+            File.NotFound: If file with a given ID does not exists.
 
         Returns:
             File: File with a target ID.
@@ -264,7 +262,7 @@ class FileCoreService:
             path (StrOrPath): Path to a file.
 
         Raises:
-            FileNotFound: If a file with a target path does not exists.
+            File.NotFound: If a file with a target path does not exists.
 
         Returns:
             File: File with at a target path.
@@ -316,15 +314,15 @@ class FileCoreService:
             path (StrOrPath): Path to a folder in the target namespace.
 
         Raises:
-            FileNotFound: If folder at this path does not exists.
-            NotADirectory: If path points to a file.
+            File.NotFound: If folder at this path does not exists.
+            File.NotADirectory: If path points to a file.
 
         Returns:
             List[File]: List of all files/folders in a folder with a target path.
         """
         folder = await self.get_by_path(ns_path, path)
         if not folder.is_folder():
-            raise errors.NotADirectory()
+            raise File.NotADirectory()
 
         prefix = "" if path == "." else f"{path}/"
         return await self.db.file.list_with_prefix(ns_path, prefix)
@@ -342,10 +340,10 @@ class FileCoreService:
             to_path (StrOrPath): Path that is the destination.
 
         Raises:
-            errors.FileNotFound: If source path does not exists.
-            errors.FileAlreadyExists: If some file already in the destination path.
-            errors.MissingParent: If 'next_path' parent does not exists.
-            errors.NotADirectory: If one of the 'next_path' parents is not a folder.
+            File.NotFound: If source path does not exists.
+            File.AlreadyExists: If some file already in the destination path.
+            File.MissingParent: If 'next_path' parent does not exists.
+            File.NotADirectory: If one of the 'next_path' parents is not a folder.
 
         Returns:
             File: Moved file/folder.
@@ -365,18 +363,18 @@ class FileCoreService:
 
         file = files.get(str(at_path).lower())
         if file is None:
-            raise errors.FileNotFound() from None
+            raise File.NotFound() from None
 
         if str(to_path.parent).lower() not in files:
-            raise errors.MissingParent() from None
+            raise File.MissingParent() from None
 
         next_parent = files[str(to_path.parent).lower()]
         if not next_parent.is_folder():
-            raise errors.NotADirectory() from None
+            raise File.NotADirectory() from None
 
         if str(at_path).lower() != str(to_path).lower():
             if str(to_path).lower() in files:
-                raise errors.FileAlreadyExists() from None
+                raise File.AlreadyExists() from None
 
         # preserve parent casing
         to_path = PurePath(next_parent.path) / to_path.name
@@ -420,7 +418,7 @@ class FileCoreService:
             path (StrOrPath): Path to a folder that should be reindexed.
 
         Raises:
-            errors.NotADirectory: If given path does not exist.
+            File.NotADirectory: If given path does not exist.
         """
         ns_path = str(ns_path)
         # For now, it is faster to re-create all files from scratch
@@ -429,10 +427,10 @@ class FileCoreService:
         await self.db.file.delete_all_with_prefix(ns_path, prefix)
 
         root = None
-        with contextlib.suppress(errors.FileNotFound):
+        with contextlib.suppress(File.NotFound):
             root = await self.db.file.get_by_path(ns_path, path)
             if root.mediatype != mediatypes.FOLDER:
-                raise errors.NotADirectory() from None
+                raise File.NotADirectory() from None
 
         missing: dict[str, File] = {}
         total_size = 0
@@ -471,7 +469,7 @@ class FileCoreService:
         ))
 
         # creating a folder after `storage.iterdir` do its job in case it fails
-        # with `errors.NotADirectory` error
+        # with `File.NotADirectory` error
         if root is None:
             root = await self.create_folder(ns_path, path)
 
@@ -488,8 +486,8 @@ class FileCoreService:
             size (int): Thumbnail dimension.
 
         Raises:
-            FileNotFound: If file with this path does not exists.
-            IsADirectory: If file is a directory.
+            File.NotFound: If file with this path does not exists.
+            File.IsADirectory: If file is a directory.
             ThumbnailUnavailable: If file is not an image.
 
         Returns:

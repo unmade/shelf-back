@@ -6,12 +6,11 @@ from typing import TYPE_CHECKING
 import orjson
 import pytest
 
-from app import errors
-from app.domain.entities import ContentMetadata, Exif
+from app.app.files.domain import ContentMetadata, Exif, File
 from app.infrastructure.database.edgedb.db import db_context
 
 if TYPE_CHECKING:
-    from app.domain.entities import File, Namespace
+    from app.app.files.domain import Namespace
     from app.infrastructure.database.edgedb.repositories import (
         ContentMetadataRepository,
     )
@@ -44,10 +43,9 @@ class TestGetByFileID:
     async def test_when_file_does_not_exist(
         self,
         metadata_repo: ContentMetadataRepository,
-        content_metadata: ContentMetadata,
     ):
         file_id = str(uuid.uuid4())
-        with pytest.raises(errors.FileMetadataNotFound):
+        with pytest.raises(ContentMetadata.NotFound):
             await metadata_repo.get_by_file_id(file_id)
 
 
@@ -67,7 +65,7 @@ class TestSave:
     ):
         exif = Exif(width=1280, height=800)
         metadata = ContentMetadata(file_id=str(uuid.uuid4()), data=exif)
-        with pytest.raises(errors.FileNotFound):
+        with pytest.raises(File.NotFound):
             await metadata_repo.save(metadata)
 
 
@@ -99,5 +97,5 @@ class TestSaveBatch:
     ):
         exif = Exif(width=1280, height=800)
         metadata = ContentMetadata(file_id=str(uuid.uuid4()), data=exif)
-        with pytest.raises(errors.FileNotFound):
+        with pytest.raises(File.NotFound):
             await metadata_repo.save_batch([metadata])

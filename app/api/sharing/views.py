@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request, Response
 
-from app import errors, mediatypes
+from app import mediatypes
 from app.api import deps, shortcuts
 from app.api.files.exceptions import PathNotFound
 from app.api.files.schemas import PathRequest, ThumbnailSize
-from app.domain.entities import Namespace
+from app.app.files.domain import File, Namespace, SharedLink
 from app.infrastructure.provider import Manager
 
 from .exceptions import SharedLinkNotFound
@@ -33,7 +33,7 @@ async def create_shared_link(
     ns_path = str(namespace.path)
     try:
         link = await managers.sharing.create_link(ns_path, payload.path)
-    except errors.FileNotFound as exc:
+    except File.NotFound as exc:
         raise PathNotFound(path=payload.path) from exc
 
     return CreateSharedLinkResponse(token=link.token)
@@ -49,9 +49,9 @@ async def get_shared_link(
     ns_path = str(namespace.path)
     try:
         link = await managers.sharing.get_link(ns_path, payload.path)
-    except errors.FileNotFound as exc:
+    except File.NotFound as exc:
         raise SharedLinkNotFound() from exc
-    except errors.SharedLinkNotFound as exc:
+    except SharedLink.NotFound as exc:
         raise SharedLinkNotFound() from exc
 
     return GetSharedLinkResponse(token=link.token)
@@ -66,7 +66,7 @@ async def get_shared_link_download_url(
     """Return a link to download a shared link file."""
     try:
         file = await managers.sharing.get_shared_item(payload.token)
-    except errors.SharedLinkNotFound as exc:
+    except SharedLink.NotFound as exc:
         raise SharedLinkNotFound() from exc
 
     key = await shortcuts.create_download_cache(file.ns_path, file.path)
@@ -84,7 +84,7 @@ async def get_shared_link_file(
     """Return a shared link file information."""
     try:
         file = await managers.sharing.get_shared_item(payload.token)
-    except errors.SharedLinkNotFound as exc:
+    except SharedLink.NotFound as exc:
         raise SharedLinkNotFound() from exc
 
     return SharedLinkFileSchema.from_entity(file, payload.token, request)
@@ -99,7 +99,7 @@ async def get_shared_link_thumbnail(
     """Get a thumbnail for a shared link file."""
     try:
         _, thumb = await managers.sharing.get_link_thumbnail(token, size=size.asint())
-    except errors.SharedLinkNotFound as exc:
+    except SharedLink.NotFound as exc:
         raise SharedLinkNotFound() from exc
 
     filename = f"thumbnail-{size.value}.webp"

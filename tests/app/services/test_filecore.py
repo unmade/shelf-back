@@ -10,13 +10,13 @@ from unittest import mock
 
 import pytest
 
-from app import errors, mediatypes, taskgroups
+from app import mediatypes, taskgroups
+from app.app.files.domain import File
 from app.cache import disk_cache
-from app.domain.entities import File
 
 if TYPE_CHECKING:
+    from app.app.files.domain import Namespace
     from app.app.services import FileCoreService
-    from app.domain.entities import Namespace
 
     from .conftest import BookmarkFactory, FileFactory, FolderFactory
 
@@ -122,7 +122,7 @@ class TestCreateFile:
     ):
         content = BytesIO(b"Dummy file")
         await filecore.create_file(namespace.path, "f.txt", content)
-        with pytest.raises(errors.NotADirectory):
+        with pytest.raises(File.NotADirectory):
             await filecore.create_file(namespace.path, "f.txt/f.txt", content)
 
 
@@ -148,7 +148,7 @@ class TestCreateFolder:
         self, filecore: FileCoreService, namespace: Namespace,
     ):
         folder = await filecore.create_folder(namespace.path, "New Folder")
-        with pytest.raises(errors.FileAlreadyExists):
+        with pytest.raises(File.AlreadyExists):
             folder = await filecore.create_folder(namespace.path, folder.path)
 
     async def test_when_path_is_not_a_directory(
@@ -159,7 +159,7 @@ class TestCreateFolder:
     ):
         await file_factory(namespace.path, "f.txt")
 
-        with pytest.raises(errors.NotADirectory):
+        with pytest.raises(File.NotADirectory):
             await filecore.create_folder(namespace.path, "f.txt/folder")
 
 
@@ -248,7 +248,7 @@ class TestDelete:
     async def test_when_file_does_not_exists(
         self, filecore: FileCoreService, namespace: Namespace
     ):
-        with pytest.raises(errors.FileNotFound):
+        with pytest.raises(File.NotFound):
             await filecore.delete(namespace.path, "f.txt")
 
 
@@ -461,13 +461,13 @@ class TestListFolder:
         assert files[1].path == "home"
 
     async def test_when_path_is_a_file(self, filecore: FileCoreService, file: File):
-        with pytest.raises(errors.NotADirectory):
+        with pytest.raises(File.NotADirectory):
             await filecore.list_folder(file.ns_path, file.path)
 
     async def test_when_path_does_not_exist(
         self, filecore: FileCoreService, namespace: Namespace
     ):
-        with pytest.raises(errors.FileNotFound):
+        with pytest.raises(File.NotFound):
             await filecore.list_folder(namespace.path, "home")
 
 
@@ -583,7 +583,7 @@ class TestMoveFile:
     async def test_when_path_does_not_exist(
         self, filecore: FileCoreService, namespace: Namespace
     ):
-        with pytest.raises(errors.FileNotFound):
+        with pytest.raises(File.NotFound):
             await filecore.move(namespace.path, "f.txt", "a/f.txt")
 
     async def test_when_next_path_is_taken(
@@ -594,7 +594,7 @@ class TestMoveFile:
     ):
         await file_factory(namespace.path, "a/b/x.txt")
         await file_factory(namespace.path, "a/c/y.txt")
-        with pytest.raises(errors.FileAlreadyExists):
+        with pytest.raises(File.AlreadyExists):
             await filecore.move(namespace.path, "a/b", "a/c")
 
     async def test_when_next_path_parent_is_missing(
@@ -604,7 +604,7 @@ class TestMoveFile:
         namespace: Namespace,
     ):
         await file_factory(namespace.path, "f.txt")
-        with pytest.raises(errors.MissingParent):
+        with pytest.raises(File.MissingParent):
             await filecore.move(namespace.path, "f.txt", "a/f.txt")
 
     async def test_when_next_path_is_not_a_folder(
@@ -615,7 +615,7 @@ class TestMoveFile:
     ):
         await file_factory(namespace.path, "x.txt")
         await file_factory(namespace.path, "y")
-        with pytest.raises(errors.NotADirectory):
+        with pytest.raises(File.NotADirectory):
             await filecore.move(namespace.path, "x.txt", "y/x.txt")
 
     @pytest.mark.parametrize(["a", "b"], [
@@ -753,7 +753,7 @@ class TestReindex:
         file_factory: FileFactory,
     ):
         await file_factory(namespace.path, path="a")
-        with pytest.raises(errors.NotADirectory):
+        with pytest.raises(File.NotADirectory):
             await filecore.reindex(namespace.path, "a")
 
     async def test_when_path_is_a_file_in_the_storage(
@@ -763,7 +763,7 @@ class TestReindex:
     ):
         await filecore.storage.makedirs(namespace.path, ".")
         await filecore.storage.save(namespace.path, "a", content=BytesIO(b"Dummy"))
-        with pytest.raises(errors.NotADirectory):
+        with pytest.raises(File.NotADirectory):
             await filecore.reindex(namespace.path, "a")
         assert not await filecore.db.file.exists_at_path(namespace.path, "a")
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Iterable, Protocol
 
 if TYPE_CHECKING:
-    from app.domain.entities import ContentMetadata
+    from app.app.files.domain import ContentMetadata
 
 
 class IContentMetadataRepository(Protocol):
@@ -15,7 +15,7 @@ class IContentMetadataRepository(Protocol):
             file_id (str): Target File ID.
 
         Raises:
-            FileMetadataNotFound: If FileMetada for a given file ID does not exist.
+            ContentMetadata.NotFound: If FileMetada for a given file ID does not exist.
 
         Returns:
             ContentMetadata: File content metadata.
@@ -29,7 +29,7 @@ class IContentMetadataRepository(Protocol):
             metadata (ContentMetadata): File metadata.
 
         Raises:
-            errors.FileNotFound: If a file with specified ID doesn't exist.
+            File.NotFound: If a file with specified ID doesn't exist.
 
         Returns:
             ContentMetadata: File content metadata.

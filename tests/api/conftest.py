@@ -8,7 +8,8 @@ import pytest
 from httpx import AsyncClient
 
 from app.api import deps
-from app.domain.entities import Account, Namespace, User
+from app.app.files.domain import Namespace
+from app.domain.entities import Account, User
 from app.main import create_app
 from app.tokens import AccessTokenPayload
 

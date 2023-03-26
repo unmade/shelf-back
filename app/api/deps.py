@@ -5,7 +5,8 @@ from fastapi import Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 
 from app import errors
-from app.domain.entities import Namespace, User
+from app.app.files.domain import Namespace
+from app.domain.entities import User
 from app.infrastructure.provider import Manager, Service, UseCase
 from app.tokens import AccessTokenPayload, InvalidToken
 
@@ -62,7 +63,7 @@ async def namespace(
     services: Service = Depends(services),
 ) -> Namespace:
     """Returns a namespace for a user from a token payload."""
-    # If namespace is not found, we should fail, so don't catch NamespaceNotFound here.
+    # If namespace is not found, we should fail, so don't catch Namespace.NotFound here.
     # We should fail because the system is in the inconsistent state - user exists,
     # but doesn't have a namespace
     return await services.namespace.get_by_owner_id(user.id)

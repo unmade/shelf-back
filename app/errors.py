@@ -7,7 +7,6 @@ class ErrorCode(str, enum.Enum):
     internal = "internal_error"
     file_already_exists = "file_already_exists"
     file_not_found = "file_not_found"
-    file_metadata_already_exists = "file_metadata_already_exists"
     file_metadata_not_found = "file_metadata_not_found"
     file_too_large = "file_too_large"
     fingerprint_already_exists = "fingerprint_already_exists"
@@ -24,58 +23,6 @@ class Error(Exception):
     """Base class for all app-related errors"""
 
     code: ErrorCode
-
-
-class FileAlreadyExists(Error):
-    code = ErrorCode.file_already_exists
-
-
-class FileNotFound(Error):
-    code = ErrorCode.file_not_found
-
-
-class FileMetadataAlreadyExists(Error):
-    code = ErrorCode.file_metadata_already_exists
-
-
-class FileMetadataNotFound(Error):
-    code = ErrorCode.file_metadata_not_found
-
-
-class FileTooLarge(Error):
-    code = ErrorCode.file_too_large
-
-
-class FingerprintAlreadyExists(Error):
-    code = ErrorCode.fingerprint_already_exists
-
-
-class FingerprintNotFound(Error):
-    code = ErrorCode.fingerprint_not_found
-
-
-class IsADirectory(Error):
-    code = ErrorCode.is_a_directory
-
-
-class MalformedPath(Error):
-    code = ErrorCode.malformed_path
-
-
-class MissingParent(Error):
-    code = ErrorCode.missing_parent
-
-
-class NamespaceNotFound(Exception):
-    pass
-
-
-class NotADirectory(Error):
-    code = ErrorCode.not_a_directory
-
-
-class SharedLinkNotFound(Error):
-    code = ErrorCode.shared_link_not_found
 
 
 class StorageQuotaExceeded(Error):

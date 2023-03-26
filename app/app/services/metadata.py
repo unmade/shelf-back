@@ -5,7 +5,7 @@ import contextlib
 from typing import IO, TYPE_CHECKING, AsyncIterator, Protocol
 
 from app import mediatypes, metadata
-from app.domain.entities import ContentMetadata
+from app.app.files.domain import ContentMetadata
 
 if TYPE_CHECKING:
     from app.app.repositories.metadata import IContentMetadataRepository
@@ -30,7 +30,7 @@ class MetadataService:
             file_id (str): Target File ID.
 
         Raises:
-            FileMetadataNotFound: If FileMetada for a given file ID does not exist.
+            ContentMetadata.NotFound: If FileMetada for a given file ID does not exist.
 
         Returns:
             ContentMetadata: File content metadata.
@@ -46,7 +46,7 @@ class MetadataService:
             data (Exif): Metadata.
 
         Raises:
-            errors.FileNotFound: If a file with specified ID doesn't exist.
+            File.NotFound: If a file with specified ID doesn't exist.
         """
         mediatype = mediatypes.guess("", content)
         meta = metadata.load(content, mediatype=mediatype)

@@ -4,9 +4,8 @@ from typing import TYPE_CHECKING, cast
 
 import edgedb
 
-from app import errors
+from app.app.files.domain import Namespace
 from app.app.repositories import INamespaceRepository
-from app.domain.entities import Namespace
 
 if TYPE_CHECKING:
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
@@ -45,7 +44,7 @@ class NamespaceRepository(INamespaceRepository):
             obj = await self.conn.query_required_single(query, owner_id=owner_id)
         except edgedb.NoDataError as exc:
             msg = f"Namespace with owner_id={owner_id} does not exists"
-            raise errors.NamespaceNotFound(msg) from exc
+            raise Namespace.NotFound(msg) from exc
         return _from_db(obj)
 
     async def get_by_path(self, path: StrOrPath) -> Namespace:
@@ -62,7 +61,7 @@ class NamespaceRepository(INamespaceRepository):
             obj = await self.conn.query_required_single(query, path=str(path))
         except edgedb.NoDataError as exc:
             msg = f"Namespace with path={path} does not exists"
-            raise errors.NamespaceNotFound(msg) from exc
+            raise Namespace.NotFound(msg) from exc
 
         return _from_db(obj)
 

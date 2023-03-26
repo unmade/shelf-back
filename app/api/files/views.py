@@ -9,7 +9,7 @@ from fastapi.responses import ORJSONResponse, Response, StreamingResponse
 
 from app import errors, mediatypes, tasks
 from app.api import deps, shortcuts
-from app.domain.entities import Namespace
+from app.app.files.domain import ContentMetadata, File, Namespace
 from app.infrastructure.provider import Manager
 
 from . import exceptions
@@ -55,9 +55,9 @@ async def create_folder(
     """
     try:
         folder = await managers.namespace.create_folder(namespace.path, payload.path)
-    except errors.FileAlreadyExists as exc:
+    except File.AlreadyExists as exc:
         raise exceptions.FileAlreadyExists(path=payload.path) from exc
-    except errors.NotADirectory as exc:
+    except File.NotADirectory as exc:
         raise exceptions.NotADirectory(path=payload.path) from exc
 
     return FileSchema.from_entity(folder, request=request)
@@ -110,7 +110,7 @@ async def download(
 
     try:
         file, content = await managers.namespace.download(value.ns_path, value.path)
-    except errors.FileNotFound as exc:
+    except File.NotFound as exc:
         raise exceptions.PathNotFound(path=value.path) from exc
 
     filename = file.name.encode("utf-8").decode("latin-1")
@@ -141,7 +141,7 @@ async def download_xhr(
     ZIP archive."""
     try:
         file, content = await managers.namespace.download(namespace.path, payload.path)
-    except errors.FileNotFound as exc:
+    except File.NotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
 
     filename = file.name.encode("utf-8").decode("latin-1")
@@ -242,7 +242,7 @@ async def get_download_url(
     """Return a link to download requested file or folder."""
     try:
         file = await managers.namespace.get_item_at_path(namespace.path, payload.path)
-    except errors.FileNotFound as exc:
+    except File.NotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
 
     key = await shortcuts.create_download_cache(namespace.path, file.path)
@@ -260,9 +260,9 @@ async def get_content_metadata(
     """Return content metadata for a given file."""
     try:
         meta = await managers.namespace.get_file_metadata(namespace.path, payload.path)
-    except errors.FileNotFound as exc:
+    except File.NotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
-    except errors.FileMetadataNotFound as exc:
+    except ContentMetadata.NotFound as exc:
         raise exceptions.FileContentMetadataNotFound(path=payload.path) from exc
     return GetContentMetadataResponse.from_entity(meta)
 
@@ -279,9 +279,9 @@ async def get_thumbnail(
         file, thumbnail = await managers.namespace.get_file_thumbnail(
             namespace.path, str(file_id), size=size.asint()
         )
-    except errors.FileNotFound as exc:
+    except File.NotFound as exc:
         raise exceptions.PathNotFound(path=str(file_id)) from exc
-    except errors.IsADirectory as exc:
+    except File.IsADirectory as exc:
         raise exceptions.IsADirectory(path=str(file_id)) from exc
     except errors.ThumbnailUnavailable as exc:
         raise exceptions.ThumbnailUnavailable(path=str(file_id)) from exc
@@ -312,9 +312,9 @@ async def list_folder(
     """
     try:
         files = await managers.namespace.list_folder(namespace.path, payload.path)
-    except errors.FileNotFound as exc:
+    except File.NotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
-    except errors.NotADirectory as exc:
+    except File.NotADirectory as exc:
         raise exceptions.NotADirectory(path=payload.path) from exc
 
     # by returning response class directly we avoid pydantic checks
@@ -389,11 +389,11 @@ async def upload_file(
     ns_path = str(namespace.path)
     try:
         upload = await managers.namespace.add_file(ns_path, filepath, file.file)
-    except errors.FileTooLarge as exc:
+    except File.TooLarge as exc:
         raise exceptions.UploadFileTooLarge() from exc
-    except errors.MalformedPath as exc:
+    except File.MalformedPath as exc:
         raise exceptions.MalformedPath(str(exc)) from exc
-    except errors.NotADirectory as exc:
+    except File.NotADirectory as exc:
         raise exceptions.NotADirectory(path=filepath) from exc
     except errors.StorageQuotaExceeded as exc:
         raise exceptions.StorageQuotaExceeded() from exc

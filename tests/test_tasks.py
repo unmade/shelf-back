@@ -9,6 +9,7 @@ from unittest import mock
 import pytest
 
 from app import errors, tasks
+from app.app.files.domain import File
 from app.tasks import RelocationPath
 
 if TYPE_CHECKING:
@@ -31,7 +32,8 @@ def setUp():
 
 
 def _make_file(ns_path: str, path: str):
-    from app.domain.entities import File
+    from app.app.files.domain import File
+
     return File(
         id=uuid.uuid4(),
         ns_path=ns_path,
@@ -59,7 +61,7 @@ class TestDeleteImmediatelyBatch:
         ns_path = "admin"
         side_effect = [
             _make_file(ns_path, "Trash/a.txt"),
-            errors.FileNotFound,
+            File.NotFound,
             Exception,
             _make_file(ns_path, "Tras/f.txt"),
         ]
@@ -75,7 +77,7 @@ class TestDeleteImmediatelyBatch:
         assert results[0].file.path == side_effect[0].path
 
         assert results[1].file is None
-        assert results[1].err_code == errors.ErrorCode.file_not_found
+        assert results[1].err_code == File.NotFound.code
 
         assert results[2].file is None
         assert results[2].err_code == errors.ErrorCode.internal
@@ -127,7 +129,7 @@ class TestMoveBatch:
         ns_path = "admin"
         move_item.side_effect = [
             _make_file(ns_path, "folder/a.txt"),
-            errors.MissingParent,
+            File.MissingParent,
             Exception,
             _make_file(ns_path, "f.txt"),
         ]
@@ -148,7 +150,7 @@ class TestMoveBatch:
         assert results[0].file.path == relocations[0].to_path
 
         assert results[1].file is None
-        assert results[1].err_code == errors.ErrorCode.missing_parent
+        assert results[1].err_code == File.MissingParent.code
 
         assert results[2].file is None
         assert results[2].err_code == errors.ErrorCode.internal
@@ -174,7 +176,7 @@ class TestMovetoTrashFile:
         ns_path = "admin"
         side_effect = [
             _make_file(ns_path, "Trash/a.txt"),
-            errors.FileNotFound,
+            File.NotFound,
             Exception,
             _make_file(ns_path, "Tras/f.txt"),
         ]
@@ -190,7 +192,7 @@ class TestMovetoTrashFile:
         assert results[0].file.path == side_effect[0].path
 
         assert results[1].file is None
-        assert results[1].err_code == errors.ErrorCode.file_not_found
+        assert results[1].err_code == File.NotFound.code
 
         assert results[2].file is None
         assert results[2].err_code == errors.ErrorCode.internal

@@ -10,10 +10,10 @@ from typing import (
 
 import edgedb
 
-from app import errors, mediatypes
+from app import mediatypes
+from app.app.files.domain import File
 from app.app.repositories import IFileRepository
 from app.app.repositories.file import FileUpdate
-from app.domain.entities import File
 from app.infrastructure.database.edgedb import autocast
 
 if TYPE_CHECKING:
@@ -104,7 +104,7 @@ class FileRepository(IFileRepository):
                 query, ns_path=str(ns_path), path=str(path)
             )
         except edgedb.NoDataError as exc:
-            raise errors.FileNotFound() from exc
+            raise File.NotFound() from exc
 
         return _from_db(str(ns_path), obj)
 
@@ -169,7 +169,7 @@ class FileRepository(IFileRepository):
         try:
             obj = await self.conn.query_required_single(query, file_id=file_id)
         except edgedb.NoDataError as exc:
-            raise errors.FileNotFound() from exc
+            raise File.NotFound() from exc
         return _from_db(obj.namespace.path, obj)
 
     async def get_by_id_batch(
@@ -210,7 +210,7 @@ class FileRepository(IFileRepository):
                 query, ns_path=str(ns_path), path=str(path)
             )
         except edgedb.NoDataError as exc:
-            raise errors.FileNotFound() from exc
+            raise File.NotFound() from exc
 
         return _from_db(str(ns_path), obj)
 
@@ -382,7 +382,7 @@ class FileRepository(IFileRepository):
         try:
             obj = await self.conn.query_required_single(query, **params)
         except edgedb.ConstraintViolationError as exc:
-            raise errors.FileAlreadyExists() from exc
+            raise File.AlreadyExists() from exc
 
         return _from_db(file.ns_path, obj)
 

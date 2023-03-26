@@ -6,8 +6,8 @@ from unittest import mock
 
 import pytest
 
+from app.app.files.domain import ContentMetadata
 from app.app.services.metadata import _Tracker
-from app.domain.entities import ContentMetadata
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol
 
-from app.domain.entities import Namespace
+from app.app.files.domain import Namespace
 
 if TYPE_CHECKING:
     from app.typedefs import StrOrPath, StrOrUUID
@@ -17,7 +17,7 @@ class INamespaceRepository(Protocol):
             owner_id (StrOrUUID): Namespace owner ID.
 
         Raises:
-            errors.NamespaceNotFound: If namespace with a given owner ID does not exist.
+            Namespace.NotFound: If namespace with a given owner ID does not exist.
 
         Returns:
             Namespace: A namespace with a target owner ID.
@@ -31,7 +31,7 @@ class INamespaceRepository(Protocol):
             path (StrOrPath): Namespace path.
 
         Raises:
-            errors.NamespaceNotFound: If namespace with a target path does not exists.
+            Namespace.NotFound: If namespace with a target path does not exists.
 
         Returns:
             Namespace: Namespace with a target path.
@@ -54,9 +54,6 @@ class INamespaceRepository(Protocol):
 
         Args:
             namespace (Namespace): a Namespace instance.
-
-        Raises:
-            NamespaceAlreadyExists: If namespace with a given `path` already exists.
 
         Returns:
             Namespace: A freshly created namespace instance.

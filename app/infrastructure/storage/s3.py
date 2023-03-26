@@ -13,6 +13,7 @@ from botocore.client import Config
 from botocore.exceptions import ClientError
 
 from app import config, errors, thumbnails
+from app.app.files.domain import File
 from app.app.infrastructure.storage import ContentReader, IStorage, StorageFile
 
 from ._compat import iter_async
@@ -74,7 +75,7 @@ class S3Storage(IStorage):
             obj = self.s3.Object(self.bucket_name, key).get()
         except ClientError as exc:
             if exc.response["Error"]["Code"] == "NoSuchKey":
-                raise errors.FileNotFound() from exc
+                raise File.NotFound() from exc
             raise
 
         return obj["Body"]
@@ -129,7 +130,7 @@ class S3Storage(IStorage):
             obj.load()
         except ClientError as exc:
             if exc.response["Error"]["Code"] == "404":
-                raise errors.FileNotFound() from exc
+                raise File.NotFound() from exc
             raise
 
         return obj.last_modified.timestamp()
@@ -206,7 +207,7 @@ class S3Storage(IStorage):
             obj.copy({"Bucket": self.bucket_name, "Key": from_key})
         except ClientError as exc:
             if exc.response["Error"]["Code"] == "404":
-                raise errors.FileNotFound() from exc
+                raise File.NotFound() from exc
             raise
 
         self.s3.Object(self.bucket_name, from_key).delete()
@@ -244,7 +245,7 @@ class S3Storage(IStorage):
             obj.load()
         except ClientError as exc:
             if exc.response["Error"]["Code"] == "404":
-                raise errors.FileNotFound() from exc
+                raise File.NotFound() from exc
             raise
 
         return obj.content_length
@@ -258,7 +259,7 @@ class S3Storage(IStorage):
             self.bucket.download_fileobj(key, content)
         except ClientError as exc:
             if exc.response["Error"]["Code"] == "404":
-                raise errors.FileNotFound() from exc
+                raise File.NotFound() from exc
             raise
 
         try:

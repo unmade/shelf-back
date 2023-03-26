@@ -5,9 +5,8 @@ from typing import TYPE_CHECKING, Iterable
 import edgedb
 import orjson
 
-from app import errors
+from app.app.files.domain import ContentMetadata, File
 from app.app.repositories import IContentMetadataRepository
-from app.domain.entities import ContentMetadata
 
 if TYPE_CHECKING:
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
@@ -42,7 +41,7 @@ class ContentMetadataRepository(IContentMetadataRepository):
         try:
             obj = await self.conn.query_required_single(query, file_id=file_id)
         except edgedb.NoDataError as exc:
-            raise errors.FileMetadataNotFound() from exc
+            raise ContentMetadata.NotFound() from exc
 
         return _from_db(obj)
 
@@ -64,7 +63,7 @@ class ContentMetadataRepository(IContentMetadataRepository):
         try:
             await self.conn.query_required_single(query, file_id=file_id, data=data)
         except edgedb.MissingRequiredError as exc:
-            raise errors.FileNotFound() from exc
+            raise File.NotFound() from exc
 
         return metadata
 
@@ -98,4 +97,4 @@ class ContentMetadataRepository(IContentMetadataRepository):
         try:
             await self.conn.query(query, entries=entries)
         except edgedb.MissingRequiredError as exc:
-            raise errors.FileNotFound() from exc
+            raise File.NotFound() from exc

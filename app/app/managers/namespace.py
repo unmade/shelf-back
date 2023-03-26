@@ -6,8 +6,10 @@ from pathlib import PurePath
 from typing import IO, TYPE_CHECKING
 
 from app import config, errors, hashes, metadata, taskgroups, timezone
+from app.app.files.domain import File
 
 if TYPE_CHECKING:
+    from app.app.files.domain import ContentMetadata, Namespace
     from app.app.infrastructure.storage import ContentReader
     from app.app.services import (
         DuplicateFinderService,
@@ -16,7 +18,6 @@ if TYPE_CHECKING:
         NamespaceService,
         UserService,
     )
-    from app.domain.entities import ContentMetadata, File, Namespace
     from app.typedefs import StrOrPath
 
 __all__ = ["NamespaceManager"]
@@ -57,10 +58,10 @@ class NamespaceManager:
             content (IO): Actual file content.
 
         Raises:
-            FileTooLarge: If upload file size exceeds max upload size limit.
-            FileAlreadyExists: If a file in a target path already exists.
-            MalformedPath: If path is invalid (e.g. uploading to Trash folder).
-            NotADirectory: If one of the path parents is not a folder.
+            File.TooLarge: If upload file size exceeds max upload size limit.
+            File.AlreadyExists: If a file in a target path already exists.
+            File.MalformedPath: If path is invalid (e.g. uploading to Trash folder).
+            File.NotADirectory: If one of the path parents is not a folder.
             StorageQuotaExceeded: If storage quota exceeded.
 
         Returns:
@@ -68,11 +69,11 @@ class NamespaceManager:
         """
         path = str(path)
         if path.lower() == "trash" or path.lower().startswith("trash/"):
-            raise errors.MalformedPath("Uploads to the Trash folder are not allowed")
+            raise File.MalformedPath("Uploads to the Trash folder are not allowed")
 
         size = content.seek(0, 2)
         if size > config.FEATURES_UPLOAD_FILE_MAX_SIZE:
-            raise errors.FileTooLarge()
+            raise File.TooLarge()
 
         ns = await self.namespace.get_by_path(str(ns_path))
         account = await self.user.get_account(ns.owner_id)
@@ -96,8 +97,8 @@ class NamespaceManager:
             path (StrOrPath): Path to a folder to create.
 
         Raises:
-            FileAlreadyExists: If folder with this path already exists.
-            NotADirectory: If one of the path parents is not a directory.
+            File.AlreadyExists: If folder with this path already exists.
+            File.NotADirectory: If one of the path parents is not a directory.
 
         Returns:
             File: Created folder.
@@ -134,7 +135,7 @@ class NamespaceManager:
             path (StrOrPath): Path to a file/folder to delete.
 
         Raises:
-            FileNotFound: If a file/folder with a given path does not exists.
+            File.NotFound: If a file/folder with a given path does not exists.
 
         Returns:
             File: Deleted file.
@@ -202,8 +203,8 @@ class NamespaceManager:
             path (StrOrPath): File path
 
         Raises:
-            FileNotFound: If file with target ID does not exist.
-            FileMetadataNotFound: If file metadata does not exist.
+            File.NotFound: If file with target ID does not exist.
+            ContentMetadata.NotFound: If file metadata does not exist.
 
         Returns:
             ContentMetadata: A file content metadata
@@ -223,8 +224,8 @@ class NamespaceManager:
             size (int): Thumbnail dimension.
 
         Raises:
-            FileNotFound: If file with target ID does not exist.
-            IsADirectory: If file is a directory.
+            File.NotFound: If file with target ID does not exist.
+            File.IsADirectory: If file is a directory.
             ThumbnailUnavailable: If file is not an image.
 
         Returns:
@@ -235,7 +236,7 @@ class NamespaceManager:
         # but since thumbnail is cached it is faster to hit cache and then
         # check if file belongs to a namespace
         if str(file.ns_path) != str(ns_path):
-            raise errors.FileNotFound()
+            raise File.NotFound()
         return file, thumbnail
 
     async def get_item_at_path(self, ns_path: StrOrPath, path: StrOrPath) -> File:
@@ -266,8 +267,8 @@ class NamespaceManager:
             path (StrOrPath): Path to a folder in the target namespace.
 
         Raises:
-            FileNotFound: If folder at this path does not exists.
-            NotADirectory: If path points to a file.
+            File.NotFound: If folder at this path does not exists.
+            File.NotADirectory: If path points to a file.
 
         Returns:
             List[File]: List of all files/folders in a folder with a target path.
@@ -290,10 +291,10 @@ class NamespaceManager:
             next_path (StrOrPath): Path that is the destination.
 
         Raises:
-            errors.FileNotFound: If source path does not exists.
-            errors.FileAlreadyExists: If some file already in the destination path.
-            errors.MissingParent: If 'next_path' parent does not exists.
-            errors.NotADirectory: If one of the 'next_path' parents is not a folder.
+            File.NotFound: If source path does not exists.
+            File.AlreadyExists: If some file already in the destination path.
+            File.MissingParent: If 'next_path' parent does not exists.
+            File.NotADirectory: If one of the 'next_path' parents is not a folder.
 
         Returns:
             File: Moved file/folder.
@@ -315,7 +316,7 @@ class NamespaceManager:
             path (StrOrPath): Path to a file or folder to be moved to the Trash folder.
 
         Raises:
-            errors.FileNotFound: If source path does not exists.
+            File.NotFound: If source path does not exists.
 
         Returns:
             File: Moved file.
@@ -341,8 +342,8 @@ class NamespaceManager:
             ns_path (StrOrPath): Namespace path to reindex.
 
         Raises:
-            errors.NamespaceNotFound: If namespace does not exist.
-            errors.NotADirectory: If given path does not exist.
+            Namespace.NotFound: If namespace does not exist.
+            File.NotADirectory: If given path does not exist.
         """
         # ensure namespace exists
         await self.namespace.get_by_path(str(ns_path))

@@ -3,7 +3,7 @@ from __future__ import annotations
 import secrets
 from typing import TYPE_CHECKING, Protocol
 
-from app.domain.entities import SENTINEL_ID, SharedLink
+from app.app.files.domain import SENTINEL_ID, SharedLink
 
 if TYPE_CHECKING:
     from app.app.repositories.shared_link import ISharedLinkRepository
@@ -29,7 +29,7 @@ class SharingService:
             file_id (str): Target file ID to share.
 
         Raises:
-            FileNotFound: If file/folder with a given path does not exist.
+            File.NotFound: If file/folder with a given path does not exist.
 
         Returns:
             SharedLink: A shared link.
@@ -49,7 +49,7 @@ class SharingService:
             file_id (str): File ID.
 
         Raises:
-            SharedLinkNotFound: If file/folder with a given path does not exist.
+            SharedLink.NotFound: If file/folder with a given path does not exist.
 
         Returns:
             SharedLink: A SharedLink.
@@ -64,7 +64,7 @@ class SharingService:
             token (str): Target shared link token.
 
         Raises:
-            SharedLinkNotFound: If a link with a given token does not exist.
+            SharedLink.NotFound: If a link with a given token does not exist.
 
         Returns:
             SharedLink: A SharedLink.

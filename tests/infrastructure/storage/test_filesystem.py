@@ -10,6 +10,7 @@ import pytest
 from asgiref.sync import sync_to_async
 
 from app import errors
+from app.app.files.domain import File
 from app.infrastructure.storage import FileSystemStorage
 
 if TYPE_CHECKING:
@@ -118,11 +119,11 @@ class TestDownload:
 
     async def test_when_it_is_a_dir(self, file_factory, fs_storage: FileSystemStorage):
         await file_factory("user/a/f.txt")
-        with pytest.raises(errors.FileNotFound):
+        with pytest.raises(File.NotFound):
             await fs_storage.download("user", "a")
 
     async def test_when_file_does_not_exist(self, fs_storage: FileSystemStorage):
-        with pytest.raises(errors.FileNotFound):
+        with pytest.raises(File.NotFound):
             await fs_storage.download("user", "f.txt")
 
 
@@ -179,7 +180,7 @@ async def test_get_modified_time(file_factory, fs_storage: FileSystemStorage):
 
 
 async def test_get_modified_time_but_file_does_not_exist(fs_storage: FileSystemStorage):
-    with pytest.raises(errors.FileNotFound):
+    with pytest.raises(File.NotFound):
         await fs_storage.get_modified_time("user", "f.txt")
 
 
@@ -217,13 +218,13 @@ async def test_iterdir_does_not_include_broken_symlinks(
 
 
 async def test_iterdir_but_path_does_not_exist(fs_storage: FileSystemStorage):
-    with pytest.raises(errors.FileNotFound):
+    with pytest.raises(File.NotFound):
         list(await fs_storage.iterdir("user", "a"))
 
 
 async def test_iterdir_but_it_is_a_file(file_factory, fs_storage: FileSystemStorage):
     await file_factory("user/f.txt")
-    with pytest.raises(errors.NotADirectory):
+    with pytest.raises(File.NotADirectory):
         list(await fs_storage.iterdir("user", "f.txt"))
 
 
@@ -242,7 +243,7 @@ async def test_makedirs_but_file_already_exists(
 ):
     await file_factory("user/a")
 
-    with pytest.raises(errors.FileAlreadyExists):
+    with pytest.raises(File.AlreadyExists):
         await fs_storage.makedirs("user", "a")
 
 
@@ -251,7 +252,7 @@ async def test_makedirs_but_parent_is_a_directory(
 ):
     await file_factory("user/x.txt")
 
-    with pytest.raises(errors.NotADirectory):
+    with pytest.raises(File.NotADirectory):
         await fs_storage.makedirs("user", "x.txt/y.txt")
 
 
@@ -264,12 +265,12 @@ async def test_move(file_factory, fs_storage: FileSystemStorage):
 
 async def test_move_but_it_is_a_dir(file_factory, fs_storage: FileSystemStorage):
     await file_factory("user/a/x.txt")
-    with pytest.raises(errors.FileNotFound):
+    with pytest.raises(File.NotFound):
         await fs_storage.move("user", "a", "b")
 
 
 async def test_move_but_source_does_not_exist(fs_storage: FileSystemStorage):
-    with pytest.raises(errors.FileNotFound):
+    with pytest.raises(File.NotFound):
         await fs_storage.move("user", "x.txt", "y.txt")
 
 
@@ -287,7 +288,7 @@ async def test_move_but_destination_is_not_a_dir(
 ):
     await file_factory("user/x.txt")
     await file_factory("user/y.txt")
-    with pytest.raises(errors.NotADirectory):
+    with pytest.raises(File.NotADirectory):
         await fs_storage.move("user", "x.txt", "y.txt/x.txt")
 
 
@@ -332,7 +333,7 @@ async def test_movedir_but_destination_is_not_a_dir(
     await file_factory("user/a/f.txt")
     await file_factory("user/y.txt")
 
-    with pytest.raises(errors.NotADirectory):
+    with pytest.raises(File.NotADirectory):
         await fs_storage.movedir("user", "a", "y.txt/a")
 
 
@@ -352,7 +353,7 @@ async def test_save(fs_storage: FileSystemStorage):
 async def test_save_but_path_is_not_a_dir(file_factory, fs_storage: FileSystemStorage):
     await file_factory("user/f.txt")
 
-    with pytest.raises(errors.NotADirectory):
+    with pytest.raises(File.NotADirectory):
         await fs_storage.save("user", "f.txt/f.txt", content=BytesIO(b""))
 
 
@@ -372,7 +373,7 @@ async def test_size(file_factory, fs_storage: FileSystemStorage):
 
 
 async def test_size_but_file_does_not_exist(fs_storage: FileSystemStorage):
-    with pytest.raises(errors.FileNotFound):
+    with pytest.raises(File.NotFound):
         await fs_storage.size("user", "f.txt")
 
 
@@ -389,7 +390,7 @@ async def test_thumbnail_but_path_is_a_directory(
 ):
     await file_factory("user/a/im.jpg", content=image_content)
 
-    with pytest.raises(errors.IsADirectory) as excinfo:
+    with pytest.raises(File.IsADirectory) as excinfo:
         await fs_storage.thumbnail("user", "a", size=128)
 
     assert str(excinfo.value) == "Path 'a' is a directory"
@@ -407,5 +408,5 @@ async def test_thumbnail_but_file_is_not_an_image(
 
 
 async def test_thumbnail_but_path_does_not_exist(fs_storage: FileSystemStorage):
-    with pytest.raises(errors.FileNotFound):
+    with pytest.raises(File.NotFound):
         await fs_storage.thumbnail("user", "im.jpg", size=128)

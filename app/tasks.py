@@ -9,7 +9,7 @@ from celery import Celery
 from pydantic import BaseModel
 
 from app import config, errors
-from app.domain.entities import File
+from app.app.files.domain import File
 from app.infrastructure.database.edgedb.db import EdgeDBDatabase
 from app.infrastructure.provider import Provider
 from app.infrastructure.storage import FileSystemStorage, S3Storage
@@ -114,8 +114,8 @@ async def delete_immediately_batch(
 
             try:
                 file = await managers.namespace.delete_item(ns_path, path)
-            except errors.FileNotFound:
-                err_code = errors.ErrorCode.file_not_found
+            except File.NotFound as exc:
+                err_code = errors.ErrorCode(exc.code)
             except Exception:
                 err_code = errors.ErrorCode.internal
                 logger.exception("Unexpectedly failed to delete a file")

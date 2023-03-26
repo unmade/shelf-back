@@ -120,7 +120,7 @@ class IStorage(Protocol):
             path (StrOrPath): File pathname relative to namespace.
 
         Raises:
-            FileNotFound: If path not found or path is a directory.
+            File.NotFound: If path not found or path is a directory.
 
         Yields:
             ContentReader: Iterator over a file content.
@@ -162,7 +162,7 @@ class IStorage(Protocol):
             path (StrOrPath): File pathname relative to namespace.
 
         Raises:
-            errors.FileNotFound: If file in path doesn't exists
+            File.NotFound: If file in path doesn't exists
 
         Returns:
             float: Last modified time of the file.
@@ -182,8 +182,8 @@ class IStorage(Protocol):
             path (StrOrPath): File pathname relative to namespace.
 
         Raises:
-            errors.FileNotFound: If given path does not exist
-            errors.NotADirectory: If given path is not a directory
+            File.NotFound: If given path does not exist
+            File.NotADirectory: If given path is not a directory
 
         Yields:
             Iterator[StorageFile]: Iterator of StorageFile objects.
@@ -199,8 +199,8 @@ class IStorage(Protocol):
             path (StrOrPath): File pathname relative to namespace.
 
         Raises:
-            errors.FileAlreadyExists: If some file already exists in a given path.
-            errors.NotADirectory: If some parent is not a directory.
+            File.AlreadyExists: If some file already exists in a given path.
+            File.NotADirectory: If some parent is not a directory.
         """
 
     @abc.abstractmethod
@@ -221,8 +221,8 @@ class IStorage(Protocol):
             to_path (StrOrPath): Next file pathname relative to namespace.
 
         Raises:
-            errors.FileNotFound: If source or destination path does not exist.
-            errors.NotADirectory: If some parent of the destination is not a directory.
+            File.NotFound: If source or destination path does not exist.
+            File.NotADirectory: If some parent of the destination is not a directory.
         """
 
     @abc.abstractmethod
@@ -246,7 +246,7 @@ class IStorage(Protocol):
             to_path (StrOrPath): Next folder pathname relative to namespace.
 
         Raises:
-            errors.NotADirectory: If some parent of the destination is not a directory.
+            File.NotADirectory: If some parent of the destination is not a directory.
         """
 
     @abc.abstractmethod
@@ -265,7 +265,7 @@ class IStorage(Protocol):
             content (IO[bytes]): Content to save.
 
         Raises:
-            errors.NotADirectory: If some parent is not a directory.
+            File.NotADirectory: If some parent is not a directory.
 
         Returns:
             StorageFile: Saved StorageFile.
@@ -281,7 +281,7 @@ class IStorage(Protocol):
             path (StrOrPath): File pathname relative to namespace.
 
         Raises:
-            errors.FileNotFound: If given path does not exist.
+            File.NotFound: If given path does not exist.
 
         Returns:
             int: Total size in bytes.
@@ -298,8 +298,8 @@ class IStorage(Protocol):
             size (int): Size of thumbnail in pixels.
 
         Raises:
-            errors.FileNotFound: If given path does not exist.
-            errors.IsADirectory: If given path is a directory.
+            File.NotFound: If given path does not exist.
+            File.IsADirectory: If given path is a directory.
             errors.ThumbnailUnavailable: If image type is not supported or file
                 is not an image.
 

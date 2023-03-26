@@ -7,15 +7,17 @@ import pytest
 from faker import Faker
 
 from app import mediatypes
-from app.domain.entities import (
+from app.app.files.domain import (
     SENTINEL_ID,
-    Account,
     ContentMetadata,
     Exif,
     File,
     Fingerprint,
     Namespace,
     SharedLink,
+)
+from app.domain.entities import (
+    Account,
     User,
 )
 from app.infrastructure.database.edgedb import EdgeDBDatabase

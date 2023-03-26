@@ -8,15 +8,14 @@ from unittest import mock
 
 import pytest
 
-from app import errors
 from app.api.files.exceptions import PathNotFound
 from app.api.sharing.exceptions import SharedLinkNotFound
-from app.domain.entities import File, SharedLink
+from app.app.files.domain import File, SharedLink
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
-    from app.domain.entities import Namespace
+    from app.app.files.domain import Namespace
     from tests.api.conftest import TestClient
 
 pytestmark = [pytest.mark.asyncio]
@@ -66,7 +65,7 @@ class TestCreateSharedLink:
         self, client: TestClient, namespace: Namespace, sharing_manager: MagicMock
     ):
         # GIVEN
-        sharing_manager.create_link.side_effect = errors.FileNotFound
+        sharing_manager.create_link.side_effect = File.NotFound
         payload = {"path": "im.jpeg"}
         # WHEN
         client.mock_namespace(namespace)
@@ -101,7 +100,7 @@ class TestGetSharedLink:
         self, client: TestClient, namespace: Namespace, sharing_manager: MagicMock
     ):
         # GIVEN
-        sharing_manager.get_link.side_effect = errors.FileNotFound
+        sharing_manager.get_link.side_effect = File.NotFound
         payload = {"path": "im.jpeg"}
         # WHEN
         client.mock_namespace(namespace)
@@ -114,7 +113,7 @@ class TestGetSharedLink:
         self, client: TestClient, namespace: Namespace, sharing_manager: MagicMock
     ):
         # GIVEN
-        sharing_manager.get_link.side_effect = errors.SharedLinkNotFound
+        sharing_manager.get_link.side_effect = SharedLink.NotFound
         payload = {"path": "im.jpeg"}
         # WHEN
         client.mock_namespace(namespace)
@@ -159,7 +158,7 @@ class TestGetSharedLinkDownloadUrl:
         self, client: TestClient, sharing_manager: MagicMock
     ):
         # GIVEN
-        sharing_manager.get_shared_item.side_effect = errors.SharedLinkNotFound
+        sharing_manager.get_shared_item.side_effect = SharedLink.NotFound
         payload = {"token": "link-token", "filename": "f.txt"}
         # WHEN
         response = await client.post(self.url, json=payload)
@@ -189,7 +188,7 @@ class TestGetSharedLinkFile:
         self, client: TestClient, sharing_manager: MagicMock
     ):
         # GIVEN
-        sharing_manager.get_shared_item.side_effect = errors.SharedLinkNotFound
+        sharing_manager.get_shared_item.side_effect = SharedLink.NotFound
         payload = {"token": "link-token", "filename": "f.txt"}
         # WHEN
         response = await client.post(self.url, json=payload)
@@ -232,7 +231,7 @@ class TestGetSharedLinkThumbnail:
     ):
         # GIVEN
         token = "link-token"
-        sharing_manager.get_link_thumbnail.side_effect = errors.SharedLinkNotFound
+        sharing_manager.get_link_thumbnail.side_effect = SharedLink.NotFound
         # WHEN
         response = await client.get(self.url(token=token))
         # THEN

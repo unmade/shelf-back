@@ -3,7 +3,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from app.api import deps
-from app.domain.entities import Namespace, User
+from app.app.files.domain import Namespace
+from app.domain.entities import User
 from app.infrastructure.provider import Manager, Service
 
 from . import exceptions

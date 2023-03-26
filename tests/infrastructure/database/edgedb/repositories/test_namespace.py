@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from app import errors, mediatypes
-from app.domain.entities import SENTINEL_ID, File, Namespace
+from app import mediatypes
+from app.app.files.domain import SENTINEL_ID, File, Namespace
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -30,7 +30,7 @@ class TestGetByOwnerID:
 
     async def test_when_does_not_exist(self, namespace_repo: INamespaceRepository):
         owner_id = uuid.uuid4()
-        with pytest.raises(errors.NamespaceNotFound):
+        with pytest.raises(Namespace.NotFound):
             await namespace_repo.get_by_owner_id(owner_id)
 
 
@@ -40,7 +40,7 @@ class TestGetByPath:
         assert retrieved_ns == namespace
 
     async def test_when_does_not_exist(self, namespace_repo: INamespaceRepository):
-        with pytest.raises(errors.NamespaceNotFound):
+        with pytest.raises(Namespace.NotFound):
             await namespace_repo.get_by_path("admin")
 
 

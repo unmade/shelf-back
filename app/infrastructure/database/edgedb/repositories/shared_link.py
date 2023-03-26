@@ -4,9 +4,8 @@ from typing import TYPE_CHECKING
 
 import edgedb
 
-from app import errors
+from app.app.files.domain import File, SharedLink
 from app.app.repositories import ISharedLinkRepository
-from app.domain.entities import SharedLink
 
 if TYPE_CHECKING:
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
@@ -48,7 +47,7 @@ class SharedLinkRepository(ISharedLinkRepository):
         try:
             link = await self.conn.query_required_single(query, file_id=file_id)
         except edgedb.NoDataError as exc:
-            raise errors.SharedLinkNotFound from exc
+            raise SharedLink.NotFound from exc
 
         return _from_db(link)
 
@@ -63,7 +62,7 @@ class SharedLinkRepository(ISharedLinkRepository):
         try:
             link = await self.conn.query_required_single(query, token=token)
         except edgedb.NoDataError as exc:
-            raise errors.SharedLinkNotFound from exc
+            raise SharedLink.NotFound from exc
 
         return _from_db(link)
 
@@ -94,6 +93,6 @@ class SharedLinkRepository(ISharedLinkRepository):
                 token=shared_link.token,
             )
         except edgedb.MissingRequiredError as exc:
-            raise errors.FileNotFound() from exc
+            raise File.NotFound() from exc
 
         return shared_link.copy(update={"id": link.id})

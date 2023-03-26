@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
 
+from app.app.files.domain import File
 from app.app.services import FileCoreService, SharingService
-from app.domain.entities import File
 
 if TYPE_CHECKING:
-    from app.domain.entities import SharedLink
+    from app.app.files.domain import SharedLink
     from app.typedefs import StrOrPath
 
 __all__ = ["SharingManager"]

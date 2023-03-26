@@ -33,7 +33,7 @@ class UserService:
 
         Raises:
             errors.UserNotFound: If User with a target user_id does not exist.
-            errors.FileNotFound: If File with a target file_id does not exist.
+            File.NotFound: If File with a target file_id does not exist.
         """
         await self.db.user.add_bookmark(user_id=user_id, file_id=file_id)
 

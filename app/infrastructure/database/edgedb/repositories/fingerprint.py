@@ -5,9 +5,8 @@ from typing import TYPE_CHECKING, Iterable
 import edgedb
 import orjson
 
-from app import errors
+from app.app.files.domain import File, Fingerprint
 from app.app.repositories import IFingerprintRepository
-from app.domain.entities import Fingerprint
 
 if TYPE_CHECKING:
     from app.app.repositories.fingerprint import MatchResult
@@ -128,9 +127,9 @@ class FingerprintRepository(IFingerprintRepository):
                 part4=parts[3],
             )
         except edgedb.ConstraintViolationError as exc:
-            raise errors.FingerprintAlreadyExists() from exc
+            raise Fingerprint.AlreadyExists() from exc
         except edgedb.MissingRequiredError as exc:
-            raise errors.FileNotFound() from exc
+            raise File.NotFound() from exc
 
         return fingerprint
 
@@ -172,4 +171,4 @@ class FingerprintRepository(IFingerprintRepository):
         try:
             await self.conn.query(query, fingerprints=data)
         except edgedb.MissingRequiredError as exc:
-            raise errors.FileNotFound() from exc
+            raise File.NotFound() from exc

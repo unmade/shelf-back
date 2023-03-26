@@ -10,8 +10,8 @@ from app import security
 from app.domain.entities import Account, User
 
 if TYPE_CHECKING:
+    from app.app.files.domain import File
     from app.app.services import UserService
-    from app.domain.entities import File
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 

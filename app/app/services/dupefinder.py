@@ -6,7 +6,7 @@ from collections import defaultdict
 from typing import IO, TYPE_CHECKING, AsyncIterator, Protocol
 
 from app import hashes, mediatypes
-from app.domain.entities import Fingerprint
+from app.app.files.domain import Fingerprint
 
 if TYPE_CHECKING:
     from app.app.repositories import IFingerprintRepository
@@ -99,8 +99,8 @@ class DuplicateFinderService:
             content (IO[bytes]): File Content.
 
         Raises:
-            errors.FingerprintAlreadyExists: If fingerprint for a file already exists.
-            errors.FileNotFound: If a file with specified file ID doesn't exist.
+            Fingerprint.AlreadyExists: If fingerprint for a file already exists.
+            File.NotFound: If a file with specified file ID doesn't exist.
         """
         mediatype = mediatypes.guess("", content)
         dhash = hashes.dhash(content, mediatype=mediatype)

@@ -10,7 +10,8 @@ from app.api.users.exceptions import FileNotFound
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
-    from app.domain.entities import Namespace, User
+    from app.app.files.domain import Namespace
+    from app.domain.entities import User
     from tests.api.conftest import TestClient
 
 pytestmark = [pytest.mark.asyncio]

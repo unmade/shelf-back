@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol
 
+from app.app.files.domain import SENTINEL_ID, Namespace
 from app.app.infrastructure import IDatabase
-from app.domain.entities import SENTINEL_ID, Namespace
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -51,7 +51,7 @@ class NamespaceService:
             owner_id (StrOrUUID): Namespace owner ID.
 
         Raises:
-            errors.NamespaceNotFound: If namespace with a given owner ID does not exist.
+            Namespace.NotFound: If namespace with a given owner ID does not exist.
 
         Returns:
             Namespace: A namespace with a target owner ID.
@@ -66,7 +66,7 @@ class NamespaceService:
             path (StrOrPath): Namespace path.
 
         Raises:
-            errors.NamespaceNotFound: If namespace with a target path does not exist.
+            Namespace.NotFound: If namespace with a target path does not exist.
 
         Returns:
             Namespace: Namespace with a target path.
