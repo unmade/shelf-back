@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 
 from app.api import deps
 from app.app.users.domain import User
-from app.infrastructure.provider import Service
+from app.infrastructure.provider import Services
 
 from .schemas import (
     AccountSchema,
@@ -17,7 +17,7 @@ router = APIRouter()
 @router.get("/get_current")
 async def get_current(
     user: User = Depends(deps.current_user),
-    services: Service = Depends(deps.services),
+    services: Services = Depends(deps.services),
 ) -> AccountSchema:
     """Get account information for a current user."""
     # normally, we would re-raised UserNotFound error, but if some user,
@@ -30,7 +30,7 @@ async def get_current(
 @router.get("/get_space_usage")
 async def get_space_usage(
     user: User = Depends(deps.current_user),
-    services: Service = Depends(deps.services),
+    services: Services = Depends(deps.services),
 ) -> GetAccountSpaceUsageResponse:
     """Get the space usage information for the current account."""
     account = await services.user.get_account(user.id)

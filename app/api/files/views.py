@@ -10,7 +10,7 @@ from fastapi.responses import ORJSONResponse, Response, StreamingResponse
 from app import errors, mediatypes, tasks
 from app.api import deps, shortcuts
 from app.app.files.domain import ContentMetadata, File, Namespace
-from app.infrastructure.provider import Manager
+from app.infrastructure.provider import UseCases
 
 from . import exceptions
 from .schemas import (
@@ -44,7 +44,7 @@ async def create_folder(
     request: Request,
     payload: PathRequest,
     namespace: Namespace = Depends(deps.namespace),
-    managers: Manager = Depends(deps.managers),
+    usecases: UseCases = Depends(deps.usecases),
 ) -> FileSchema:
     """
     Create a new folder with a target path.
@@ -54,7 +54,7 @@ async def create_folder(
     if not existed, and 'c' will be returned as a response.
     """
     try:
-        folder = await managers.namespace.create_folder(namespace.path, payload.path)
+        folder = await usecases.namespace.create_folder(namespace.path, payload.path)
     except File.AlreadyExists as exc:
         raise exceptions.FileAlreadyExists(path=payload.path) from exc
     except File.NotADirectory as exc:
@@ -96,7 +96,7 @@ def delete_immediately_check(
 @router.get("/download")
 async def download(
     key: str = Query(None),
-    managers: Manager = Depends(deps.managers),
+    usecases: UseCases = Depends(deps.usecases),
 ):
     """
     Download a file or a folder.
@@ -109,7 +109,7 @@ async def download(
         raise exceptions.DownloadNotFound()
 
     try:
-        file, content = await managers.namespace.download(value.ns_path, value.path)
+        file, content = await usecases.namespace.download(value.ns_path, value.path)
     except File.NotFound as exc:
         raise exceptions.PathNotFound(path=value.path) from exc
 
@@ -132,7 +132,7 @@ async def download(
 async def download_xhr(
     payload: PathRequest,
     namespace: Namespace = Depends(deps.namespace),
-    managers: Manager = Depends(deps.managers),
+    usecases: UseCases = Depends(deps.usecases),
 ):
     """
     Download a file or a folder.
@@ -140,7 +140,7 @@ async def download_xhr(
     This endpoint is useful to download files with XHR. Folders will be downloaded as a
     ZIP archive."""
     try:
-        file, content = await managers.namespace.download(namespace.path, payload.path)
+        file, content = await usecases.namespace.download(namespace.path, payload.path)
     except File.NotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
 
@@ -187,13 +187,13 @@ async def find_duplicates(
     request: Request,
     payload: FindDuplicatesRequest,
     namespace: Namespace = Depends(deps.namespace),
-    managers: Manager = Depends(deps.managers),
+    usecases: UseCases = Depends(deps.usecases),
 ):
     """Find all duplicate files in a folder including all sub-folders."""
     ns_path = namespace.path
     path, max_distance = payload.path, payload.max_distance
 
-    groups = await managers.namespace.find_duplicates(ns_path, path, max_distance)
+    groups = await usecases.namespace.find_duplicates(ns_path, path, max_distance)
 
     # by returning response class directly we avoid pydantic checks
     # that way we speed up on a large volume of data
@@ -215,11 +215,11 @@ async def get_batch(
     request: Request,
     payload: GetBatchRequest,
     namespace: Namespace = Depends(deps.namespace),
-    managers: Manager = Depends(deps.managers),
+    usecases: UseCases = Depends(deps.usecases),
 ):
     """Return all files with specified IDs."""
     ns_path = namespace.path
-    files = await managers.namespace.filecore.get_by_id_batch(ns_path, payload.ids)
+    files = await usecases.namespace.filecore.get_by_id_batch(ns_path, payload.ids)
 
     # by returning response class directly we avoid pydantic checks
     # that way we speed up on a large volume of data
@@ -237,11 +237,11 @@ async def get_download_url(
     request: Request,
     payload: PathRequest,
     namespace: Namespace = Depends(deps.namespace),
-    managers: Manager = Depends(deps.managers),
+    usecases: UseCases = Depends(deps.usecases),
 ) -> GetDownloadUrlResponse:
     """Return a link to download requested file or folder."""
     try:
-        file = await managers.namespace.get_item_at_path(namespace.path, payload.path)
+        file = await usecases.namespace.get_item_at_path(namespace.path, payload.path)
     except File.NotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
 
@@ -254,12 +254,12 @@ async def get_download_url(
 @router.post("/get_content_metadata")
 async def get_content_metadata(
     payload: PathRequest,
-    managers: Manager = Depends(deps.managers),
+    usecases: UseCases = Depends(deps.usecases),
     namespace: Namespace = Depends(deps.namespace),
 ) -> GetContentMetadataResponse:
     """Return content metadata for a given file."""
     try:
-        meta = await managers.namespace.get_file_metadata(namespace.path, payload.path)
+        meta = await usecases.namespace.get_file_metadata(namespace.path, payload.path)
     except File.NotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
     except ContentMetadata.NotFound as exc:
@@ -271,12 +271,12 @@ async def get_content_metadata(
 async def get_thumbnail(
     file_id: UUID,
     size: ThumbnailSize,
-    managers: Manager = Depends(deps.managers),
+    usecases: UseCases = Depends(deps.usecases),
     namespace: Namespace = Depends(deps.namespace),
 ):
     """Get thumbnail for an image file."""
     try:
-        file, thumbnail = await managers.namespace.get_file_thumbnail(
+        file, thumbnail = await usecases.namespace.get_file_thumbnail(
             namespace.path, str(file_id), size=size.asint()
         )
     except File.NotFound as exc:
@@ -303,7 +303,7 @@ async def list_folder(
     request: Request,
     payload: PathRequest,
     namespace: Namespace = Depends(deps.namespace),
-    managers: Manager = Depends(deps.managers),
+    usecases: UseCases = Depends(deps.usecases),
 ):
     """
     List content of a folder with a given path.
@@ -311,7 +311,7 @@ async def list_folder(
     Note, that Trash folder is never present in a result.
     """
     try:
-        files = await managers.namespace.list_folder(namespace.path, payload.path)
+        files = await usecases.namespace.list_folder(namespace.path, payload.path)
     except File.NotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
     except File.NotADirectory as exc:
@@ -380,7 +380,7 @@ async def upload_file(
     file: UploadFile = FileParam(...),
     path: PathParam = Form(...),
     namespace: Namespace = Depends(deps.namespace),
-    managers: Manager = Depends(deps.managers),
+    usecases: UseCases = Depends(deps.usecases),
 ) -> FileSchema:
     """Upload file to the specified path."""
     filepath = path.__root__
@@ -388,7 +388,7 @@ async def upload_file(
 
     ns_path = str(namespace.path)
     try:
-        upload = await managers.namespace.add_file(ns_path, filepath, file.file)
+        upload = await usecases.namespace.add_file(ns_path, filepath, file.file)
     except File.TooLarge as exc:
         raise exceptions.UploadFileTooLarge() from exc
     except File.MalformedPath as exc:

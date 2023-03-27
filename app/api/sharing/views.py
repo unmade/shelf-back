@@ -7,7 +7,7 @@ from app.api import deps, shortcuts
 from app.api.files.exceptions import PathNotFound
 from app.api.files.schemas import PathRequest, ThumbnailSize
 from app.app.files.domain import File, Namespace, SharedLink
-from app.infrastructure.provider import Manager
+from app.infrastructure.provider import UseCases
 
 from .exceptions import SharedLinkNotFound
 from .schemas import (
@@ -27,12 +27,12 @@ router = APIRouter()
 async def create_shared_link(
     payload: PathRequest,
     namespace: Namespace = Depends(deps.namespace),
-    managers: Manager = Depends(deps.managers)
+    usecases: UseCases = Depends(deps.usecases)
 ) -> CreateSharedLinkResponse:
     """Create a shared link for a file in a given path."""
     ns_path = str(namespace.path)
     try:
-        link = await managers.sharing.create_link(ns_path, payload.path)
+        link = await usecases.sharing.create_link(ns_path, payload.path)
     except File.NotFound as exc:
         raise PathNotFound(path=payload.path) from exc
 
@@ -43,12 +43,12 @@ async def create_shared_link(
 async def get_shared_link(
     payload: PathRequest,
     namespace: Namespace = Depends(deps.namespace),
-    managers: Manager = Depends(deps.managers)
+    usecases: UseCases = Depends(deps.usecases)
 ) -> GetSharedLinkResponse:
     """Return shared link for a file in a given path."""
     ns_path = str(namespace.path)
     try:
-        link = await managers.sharing.get_link(ns_path, payload.path)
+        link = await usecases.sharing.get_link(ns_path, payload.path)
     except File.NotFound as exc:
         raise SharedLinkNotFound() from exc
     except SharedLink.NotFound as exc:
@@ -61,11 +61,11 @@ async def get_shared_link(
 async def get_shared_link_download_url(
     request: Request,
     payload: GetSharedLinkDownloadUrlRequest,
-    managers: Manager = Depends(deps.managers)
+    usecases: UseCases = Depends(deps.usecases)
 ) -> GetSharedLinkDownloadUrlResponse:
     """Return a link to download a shared link file."""
     try:
-        file = await managers.sharing.get_shared_item(payload.token)
+        file = await usecases.sharing.get_shared_item(payload.token)
     except SharedLink.NotFound as exc:
         raise SharedLinkNotFound() from exc
 
@@ -79,11 +79,11 @@ async def get_shared_link_download_url(
 async def get_shared_link_file(
     request: Request,
     payload: GetSharedLinkFileRequest,
-    managers: Manager = Depends(deps.managers)
+    usecases: UseCases = Depends(deps.usecases)
 ) -> SharedLinkFileSchema:
     """Return a shared link file information."""
     try:
-        file = await managers.sharing.get_shared_item(payload.token)
+        file = await usecases.sharing.get_shared_item(payload.token)
     except SharedLink.NotFound as exc:
         raise SharedLinkNotFound() from exc
 
@@ -94,11 +94,11 @@ async def get_shared_link_file(
 async def get_shared_link_thumbnail(
     token: str,
     size: ThumbnailSize,
-    managers: Manager = Depends(deps.managers)
+    usecases: UseCases = Depends(deps.usecases)
 ):
     """Get a thumbnail for a shared link file."""
     try:
-        _, thumb = await managers.sharing.get_link_thumbnail(token, size=size.asint())
+        _, thumb = await usecases.sharing.get_link_thumbnail(token, size=size.asint())
     except SharedLink.NotFound as exc:
         raise SharedLinkNotFound() from exc
 
@@ -116,7 +116,7 @@ async def get_shared_link_thumbnail(
 async def revoke_shared_link(
     payload: RevokeSharedLinkRequest,
     _: Namespace = Depends(deps.namespace),
-    managers: Manager = Depends(deps.managers)
+    usecases: UseCases = Depends(deps.usecases)
 ) -> None:
     """Revoke shared link."""
-    await managers.sharing.revoke_link(payload.token)
+    await usecases.sharing.revoke_link(payload.token)

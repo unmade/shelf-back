@@ -64,7 +64,7 @@ def createsuperuser(
         storage = _create_storage()
         async with _create_database() as database:
             provider = Provider(database=database, storage=storage)
-            services = provider.service
+            services = provider.services
             try:
                 user = await services.user.create(username, password, superuser=True)
             except User.AlreadyExists:
@@ -86,8 +86,8 @@ def reindex(namespace: str) -> None:
         storage = _create_storage()
         async with _create_database() as database:
             provider = Provider(database=database, storage=storage)
-            managers = provider.manager
-            await managers.namespace.reindex(namespace)
+            usecases = provider.usecases
+            await usecases.namespace.reindex(namespace)
 
     asyncio.run(_reindex())
 
@@ -102,8 +102,8 @@ def reindex_content(namespace: str) -> None:
         storage = _create_storage()
         async with _create_database() as database:
             provider = Provider(database=database, storage=storage)
-            managers = provider.manager
-            await managers.namespace.reindex_contents(namespace)
+            usecases = provider.usecases
+            await usecases.namespace.reindex_contents(namespace)
 
     asyncio.run(_reindex_content())
 

@@ -14,6 +14,7 @@ pytestmark = [pytest.mark.asyncio]
 
 
 class TestGetCurrent:
+    url = "/accounts/get_current"
     async def test(
         self,
         client: TestClient,
@@ -25,7 +26,7 @@ class TestGetCurrent:
         user_service.get_account.return_value = account
         # WHEN
         client.mock_user(user)
-        response = await client.get("/accounts/get_current")
+        response = await client.get(self.url)
         # THEN
         data = response.json()
         assert data["username"] == account.username
@@ -37,6 +38,8 @@ class TestGetCurrent:
 
 
 class TestGetSpaceUsage:
+    url = "/accounts/get_space_usage"
+
     async def test(
         self,
         client: TestClient,
@@ -50,7 +53,7 @@ class TestGetSpaceUsage:
         ns_service.get_space_used_by_owner_id.return_value = 256
         # WHEN
         client.mock_user(user)
-        response = await client.get("/accounts/get_space_usage")
+        response = await client.get(self.url)
         # THEN
         assert response.json() == {"quota": account.storage_quota, "used": 256}
         assert response.status_code == 200

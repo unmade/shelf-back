@@ -17,11 +17,9 @@ from app.app.users.domain import User
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
-    from fastapi import FastAPI
-
     from tests.api.conftest import TestClient
 
-pytestmark = [pytest.mark.asyncio, pytest.mark.database(transaction=True)]
+pytestmark = [pytest.mark.asyncio]
 
 
 class TestSignIn:
@@ -52,67 +50,70 @@ class TestSignIn:
 
 
 class TestSignUp:
-    @pytest.fixture
-    def signup(self, app: FastAPI):
-        usecase = app.state.provider.usecase
-        signup_mock = mock.AsyncMock(usecase.signup)
-        with mock.patch.object(usecase, "signup", signup_mock) as mocked:
-            yield mocked
+    url = "/auth/sign_up"
 
-    async def test(self, client: TestClient, signup: mock.AsyncMock):
+    async def test(
+        self, client: TestClient, ns_use_case: MagicMock, user_service: MagicMock
+    ):
+        # GIVEN
         payload = {
             "username": "johndoe",
             "password": "Password1",
             "confirm_password": "Password1",
         }
-        response = await client.post("/auth/sign_up", json=payload)
+        # WHEN
+        response = await client.post(self.url, json=payload)
+        # THEN
         assert "access_token" in response.json()
         assert response.status_code == 200
-        signup.assert_awaited_once_with(
+        user_service.create.assert_awaited_once_with(
             payload["username"],
             payload["password"],
             storage_quota=config.STORAGE_QUOTA,
         )
+        user = user_service.create.return_value
+        ns_use_case.create_namespace.assert_awaited_once_with(
+            user.username, owner_id=user.id
+        )
 
-    async def test_but_it_is_disabled(self, client: TestClient, signup: mock.AsyncMock):
+    async def test_but_it_is_disabled(
+        self, client: TestClient, ns_use_case: MagicMock, user_service: MagicMock
+    ):
+        # GIVEN
         payload = {
             "username": "johndoe",
             "password": "Password1",
             "confirm_password": "Password1",
         }
 
+        # WHEN
         with mock.patch("app.config.FEATURES_SIGN_UP_DISABLED", True):
-            response = await client.post("/auth/sign_up", json=payload)
-
+            response = await client.post(self.url, json=payload)
+        # THEN
         assert response.json() == SignUpDisabled().as_dict()
         assert response.status_code == 400
-        signup.assert_not_awaited()
-
-    async def test_but_passwords_dont_match(
-        self, client: TestClient, signup: mock.AsyncMock
-    ):
-        payload = {
-            "username": "jd",
-            "password": "psswrd",
-            "confirm_password": "Password1",
-        }
-        response = await client.post("/auth/sign_up", json=payload)
-        assert response.status_code == 422
-        signup.assert_not_awaited()
+        user_service.create.assert_not_awaited()
+        ns_use_case.create_namespace.assert_not_awaited()
 
     async def test_but_username_is_taken(
-        self, client: TestClient, signup: mock.AsyncMock
+        self, client: TestClient, ns_use_case: MagicMock, user_service: MagicMock
     ):
+        # GIVEN
         payload = {
             "username": "johndoe",
             "password": "Password1",
             "confirm_password": "Password1",
         }
-        signup.side_effect = User.AlreadyExists("Username 'johndoe' is taken")
-        response = await client.post("/auth/sign_up", json=payload)
-        message = str(signup.side_effect)
+        msg = "Username 'johndoe' is taken"
+        user_service.create.side_effect = User.AlreadyExists(msg)
+        # WHEN
+        response = await client.post(self.url, json=payload)
+        # THEN
+        message = str(user_service.create.side_effect)
         assert response.json() == UserAlreadyExists(message).as_dict()
         assert response.status_code == 400
+        user_service.create.assert_awaited_once()
+        ns_use_case.create_namespace.assert_not_called()
 
 
 class TestRefreshToken:

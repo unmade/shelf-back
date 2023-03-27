@@ -9,8 +9,7 @@ from app.app.files.services import (
     NamespaceService,
     SharingService,
 )
-from app.app.managers import NamespaceManager, SharingManager
-from app.app.usecases import SignUp
+from app.app.files.usecases import NamespaceUseCase, SharingUseCase
 from app.app.users.services import UserService
 
 if TYPE_CHECKING:
@@ -19,23 +18,21 @@ if TYPE_CHECKING:
     from .database.edgedb import EdgeDBDatabase
 
 __all__ = [
-    "Manager",
     "Provider",
-    "Service",
-    "UseCase",
+    "Services",
+    "UseCases",
 ]
 
 
 class Provider:
-    __slots__ = ["service", "usecase", "manager"]
+    __slots__ = ["services", "usecases"]
 
     def __init__(self, database: EdgeDBDatabase, storage: IStorage):
-        self.service = Service(database=database, storage=storage)
-        self.manager = Manager(self.service)
-        self.usecase = UseCase(self.manager, self.service)
+        self.services = Services(database=database, storage=storage)
+        self.usecases = UseCases(self.services)
 
 
-class Service:
+class Services:
     __slots__ = ["dupefinder", "filecore", "metadata", "namespace", "sharing", "user"]
 
     def __init__(self, database: EdgeDBDatabase, storage: IStorage):
@@ -47,28 +44,18 @@ class Service:
         self.user = UserService(database=database)
 
 
-class Manager:
+class UseCases:
     __slots__ = ["namespace", "sharing"]
 
-    def __init__(self, services: Service):
-        self.namespace = NamespaceManager(
+    def __init__(self, services: Services):
+        self.namespace = NamespaceUseCase(
             dupefinder=services.dupefinder,
             filecore=services.filecore,
             metadata=services.metadata,
             namespace=services.namespace,
             user=services.user,
         )
-        self.sharing = SharingManager(
+        self.sharing = SharingUseCase(
             filecore=services.filecore,
             sharing=services.sharing,
-        )
-
-
-class UseCase:
-    __slots__ = ["signup"]
-
-    def __init__(self, manager: Manager, services: Service):
-        self.signup = SignUp(
-            ns_manager=manager.namespace,
-            user_service=services.user,
         )

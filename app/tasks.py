@@ -107,13 +107,13 @@ async def delete_immediately_batch(
     results = []
     async with _create_database() as database:
         provider = Provider(database=database, storage=storage)
-        managers = provider.manager
+        usecases = provider.usecases
 
         for path in paths:
             file, err_code = None, None
 
             try:
-                file = await managers.namespace.delete_item(ns_path, path)
+                file = await usecases.namespace.delete_item(ns_path, path)
             except File.NotFound as exc:
                 err_code = errors.ErrorCode(exc.code)
             except Exception:
@@ -137,9 +137,9 @@ async def empty_trash(ns_path: StrOrPath) -> None:
 
     async with _create_database() as database:
         provider = Provider(database=database, storage=storage)
-        managers = provider.manager
+        usecases = provider.usecases
         try:
-            await managers.namespace.empty_trash(ns_path)
+            await usecases.namespace.empty_trash(ns_path)
         except Exception:
             logger.exception("Unexpectedly failed to empty trash folder")
 
@@ -166,14 +166,14 @@ async def move_batch(
     results = []
     async with _create_database() as database:
         provider = Provider(database=database, storage=storage)
-        managers = provider.manager
+        usecases = provider.usecases
 
         for relocation in relocations:
             path, next_path = relocation.from_path, relocation.to_path
             file, err_code = None, None
 
             try:
-                file = await managers.namespace.move_item(ns_path, path, next_path)
+                file = await usecases.namespace.move_item(ns_path, path, next_path)
             except errors.Error as exc:
                 err_code = exc.code
             except Exception:
@@ -206,13 +206,13 @@ async def move_to_trash_batch(
     results = []
     async with _create_database() as database:
         provider = Provider(database=database, storage=storage)
-        managers = provider.manager
+        usecases = provider.usecases
 
         for path in paths:
             file, err_code = None, None
 
             try:
-                file = await managers.namespace.move_item_to_trash(ns_path, path)
+                file = await usecases.namespace.move_item_to_trash(ns_path, path)
             except errors.Error as exc:
                 err_code = exc.code
             except Exception:

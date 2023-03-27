@@ -20,10 +20,10 @@ if TYPE_CHECKING:
     from app.app.users.services import UserService
     from app.typedefs import StrOrPath
 
-__all__ = ["NamespaceManager"]
+__all__ = ["NamespaceUseCase"]
 
 
-class NamespaceManager:
+class NamespaceUseCase:
     __slots__ = ["dupefinder", "filecore", "metadata", "namespace", "user"]
 
     def __init__(

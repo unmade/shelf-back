@@ -1,17 +1,20 @@
 from __future__ import annotations
 
-from edgedb import AsyncIOClient
+from typing import cast
+
 from fastapi import Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 
 from app.app.files.domain import Namespace
 from app.app.users.domain import User
-from app.infrastructure.provider import Manager, Service, UseCase
+from app.infrastructure.provider import Provider, Services, UseCases
 from app.tokens import AccessTokenPayload, InvalidToken
 
 from . import exceptions
 
 __all__ = [
+    "services",
+    "usecases",
     "current_user",
     "namespace",
 ]
@@ -19,20 +22,14 @@ __all__ = [
 reusable_oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/sign_in", auto_error=False)
 
 
-async def services(request: Request) -> Service:
-    return request.app.state.provider.service  # type: ignore[no-any-return]
+async def services(request: Request) -> Services:
+    provider = cast(Provider, request.app.state.provider)
+    return provider.services
 
 
-async def managers(request: Request) -> Manager:
-    return request.app.state.provider.manager  # type: ignore[no-any-return]
-
-
-async def usecases(request: Request) -> UseCase:
-    return request.app.state.provider.usecase  # type: ignore[no-any-return]
-
-
-async def db_client(request: Request) -> AsyncIOClient:
-    return request.app.state.db_client  # type: ignore[no-any-return]
+async def usecases(request: Request) -> UseCases:
+    provider = cast(Provider, request.app.state.provider)
+    return provider.usecases
 
 
 def token_payload(token: str | None = Depends(reusable_oauth2)) -> AccessTokenPayload:
@@ -48,7 +45,7 @@ def token_payload(token: str | None = Depends(reusable_oauth2)) -> AccessTokenPa
 
 async def current_user(
     payload: AccessTokenPayload = Depends(token_payload),
-    services: Service = Depends(services),
+    services: Services = Depends(services),
 ) -> User:
     """Returns user from a token payload."""
     try:
@@ -59,7 +56,7 @@ async def current_user(
 
 async def namespace(
     user: User = Depends(current_user),
-    services: Service = Depends(services),
+    services: Services = Depends(services),
 ) -> Namespace:
     """Returns a namespace for a user from a token payload."""
     # If namespace is not found, we should fail, so don't catch Namespace.NotFound here.

@@ -47,11 +47,11 @@ class TestCreateSharedLink:
         self,
         client: TestClient,
         namespace: Namespace,
-        sharing_manager: MagicMock,
+        sharing_use_case: MagicMock,
     ):
         # GIVEN
         ns_path = str(namespace.path)
-        sharing_manager.create_link.return_value = _make_sharing_link()
+        sharing_use_case.create_link.return_value = _make_sharing_link()
         payload = {"path": "f.txt"}
         # WHEN
         client.mock_namespace(namespace)
@@ -59,13 +59,13 @@ class TestCreateSharedLink:
         # THEN
         assert "token" in response.json()
         assert response.status_code == 200
-        sharing_manager.create_link.assert_awaited_once_with(ns_path, "f.txt")
+        sharing_use_case.create_link.assert_awaited_once_with(ns_path, "f.txt")
 
     async def test_when_file_not_found(
-        self, client: TestClient, namespace: Namespace, sharing_manager: MagicMock
+        self, client: TestClient, namespace: Namespace, sharing_use_case: MagicMock
     ):
         # GIVEN
-        sharing_manager.create_link.side_effect = File.NotFound
+        sharing_use_case.create_link.side_effect = File.NotFound
         payload = {"path": "im.jpeg"}
         # WHEN
         client.mock_namespace(namespace)
@@ -82,11 +82,11 @@ class TestGetSharedLink:
         self,
         client: TestClient,
         namespace: Namespace,
-        sharing_manager: MagicMock,
+        sharing_use_case: MagicMock,
     ):
         # GIVEN
         ns_path = str(namespace.path)
-        sharing_manager.get_link.return_value = _make_sharing_link()
+        sharing_use_case.get_link.return_value = _make_sharing_link()
         payload = {"path": "f.txt"}
         # WHEN
         client.mock_namespace(namespace)
@@ -94,13 +94,13 @@ class TestGetSharedLink:
         # THEN
         assert "token" in response.json()
         assert response.status_code == 200
-        sharing_manager.get_link.assert_awaited_once_with(ns_path, "f.txt")
+        sharing_use_case.get_link.assert_awaited_once_with(ns_path, "f.txt")
 
     async def test_when_link_not_found(
-        self, client: TestClient, namespace: Namespace, sharing_manager: MagicMock
+        self, client: TestClient, namespace: Namespace, sharing_use_case: MagicMock
     ):
         # GIVEN
-        sharing_manager.get_link.side_effect = File.NotFound
+        sharing_use_case.get_link.side_effect = File.NotFound
         payload = {"path": "im.jpeg"}
         # WHEN
         client.mock_namespace(namespace)
@@ -110,10 +110,10 @@ class TestGetSharedLink:
         assert response.status_code == 404
 
     async def test_when_file_not_found(
-        self, client: TestClient, namespace: Namespace, sharing_manager: MagicMock
+        self, client: TestClient, namespace: Namespace, sharing_use_case: MagicMock
     ):
         # GIVEN
-        sharing_manager.get_link.side_effect = SharedLink.NotFound
+        sharing_use_case.get_link.side_effect = SharedLink.NotFound
         payload = {"path": "im.jpeg"}
         # WHEN
         client.mock_namespace(namespace)
@@ -131,7 +131,7 @@ class TestGetSharedLinkDownloadUrl:
         self,
         download_cache_mock,
         client: TestClient,
-        sharing_manager: MagicMock,
+        sharing_use_case: MagicMock,
     ):
         # GIVEN
         download_key = uuid.uuid4().hex
@@ -150,52 +150,52 @@ class TestGetSharedLinkDownloadUrl:
         qs = urllib.parse.parse_qs(parts.query)
         assert qs["key"] == [download_key]
 
-        sharing_manager.get_shared_item.assert_awaited_once_with("link-token")
-        file = sharing_manager.get_shared_item.return_value
+        sharing_use_case.get_shared_item.assert_awaited_once_with("link-token")
+        file = sharing_use_case.get_shared_item.return_value
         download_cache_mock.assert_awaited_once_with(file.ns_path, file.path)
 
     async def test_when_link_not_found(
-        self, client: TestClient, sharing_manager: MagicMock
+        self, client: TestClient, sharing_use_case: MagicMock
     ):
         # GIVEN
-        sharing_manager.get_shared_item.side_effect = SharedLink.NotFound
+        sharing_use_case.get_shared_item.side_effect = SharedLink.NotFound
         payload = {"token": "link-token", "filename": "f.txt"}
         # WHEN
         response = await client.post(self.url, json=payload)
         # THEN
         assert response.json() == SharedLinkNotFound().as_dict()
         assert response.status_code == 404
-        sharing_manager.get_shared_item.assert_awaited_once_with(payload["token"])
+        sharing_use_case.get_shared_item.assert_awaited_once_with(payload["token"])
 
 
 class TestGetSharedLinkFile:
     url = "/sharing/get_shared_link_file"
 
-    async def test(self, client: TestClient, sharing_manager: MagicMock):
+    async def test(self, client: TestClient, sharing_use_case: MagicMock):
         # GIVEN
         ns_path, token, filename = "admin", "link-token", "f.txt"
         file = _make_file(ns_path, filename)
-        sharing_manager.get_shared_item.return_value = file
+        sharing_use_case.get_shared_item.return_value = file
         payload = {"token": token, "filename": filename}
         # WHEN
         response = await client.post(self.url, json=payload)
         # THEN
         assert response.json()["id"] == file.id
         assert response.status_code == 200
-        sharing_manager.get_shared_item.assert_awaited_once_with(payload["token"])
+        sharing_use_case.get_shared_item.assert_awaited_once_with(payload["token"])
 
     async def test_when_link_not_found(
-        self, client: TestClient, sharing_manager: MagicMock
+        self, client: TestClient, sharing_use_case: MagicMock
     ):
         # GIVEN
-        sharing_manager.get_shared_item.side_effect = SharedLink.NotFound
+        sharing_use_case.get_shared_item.side_effect = SharedLink.NotFound
         payload = {"token": "link-token", "filename": "f.txt"}
         # WHEN
         response = await client.post(self.url, json=payload)
         # THEN
         assert response.json() == SharedLinkNotFound().as_dict()
         assert response.status_code == 404
-        sharing_manager.get_shared_item.assert_awaited_once_with(payload["token"])
+        sharing_use_case.get_shared_item.assert_awaited_once_with(payload["token"])
 
 
 class TestGetSharedLinkThumbnail:
@@ -207,14 +207,14 @@ class TestGetSharedLinkThumbnail:
     async def test(
         self,
         client: TestClient,
-        sharing_manager: MagicMock,
+        sharing_use_case: MagicMock,
         name: str,
         size: str,
     ):
         # GIVEN
         ns_path, path, token = "admin", "f.txt", "link-token"
         file = _make_file(ns_path, path)
-        sharing_manager.get_link_thumbnail.return_value = file, b"content"
+        sharing_use_case.get_link_thumbnail.return_value = file, b"content"
         # WHEN
         response = await client.get(self.url(token=token, size=size))
         # THEN
@@ -227,11 +227,11 @@ class TestGetSharedLinkThumbnail:
         assert headers["Cache-Control"] == "private, max-age=31536000, no-transform"
 
     async def test_when_link_not_found(
-        self, client: TestClient, sharing_manager: MagicMock
+        self, client: TestClient, sharing_use_case: MagicMock
     ):
         # GIVEN
         token = "link-token"
-        sharing_manager.get_link_thumbnail.side_effect = SharedLink.NotFound
+        sharing_use_case.get_link_thumbnail.side_effect = SharedLink.NotFound
         # WHEN
         response = await client.get(self.url(token=token))
         # THEN
@@ -244,7 +244,7 @@ class TestRevokeSharedLink:
         self,
         client: TestClient,
         namespace: Namespace,
-        sharing_manager: MagicMock,
+        sharing_use_case: MagicMock,
     ):
         # GIVEN
         token, filename = "link-token", "f.txt"
@@ -254,4 +254,4 @@ class TestRevokeSharedLink:
         # THEN
         response = await client.post("/sharing/revoke_shared_link", json=payload)
         assert response.status_code == 200
-        sharing_manager.revoke_link.assert_awaited_once_with(token)
+        sharing_use_case.revoke_link.assert_awaited_once_with(token)

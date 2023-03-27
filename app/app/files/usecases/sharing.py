@@ -9,10 +9,10 @@ if TYPE_CHECKING:
     from app.app.files.domain import SharedLink
     from app.typedefs import StrOrPath
 
-__all__ = ["SharingManager"]
+__all__ = ["SharingUseCase"]
 
 
-class SharingManager:
+class SharingUseCase:
     __slots__ = ["filecore", "sharing"]
 
     def __init__(self, filecore: FileCoreService, sharing: SharingService):

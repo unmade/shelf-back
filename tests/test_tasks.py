@@ -53,7 +53,7 @@ def test_celery_works():
 class TestDeleteImmediatelyBatch:
     @pytest.fixture
     def delete_item(self):
-        target = "app.app.managers.NamespaceManager.delete_item"
+        target = "app.app.files.usecases.NamespaceUseCase.delete_item"
         with mock.patch(target) as patch:
             yield patch
 
@@ -95,7 +95,7 @@ class TestDeleteImmediatelyBatch:
 class TestEmptyTrash:
     @pytest.fixture
     def empty_trash(self):
-        target = "app.app.managers.NamespaceManager.empty_trash"
+        target = "app.app.files.usecases.NamespaceUseCase.empty_trash"
         with mock.patch(target) as patch:
             yield patch
 
@@ -121,7 +121,7 @@ class TestEmptyTrash:
 class TestMoveBatch:
     @pytest.fixture
     def move_item(self):
-        target = "app.app.managers.NamespaceManager.move_item"
+        target = "app.app.files.usecases.NamespaceUseCase.move_item"
         with mock.patch(target) as move_file_mock:
             yield move_file_mock
 
@@ -168,7 +168,7 @@ class TestMoveBatch:
 class TestMovetoTrashFile:
     @pytest.fixture
     def move_to_trash(self):
-        target = "app.app.managers.NamespaceManager.move_item_to_trash"
+        target = "app.app.files.usecases.NamespaceUseCase.move_item_to_trash"
         with mock.patch(target) as move_file_mock:
             yield move_file_mock
 
