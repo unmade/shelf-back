@@ -142,23 +142,6 @@ class TestCreateFolder:
         filecore.create_folder.assert_awaited_once_with(ns_path, path)
 
 
-class TestCreateNamespace:
-    async def test(self, ns_use_case: NamespaceUseCase):
-        # GIVEN
-        ns_path, owner_id = "admin", uuid.uuid4()
-        ns_service = cast(mock.MagicMock, ns_use_case.namespace)
-        filecore = cast(mock.MagicMock, ns_use_case.filecore)
-        # WHEN
-        await ns_use_case.create_namespace(ns_path, owner_id)
-        # THEN
-        ns_service.create.assert_awaited_once_with(ns_path, owner_id)
-        namespace = ns_service.create.return_value
-        filecore.create_folder.assert_has_awaits([
-            mock.call(namespace.path, "."),
-            mock.call(namespace.path, "Trash"),
-        ])
-
-
 class TestDeleteItem:
     async def test(self, ns_use_case: NamespaceUseCase):
         # GIVEN

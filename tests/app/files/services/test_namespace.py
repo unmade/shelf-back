@@ -17,12 +17,11 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 @pytest.fixture
 def ns_service():
     from app.app.files.repositories import INamespaceRepository
-    from app.app.files.services import (
-        NamespaceService,
-    )
+    from app.app.files.services import FileCoreService, NamespaceService
 
-    database=mock.MagicMock(namespace=mock.MagicMock(INamespaceRepository))
-    return NamespaceService(database=database)
+    database = mock.MagicMock(namespace=mock.MagicMock(INamespaceRepository))
+    filecore = mock.MagicMock(FileCoreService)
+    return NamespaceService(database=database, filecore=filecore)
 
 
 class TestCreate:
@@ -30,10 +29,11 @@ class TestCreate:
         # GIVEN
         ns_path, owner_id = "admin", uuid.uuid4()
         db = cast(mock.MagicMock, ns_service.db)
+        filecore = cast(mock.MagicMock, ns_service.filecore)
         # WHEN
-        result = await ns_service.create(ns_path, owner_id=owner_id)
+        namespace = await ns_service.create(ns_path, owner_id=owner_id)
         # THEN
-        assert result == db.namespace.save.return_value
+        assert namespace == db.namespace.save.return_value
         db.namespace.save.assert_awaited_once_with(
             Namespace.construct(
                 id=SENTINEL_ID,
@@ -41,6 +41,10 @@ class TestCreate:
                 owner_id=owner_id,
             )
         )
+        filecore.create_folder.assert_has_awaits([
+            mock.call(namespace.path, "."),
+            mock.call(namespace.path, "Trash"),
+        ])
 
 
 class TestGetByOwnerID:

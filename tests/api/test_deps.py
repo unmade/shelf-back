@@ -7,10 +7,11 @@ import pytest
 
 from app import timezone
 from app.api import deps, exceptions
+from app.app.auth.domain import AccessToken
+from app.app.auth.domain.tokens import InvalidToken
 from app.app.files.services import NamespaceService
 from app.app.users.domain import User
 from app.app.users.services import UserService
-from app.tokens import AccessTokenPayload, InvalidToken
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
@@ -21,22 +22,20 @@ pytestmark = [pytest.mark.asyncio]
 class TestCurrentUser:
     @pytest.fixture
     def payload(self, user: User):
-        return AccessTokenPayload(sub=str(user.id), exp=timezone.now())
+        return AccessToken(sub=str(user.id), exp=timezone.now())
 
     @pytest.fixture
     def services(self):
         return mock.MagicMock(user=mock.MagicMock(UserService))
 
-    async def test(self, payload: AccessTokenPayload, services: MagicMock):
+    async def test(self, payload: AccessToken, services: MagicMock):
         # WHEN
         result = await deps.current_user(payload=payload, services=services)
         # THEN
         assert result == services.user.get_by_id.return_value
         services.user.get_by_id.assert_awaited_once_with(payload.sub)
 
-    async def test_when_user_not_found(
-        self, payload: AccessTokenPayload, services: MagicMock
-    ):
+    async def test_when_user_not_found(self, payload: AccessToken, services: MagicMock):
         # GIVEN
         services.user.get_by_id.side_effect = User.NotFound
         # WHEN/THEN
@@ -61,7 +60,7 @@ class TestNamespace:
 class TestTokenPayload:
     def test(self):
         token = "token"
-        with mock.patch.object(AccessTokenPayload, "decode") as decode_mock:
+        with mock.patch.object(AccessToken, "decode") as decode_mock:
             result = deps.token_payload(token=token)
         assert result == decode_mock.return_value
         decode_mock.assert_called_once_with(token)
@@ -72,7 +71,7 @@ class TestTokenPayload:
 
     def test_when_token_is_invalid(self):
         token = "token"
-        with mock.patch.object(AccessTokenPayload, "decode") as decode_mock:
+        with mock.patch.object(AccessToken, "decode") as decode_mock:
             decode_mock.side_effect = InvalidToken
             with pytest.raises(exceptions.InvalidToken):
                 deps.token_payload(token=token)

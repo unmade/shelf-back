@@ -456,9 +456,10 @@ class TestListFolder:
         # WHEN
         files = await filecore.list_folder(ns_path, ".")
         # THEN
-        assert len(files) == 2
+        assert len(files) == 3
         assert files[0].path == "."
         assert files[1].path == "home"
+        assert files[2].path == "Trash"
 
     async def test_when_path_is_a_file(self, filecore: FileCoreService, file: File):
         with pytest.raises(File.NotADirectory):
@@ -678,12 +679,7 @@ class TestReindex:
         namespace: Namespace,
     ):
         # GIVEN
-        db, storage = filecore.db, filecore.storage
-
-        await storage.makedirs(namespace.path, ".")
-        await db.file.save(
-            _make_file(namespace.path, ".", size=32, mediatype=mediatypes.FOLDER),
-        )
+        db = filecore.db
 
         # these files exist in the database, but not in the storage
         await db.file.save_batch([

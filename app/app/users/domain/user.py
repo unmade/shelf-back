@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app import timezone
+from app import security, timezone
 
 __all__ = [
     "Account",
@@ -39,3 +39,6 @@ class User(BaseModel):
     username: str
     password: str
     superuser: bool = False
+
+    def check_password(self, plain_password: str) -> bool:
+        return security.check_password(plain_password, self.password)

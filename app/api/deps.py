@@ -5,10 +5,10 @@ from typing import cast
 from fastapi import Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 
+from app.app.auth.domain import AccessToken, TokenError
 from app.app.files.domain import Namespace
 from app.app.users.domain import User
 from app.infrastructure.provider import Provider, Services, UseCases
-from app.tokens import AccessTokenPayload, InvalidToken
 
 from . import exceptions
 
@@ -32,19 +32,19 @@ async def usecases(request: Request) -> UseCases:
     return provider.usecases
 
 
-def token_payload(token: str | None = Depends(reusable_oauth2)) -> AccessTokenPayload:
+def token_payload(token: str | None = Depends(reusable_oauth2)) -> AccessToken:
     """Returns payload from authentication token."""
     if token is None:
         raise exceptions.MissingToken() from None
 
     try:
-        return AccessTokenPayload.decode(token)
-    except InvalidToken as exc:
+        return AccessToken.decode(token)
+    except TokenError as exc:
         raise exceptions.InvalidToken() from exc
 
 
 async def current_user(
-    payload: AccessTokenPayload = Depends(token_payload),
+    payload: AccessToken = Depends(token_payload),
     services: Services = Depends(services),
 ) -> User:
     """Returns user from a token payload."""

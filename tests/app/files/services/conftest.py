@@ -129,9 +129,9 @@ def metadata_service():
 
 
 @pytest.fixture
-def namespace_service(_db_or_tx: EdgeDBDatabase):
+def namespace_service(_db_or_tx: EdgeDBDatabase, filecore: FileCoreService):
     """A namespace service instance."""
-    return NamespaceService(database=_db_or_tx)
+    return NamespaceService(database=_db_or_tx, filecore=filecore)
 
 
 @pytest.fixture

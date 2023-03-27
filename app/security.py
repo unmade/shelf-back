@@ -7,7 +7,7 @@ from passlib.context import CryptContext
 __all__ = [
     "is_strong_password",
     "make_password",
-    "verify_password",
+    "check_password",
 ]
 
 ALGORITHM = "HS256"
@@ -46,7 +46,7 @@ def make_password(password: str) -> str:
     return cast(str, pwd_context.hash(password))
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
+def check_password(plain_password: str, hashed_password: str) -> bool:
     """
     Compare a plain-text password to the hashed password.
 

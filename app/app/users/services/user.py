@@ -119,6 +119,21 @@ class UserService:
         """
         return await self.db.user.get_by_id(user_id)
 
+    async def get_by_username(self, username: str) -> User:
+        """
+        Retrieves a user by username
+
+        Args:
+            username (str): User username.
+
+        Raises:
+            User.NotFound: If User with a target username does not exists.
+
+        Returns:
+            User: a User instance.
+        """
+        return await self.db.user.get_by_username(username.lower().strip())
+
     async def list_bookmarks(self, user_id: StrOrUUID) -> list[UUID]:
         """
         Lists bookmarks for a given user ID.
@@ -146,22 +161,3 @@ class UserService:
             User.NotFound: If User with a target user_id does not exists.
         """
         await self.db.user.remove_bookmark(user_id, file_id)
-
-    async def verify_credentials(self, username: str, password: str) -> User | None:
-        """
-        Verifies user credentials and returns a User instance.
-
-        Args:
-            username (str): User username.
-            password (str): User plaint-text password.
-
-        Returns:
-            bool: a User instance if credentials are valid, None otherwise.
-        """
-        try:
-            user = await self.db.user.get_by_username(username.lower().strip())
-        except User.NotFound:
-            return None
-        if not security.verify_password(password, user.password):
-            return None
-        return user

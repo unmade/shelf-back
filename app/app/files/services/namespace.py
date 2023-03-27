@@ -11,6 +11,8 @@ if TYPE_CHECKING:
     from app.app.files.repositories import INamespaceRepository
     from app.typedefs import StrOrPath, StrOrUUID
 
+    from .filecore import FileCoreService
+
     class IServiceDatabase(IDatabase, Protocol):
         namespace: INamespaceRepository
 
@@ -18,10 +20,11 @@ __all__ = ["NamespaceService"]
 
 
 class NamespaceService:
-    __slots__ = ["db"]
+    __slots__ = ["db", "filecore"]
 
-    def __init__(self, database: IServiceDatabase):
+    def __init__(self, database: IServiceDatabase, filecore: FileCoreService):
         self.db = database
+        self.filecore = filecore
 
     async def create(self, path: StrOrPath, owner_id: UUID) -> Namespace:
         """
@@ -37,9 +40,12 @@ class NamespaceService:
         Returns:
             Namespace: A freshly created namespace instance.
         """
-        return await self.db.namespace.save(
+        namespace = await self.db.namespace.save(
             Namespace(id=SENTINEL_ID, path=str(path), owner_id=owner_id)
         )
+        await self.filecore.create_folder(namespace.path, ".")
+        await self.filecore.create_folder(namespace.path, "Trash")
+        return namespace
 
     async def get_by_owner_id(self, owner_id: StrOrUUID) -> Namespace:
         """

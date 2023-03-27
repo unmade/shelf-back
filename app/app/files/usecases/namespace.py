@@ -9,7 +9,7 @@ from app import config, errors, hashes, metadata, taskgroups, timezone
 from app.app.files.domain import File
 
 if TYPE_CHECKING:
-    from app.app.files.domain import ContentMetadata, Namespace
+    from app.app.files.domain import ContentMetadata
     from app.app.files.services import (
         DuplicateFinderService,
         FileCoreService,
@@ -105,25 +105,6 @@ class NamespaceUseCase:
         """
         assert str(path).lower() not in (".", "trash")
         return await self.filecore.create_folder(ns_path, path)
-
-    async def create_namespace(self, path, owner_id) -> Namespace:
-        """
-        Creates a namespace with a `Home` and `Trash` folders.
-
-        Args:
-            path (StrOrPath): Namespace path.
-            owner_id (UUID): Namespace owner ID.
-
-        Raises:
-            NamespaceAlreadyExists: If namespace with a given `path` already exists.
-
-        Returns:
-            Namespace: A freshly created namespace instance.
-        """
-        namespace = await self.namespace.create(path, owner_id)
-        await self.filecore.create_folder(namespace.path, ".")
-        await self.filecore.create_folder(namespace.path, "Trash")
-        return namespace
 
     async def delete_item(self, ns_path: StrOrPath, path: StrOrPath) -> File:
         """
