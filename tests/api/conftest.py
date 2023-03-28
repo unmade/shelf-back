@@ -118,6 +118,15 @@ def user_service(app: FastAPI):
 
 
 @pytest.fixture
+def user_use_case(app: FastAPI):
+    """A mock of a UserUseCase instance."""
+    usecases = app.state.provider.usecases
+    spec = mock.MagicMock(usecases.user)
+    with mock.patch.object(usecases, "user", spec) as mocked:
+        yield mocked
+
+
+@pytest.fixture
 def sharing_use_case(app: FastAPI):
     """A mocked instance of a SharingManager."""
     usecases = app.state.provider.usecases

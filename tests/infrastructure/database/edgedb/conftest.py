@@ -20,6 +20,7 @@ from app.app.users.domain import (
     Account,
     User,
 )
+from app.app.users.domain.bookmark import Bookmark
 from app.infrastructure.database.edgedb import EdgeDBDatabase
 from app.infrastructure.database.edgedb.db import db_context
 
@@ -33,7 +34,11 @@ if TYPE_CHECKING:
         INamespaceRepository,
         ISharedLinkRepository,
     )
-    from app.app.users.repositories import IAccountRepository, IUserRepository
+    from app.app.users.repositories import (
+        IAccountRepository,
+        IBookmarkRepository,
+        IUserRepository,
+    )
     from app.infrastructure.database.edgedb.typedefs import EdgeDBTransaction
 
     class FileFactory(Protocol):
@@ -92,6 +97,12 @@ def _tx_database(_database: EdgeDBDatabase, _tx: EdgeDBTransaction):
 def account_repo(_tx_database: EdgeDBDatabase):
     """An EdgeDB instance of IAccountRepository"""
     return _tx_database.account
+
+
+@pytest.fixture
+def bookmark_repo(_tx_database: EdgeDBDatabase):
+    """An EdgeDB instance of IBookmarkRepository"""
+    return _tx_database.bookmark
 
 
 @pytest.fixture
@@ -235,7 +246,6 @@ async def content_metadata(metadata_repo: IContentMetadataRepository, file: File
     )
 
 
-
 @pytest.fixture
 async def user(user_repo: IUserRepository):
     """A User instance saved to the EdgeDB."""
@@ -247,3 +257,9 @@ async def user(user_repo: IUserRepository):
             superuser=False,
         )
     )
+
+
+@pytest.fixture
+async def bookmark(bookmark_repo: IBookmarkRepository, file: File, user: User):
+    bookmark = Bookmark(user_id=str(user.id), file_id=file.id)
+    return await bookmark_repo.save(bookmark)

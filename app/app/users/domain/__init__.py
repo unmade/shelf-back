@@ -1,10 +1,12 @@
 import uuid
 
+from .bookmark import Bookmark
 from .user import Account, User
 
 __all__ = [
     "SENTINEL_ID",
     "Account",
+    "Bookmark",
     "User",
 ]
 

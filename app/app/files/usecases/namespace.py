@@ -223,19 +223,6 @@ class NamespaceUseCase:
     async def get_item_at_path(self, ns_path: StrOrPath, path: StrOrPath) -> File:
         return await self.filecore.get_by_path(ns_path, path)
 
-    async def has_item_with_id(self, ns_path: StrOrPath, file_id: str) -> bool:
-        """
-        Checks whether a file with a given ID exists in the target namespace.
-
-        Args:
-            ns_path (StrOrPath): Target namespace path.
-            file_id (str): Target file ID.
-
-        Returns:
-            bool: True if namespace contains file with a given ID, False otherwise.
-        """
-        return await self.filecore.exists_with_id(ns_path, file_id)
-
     async def list_folder(self, ns_path: StrOrPath, path: StrOrPath) -> list[File]:
         """
         Lists all files in the folder at a given path.

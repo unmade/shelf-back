@@ -14,10 +14,15 @@ from app.app.files.repositories import (
     ISharedLinkRepository,
 )
 from app.app.infrastructure import IDatabase
-from app.app.users.repositories import IAccountRepository, IUserRepository
+from app.app.users.repositories import (
+    IAccountRepository,
+    IBookmarkRepository,
+    IUserRepository,
+)
 
 from .repositories import (
     AccountRepository,
+    BookmarkRepository,
     ContentMetadataRepository,
     FileRepository,
     FingerprintRepository,
@@ -34,6 +39,7 @@ db_context: EdgeDBContext = ContextVar("db_context")
 
 class EdgeDBDatabase(IDatabase):
     account: IAccountRepository
+    bookmark: IBookmarkRepository
     file: IFileRepository
     fingerprint: IFingerprintRepository
     metadata: IContentMetadataRepository
@@ -57,6 +63,7 @@ class EdgeDBDatabase(IDatabase):
         db_context.set(self.client)
 
         self.account= AccountRepository(db_context=db_context)
+        self.bookmark = BookmarkRepository(db_context=db_context)
         self.file = FileRepository(db_context=db_context)
         self.fingerprint = FingerprintRepository(db_context=db_context)
         self.metadata = ContentMetadataRepository(db_context=db_context)

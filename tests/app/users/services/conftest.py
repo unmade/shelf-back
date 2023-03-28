@@ -4,8 +4,21 @@ from unittest import mock
 
 import pytest
 
-from app.app.users.repositories import IAccountRepository, IUserRepository
-from app.app.users.services import UserService
+from app.app.users.repositories import (
+    IAccountRepository,
+    IBookmarkRepository,
+    IUserRepository,
+)
+from app.app.users.services import BookmarkService, UserService
+
+
+@pytest.fixture
+def bookmark_service() -> BookmarkService:
+    """A BookmarkService instance with mocked database."""
+    database = mock.MagicMock(
+        bookmark=mock.AsyncMock(IBookmarkRepository),
+    )
+    return BookmarkService(database=database)
 
 
 @pytest.fixture

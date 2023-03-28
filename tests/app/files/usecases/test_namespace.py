@@ -293,18 +293,6 @@ class TestGetItemAtPath:
         filecore.get_by_path.assert_awaited_once_with(ns_path, path)
 
 
-class TestHasFileWithID:
-    async def test(self, ns_use_case: NamespaceUseCase):
-        # GIVEN
-        ns_path, file_id = "admin", str(uuid.uuid4())
-        filecore = cast(mock.MagicMock, ns_use_case.filecore)
-        # WHEN
-        result = await ns_use_case.has_item_with_id(ns_path, file_id)
-        # THEN
-        assert result == filecore.exists_with_id.return_value
-        filecore.exists_with_id.assert_awaited_once_with(ns_path, file_id)
-
-
 class TestListFolder:
     async def test(self, ns_use_case: NamespaceUseCase):
         # GIVEN

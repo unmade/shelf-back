@@ -20,7 +20,7 @@ from app.app.files.services import (
     NamespaceService,
     SharingService,
 )
-from app.app.users.services import UserService
+from app.app.users.services import BookmarkService, UserService
 from app.infrastructure.database.edgedb import EdgeDBDatabase
 from app.infrastructure.database.edgedb.db import db_context
 from app.infrastructure.storage import FileSystemStorage
@@ -94,7 +94,7 @@ def _db_or_tx(request: FixtureRequest):
     """Returns regular or a transactional database instance based on database marker."""
     marker = request.node.get_closest_marker("database")
     if not marker:
-        raise RuntimeError("Access to database without `database` marker!")
+        raise RuntimeError("Access to the database without `database` marker!")
 
     if marker.kwargs.get("transaction", False):
         yield request.getfixturevalue("_database")
@@ -155,10 +155,11 @@ def _hashed_password():
 
 
 @pytest.fixture
-def bookmark_factory(user_service: UserService):
+def bookmark_factory(_db_or_tx: EdgeDBDatabase):
     """A factory to bookmark a file by ID for a given user ID."""
+    bookmark_service = BookmarkService(_db_or_tx)
     async def factory(user_id: StrOrUUID, file_id: StrOrUUID) -> None:
-        await user_service.add_bookmark(user_id, file_id)
+        await bookmark_service.add_bookmark(user_id, str(file_id))
     return factory
 
 

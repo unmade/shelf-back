@@ -15,17 +15,6 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.asyncio]
 
 
-class TestAddBookmark:
-    async def test(self, user_service: UserService):
-        # GIVEN
-        user_id, file_id = uuid.uuid4(), uuid.uuid4()
-        db = cast(mock.MagicMock, user_service.db)
-        # WHEN
-        await user_service.add_bookmark(user_id, file_id)
-        # THEN
-        db.user.add_bookmark.assert_awaited_once_with(user_id=user_id, file_id=file_id)
-
-
 class TestCreate:
     @pytest.mark.parametrize(["given", "expected"], [
         (
@@ -132,27 +121,3 @@ class TestGetByUsername:
         await user_service.get_by_username(username)
         # THEN
         db.user.get_by_username.assert_awaited_once_with("admin")
-
-
-class TestListBookmarks:
-    async def test(self, user_service: UserService):
-        # GIVEN
-        user_id, file_id = uuid.uuid4(), uuid.uuid4()
-        db = cast(mock.MagicMock, user_service.db)
-        db.user.list_bookmarks.return_value = [file_id]
-        # WHEN
-        bookmarks = await user_service.list_bookmarks(user_id)
-        # THEN
-        assert bookmarks == db.user.list_bookmarks.return_value
-        db.user.list_bookmarks.assert_awaited_once_with(user_id)
-
-
-class TestRemoveBook:
-    async def test(self, user_service: UserService):
-        # GIVEN
-        user_id, file_id = uuid.uuid4(), uuid.uuid4()
-        db = cast(mock.MagicMock, user_service.db)
-        # WHEN
-        await user_service.remove_bookmark(user_id, file_id)
-        # THEN
-        db.user.remove_bookmark.assert_awaited_once_with(user_id, file_id)

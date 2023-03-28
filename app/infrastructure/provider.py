@@ -12,7 +12,8 @@ from app.app.files.services import (
     SharingService,
 )
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
-from app.app.users.services import UserService
+from app.app.users.services import BookmarkService, UserService
+from app.app.users.usecases import UserUseCase
 from app.cache import cache
 
 if TYPE_CHECKING:
@@ -37,6 +38,7 @@ class Provider:
 
 class Services:
     __slots__ = [
+        "bookmark",
         "dupefinder",
         "filecore",
         "metadata",
@@ -47,6 +49,7 @@ class Services:
     ]
 
     def __init__(self, database: EdgeDBDatabase, storage: IStorage):
+        self.bookmark = BookmarkService(database=database)
         self.filecore = FileCoreService(database=database, storage=storage)
         self.dupefinder = DuplicateFinderService(database=database)
         self.metadata = MetadataService(database=database)
@@ -57,7 +60,7 @@ class Services:
 
 
 class UseCases:
-    __slots__ = ["auth", "namespace", "sharing"]
+    __slots__ = ["auth", "namespace", "sharing", "user"]
 
     def __init__(self, services: Services):
         self.auth = AuthUseCase(
@@ -75,4 +78,10 @@ class UseCases:
         self.sharing = SharingUseCase(
             filecore=services.filecore,
             sharing=services.sharing,
+        )
+        self.user = UserUseCase(
+            bookmark_service=services.bookmark,
+            filecore=services.filecore,
+            namespace_service=services.namespace,
+            user_service=services.user,
         )
