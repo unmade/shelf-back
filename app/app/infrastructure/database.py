@@ -29,5 +29,8 @@ class IDatabase(Protocol):
             AsyncIterator[None]: An async iterator without any value.
         """
 
+    async def migrate(self) -> None:
+        """Migrates database to the latest schema."""
+
     async def shutdown(self) -> None:
         """Performs all necessary actions to shutdown database correctly."""

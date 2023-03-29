@@ -280,7 +280,6 @@ class NamespaceUseCase:
         If file with the same name already in the Trash, then path will be renamed.
 
         Args:
-            db_client (DBClient): Database client.
             namespace (Namespace): Namespace where path located.
             path (StrOrPath): Path to a file or folder to be moved to the Trash folder.
 

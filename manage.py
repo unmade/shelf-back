@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import asyncio
-from pathlib import Path
 
 import typer
 import uvloop
 
-from app import config, db
+from app import config
 from app.app.users.domain import User
 from app.infrastructure.database.edgedb.db import EdgeDBDatabase
 from app.infrastructure.provider import Provider
@@ -109,16 +108,13 @@ def reindex_content(namespace: str) -> None:
 
 
 @cli.command()
-def migrate(schema: Path) -> None:
+def migrate() -> None:
     """Apply target schema to a database."""
-    async def run_migration(schema: str) -> None:
-        async with db.create_client() as conn:
-            await db.migrate(conn, schema)
+    async def run_migration() -> None:
+        async with _create_database() as database:
+            await database.migrate()
 
-    with open(schema.expanduser().resolve(), 'r') as f:
-        schema_declaration = f.read()
-
-    asyncio.run(run_migration(schema_declaration))
+    asyncio.run(run_migration())
 
 
 if __name__ == "__main__":

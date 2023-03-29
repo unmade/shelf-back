@@ -89,5 +89,19 @@ class EdgeDBDatabase(IDatabase):
                 finally:
                     db_context.reset(token)
 
+    async def migrate(self) -> None:
+        from app import config
+
+        schema = (config.BASE_DIR / "./dbschema/default.esdl").read_text()
+        async for tx in self.client.transaction():
+            async with tx:
+                await tx.execute(f"""
+                    START MIGRATION TO {{
+                        {schema}
+                    }};
+                    POPULATE MIGRATION;
+                    COMMIT MIGRATION;
+                """)
+
     async def shutdown(self) -> None:
         await self.client.aclose()

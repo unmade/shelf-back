@@ -12,7 +12,7 @@ import pytest
 from faker import Faker
 from PIL import Image
 
-from app import config, db
+from app import config
 from app.infrastructure.database.edgedb import EdgeDBDatabase
 from app.tasks import CeleryConfig
 
@@ -109,31 +109,30 @@ async def setup_test_db(reuse_db, db_dsn) -> None:
     """
     server_dsn, dsn, db_name = db_dsn
 
-    async with edgedb.create_async_client(
+    async with EdgeDBDatabase(
         dsn=server_dsn,
         max_concurrency=1,
         tls_ca_file=config.DATABASE_TLS_CA_FILE,
         tls_security=config.DATABASE_TLS_SECURITY,
-    ) as conn:
+    ) as db:
         should_migrate = True
         try:
-            await conn.execute(f"CREATE DATABASE {db_name};")
+            await db.client.execute(f"CREATE DATABASE {db_name};")
         except edgedb.DuplicateDatabaseDefinitionError:
             if not reuse_db:
-                await conn.execute(f"DROP DATABASE {db_name};")
-                await conn.execute(f"CREATE DATABASE {db_name};")
+                await db.client.execute(f"DROP DATABASE {db_name};")
+                await db.client.execute(f"CREATE DATABASE {db_name};")
             else:
                 should_migrate = False
 
     if should_migrate:
-        schema = (config.BASE_DIR / "./dbschema/default.esdl").read_text()
-        async with edgedb.create_async_client(
+        async with EdgeDBDatabase(
             dsn=dsn,
             max_concurrency=1,
             tls_ca_file=config.DATABASE_TLS_CA_FILE,
             tls_security=config.DATABASE_TLS_SECURITY,
-        ) as conn:
-            await db.migrate(conn, schema)
+        ) as db:
+            await db.migrate()
 
 
 @pytest.fixture(scope="session")
