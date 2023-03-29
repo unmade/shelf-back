@@ -50,37 +50,44 @@ _STRICT_MEDIATYPES = {
 }
 
 
-def guess(
-    name: StrOrPath,
-    content: IO[bytes] | None = None,
-    unsafe: bool = False,
-) -> str:
+def guess(content: IO[bytes], *, name: StrOrPath | None = None) -> str:
     """
-    Guess file media type.
+    Guesses file media type by checking the content magic number signature or by
+    file name extension if media type can't be guessed by content.
 
-    If optional ``content`` argument is provided, then try to guess media type by
-    checking the magic number signature, otherwise fallback to the filename extension.
+    Note, that for file extension that are expected to be guessed by magic numbers the
+    function will always return 'application/octet-stream'.
 
     Args:
-        name (StrOrPath): Filename or path.
-        content (IO[bytes | None, optional): File-obj. Defaults to None.
-        unsafe (bool, optional): Whether to allow fallback to filename extension for
-            types that can be identified by magic number signature. Defaults to False.
+        content (IO[bytes]): File-obj. Defaults to None.
+        name ()
 
     Returns:
         str: Guessed media type. For unknown files returns 'application/octet-stream'.
     """
-    if content is not None:
-        content.seek(0)
-
+    content.seek(0)
     if mime := filetype.guess_mime(content):
         return cast(str, mime)
 
-    mime, _ = mimetypes.guess_type(name, strict=False)
-    if not unsafe and mime in _STRICT_MEDIATYPES:
-        return OCTET_STREAM
+    if name is not None:
+        mime = guess_unsafe(name)
+        if mime not in _STRICT_MEDIATYPES:
+            return cast(str, mime)
 
+    return OCTET_STREAM
+
+
+def guess_unsafe(name: StrOrPath) -> str:
+    """
+    Guesses file media type by a filename extension.
+
+    Args:
+        name (StrOrPath): Filename or path.
+
+    Returns:
+        str: Guessed media type. For unknown files returns 'application/octet-stream'.
+    """
+    mime, _ = mimetypes.guess_type(name, strict=False)
     if mime is None:
         return OCTET_STREAM
-
-    return cast(str, mime)
+    return mime

@@ -12,7 +12,7 @@ from unittest import mock
 import celery.states
 import pytest
 
-from app import errors, mediatypes
+from app import errors
 from app.api import shortcuts
 from app.api.files.exceptions import (
     DownloadNotFound,
@@ -26,7 +26,7 @@ from app.api.files.exceptions import (
     ThumbnailUnavailable,
     UploadFileTooLarge,
 )
-from app.app.files.domain import ContentMetadata, Exif, File
+from app.app.files.domain import ContentMetadata, Exif, File, mediatypes
 from app.app.infrastructure.storage import ContentReader
 from app.tasks import FileTaskResult
 

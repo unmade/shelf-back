@@ -8,7 +8,8 @@ import fitz
 from PIL import Image, ImageSequence, UnidentifiedImageError
 from PIL.ImageOps import exif_transpose
 
-from app import errors, mediatypes
+from app import errors
+from app.app.files.domain import mediatypes
 
 if TYPE_CHECKING:
     from PIL.Image import Image as ImageType
@@ -64,7 +65,7 @@ def thumbnail(content: IO[bytes], *, size: int) -> bytes:
     Returns:
         bytes: Generated thumbnail as bytes.
     """
-    mediatype = mediatypes.guess(name="", content=content)
+    mediatype = mediatypes.guess(content)
     if mediatype in _SUPPORTED_PDF:
         return _thumbnail_pdf(content, size=size, mediatype=mediatype)
 

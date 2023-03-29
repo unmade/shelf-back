@@ -4,7 +4,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, EmailStr, Field, validator
 
-from app import security
+from app.toolkit import security
 
 
 class SignUpRequest(BaseModel):

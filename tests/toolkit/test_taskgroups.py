@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from app import taskgroups
+from app.toolkit import taskgroups
 
 pytestmark = [pytest.mark.asyncio]
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app import timezone
+from app.toolkit import timezone
 
 
 def test_now() -> None:

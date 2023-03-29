@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 import pytest
 from faker import Faker
 
-from app import mediatypes
 from app.app.files.domain import (
     SENTINEL_ID,
     ContentMetadata,
@@ -15,6 +14,7 @@ from app.app.files.domain import (
     Fingerprint,
     Namespace,
     SharedLink,
+    mediatypes,
 )
 from app.app.users.domain import (
     Account,
@@ -60,7 +60,7 @@ fake = Faker()
 
 
 @pytest.fixture(scope="module")
-def _database(db_dsn):
+def _database(setup_test_db, db_dsn):
     """Returns an EdgeDBDatabase instance."""
     _, dsn, _ = db_dsn
     return EdgeDBDatabase(

@@ -3,10 +3,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Iterable
 
 import edgedb
-import orjson
 
 from app.app.files.domain import ContentMetadata, File
 from app.app.files.repositories import IContentMetadataRepository
+from app.toolkit import json_
 
 if TYPE_CHECKING:
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
@@ -17,7 +17,7 @@ __all__ = ["ContentMetadataRepository"]
 def _from_db(obj) -> ContentMetadata:
     return ContentMetadata(
         file_id=str(obj.file.id),
-        data=orjson.loads(obj.data),
+        data=json_.loads(obj.data),
     )
 
 
@@ -87,10 +87,10 @@ class ContentMetadataRepository(IContentMetadataRepository):
         """
 
         entries = [
-            orjson.dumps({
+            json_.dumps({
                 "file_id": str(metadata.file_id),
                 "data": metadata.data.dict(exclude_none=True),
-            }).decode()
+            })
             for metadata in metadatas
         ]
 

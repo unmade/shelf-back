@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request, Response
 
-from app import mediatypes
 from app.api import deps, shortcuts
 from app.api.files.exceptions import PathNotFound
 from app.api.files.schemas import PathRequest, ThumbnailSize
-from app.app.files.domain import File, Namespace, SharedLink
+from app.app.files.domain import File, Namespace, SharedLink, mediatypes
 from app.infrastructure.provider import UseCases
 
 from .exceptions import SharedLinkNotFound

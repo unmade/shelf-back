@@ -6,8 +6,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from app import mediatypes
-from app.app.files.domain import SENTINEL_ID, File, Namespace
+from app.app.files.domain import SENTINEL_ID, File, Namespace, mediatypes
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -16,7 +15,7 @@ if TYPE_CHECKING:
     from app.app.users.domain import User
 
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
 
 def _make_namespace(path: str, owner_id: UUID) -> Namespace:

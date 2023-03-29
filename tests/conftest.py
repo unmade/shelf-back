@@ -150,12 +150,12 @@ async def session_db_client(setup_test_db):
 
 
 @pytest.fixture(scope="session")
-def session_sync_client(setup_test_db):
+def session_sync_client(setup_test_db, db_dsn):
+    _, dsn, _ = db_dsn
     with edgedb.create_client(
-        dsn=config.DATABASE_DSN,
+        dsn,
         max_concurrency=1,
-        tls_ca_file=config.DATABASE_TLS_CA_FILE,
-        tls_security=config.DATABASE_TLS_SECURITY,
+        tls_security="insecure",
     ) as client:
         yield client
 

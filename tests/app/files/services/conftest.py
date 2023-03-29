@@ -7,7 +7,6 @@ from unittest import mock
 import pytest
 from faker import Faker
 
-from app import security
 from app.app.files.repositories import (
     IContentMetadataRepository,
     IFingerprintRepository,
@@ -24,6 +23,7 @@ from app.app.users.services import BookmarkService, UserService
 from app.infrastructure.database.edgedb import EdgeDBDatabase
 from app.infrastructure.database.edgedb.db import db_context
 from app.infrastructure.storage import FileSystemStorage
+from app.toolkit import security
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -56,7 +56,7 @@ fake = Faker()
 
 
 @pytest.fixture(scope="module")
-def _database(db_dsn):
+def _database(setup_test_db, db_dsn):
     """Returns an EdgeDBDatabase instance."""
     _, dsn, _ = db_dsn
     return EdgeDBDatabase(
@@ -190,7 +190,8 @@ def folder_factory(filecore: FileCoreService) -> FolderFactory:
 async def user(_hashed_password: str, user_service: UserService) -> User:
     """A user instance."""
     # mock password hashing to speed up test setup
-    with mock.patch("app.security.make_password", return_value=_hashed_password):
+    target = "app.toolkit.security.make_password"
+    with mock.patch(target, return_value=_hashed_password):
         return await user_service.create("admin", "root")
 
 

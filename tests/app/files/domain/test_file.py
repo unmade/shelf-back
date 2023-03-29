@@ -5,8 +5,7 @@ from pathlib import PurePath
 import pytest
 from faker import Faker
 
-from app import mediatypes
-from app.app.files.domain import File
+from app.app.files.domain import File, mediatypes
 
 fake = Faker()
 

@@ -5,13 +5,13 @@ from unittest import mock
 
 import pytest
 
-from app import timezone
 from app.api import deps, exceptions
 from app.app.auth.domain import AccessToken
 from app.app.auth.domain.tokens import InvalidToken
 from app.app.files.services import NamespaceService
 from app.app.users.domain import User
 from app.app.users.services import UserService
+from app.toolkit import timezone
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock

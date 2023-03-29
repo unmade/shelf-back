@@ -10,8 +10,7 @@ from typing import (
 
 import edgedb
 
-from app import mediatypes
-from app.app.files.domain import File
+from app.app.files.domain import File, mediatypes
 from app.app.files.repositories import IFileRepository
 from app.app.files.repositories.file import FileUpdate
 from app.infrastructure.database.edgedb import autocast

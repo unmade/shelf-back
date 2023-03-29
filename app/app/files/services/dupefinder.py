@@ -5,8 +5,8 @@ import contextlib
 from collections import defaultdict
 from typing import IO, TYPE_CHECKING, AsyncIterator, Protocol
 
-from app import hashes, mediatypes
-from app.app.files.domain import Fingerprint
+from app import hashes
+from app.app.files.domain import Fingerprint, mediatypes
 
 if TYPE_CHECKING:
     from app.app.files.repositories import IFingerprintRepository
@@ -102,7 +102,7 @@ class DuplicateFinderService:
             Fingerprint.AlreadyExists: If fingerprint for a file already exists.
             File.NotFound: If a file with specified file ID doesn't exist.
         """
-        mediatype = mediatypes.guess("", content)
+        mediatype = mediatypes.guess(content)
         dhash = hashes.dhash(content, mediatype=mediatype)
         if dhash is None:
             return
@@ -126,7 +126,7 @@ class _Tracker:
 
     async def add(self, file_id: str, content: IO[bytes]) -> None:
         loop = asyncio.get_running_loop()
-        mediatype = mediatypes.guess("", content)
+        mediatype = mediatypes.guess(content)
         dhash = await loop.run_in_executor(None, hashes.dhash, content, mediatype)
         if dhash is None:
             return

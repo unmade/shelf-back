@@ -71,7 +71,7 @@ class TestCreate:
         # GIVEN
         db = cast(mock.MagicMock, user_service.db)
         # WHEN
-        with mock.patch("app.security.make_password") as make_password_mock:
+        with mock.patch("app.toolkit.security.make_password") as make_password_mock:
             make_password_mock.return_value = "hashed_password"
             user = await user_service.create(**given)
         # THEN

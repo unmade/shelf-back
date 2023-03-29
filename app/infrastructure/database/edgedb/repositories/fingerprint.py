@@ -3,10 +3,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Iterable
 
 import edgedb
-import orjson
 
 from app.app.files.domain import File, Fingerprint
 from app.app.files.repositories import IFingerprintRepository
+from app.toolkit import json_
 
 if TYPE_CHECKING:
     from app.app.files.repositories.fingerprint import MatchResult
@@ -159,13 +159,13 @@ class FingerprintRepository(IFingerprintRepository):
         for fingerprint in fingerprints:
             parts = _split_int8_by_int2(fingerprint.value)
             data.append(
-                orjson.dumps({
+                json_.dumps({
                     "file_id": str(fingerprint.file_id),
                     "part1": parts[0],
                     "part2": parts[1],
                     "part3": parts[2],
                     "part4": parts[3],
-                }).decode()
+                })
             )
 
         try:

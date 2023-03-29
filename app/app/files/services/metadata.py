@@ -4,8 +4,8 @@ import asyncio
 import contextlib
 from typing import IO, TYPE_CHECKING, AsyncIterator, Protocol
 
-from app import mediatypes, metadata
-from app.app.files.domain import ContentMetadata
+from app import metadata
+from app.app.files.domain import ContentMetadata, mediatypes
 
 if TYPE_CHECKING:
     from app.app.files.repositories.metadata import IContentMetadataRepository
@@ -48,7 +48,7 @@ class MetadataService:
         Raises:
             File.NotFound: If a file with specified ID doesn't exist.
         """
-        mediatype = mediatypes.guess("", content)
+        mediatype = mediatypes.guess(content)
         meta = metadata.load(content, mediatype=mediatype)
         if meta is None:
             return
@@ -72,7 +72,7 @@ class _Tracker:
 
     async def add(self, file_id: str, content: IO[bytes]) -> None:
         loop = asyncio.get_running_loop()
-        mediatype = mediatypes.guess("", content)
+        mediatype = mediatypes.guess(content)
         meta = await loop.run_in_executor(None, metadata.load, content, mediatype)
         if meta is None:
             return

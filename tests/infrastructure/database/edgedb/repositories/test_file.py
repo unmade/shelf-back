@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from app.typedefs import StrOrPath, StrOrUUID
     from tests.infrastructure.database.edgedb.conftest import FileFactory, FolderFactory
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
 
 async def _exists_with_id(file_id: StrOrUUID) -> bool:

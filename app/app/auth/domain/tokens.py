@@ -8,7 +8,8 @@ from typing import Self, cast
 from jose import jwt
 from pydantic import BaseModel, ValidationError
 
-from app import config, timezone
+from app import config
+from app.toolkit import timezone
 
 __all__ = [
     "AccessToken",

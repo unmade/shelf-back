@@ -7,11 +7,11 @@ from collections import deque
 from pathlib import PurePath
 from typing import TYPE_CHECKING
 
-from app import mediatypes, taskgroups
-from app.app.files.domain import SENTINEL_ID, File
+from app.app.files.domain import SENTINEL_ID, File, mediatypes
 from app.app.files.repositories.file import FileUpdate
 from app.app.infrastructure import IDatabase
 from app.cache import disk_cache
+from app.toolkit import taskgroups
 
 if TYPE_CHECKING:
     from typing import (
@@ -68,7 +68,7 @@ class FileCoreService:
                 raise File.NotADirectory()
 
         next_path = await self.get_available_path(ns_path, path)
-        mediatype = mediatypes.guess(next_path, content)
+        mediatype = mediatypes.guess(content, name=path.name)
 
         storage_file = await self.storage.save(ns_path, next_path, content)
 
@@ -450,7 +450,7 @@ class FileCoreService:
                             missing[key].size += file.size
                     total_size += file.size
                     size = file.size
-                    mediatype = mediatypes.guess(file.name, unsafe=True)
+                    mediatype = mediatypes.guess_unsafe(file.name)
 
                 missing[file.path.lower()] = File(
                     id=SENTINEL_ID,

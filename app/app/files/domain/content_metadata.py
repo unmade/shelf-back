@@ -2,20 +2,15 @@ from __future__ import annotations
 
 from typing import Literal
 
-import orjson
 from pydantic import BaseModel
 
 from app.errors import Error, ErrorCode
+from app.toolkit import json_
 
 __all__ = [
     "ContentMetadata",
     "Exif"
 ]
-
-
-def orjson_dumps(value, *, default=None) -> str:
-    # orjson.dumps returns bytes, to match standard json.dumps we need to decode
-    return orjson.dumps(value, default=default).decode()
 
 
 class ContentMetadataNotFound(Error):
@@ -35,8 +30,8 @@ class Exif(BaseModel):
     width: int | None = None
 
     class Config:
-        json_loads = orjson.loads
-        json_dumps = orjson_dumps
+        json_loads = json_.loads
+        json_dumps = json_.dumps
 
 
 class ContentMetadata(BaseModel):

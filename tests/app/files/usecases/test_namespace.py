@@ -352,7 +352,7 @@ class TestMoveItemToTrash:
         filecore.exists_at_path.assert_awaited_once_with(ns_path, next_path)
         filecore.move.assert_awaited_once_with(ns_path, path, next_path)
 
-    @mock.patch("app.timezone.now", return_value=datetime(2000, 1, 1, 19, 37))
+    @mock.patch("app.toolkit.timezone.now", return_value=datetime(2000, 1, 1, 19, 37))
     async def test_when_path_at_trash_exists(
         self, tz_now: MagicMock, ns_use_case: NamespaceUseCase
     ):

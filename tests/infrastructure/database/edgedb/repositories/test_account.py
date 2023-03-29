@@ -12,7 +12,7 @@ from app.app.users.domain import SENTINEL_ID, Account, User
 if TYPE_CHECKING:
     from app.app.users.repositories import IAccountRepository
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
 
 class TestGetByUserID:

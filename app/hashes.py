@@ -4,7 +4,7 @@ from typing import IO, TYPE_CHECKING
 
 from PIL import Image, UnidentifiedImageError
 
-from app import mediatypes
+from app.app.files.domain import mediatypes
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

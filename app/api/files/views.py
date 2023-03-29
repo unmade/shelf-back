@@ -7,9 +7,9 @@ from fastapi import APIRouter, Depends, Form, Query, Request, UploadFile
 from fastapi import File as FileParam
 from fastapi.responses import ORJSONResponse, Response, StreamingResponse
 
-from app import errors, mediatypes, tasks
+from app import errors, tasks
 from app.api import deps, shortcuts
-from app.app.files.domain import ContentMetadata, File, Namespace
+from app.app.files.domain import ContentMetadata, File, Namespace, mediatypes
 from app.infrastructure.provider import UseCases
 
 from . import exceptions

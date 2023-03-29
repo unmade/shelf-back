@@ -11,7 +11,7 @@ from app.infrastructure.database.edgedb.db import db_context
 if TYPE_CHECKING:
     from app.infrastructure.database.edgedb.repositories import SharedLinkRepository
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
 
 async def _exists_by_token(token: str) -> bool:

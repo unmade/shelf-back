@@ -10,9 +10,9 @@ from unittest import mock
 
 import pytest
 
-from app import mediatypes, taskgroups
-from app.app.files.domain import File
+from app.app.files.domain import File, mediatypes
 from app.cache import disk_cache
+from app.toolkit import taskgroups
 
 if TYPE_CHECKING:
     from app.app.files.domain import Namespace

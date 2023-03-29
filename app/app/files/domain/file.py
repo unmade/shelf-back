@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-import orjson
-
-from app import mediatypes, timezone
+from app.app.files.domain import mediatypes
 from app.errors import Error, ErrorCode
+from app.toolkit import json_, timezone
 
 if TYPE_CHECKING:
     from app.typedefs import StrOrUUID
@@ -15,11 +14,6 @@ __all__ = ["File"]
 
 def mtime_factory() -> float:
     return timezone.now().timestamp()
-
-
-def orjson_dumps(value, *, default=None) -> str:
-    # orjson.dumps returns bytes, to match standard json.dumps we need to decode
-    return orjson.dumps(value, default=default).decode()
 
 
 class FileAlreadyExists(Error):
@@ -99,7 +93,7 @@ class File:
 
     def json(self) -> str:
         """Dump instance to json."""
-        return orjson_dumps({
+        return json_.dumps({
             "id": str(self.id),
             "ns_path": self.ns_path,
             "name": self.name,
