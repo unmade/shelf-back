@@ -6,8 +6,8 @@ from unittest import mock
 
 import pytest
 
-from app.app.files.domain import ContentMetadata
-from app.app.files.services.metadata import _Tracker
+from app.app.files.domain import ContentMetadata, Exif
+from app.app.files.services.metadata.metadata import _Tracker
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
@@ -29,7 +29,7 @@ class TestGetByFileID:
         db.metadata.get_by_file_id.assert_awaited_once_with(file_id)
 
 
-@mock.patch("app.metadata.load")
+@mock.patch("app.app.files.services.metadata.readers.load")
 class TestTrack:
     async def test(
         self,
@@ -40,10 +40,11 @@ class TestTrack:
         # GIVEN
         file_id = str(uuid.uuid4())
         db = cast(mock.MagicMock, metadata_service.db)
+        load_metadata.return_value = Exif(width=1280, height=800)
         # WHEN
         await metadata_service.track(file_id, image_content)
         # THEN
-        load_metadata.assert_called_once_with(image_content, mediatype="image/jpeg")
+        load_metadata.assert_awaited_once_with(image_content)
         db.metadata.save.assert_awaited_once_with(
             ContentMetadata(file_id=file_id, data=load_metadata.return_value)
         )
@@ -61,11 +62,11 @@ class TestTrack:
         # WHEN
         await metadata_service.track(file_id, image_content)
         # THEN
-        load_metadata.assert_called_once_with(image_content, mediatype="image/jpeg")
+        load_metadata.assert_awaited_once_with(image_content)
         db.metadata.save.assert_not_awaited()
 
 
-@mock.patch("app.metadata.load")
+@mock.patch("app.app.files.services.metadata.readers.load")
 class TestTrackBatch:
     async def test(
         self,
@@ -76,6 +77,7 @@ class TestTrackBatch:
         # GIVEN
         file_ids = [str(uuid.uuid4()), str(uuid.uuid4())]
         db = cast(mock.MagicMock, metadata_service.db)
+        load_metadata.return_value = Exif(width=1280, height=800)
         # WHEN
         async with metadata_service.track_batch() as tracker:
             await tracker.add(file_ids[0], image_content)

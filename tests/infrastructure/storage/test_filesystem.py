@@ -9,7 +9,6 @@ from zipfile import ZipFile
 import pytest
 from asgiref.sync import sync_to_async
 
-from app import errors
 from app.app.files.domain import File
 from app.infrastructure.storage import FileSystemStorage
 
@@ -375,38 +374,3 @@ async def test_size(file_factory, fs_storage: FileSystemStorage):
 async def test_size_but_file_does_not_exist(fs_storage: FileSystemStorage):
     with pytest.raises(File.NotFound):
         await fs_storage.size("user", "f.txt")
-
-
-async def test_thumbnail(
-    file_factory, image_content: IO[bytes], fs_storage: FileSystemStorage
-):
-    await file_factory("user/im.jpg", content=image_content)
-    content = await fs_storage.thumbnail("user", "im.jpg", size=128)
-    assert len(content) == 112
-
-
-async def test_thumbnail_but_path_is_a_directory(
-    file_factory, image_content: IO[bytes], fs_storage: FileSystemStorage
-):
-    await file_factory("user/a/im.jpg", content=image_content)
-
-    with pytest.raises(File.IsADirectory) as excinfo:
-        await fs_storage.thumbnail("user", "a", size=128)
-
-    assert str(excinfo.value) == "Path 'a' is a directory"
-
-
-async def test_thumbnail_but_file_is_not_an_image(
-    file_factory, fs_storage: FileSystemStorage
-):
-    await file_factory("user/im.jpg")
-
-    with pytest.raises(errors.ThumbnailUnavailable) as excinfo:
-        await fs_storage.thumbnail("user", "im.jpg", size=128)
-
-    assert str(excinfo.value) == "Can't generate thumbnail for a file: 'im.jpg'"
-
-
-async def test_thumbnail_but_path_does_not_exist(fs_storage: FileSystemStorage):
-    with pytest.raises(File.NotFound):
-        await fs_storage.thumbnail("user", "im.jpg", size=128)

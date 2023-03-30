@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import asyncio
 import contextlib
 from typing import IO, TYPE_CHECKING, AsyncIterator, Protocol
 
-from app import metadata
-from app.app.files.domain import ContentMetadata, mediatypes
+from app.app.files.domain import ContentMetadata
+
+from . import readers
 
 if TYPE_CHECKING:
     from app.app.files.repositories.metadata import IContentMetadataRepository
@@ -43,18 +43,17 @@ class MetadataService:
 
         Args:
             file_id (str): File ID to associate metadata with.
-            data (Exif): Metadata.
+            content (IO[bytes]): Metadata.
 
         Raises:
             File.NotFound: If a file with specified ID doesn't exist.
         """
-        mediatype = mediatypes.guess(content)
-        meta = metadata.load(content, mediatype=mediatype)
-        if meta is None:
+        data = await readers.load(content)
+        if data is None:
             return
 
         await self.db.metadata.save(
-            ContentMetadata(file_id=file_id, data=meta)
+            ContentMetadata(file_id=file_id, data=data)
         )
 
     @contextlib.asynccontextmanager
@@ -71,14 +70,12 @@ class _Tracker:
         self._items = []
 
     async def add(self, file_id: str, content: IO[bytes]) -> None:
-        loop = asyncio.get_running_loop()
-        mediatype = mediatypes.guess(content)
-        meta = await loop.run_in_executor(None, metadata.load, content, mediatype)
-        if meta is None:
+        data = await readers.load(content)
+        if data is None:
             return
 
         self._items.append(
-            ContentMetadata(file_id=file_id, data=meta)
+            ContentMetadata(file_id=file_id, data=data)
         )
 
     def __eq__(self, other) -> bool:

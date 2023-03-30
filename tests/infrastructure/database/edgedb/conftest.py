@@ -7,7 +7,6 @@ import pytest
 from faker import Faker
 
 from app.app.files.domain import (
-    SENTINEL_ID,
     ContentMetadata,
     Exif,
     File,
@@ -16,6 +15,7 @@ from app.app.files.domain import (
     SharedLink,
     mediatypes,
 )
+from app.app.infrastructure.database import SENTINEL_ID
 from app.app.users.domain import (
     Account,
     User,

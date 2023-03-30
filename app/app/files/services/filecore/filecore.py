@@ -7,11 +7,13 @@ from collections import deque
 from pathlib import PurePath
 from typing import TYPE_CHECKING
 
-from app.app.files.domain import SENTINEL_ID, File, mediatypes
+from app.app.files.domain import File, mediatypes
 from app.app.files.repositories.file import FileUpdate
-from app.app.infrastructure import IDatabase
+from app.app.infrastructure.database import SENTINEL_ID
 from app.cache import disk_cache
 from app.toolkit import taskgroups
+
+from . import thumbnails
 
 if TYPE_CHECKING:
     from typing import (
@@ -25,6 +27,7 @@ if TYPE_CHECKING:
     )
 
     from app.app.files.repositories import IFileRepository
+    from app.app.infrastructure import IDatabase
     from app.app.infrastructure.storage import ContentReader, IStorage
     from app.typedefs import StrOrPath, StrOrUUID
 
@@ -494,5 +497,7 @@ class FileCoreService:
             tuple[File, bytes]: Tuple of file and thumbnail content.
         """
         file = await self.db.file.get_by_id(file_id)
-        thumbnail = await self.storage.thumbnail(file.ns_path, file.path, size=size)
+        content_reader = await self.storage.download(file.ns_path, file.path)
+        content = await content_reader.stream()
+        thumbnail = await thumbnails.thumbnail(content, size=size)
         return file, thumbnail

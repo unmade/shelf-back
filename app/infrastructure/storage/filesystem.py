@@ -11,7 +11,6 @@ from typing import IO, TYPE_CHECKING, AsyncIterator, Iterator
 import stream_zip
 from asgiref.sync import sync_to_async
 
-from app import errors, thumbnails
 from app.app.files.domain import File
 from app.app.infrastructure.storage import ContentReader, IStorage, StorageFile
 
@@ -236,17 +235,3 @@ class FileSystemStorage(IStorage):
             return os.lstat(fullpath).st_size
         except FileNotFoundError as exc:
             raise File.NotFound() from exc
-
-    @sync_to_async
-    def thumbnail(self, ns_path: StrOrPath, path: StrOrPath, size: int) -> bytes:
-        fullpath = self._joinpath(self.location, ns_path, path)
-        try:
-            with open(fullpath, 'rb') as content:
-                return thumbnails.thumbnail(content, size=size)
-        except FileNotFoundError as exc:
-            raise File.NotFound() from exc
-        except IsADirectoryError as exc:
-            raise File.IsADirectory(f"Path '{path}' is a directory") from exc
-        except errors.ThumbnailUnavailable as exc:
-            msg = f"Can't generate thumbnail for a file: '{path}'"
-            raise errors.ThumbnailUnavailable(msg) from exc

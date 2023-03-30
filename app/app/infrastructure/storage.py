@@ -286,23 +286,3 @@ class IStorage(Protocol):
         Returns:
             int: Total size in bytes.
         """
-
-    @abc.abstractmethod
-    async def thumbnail(self, ns_path: StrOrPath, path: StrOrPath, size: int) -> bytes:
-        """
-        Generate thumbnail with a specified size for the given path.
-
-        Args:
-            ns_path (StrOrPath): Namespace path.
-            path (StrOrPath): File pathname relative to namespace.
-            size (int): Size of thumbnail in pixels.
-
-        Raises:
-            File.NotFound: If given path does not exist.
-            File.IsADirectory: If given path is a directory.
-            errors.ThumbnailUnavailable: If image type is not supported or file
-                is not an image.
-
-        Returns:
-            bytes: Thumbnail content.
-        """

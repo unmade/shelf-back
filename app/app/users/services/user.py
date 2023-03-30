@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol
 
-from app.app.infrastructure.database import IDatabase
-from app.app.users.domain import SENTINEL_ID, Account, User
+from app.app.infrastructure.database import SENTINEL_ID, IDatabase
+from app.app.users.domain import Account, User
 from app.app.users.repositories import IAccountRepository, IUserRepository
 from app.toolkit import security
 

@@ -44,6 +44,10 @@ class NotADirectory(Error):
     code = ErrorCode.not_a_directory
 
 
+class ThumbnailUnavailable(Exception):
+    pass
+
+
 class File:
     __slots__ = ("id", "ns_path", "name", "path", "size", "mtime", "mediatype")
 
@@ -54,6 +58,7 @@ class File:
     MalformedPath = MalformedPath
     MissingParent = MissingParent
     NotADirectory = NotADirectory
+    ThumbnailUnavailable = ThumbnailUnavailable
 
     def __init__(
         self,

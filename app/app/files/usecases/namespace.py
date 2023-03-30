@@ -5,8 +5,10 @@ import os.path
 from pathlib import PurePath
 from typing import IO, TYPE_CHECKING
 
-from app import config, errors, hashes, metadata
+from app import config, errors
 from app.app.files.domain import File
+from app.app.files.services.dupefinder import dhash
+from app.app.files.services.metadata import readers as metadata_readers
 from app.toolkit import taskgroups, timezone
 
 if TYPE_CHECKING:
@@ -327,7 +329,7 @@ class NamespaceUseCase:
         """
         ns_path = str(ns_path)
         batch_size = 500
-        types = tuple(hashes.SUPPORTED_TYPES | metadata.SUPPORTED_TYPES)
+        types = tuple(dhash.SUPPORTED_TYPES | metadata_readers.SUPPORTED_TYPES)
         batches = self.filecore.iter_by_mediatypes(
             ns_path, mediatypes=types, batch_size=batch_size
         )

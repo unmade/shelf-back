@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import operator
 from io import BytesIO
-from typing import IO, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from zipfile import ZipFile
 
 import pytest
@@ -10,7 +10,6 @@ from asgiref.sync import sync_to_async
 from botocore.exceptions import ClientError
 from botocore.stub import Stubber
 
-from app import errors
 from app.app.files.domain import File
 from app.infrastructure.storage.s3 import S3Storage
 
@@ -460,31 +459,3 @@ async def test_size_but_client_raises_error(s3_storage: S3Storage):
 
     with stubber, pytest.raises(ClientError):
             await s3_storage.size("user", "f.txt")
-
-
-async def test_thumbnail(file_factory, image_content: IO[bytes], s3_storage: S3Storage):
-    await file_factory("user/im.jpg", content=image_content)
-    content = await s3_storage.thumbnail("user", "im.jpg", size=128)
-    assert len(content) == 112
-
-
-async def test_thumbnail_but_file_is_not_an_image(file_factory, s3_storage: S3Storage):
-    await file_factory("user/im.jpg")
-
-    with pytest.raises(errors.ThumbnailUnavailable) as excinfo:
-        await s3_storage.thumbnail("user", "im.jpg", size=128)
-
-    assert str(excinfo.value) == "Can't generate a thumbnail for a file: 'im.jpg'"
-
-
-async def test_thumbnail_but_path_does_not_exist(s3_storage: S3Storage):
-    with pytest.raises(File.NotFound):
-        await s3_storage.thumbnail("user", "im.jpg", size=128)
-
-
-async def test_thumbnail_but_client_raises_error(s3_storage: S3Storage):
-    stubber = Stubber(s3_storage.s3.meta.client)
-    stubber.add_client_error("head_object")
-
-    with stubber, pytest.raises(ClientError):
-            await s3_storage.thumbnail("user", "im.jpg", size=128)

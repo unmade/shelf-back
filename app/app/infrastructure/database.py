@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+import uuid
 from typing import AsyncIterator, Protocol, Self
 
-__all__ = ["IDatabase"]
+__all__ = [
+    "SENTINEL_ID",
+    "IDatabase",
+]
+
+SENTINEL_ID = uuid.UUID("00000000-0000-0000-0000-000000000000")
 
 
 class IDatabase(Protocol):

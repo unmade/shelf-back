@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from app.app.files.domain import SENTINEL_ID
+from app.app.infrastructure.database import SENTINEL_ID
 from app.app.users.domain import User
 
 if TYPE_CHECKING:

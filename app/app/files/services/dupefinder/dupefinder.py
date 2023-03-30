@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import asyncio
 import contextlib
 from collections import defaultdict
 from typing import IO, TYPE_CHECKING, AsyncIterator, Protocol
 
-from app import hashes
-from app.app.files.domain import Fingerprint, mediatypes
+from app.app.files.domain import Fingerprint
+
+from . import dhash
 
 if TYPE_CHECKING:
     from app.app.files.repositories import IFingerprintRepository
@@ -102,13 +102,12 @@ class DuplicateFinderService:
             Fingerprint.AlreadyExists: If fingerprint for a file already exists.
             File.NotFound: If a file with specified file ID doesn't exist.
         """
-        mediatype = mediatypes.guess(content)
-        dhash = hashes.dhash(content, mediatype=mediatype)
-        if dhash is None:
+        value = await dhash.dhash(content)
+        if value is None:
             return
 
         await self.db.fingerprint.save(
-            Fingerprint(file_id, value=dhash)
+            Fingerprint(file_id, value=value)
         )
 
     @contextlib.asynccontextmanager
@@ -125,14 +124,12 @@ class _Tracker:
         self._items = []
 
     async def add(self, file_id: str, content: IO[bytes]) -> None:
-        loop = asyncio.get_running_loop()
-        mediatype = mediatypes.guess(content)
-        dhash = await loop.run_in_executor(None, hashes.dhash, content, mediatype)
-        if dhash is None:
+        value = await dhash.dhash(content)
+        if value is None:
             return
 
         self._items.append(
-            Fingerprint(file_id, value=dhash)
+            Fingerprint(file_id, value=value)
         )
 
     def __eq__(self, other) -> bool:

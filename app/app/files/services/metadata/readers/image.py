@@ -6,42 +6,15 @@ from typing import IO, TYPE_CHECKING
 
 from PIL import ExifTags, Image, UnidentifiedImageError
 
-from app.app.files.domain import Exif, mediatypes
+from app.app.files.domain import Exif
 
 if TYPE_CHECKING:
     from PIL.TiffImagePlugin import IFDRational
 
-_SUPPORTED_IMAGES = {
-    mediatypes.IMAGE_HEIC,
-    mediatypes.IMAGE_HEIF,
-    mediatypes.IMAGE_JPEG,
-    mediatypes.IMAGE_PNG,
-    mediatypes.IMAGE_WEBP,
-}
 
-SUPPORTED_TYPES = _SUPPORTED_IMAGES
-
-
-def load(content: IO[bytes], mediatype: str) -> Exif | None:
+def load_image_data(content: IO[bytes]) -> Exif | None:
     """
-    Load metadata for a given content based on its mediatype.
-
-    Args:
-        mediatype (str): Content media type.
-        content (bytes | IO[bytes]): Content to load metadata from.
-
-    Returns:
-        Exif | None: None if no metadata available, otherwise return a metadata specific
-            to a given media type.
-    """
-    if mediatype in _SUPPORTED_IMAGES:
-        return _getexif(content)
-    return None
-
-
-def _getexif(content: IO[bytes]) -> Exif | None:
-    """
-    Load EXIF from an image content.
+    Loads EXIF from an image content.
 
     Args:
         content (bytes | IO[bytes]): Image content.

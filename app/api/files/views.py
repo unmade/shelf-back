@@ -283,7 +283,7 @@ async def get_thumbnail(
         raise exceptions.PathNotFound(path=str(file_id)) from exc
     except File.IsADirectory as exc:
         raise exceptions.IsADirectory(path=str(file_id)) from exc
-    except errors.ThumbnailUnavailable as exc:
+    except File.ThumbnailUnavailable as exc:
         raise exceptions.ThumbnailUnavailable(path=str(file_id)) from exc
 
     filename = file.name.encode("utf-8").decode("latin-1")

@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol
 
-from app.app.files.domain import SENTINEL_ID, Namespace
+from app.app.files.domain import Namespace
 from app.app.infrastructure import IDatabase
+from app.app.infrastructure.database import SENTINEL_ID
 
 if TYPE_CHECKING:
     from uuid import UUID

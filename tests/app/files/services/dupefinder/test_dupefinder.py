@@ -7,7 +7,7 @@ from unittest import mock
 import pytest
 
 from app.app.files.domain import Fingerprint
-from app.app.files.services.dupefinder import _Tracker
+from app.app.files.services.dupefinder.dupefinder import _Tracker
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
@@ -81,7 +81,7 @@ class TestGroup:
         ]
 
 
-@mock.patch("app.hashes.dhash")
+@mock.patch("app.app.files.services.dupefinder.dhash.dhash")
 class TestTrack:
     async def test(
         self,
@@ -92,7 +92,7 @@ class TestTrack:
         file_id = str(uuid.uuid4())
         dhash.return_value = 0
         await dupefinder.track(file_id, image_content)
-        dhash.assert_called_once_with(image_content, mediatype="image/jpeg")
+        dhash.assert_awaited_once_with(image_content)
         db: MagicMock = cast(mock.MagicMock, dupefinder.db)
         db.fingerprint.save.assert_awaited_once_with(
             Fingerprint(file_id, value=0)
@@ -107,12 +107,12 @@ class TestTrack:
         file_id = str(uuid.uuid4())
         dhash.return_value = None
         await dupefinder.track(file_id, image_content)
-        dhash.assert_called_once_with(image_content, mediatype="image/jpeg")
+        dhash.assert_awaited_once_with(image_content)
         db: MagicMock = cast(mock.MagicMock, dupefinder.db)
         db.fingerprint.save.assert_not_awaited()
 
 
-@mock.patch("app.hashes.dhash")
+@mock.patch("app.app.files.services.dupefinder.dhash.dhash")
 class TestTrackBatch:
     async def test(
         self,
@@ -133,3 +133,4 @@ class TestTrackBatch:
         ]
         db = cast(mock.MagicMock, dupefinder.db)
         db.fingerprint.save_batch.assert_awaited_once_with(expected)
+        dhash.assert_has_calls([mock.call(image_content), mock.call(image_content)])

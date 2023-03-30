@@ -6,7 +6,8 @@ from unittest import mock
 
 import pytest
 
-from app.app.files.domain import SENTINEL_ID, SharedLink
+from app.app.files.domain import SharedLink
+from app.app.infrastructure.database import SENTINEL_ID
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock

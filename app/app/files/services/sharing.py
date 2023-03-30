@@ -3,7 +3,8 @@ from __future__ import annotations
 import secrets
 from typing import TYPE_CHECKING, Protocol
 
-from app.app.files.domain import SENTINEL_ID, SharedLink
+from app.app.files.domain import SharedLink
+from app.app.infrastructure.database import SENTINEL_ID
 
 if TYPE_CHECKING:
     from app.app.files.repositories import ISharedLinkRepository

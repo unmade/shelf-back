@@ -7,7 +7,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, root_validator, validator
 
-from app import errors, thumbnails
+from app import errors
+from app.app.files.services.filecore import thumbnails
 from app.config import TRASH_FOLDER_NAME
 
 from .exceptions import FileAlreadyDeleted, MalformedPath

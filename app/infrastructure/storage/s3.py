@@ -3,7 +3,6 @@ from __future__ import annotations
 import datetime
 import os
 import os.path
-from io import BytesIO
 from typing import IO, TYPE_CHECKING, Iterator
 
 import boto3
@@ -12,7 +11,7 @@ from asgiref.sync import sync_to_async
 from botocore.client import Config
 from botocore.exceptions import ClientError
 
-from app import config, errors, thumbnails
+from app import config
 from app.app.files.domain import File
 from app.app.infrastructure.storage import ContentReader, IStorage, StorageFile
 
@@ -249,21 +248,3 @@ class S3Storage(IStorage):
             raise
 
         return obj.content_length
-
-    @sync_to_async
-    def thumbnail(self, ns_path: StrOrPath, path: StrOrPath, size: int) -> bytes:
-        key = self._joinpath(ns_path, path)
-        content = BytesIO()
-
-        try:
-            self.bucket.download_fileobj(key, content)
-        except ClientError as exc:
-            if exc.response["Error"]["Code"] == "404":
-                raise File.NotFound() from exc
-            raise
-
-        try:
-            return thumbnails.thumbnail(content, size=size)
-        except errors.ThumbnailUnavailable as exc:
-            msg = f"Can't generate a thumbnail for a file: '{path}'"
-            raise errors.ThumbnailUnavailable(msg) from exc

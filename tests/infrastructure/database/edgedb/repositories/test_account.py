@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING
 import pytest
 from dateutil import tz
 
-from app.app.users.domain import SENTINEL_ID, Account, User
+from app.app.infrastructure.database import SENTINEL_ID
+from app.app.users.domain import Account, User
 
 if TYPE_CHECKING:
     from app.app.users.repositories import IAccountRepository

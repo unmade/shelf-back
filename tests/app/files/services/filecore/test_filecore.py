@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from app.app.files.domain import Namespace
     from app.app.files.services import FileCoreService
 
-    from .conftest import BookmarkFactory, FileFactory, FolderFactory
+    from ..conftest import BookmarkFactory, FileFactory, FolderFactory
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 

@@ -27,7 +27,3 @@ class Error(Exception):
 
 class StorageQuotaExceeded(Error):
     code = ErrorCode.storage_quota_exceeded
-
-
-class ThumbnailUnavailable(Exception):
-    pass

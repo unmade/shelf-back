@@ -654,7 +654,7 @@ class TestGetThumbnail:
     @pytest.mark.parametrize(["error", "expected_error_cls"], [
         (File.NotFound(), PathNotFound),
         (File.IsADirectory(), IsADirectory),
-        (errors.ThumbnailUnavailable(), ThumbnailUnavailable),
+        (File.ThumbnailUnavailable(), ThumbnailUnavailable),
     ])
     async def test_reraising_app_errors_to_api_errors(
         self,

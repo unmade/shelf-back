@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from app.app.files.domain import SENTINEL_ID, File, Namespace, mediatypes
+from app.app.files.domain import File, Namespace, mediatypes
+from app.app.infrastructure.database import SENTINEL_ID
 
 if TYPE_CHECKING:
     from uuid import UUID
