@@ -7,9 +7,10 @@ from fastapi import APIRouter, Depends, Form, Query, Request, UploadFile
 from fastapi import File as FileParam
 from fastapi.responses import ORJSONResponse, Response, StreamingResponse
 
-from app import errors, tasks
+from app import tasks
 from app.api import deps, shortcuts
 from app.app.files.domain import ContentMetadata, File, Namespace, mediatypes
+from app.app.users.domain import Account
 from app.infrastructure.provider import UseCases
 
 from . import exceptions
@@ -395,7 +396,7 @@ async def upload_file(
         raise exceptions.MalformedPath(str(exc)) from exc
     except File.NotADirectory as exc:
         raise exceptions.NotADirectory(path=filepath) from exc
-    except errors.StorageQuotaExceeded as exc:
+    except Account.StorageQuotaExceeded as exc:
         raise exceptions.StorageQuotaExceeded() from exc
 
     return FileSchema.from_entity(upload, request=request)

@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from app.app.files.domain import mediatypes
-from app.errors import Error, ErrorCode
 from app.toolkit import json_, timezone
 
 if TYPE_CHECKING:
@@ -16,41 +15,46 @@ def mtime_factory() -> float:
     return timezone.now().timestamp()
 
 
-class FileAlreadyExists(Error):
-    code = ErrorCode.file_already_exists
+class FileError(Exception):
+    pass
 
 
-class FileNotFound(Error):
-    code = ErrorCode.file_not_found
+class FileAlreadyExists(FileError):
+    pass
 
 
-class FileTooLarge(Error):
-    code = ErrorCode.file_too_large
+class FileNotFound(FileError):
+    pass
 
 
-class IsADirectory(Error):
-    code = ErrorCode.is_a_directory
+class FileTooLarge(FileError):
+    pass
 
 
-class MalformedPath(Error):
-    code = ErrorCode.malformed_path
+class IsADirectory(FileError):
+    pass
 
 
-class MissingParent(Error):
-    code = ErrorCode.missing_parent
+class MalformedPath(FileError):
+    pass
 
 
-class NotADirectory(Error):
-    code = ErrorCode.not_a_directory
+class MissingParent(FileError):
+    pass
 
 
-class ThumbnailUnavailable(Exception):
+class NotADirectory(FileError):
+    pass
+
+
+class ThumbnailUnavailable(FileError):
     pass
 
 
 class File:
     __slots__ = ("id", "ns_path", "name", "path", "size", "mtime", "mediatype")
 
+    Error = FileError
     AlreadyExists = FileAlreadyExists
     NotFound = FileNotFound
     TooLarge = FileTooLarge

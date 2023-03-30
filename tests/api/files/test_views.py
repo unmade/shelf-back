@@ -12,7 +12,6 @@ from unittest import mock
 import celery.states
 import pytest
 
-from app import errors
 from app.api import shortcuts
 from app.api.files.exceptions import (
     DownloadNotFound,
@@ -28,6 +27,8 @@ from app.api.files.exceptions import (
 )
 from app.app.files.domain import ContentMetadata, Exif, File, mediatypes
 from app.app.infrastructure.storage import ContentReader
+from app.app.users.domain import Account
+from app.tasks import ErrorCode as TaskErrorCode
 from app.tasks import FileTaskResult
 
 if TYPE_CHECKING:
@@ -190,7 +191,7 @@ class TestDeleteImmediatelyBatchCheck:
             status=celery.states.SUCCESS,
             result=[
                 FileTaskResult(file=_make_file(ns_path, "f.txt"), err_code=None),
-                FileTaskResult(file=None, err_code=File.NotFound.code),
+                FileTaskResult(file=None, err_code=TaskErrorCode.file_not_found),
             ]
         )
         payload = {"async_task_id": str(task_id)}
@@ -793,7 +794,7 @@ class TestMoveBatchCheck:
             status=celery.states.SUCCESS,
             result=[
                 FileTaskResult(file=_make_file(ns_path, "f.txt"), err_code=None),
-                FileTaskResult(file=None, err_code=File.NotFound.code),
+                FileTaskResult(file=None, err_code=TaskErrorCode.file_not_found),
             ]
         )
         payload = {"async_task_id": str(task_id)}
@@ -884,7 +885,7 @@ class TestUpload:
         ("Trash", File.MalformedPath("Bad path"), MalformedPath("Bad path")),
         ("f.txt/file", File.NotADirectory(), NotADirectory(path="f.txt/file")),
         ("f.txt", File.TooLarge(), UploadFileTooLarge()),
-        ("f.txt", errors.StorageQuotaExceeded(), StorageQuotaExceeded()),
+        ("f.txt", Account.StorageQuotaExceeded(), StorageQuotaExceeded()),
     ])
     async def test_reraising_app_errors_to_api_errors(
         self,

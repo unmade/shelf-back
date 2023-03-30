@@ -4,7 +4,6 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from app.errors import Error, ErrorCode
 from app.toolkit import json_
 
 __all__ = [
@@ -13,8 +12,8 @@ __all__ = [
 ]
 
 
-class ContentMetadataNotFound(Error):
-    code = ErrorCode.file_metadata_not_found
+class ContentMetadataNotFound(Exception):
+    pass
 
 
 class Exif(BaseModel):

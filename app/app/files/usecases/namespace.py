@@ -5,10 +5,11 @@ import os.path
 from pathlib import PurePath
 from typing import IO, TYPE_CHECKING
 
-from app import config, errors
+from app import config
 from app.app.files.domain import File
 from app.app.files.services.dupefinder import dhash
 from app.app.files.services.metadata import readers as metadata_readers
+from app.app.users.domain import Account
 from app.toolkit import taskgroups, timezone
 
 if TYPE_CHECKING:
@@ -65,7 +66,7 @@ class NamespaceUseCase:
             File.AlreadyExists: If a file in a target path already exists.
             File.MalformedPath: If path is invalid (e.g. uploading to Trash folder).
             File.NotADirectory: If one of the path parents is not a folder.
-            StorageQuotaExceeded: If storage quota exceeded.
+            Account.StorageQuotaExceeded: If storage quota exceeded.
 
         Returns:
             File: Saved file.
@@ -83,7 +84,7 @@ class NamespaceUseCase:
         if account.storage_quota is not None:
             used = await self.namespace.get_space_used_by_owner_id(ns.owner_id)
             if (used + size) > account.storage_quota:
-                raise errors.StorageQuotaExceeded()
+                raise Account.StorageQuotaExceeded()
 
         file = await self.filecore.create_file(ns_path, path, content)
         await self.dupefinder.track(file.id, content)

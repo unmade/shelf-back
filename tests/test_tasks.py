@@ -8,9 +8,9 @@ from unittest import mock
 
 import pytest
 
-from app import errors, tasks
+from app import tasks
 from app.app.files.domain import File
-from app.tasks import RelocationPath
+from app.tasks import ErrorCode, RelocationPath
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
@@ -77,10 +77,10 @@ class TestDeleteImmediatelyBatch:
         assert results[0].file.path == side_effect[0].path
 
         assert results[1].file is None
-        assert results[1].err_code == File.NotFound.code
+        assert results[1].err_code == ErrorCode.file_not_found
 
         assert results[2].file is None
-        assert results[2].err_code == errors.ErrorCode.internal
+        assert results[2].err_code == ErrorCode.internal
 
         assert results[3].file is not None
         assert results[3].file.path == side_effect[3].path
@@ -150,17 +150,17 @@ class TestMoveBatch:
         assert results[0].file.path == relocations[0].to_path
 
         assert results[1].file is None
-        assert results[1].err_code == File.MissingParent.code
+        assert results[1].err_code == ErrorCode.missing_parent
 
         assert results[2].file is None
-        assert results[2].err_code == errors.ErrorCode.internal
+        assert results[2].err_code == ErrorCode.internal
 
         assert results[3].file is not None
         assert results[3].file.path == relocations[3].to_path
 
         assert move_item.await_count == 4
 
-        msg = "Unexpectedly failed to move file"
+        msg = "Unexpectedly failed to move a file"
         log_record = ("app.tasks", logging.ERROR, msg)
         assert caplog.record_tuples == [log_record]
 
@@ -192,10 +192,10 @@ class TestMovetoTrashFile:
         assert results[0].file.path == side_effect[0].path
 
         assert results[1].file is None
-        assert results[1].err_code == File.NotFound.code
+        assert results[1].err_code == ErrorCode.file_not_found
 
         assert results[2].file is None
-        assert results[2].err_code == errors.ErrorCode.internal
+        assert results[2].err_code == ErrorCode.internal
 
         assert results[3].file is not None
         assert results[3].file.path == side_effect[3].path

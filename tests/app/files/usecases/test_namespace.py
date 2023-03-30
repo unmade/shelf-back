@@ -10,7 +10,6 @@ from unittest import mock
 
 import pytest
 
-from app import errors
 from app.app.files.domain import File, Fingerprint
 from app.app.users.domain import Account
 
@@ -118,7 +117,7 @@ class TestAddFile:
 
         ns_path, path, content = "admin", "f.txt", BytesIO(b"Dummy Content!")
         # WHEN
-        with pytest.raises(errors.StorageQuotaExceeded):
+        with pytest.raises(Account.StorageQuotaExceeded):
             await ns_use_case.add_file(ns_path, path, content)
 
         # THEN

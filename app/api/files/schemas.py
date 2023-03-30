@@ -7,9 +7,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, root_validator, validator
 
-from app import errors
 from app.app.files.services.filecore import thumbnails
 from app.config import TRASH_FOLDER_NAME
+from app.tasks import ErrorCode as TaskErrorCode
 
 from .exceptions import FileAlreadyDeleted, MalformedPath
 
@@ -107,7 +107,7 @@ class AsyncTaskStatus(str, Enum):
 
 class AsyncTaskResult(BaseModel):
     file: FileSchema | None
-    err_code: errors.ErrorCode | None
+    err_code: TaskErrorCode | None
 
     @classmethod
     def from_entity(

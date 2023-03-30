@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import enum
 import functools
 import logging
 from typing import TYPE_CHECKING
@@ -8,7 +9,7 @@ from typing import TYPE_CHECKING
 from celery import Celery
 from pydantic import BaseModel
 
-from app import config, errors
+from app import config
 from app.app.files.domain import File
 from app.infrastructure.database.edgedb.db import EdgeDBDatabase
 from app.infrastructure.provider import Provider
@@ -30,13 +31,24 @@ class RelocationPath(BaseModel):
     to_path: str
 
 
+class ErrorCode(str, enum.Enum):
+    internal = "internal_error"
+    file_already_exists = "file_already_exists"
+    file_not_found = "file_not_found"
+    file_too_large = "file_too_large"
+    is_a_directory = "is_a_directory"
+    malformed_path = "malformed_path"
+    missing_parent = "missing_parent"
+    not_a_directory = "not_a_directory"
+
+
 class FileTaskResult:
     __slots__ = ("file", "err_code")
 
     def __init__(
         self,
         file: File | None = None,
-        err_code: errors.ErrorCode | None = None,
+        err_code: ErrorCode | None = None,
     ) -> None:
         self.file = file
         self.err_code = err_code
@@ -57,6 +69,21 @@ def _create_storage() -> IStorage:
             location=config.STORAGE_LOCATION,
         )
     return FileSystemStorage(location=config.STORAGE_LOCATION)
+
+
+def exc_to_err_code(exc: Exception) -> ErrorCode:
+    err_map: dict[type[Exception], ErrorCode] = {
+        File.AlreadyExists: ErrorCode.file_already_exists,
+        File.NotFound: ErrorCode.file_not_found,
+        File.TooLarge: ErrorCode.file_too_large,
+        File.IsADirectory: ErrorCode.is_a_directory,
+        File.MalformedPath: ErrorCode.malformed_path,
+        File.MissingParent: ErrorCode.missing_parent,
+        File.NotADirectory: ErrorCode.not_a_directory,
+    }
+    if code := err_map.get(exc.__class__):
+        return code
+    return ErrorCode.internal
 
 
 class CeleryConfig:
@@ -114,11 +141,10 @@ async def delete_immediately_batch(
 
             try:
                 file = await usecases.namespace.delete_item(ns_path, path)
-            except File.NotFound as exc:
-                err_code = errors.ErrorCode(exc.code)
-            except Exception:
-                err_code = errors.ErrorCode.internal
-                logger.exception("Unexpectedly failed to delete a file")
+            except Exception as exc:
+                err_code = exc_to_err_code(exc)
+                if err_code == ErrorCode.internal:
+                    logger.exception("Unexpectedly failed to delete a file")
 
             result = FileTaskResult(file=file,err_code=err_code)
             results.append(result)
@@ -174,11 +200,10 @@ async def move_batch(
 
             try:
                 file = await usecases.namespace.move_item(ns_path, path, next_path)
-            except errors.Error as exc:
-                err_code = exc.code
-            except Exception:
-                err_code = errors.ErrorCode.internal
-                logger.exception("Unexpectedly failed to move file")
+            except Exception as exc:
+                err_code = exc_to_err_code(exc)
+                if err_code == ErrorCode.internal:
+                    logger.exception("Unexpectedly failed to move a file")
 
             result = FileTaskResult(file=file,err_code=err_code)
             results.append(result)
@@ -213,11 +238,10 @@ async def move_to_trash_batch(
 
             try:
                 file = await usecases.namespace.move_item_to_trash(ns_path, path)
-            except errors.Error as exc:
-                err_code = exc.code
-            except Exception:
-                err_code = errors.ErrorCode.internal
-                logger.exception("Unexpectedly failed to move file to trash")
+            except Exception as exc:
+                err_code = exc_to_err_code(exc)
+                if err_code == ErrorCode.internal:
+                    logger.exception("Unexpectedly failed to move file to trash")
 
             result = FileTaskResult(file=file,err_code=err_code)
             results.append(result)

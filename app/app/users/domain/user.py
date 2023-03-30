@@ -13,6 +13,10 @@ __all__ = [
 ]
 
 
+class StorageQuotaExceeded(Exception):
+    pass
+
+
 class UserAlreadyExists(Exception):
     pass
 
@@ -22,6 +26,8 @@ class UserNotFound(Exception):
 
 
 class Account(BaseModel):
+    StorageQuotaExceeded = StorageQuotaExceeded
+
     id: UUID
     username: str
     email: str | None

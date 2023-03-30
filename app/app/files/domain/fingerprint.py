@@ -2,20 +2,18 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from app.errors import Error, ErrorCode
-
 if TYPE_CHECKING:
     from app.typedefs import StrOrUUID
 
 __all__ = ["Fingerprint"]
 
 
-class FingerprintAlreadyExists(Error):
-    code = ErrorCode.fingerprint_already_exists
+class FingerprintAlreadyExists(Exception):
+    pass
 
 
-class FingerprintNotFound(Error):
-    code = ErrorCode.fingerprint_not_found
+class FingerprintNotFound(Exception):
+    pass
 
 
 class Fingerprint:
