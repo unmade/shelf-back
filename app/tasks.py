@@ -18,8 +18,8 @@ from app.infrastructure.storage import FileSystemStorage, S3Storage
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from app.app.files.domain import AnyPath
     from app.app.infrastructure import IStorage
-    from app.typedefs import StrOrPath
 
 logger = logging.getLogger(__name__)
 
@@ -114,16 +114,16 @@ def ping() -> str:
 
 @asynctask
 async def delete_immediately_batch(
-    ns_path: StrOrPath,
-    paths: Iterable[StrOrPath],
+    ns_path: AnyPath,
+    paths: Iterable[AnyPath],
 ) -> list[FileTaskResult]:
     """
     Permanently deletes a file at given paths. If some file is a folder, then it will be
     deleted with all of its contents.
 
     Args:
-        ns_path (StrOrPath): Namespace path where file/folder should be deleted.
-        paths (Iterable[StrOrPath]): Iterable of pathnames to delete.
+        ns_path (AnyPath): Namespace path where file/folder should be deleted.
+        paths (Iterable[AnyPath]): Iterable of pathnames to delete.
 
     Returns:
         list[FileTaskResult]: List, where each item contains either a moved file
@@ -152,7 +152,7 @@ async def delete_immediately_batch(
 
 
 @asynctask
-async def empty_trash(ns_path: StrOrPath) -> None:
+async def empty_trash(ns_path: AnyPath) -> None:
     """
     Deletes all files and folders in the Trash folder within a target Namespace.
 
@@ -172,14 +172,14 @@ async def empty_trash(ns_path: StrOrPath) -> None:
 
 @asynctask
 async def move_batch(
-    ns_path: StrOrPath,
+    ns_path: AnyPath,
     relocations: Iterable[RelocationPath],
 ) -> list[FileTaskResult]:
     """
     Moves several files/folders to a different locations
 
     Args:
-        ns_path (StrOrPath): Namespace, where files should be moved.
+        ns_path (AnyPath): Namespace, where files should be moved.
         relocations (Iterable[RelocationPath]): Iterable, where each item contains
             current file path and path to move file to.
 
@@ -212,15 +212,15 @@ async def move_batch(
 
 @asynctask
 async def move_to_trash_batch(
-    ns_path: StrOrPath,
-    paths: Iterable[StrOrPath],
+    ns_path: AnyPath,
+    paths: Iterable[AnyPath],
 ) -> list[FileTaskResult]:
     """
     Moves several files to trash asynchronously.
 
     Args:
-        ns_path (StrOrPath): Namespace, where files should be moved to trash
-        paths (Iterable[StrOrPath]): Iterable of pathnames to move to trash.
+        ns_path (AnyPath): Namespace, where files should be moved to trash
+        paths (Iterable[AnyPath]): Iterable of pathnames to move to trash.
 
     Returns:
         list[FileTaskResult]: List, where each item contains either a moved file

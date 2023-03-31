@@ -6,7 +6,7 @@ from typing import IO, TYPE_CHECKING, cast
 import filetype
 
 if TYPE_CHECKING:
-    from app.typedefs import StrOrPath
+    from app.app.files.domain import AnyPath
 
 mimetypes.init()
 
@@ -50,7 +50,7 @@ _STRICT_MEDIATYPES = {
 }
 
 
-def guess(content: IO[bytes], *, name: StrOrPath | None = None) -> str:
+def guess(content: IO[bytes], *, name: AnyPath | None = None) -> str:
     """
     Guesses file media type by checking the content magic number signature or by
     file name extension if media type can't be guessed by content.
@@ -77,17 +77,17 @@ def guess(content: IO[bytes], *, name: StrOrPath | None = None) -> str:
     return OCTET_STREAM
 
 
-def guess_unsafe(name: StrOrPath) -> str:
+def guess_unsafe(name: AnyPath) -> str:
     """
     Guesses file media type by a filename extension.
 
     Args:
-        name (StrOrPath): Filename or path.
+        name (AnyPath): Filename or path.
 
     Returns:
         str: Guessed media type. For unknown files returns 'application/octet-stream'.
     """
-    mime, _ = mimetypes.guess_type(name, strict=False)
+    mime, _ = mimetypes.guess_type(str(name), strict=False)
     if mime is None:
         return OCTET_STREAM
     return mime

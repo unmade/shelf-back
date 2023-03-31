@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, NamedTuple
 from app.cache import cache
 
 if TYPE_CHECKING:
-    from app.typedefs import StrOrPath
+    from app.app.files.domain import AnyPath
 
 
 class DownloadCache(NamedTuple):
@@ -14,13 +14,13 @@ class DownloadCache(NamedTuple):
     path: str
 
 
-async def create_download_cache(ns_path: StrOrPath, path: StrOrPath) -> str:
+async def create_download_cache(ns_path: AnyPath, path: AnyPath) -> str:
     """
     Set metadata to be used for file download.
 
     Args:
-        ns_path (StrOrPath): Target namespace.
-        path (StrOrPath): File path.
+        ns_path (AnyPath): Target namespace.
+        path (AnyPath): File path.
 
     Returns:
         str: A temporary key to obtain data from the cache.

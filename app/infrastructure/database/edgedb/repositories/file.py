@@ -16,8 +16,9 @@ from app.app.files.repositories.file import FileUpdate
 from app.infrastructure.database.edgedb import autocast
 
 if TYPE_CHECKING:
+    from app.app.files.domain import AnyPath
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
-    from app.typedefs import StrOrPath, StrOrUUID
+    from app.typedefs import StrOrUUID
 
 __all__ = ["FileRepository"]
 
@@ -42,7 +43,7 @@ class FileRepository(IFileRepository):
     def conn(self) -> EdgeDBAnyConn:
         return self.db_context.get()
 
-    async def count_by_path_pattern(self, ns_path: StrOrPath, pattern: str) -> int:
+    async def count_by_path_pattern(self, ns_path: AnyPath, pattern: str) -> int:
         query = """
             SELECT count(
                 File
@@ -85,7 +86,7 @@ class FileRepository(IFileRepository):
 
         await self.conn.query(query, names=list(names))
 
-    async def delete(self, ns_path: StrOrPath, path: StrOrPath) -> File:
+    async def delete(self, ns_path: AnyPath, path: AnyPath) -> File:
         query = """
             SELECT (
                 DELETE
@@ -108,7 +109,7 @@ class FileRepository(IFileRepository):
         return _from_db(str(ns_path), obj)
 
     async def delete_all_with_prefix(
-        self, ns_path: StrOrPath, prefix: StrOrPath
+        self, ns_path: AnyPath, prefix: AnyPath
     ) -> None:
         query = """
             DELETE
@@ -121,7 +122,7 @@ class FileRepository(IFileRepository):
 
         await self.conn.query(query, ns_path=str(ns_path), prefix=str(prefix))
 
-    async def exists_at_path(self, ns_path: StrOrPath, path: StrOrPath) -> bool:
+    async def exists_at_path(self, ns_path: AnyPath, path: AnyPath) -> bool:
         query = """
             SELECT EXISTS (
                 SELECT
@@ -138,7 +139,7 @@ class FileRepository(IFileRepository):
         )
         return cast(bool, exists)
 
-    async def exists_with_id(self, ns_path: StrOrPath, file_id: StrOrUUID) -> bool:
+    async def exists_with_id(self, ns_path: AnyPath, file_id: StrOrUUID) -> bool:
         query = """
             SELECT EXISTS (
                 SELECT
@@ -172,7 +173,7 @@ class FileRepository(IFileRepository):
         return _from_db(obj.namespace.path, obj)
 
     async def get_by_id_batch(
-        self, ns_path: StrOrPath, ids: Iterable[StrOrUUID]
+        self, ns_path: AnyPath, ids: Iterable[StrOrUUID]
     ) -> list[File]:
         query = """
             SELECT
@@ -192,7 +193,7 @@ class FileRepository(IFileRepository):
 
         return [_from_db(str(ns_path), obj) for obj in objs]
 
-    async def get_by_path(self, ns_path: StrOrPath, path: StrOrPath) -> File:
+    async def get_by_path(self, ns_path: AnyPath, path: AnyPath) -> File:
         query = """
             SELECT
                 File {
@@ -214,7 +215,7 @@ class FileRepository(IFileRepository):
         return _from_db(str(ns_path), obj)
 
     async def get_by_path_batch(
-        self, ns_path: StrOrPath, paths: Iterable[StrOrPath],
+        self, ns_path: AnyPath, paths: Iterable[AnyPath],
     ) -> list[File]:
         query = """
             SELECT
@@ -237,7 +238,7 @@ class FileRepository(IFileRepository):
         return [_from_db(ns_path, obj) for obj in objs]
 
     async def incr_size_batch(
-        self, ns_path: StrOrPath, paths: Iterable[StrOrPath], value: int
+        self, ns_path: AnyPath, paths: Iterable[AnyPath], value: int
     ) -> None:
         if not value:
             return
@@ -262,7 +263,7 @@ class FileRepository(IFileRepository):
 
     async def list_by_mediatypes(
         self,
-        ns_path: StrOrPath,
+        ns_path: AnyPath,
         mediatypes: Sequence[str],
         *,
         offset: int,
@@ -293,7 +294,7 @@ class FileRepository(IFileRepository):
         return [_from_db(str(ns_path), file) for file in files]
 
     async def list_with_prefix(
-        self, ns_path: StrOrPath, prefix: StrOrPath
+        self, ns_path: AnyPath, prefix: AnyPath
     ) -> list[File]:
         query = f"""
             SELECT
@@ -316,7 +317,7 @@ class FileRepository(IFileRepository):
         return [_from_db(str(ns_path), obj) for obj in objs]
 
     async def replace_path_prefix(
-        self, ns_path: StrOrPath, prefix: StrOrPath, next_prefix: StrOrPath
+        self, ns_path: AnyPath, prefix: AnyPath, next_prefix: AnyPath
     ) -> None:
         query = """
             UPDATE
@@ -371,7 +372,7 @@ class FileRepository(IFileRepository):
 
         params = {
             "name": file.name,
-            "path": file.path,
+            "path": str(file.path),
             "size": file.size,
             "mtime": file.mtime,
             "mediatype": file.mediatype,

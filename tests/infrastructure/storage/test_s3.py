@@ -14,7 +14,7 @@ from app.app.files.domain import File
 from app.infrastructure.storage.s3 import S3Storage
 
 if TYPE_CHECKING:
-    from app.typedefs import StrOrPath
+    from app.app.files.domain import AnyPath
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.storage_s3]
 
@@ -93,7 +93,7 @@ def file_factory(tmp_bucket: str, s3_resource):
     """
     @sync_to_async
     def create_file(
-        path: StrOrPath,
+        path: AnyPath,
         content: bytes | BytesIO = b"I'm Dummy File!",
     ) -> None:
         if isinstance(content, bytes):

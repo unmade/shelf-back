@@ -6,8 +6,7 @@ from app.app.files.domain import File
 from app.app.files.services import FileCoreService, SharingService
 
 if TYPE_CHECKING:
-    from app.app.files.domain import SharedLink
-    from app.typedefs import StrOrPath
+    from app.app.files.domain import AnyPath, SharedLink
 
 __all__ = ["SharingUseCase"]
 
@@ -19,11 +18,11 @@ class SharingUseCase:
         self.filecore = filecore
         self.sharing = sharing
 
-    async def create_link(self, ns_path: str, path: StrOrPath) -> SharedLink:
+    async def create_link(self, ns_path: str, path: AnyPath) -> SharedLink:
         file = await self.filecore.get_by_path(ns_path, path)
         return await self.sharing.create_link(file.id)
 
-    async def get_link(self, ns_path: str, path: StrOrPath) -> SharedLink:
+    async def get_link(self, ns_path: str, path: AnyPath) -> SharedLink:
         file = await self.filecore.get_by_path(ns_path, path)
         return await self.sharing.get_link_by_file_id(file.id)
 

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os.path
 import secrets
 import urllib.parse
 import uuid
@@ -25,7 +24,7 @@ from app.api.files.exceptions import (
     ThumbnailUnavailable,
     UploadFileTooLarge,
 )
-from app.app.files.domain import ContentMetadata, Exif, File, mediatypes
+from app.app.files.domain import ContentMetadata, Exif, File, Path, mediatypes
 from app.app.infrastructure.storage import ContentReader
 from app.app.users.domain import Account
 from app.tasks import ErrorCode as TaskErrorCode
@@ -35,21 +34,20 @@ if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
     from app.api.exceptions import APIError
-    from app.app.files.domain import Namespace
-    from app.typedefs import StrOrPath
+    from app.app.files.domain import AnyPath, Namespace
     from tests.api.conftest import TestClient
 
 pytestmark = [pytest.mark.asyncio]
 
 
 def _make_file(
-    ns_path: StrOrPath, path: StrOrPath, size: int = 10, mediatype: str = "plain/text"
+    ns_path: AnyPath, path: AnyPath, size: int = 10, mediatype: str = "plain/text"
 ) -> File:
     return File(
         id=uuid.uuid4(),
         ns_path=str(ns_path),
-        name=os.path.basename(path),
-        path=str(path),
+        name=Path(path).name,
+        path=path,
         size=size,
         mediatype=mediatype,
     )
@@ -85,7 +83,7 @@ class TestCreateFolder:
             mediatype=mediatypes.FOLDER,
         )
         ns_use_case.create_folder.return_value = folder
-        payload = {"path": path}
+        payload = {"path": str(path)}
         # WHEN
         client.mock_namespace(namespace)
         response = await client.post("/files/create_folder", json=payload)
@@ -309,7 +307,7 @@ class TestDownloadXHR:
         file = _make_file(str(namespace.path), "f.txt")
         content_reader = _make_content_reader(b"Hello, World!", zipped=False)
         ns_use_case.download.return_value = file, content_reader
-        payload = {"path": file.path}
+        payload = {"path": str(file.path)}
         # WHEN
         client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
@@ -328,7 +326,7 @@ class TestDownloadXHR:
         file = _make_file(str(namespace.path), "f.txt")
         content_reader = _make_content_reader(b"Hello, World!", zipped=True)
         ns_use_case.download.return_value = file, content_reader
-        payload = {"path": file.path}
+        payload = {"path": str(file.path)}
         # WHEN
         client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
@@ -346,7 +344,7 @@ class TestDownloadXHR:
         file = _make_file(str(namespace.path), "ф.txt")
         content_reader = _make_content_reader(b"Hello, World!", zipped=False)
         ns_use_case.download.return_value = file, content_reader
-        payload = {"path": file.path}
+        payload = {"path": str(file.path)}
         # WHEN
         client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
@@ -509,7 +507,7 @@ class TestGetDownloadURL:
         # GIVEN
         ns_path, path = namespace.path, "f.txt"
         file = _make_file(ns_path, path)
-        payload = {"path": file.path}
+        payload = {"path": str(file.path)}
         # WHEN
         client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)

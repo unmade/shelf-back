@@ -5,8 +5,12 @@ from typing import TYPE_CHECKING, Any
 from app.app.files.domain import mediatypes
 from app.toolkit import json_, timezone
 
+from .path import Path
+
 if TYPE_CHECKING:
     from app.typedefs import StrOrUUID
+
+    from .path import AnyPath
 
 __all__ = ["File"]
 
@@ -70,7 +74,7 @@ class File:
         id: StrOrUUID,
         ns_path: str,
         name: str,
-        path: str,
+        path: AnyPath,
         size: int,
         mediatype: str,
         mtime: float | None = None,
@@ -78,7 +82,7 @@ class File:
         self.id = str(id)
         self.ns_path = ns_path
         self.name = name
-        self.path = path
+        self.path = Path(path)
         self.size = size
         self.mtime = mtime or mtime_factory()
         self.mediatype = mediatype
@@ -91,6 +95,9 @@ class File:
             getattr(self, field) == getattr(other, field)
             for field in self.__slots__
         )
+
+    def __repr__(self) -> str:
+        return f"<File ns_path='{self.ns_path}' path='{self.path}'>"
 
     def is_folder(self) -> bool:
         """True if file is a folder, False otherwise."""
@@ -106,7 +113,7 @@ class File:
             "id": str(self.id),
             "ns_path": self.ns_path,
             "name": self.name,
-            "path": self.path,
+            "path": str(self.path),
             "size": self.size,
             "mtime": self.mtime,
             "mediatype": self.mediatype,

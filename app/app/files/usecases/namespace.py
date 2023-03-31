@@ -1,19 +1,17 @@
 from __future__ import annotations
 
 import itertools
-import os.path
-from pathlib import PurePath
 from typing import IO, TYPE_CHECKING
 
 from app import config
-from app.app.files.domain import File
+from app.app.files.domain import File, Path
 from app.app.files.services.dupefinder import dhash
 from app.app.files.services.metadata import readers as metadata_readers
 from app.app.users.domain import Account
 from app.toolkit import taskgroups, timezone
 
 if TYPE_CHECKING:
-    from app.app.files.domain import ContentMetadata
+    from app.app.files.domain import AnyPath, ContentMetadata
     from app.app.files.services import (
         DuplicateFinderService,
         FileCoreService,
@@ -22,7 +20,6 @@ if TYPE_CHECKING:
     )
     from app.app.infrastructure.storage import ContentReader
     from app.app.users.services import UserService
-    from app.typedefs import StrOrPath
 
 __all__ = ["NamespaceUseCase"]
 
@@ -45,7 +42,7 @@ class NamespaceUseCase:
         self.user = user
 
     async def add_file(
-        self, ns_path: StrOrPath, path: StrOrPath, content: IO[bytes]
+        self, ns_path: AnyPath, path: AnyPath, content: IO[bytes]
     ) -> File:
         """
         Saves a file to a storage and to a database. Additionally calculates and saves
@@ -57,8 +54,8 @@ class NamespaceUseCase:
         For example - if path 'f.txt' is taken, then new path will be 'f (1).txt'.
 
         Args:
-            ns_path (StrOrPath): Namespace path where a file should be saved.
-            path (StrOrPath): Path where a file will be saved.
+            ns_path (AnyPath): Namespace path where a file should be saved.
+            path (AnyPath): Path where a file will be saved.
             content (IO): Actual file content.
 
         Raises:
@@ -71,8 +68,8 @@ class NamespaceUseCase:
         Returns:
             File: Saved file.
         """
-        path = str(path)
-        if path.lower() == "trash" or path.lower().startswith("trash/"):
+        path = Path(path)
+        if path.is_relative_to("trash"):
             raise File.MalformedPath("Uploads to the Trash folder are not allowed")
 
         size = content.seek(0, 2)
@@ -92,13 +89,13 @@ class NamespaceUseCase:
 
         return file
 
-    async def create_folder(self, ns_path: StrOrPath, path: StrOrPath) -> File:
+    async def create_folder(self, ns_path: AnyPath, path: AnyPath) -> File:
         """
         Creates a folder with any missing parents in a namespace with a `ns_path`.
 
         Args:
             ns_path (Namespace): Namespace path where a folder should be created.
-            path (StrOrPath): Path to a folder to create.
+            path (AnyPath): Path to a folder to create.
 
         Raises:
             File.AlreadyExists: If folder with this path already exists.
@@ -107,17 +104,17 @@ class NamespaceUseCase:
         Returns:
             File: Created folder.
         """
-        assert str(path).lower() not in (".", "trash")
+        assert Path(path) not in {Path("."), Path("Trash")}
         return await self.filecore.create_folder(ns_path, path)
 
-    async def delete_item(self, ns_path: StrOrPath, path: StrOrPath) -> File:
+    async def delete_item(self, ns_path: AnyPath, path: AnyPath) -> File:
         """
         Permanently deletes a file or a folder. If path is a folder deletes a folder
         with all of its contents.
 
         Args:
-            ns_path (StrOrPath): Namespace path where file/folder should be deleted.
-            path (StrOrPath): Path to a file/folder to delete.
+            ns_path (AnyPath): Namespace path where file/folder should be deleted.
+            path (AnyPath): Path to a file/folder to delete.
 
         Raises:
             File.NotFound: If a file/folder with a given path does not exists.
@@ -125,36 +122,36 @@ class NamespaceUseCase:
         Returns:
             File: Deleted file.
         """
-        assert str(path).lower() not in (".", "trash"), (
+        assert Path(path) not in {Path("."), Path("Trash")}, (
             "Can't delete Home or Trash folder."
         )
         return await self.filecore.delete(ns_path, path)
 
     async def download(
-        self, ns_path: StrOrPath, path: StrOrPath
+        self, ns_path: AnyPath, path: AnyPath
     ) -> tuple[File, ContentReader]:
         file = await self.filecore.get_by_path(ns_path, path)
         content = await self.filecore.download(file.id)
         return file, content
 
-    async def empty_trash(self, ns_path: StrOrPath) -> None:
+    async def empty_trash(self, ns_path: AnyPath) -> None:
         """
         Deletes all files and folders in the Trash folder in a target Namespace.
 
         Args:
-            ns_path (StrOrPath): Namespace path where to empty the Trash folder.
+            ns_path (AnyPath): Namespace path where to empty the Trash folder.
         """
         await self.filecore.empty_folder(ns_path, "trash")
 
     async def find_duplicates(
-        self, ns_path: StrOrPath, path: StrOrPath, max_distance: int = 5
+        self, ns_path: AnyPath, path: AnyPath, max_distance: int = 5
     ) -> list[list[File]]:
         """
         Finds all duplicate fingerprints in a folder, including sub-folders.
 
         Args:
-            ns_path (StrOrPath): Target namespace path.
-            path (StrOrPath): Folder path where to search for fingerprints.
+            ns_path (AnyPath): Target namespace path.
+            path (AnyPath): Folder path where to search for fingerprints.
             max_distance (int, optional): The maximum distance at which two fingerprints
                 are considered the same. Defaults to 5.
 
@@ -178,14 +175,14 @@ class NamespaceUseCase:
         ]
 
     async def get_file_metadata(
-        self, ns_path: StrOrPath, path: StrOrPath
+        self, ns_path: AnyPath, path: AnyPath
     ) -> ContentMetadata:
         """
         Returns a file content metadata.
 
         Args:
-            ns_path (StrOrPath): Namespace path where file located.
-            path (StrOrPath): File path
+            ns_path (AnyPath): Namespace path where file located.
+            path (AnyPath): File path
 
         Raises:
             File.NotFound: If file with target ID does not exist.
@@ -198,7 +195,7 @@ class NamespaceUseCase:
         return await self.metadata.get_by_file_id(file.id)
 
     async def get_file_thumbnail(
-        self, ns_path: StrOrPath, file_id: str, size: int
+        self, ns_path: AnyPath, file_id: str, size: int
     ) -> tuple[File, bytes]:
         """
         Generates in-memory thumbnail with preserved aspect ratio.
@@ -224,10 +221,10 @@ class NamespaceUseCase:
             raise File.NotFound()
         return file, thumbnail
 
-    async def get_item_at_path(self, ns_path: StrOrPath, path: StrOrPath) -> File:
+    async def get_item_at_path(self, ns_path: AnyPath, path: AnyPath) -> File:
         return await self.filecore.get_by_path(ns_path, path)
 
-    async def list_folder(self, ns_path: StrOrPath, path: StrOrPath) -> list[File]:
+    async def list_folder(self, ns_path: AnyPath, path: AnyPath) -> list[File]:
         """
         Lists all files in the folder at a given path.
 
@@ -235,8 +232,8 @@ class NamespaceUseCase:
         folder will not be present in the response.
 
         Args:
-            ns_path (StrOrPath): Namespace path where a folder located.
-            path (StrOrPath): Path to a folder in the target namespace.
+            ns_path (AnyPath): Namespace path where a folder located.
+            path (AnyPath): Path to a folder in the target namespace.
 
         Raises:
             File.NotFound: If folder at this path does not exists.
@@ -247,20 +244,21 @@ class NamespaceUseCase:
         """
         files = await self.filecore.list_folder(ns_path, path)
         if path == ".":
-            return [file for file in files if file.path.lower() not in {".", "trash"}]
+            special_paths = {Path("."), Path("trash")}
+            return [file for file in files if file.path not in special_paths]
         return files
 
     async def move_item(
-        self, ns_path: StrOrPath, path: StrOrPath, next_path: StrOrPath
+        self, ns_path: AnyPath, path: AnyPath, next_path: AnyPath
     ) -> File:
         """
         Moves a file or a folder to a different location in the target Namespace.
         If the source path is a folder all its contents will be moved.
 
         Args:
-            ns_path (StrOrPath): Namespace path where file/folder should be moved
-            path (StrOrPath): Path to be moved.
-            next_path (StrOrPath): Path that is the destination.
+            ns_path (AnyPath): Namespace path where file/folder should be moved
+            path (AnyPath): Path to be moved.
+            next_path (AnyPath): Path that is the destination.
 
         Raises:
             File.NotFound: If source path does not exists.
@@ -271,12 +269,12 @@ class NamespaceUseCase:
         Returns:
             File: Moved file/folder.
         """
-        assert str(path).lower() not in (".", "trash"), (
+        assert Path(path) not in {Path("."), Path("Trash")}, (
             "Can't move Home or Trash folder."
         )
         return await self.filecore.move(ns_path, path, next_path)
 
-    async def move_item_to_trash(self, ns_path: StrOrPath, path: StrOrPath) -> File:
+    async def move_item_to_trash(self, ns_path: AnyPath, path: AnyPath) -> File:
         """
         Moves a file or folder to the Trash folder in the target Namespace.
         If path is a folder all its contents will be moved.
@@ -284,7 +282,7 @@ class NamespaceUseCase:
 
         Args:
             namespace (Namespace): Namespace where path located.
-            path (StrOrPath): Path to a file or folder to be moved to the Trash folder.
+            path (AnyPath): Path to a file or folder to be moved to the Trash folder.
 
         Raises:
             File.NotFound: If source path does not exists.
@@ -292,16 +290,15 @@ class NamespaceUseCase:
         Returns:
             File: Moved file.
         """
-        next_path = PurePath("Trash") / os.path.basename(path)
+        next_path = Path("Trash") / Path(path).name
 
         if await self.filecore.exists_at_path(ns_path, next_path):
-            name = next_path.name.strip(next_path.suffix)
             timestamp = f"{timezone.now():%H%M%S%f}"
-            next_path = next_path.parent / f"{name} {timestamp}{next_path.suffix}"
+            next_path = next_path.with_stem(f"{next_path.stem} {timestamp}")
 
         return await self.filecore.move(ns_path, path, next_path)
 
-    async def reindex(self, ns_path: StrOrPath) -> None:
+    async def reindex(self, ns_path: AnyPath) -> None:
         """
         Reindexes all files in the given namespace.
 
@@ -310,7 +307,7 @@ class NamespaceUseCase:
         storage.
 
         Args:
-            ns_path (StrOrPath): Namespace path to reindex.
+            ns_path (AnyPath): Namespace path to reindex.
 
         Raises:
             Namespace.NotFound: If namespace does not exist.
@@ -320,13 +317,13 @@ class NamespaceUseCase:
         await self.namespace.get_by_path(str(ns_path))
         await self.filecore.reindex(ns_path, ".")
 
-    async def reindex_contents(self, ns_path: StrOrPath) -> None:
+    async def reindex_contents(self, ns_path: AnyPath) -> None:
         """
         Restores additional information about files, such as fingerprint and content
         metadata.
 
         Args:
-            ns_path (StrOrPath): Namespace path to reindex.
+            ns_path (AnyPath): Namespace path to reindex.
         """
         ns_path = str(ns_path)
         batch_size = 500

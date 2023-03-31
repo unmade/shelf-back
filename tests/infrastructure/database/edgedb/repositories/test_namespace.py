@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-import os.path
 import uuid
 from typing import TYPE_CHECKING
 
 import pytest
 
-from app.app.files.domain import File, Namespace, mediatypes
+from app.app.files.domain import File, Namespace, Path, mediatypes
 from app.app.infrastructure.database import SENTINEL_ID
 
 if TYPE_CHECKING:
     from uuid import UUID
 
+    from app.app.files.domain import AnyPath
     from app.app.files.repositories import IFileRepository, INamespaceRepository
     from app.app.users.domain import User
 
@@ -46,11 +46,11 @@ class TestGetByPath:
 
 class TestGetSpaceUsedByOwnerID:
     @staticmethod
-    def make_folder(ns_path: str, path: str, size: int) -> File:
+    def make_folder(ns_path: str, path: AnyPath, size: int) -> File:
         return File(
             id=SENTINEL_ID,
             ns_path=ns_path,
-            name=os.path.basename(path),
+            name=Path(path).name,
             path=path,
             size=size,
             mediatype=mediatypes.FOLDER,

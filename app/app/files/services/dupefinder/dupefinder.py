@@ -9,9 +9,9 @@ from app.app.files.domain import Fingerprint
 from . import dhash
 
 if TYPE_CHECKING:
+    from app.app.files.domain import AnyPath
     from app.app.files.repositories import IFingerprintRepository
     from app.app.files.repositories.fingerprint import MatchResult
-    from app.typedefs import StrOrPath
 
     class IServiceDatabase(Protocol):
         fingerprint: IFingerprintRepository
@@ -70,14 +70,14 @@ class DuplicateFinderService:
         ]
 
     async def find_in_folder(
-        self, ns_path: StrOrPath, path: StrOrPath, max_distance: int = 5
+        self, ns_path: AnyPath, path: AnyPath, max_distance: int = 5
     ) -> list[list[Fingerprint]]:
         """
         Finds all duplicate fingerprints in a folder, including sub-folders.
 
         Args:
-            ns_path (StrOrPath): Target namespace.
-            path (StrOrPath): Folder path where to search for fingerprints.
+            ns_path (AnyPath): Target namespace.
+            path (AnyPath): Folder path where to search for fingerprints.
             max_distance (int, optional): The maximum distance at which two fingerprints
                 are considered the same. Defaults to 5.
 

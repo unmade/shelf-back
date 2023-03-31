@@ -3,6 +3,7 @@ from __future__ import annotations
 import operator
 import shutil
 from io import BytesIO
+from pathlib import Path
 from typing import IO, TYPE_CHECKING
 from zipfile import ZipFile
 
@@ -13,9 +14,7 @@ from app.app.files.domain import File
 from app.infrastructure.storage import FileSystemStorage
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
-    from app.typedefs import StrOrPath
+    from app.app.files.domain import AnyPath
 
 pytestmark = [pytest.mark.asyncio]
 
@@ -30,10 +29,10 @@ def file_factory(tmp_path: Path):
     """
     @sync_to_async
     def create_file(
-        path: StrOrPath,
+        path: AnyPath,
         content: IO[bytes] = BytesIO(b"I'm Dummy File!"),
     ) -> Path:
-        fullpath = tmp_path / path
+        fullpath = Path(str(tmp_path / path))
         fullpath.parent.mkdir(parents=True, exist_ok=True)
         if str(path)[-1] == "/":
             return fullpath

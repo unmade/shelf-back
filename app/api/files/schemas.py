@@ -69,7 +69,7 @@ class FileSchema(BaseModel):
         return cls.construct(
             id=file.id,  # type: ignore
             name=file.name,
-            path=file.path,
+            path=str(file.path),
             size=file.size,
             mtime=file.mtime,
             mediatype=file.mediatype,

@@ -1,31 +1,30 @@
 from __future__ import annotations
 
-import os.path
 import uuid
 from datetime import datetime
 from io import BytesIO
-from pathlib import PurePath
 from typing import TYPE_CHECKING, cast
 from unittest import mock
 
 import pytest
 
-from app.app.files.domain import File, Fingerprint
+from app.app.files.domain import File, Fingerprint, Path
 from app.app.users.domain import Account
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
+    from app.app.files.domain import AnyPath
     from app.app.files.usecases import NamespaceUseCase
 
 pytestmark = [pytest.mark.asyncio]
 
 
-def _make_file(ns_path: str, path: str, size: int = 10) -> File:
+def _make_file(ns_path: str, path: AnyPath, size: int = 10) -> File:
     return File(
         id=uuid.uuid4(),
         ns_path=ns_path,
-        name=os.path.basename(path),
+        name=Path(path).name,
         path=path,
         size=size,
         mediatype="image/jpeg",
@@ -342,7 +341,7 @@ class TestMoveItem:
 class TestMoveItemToTrash:
     async def test(self, ns_use_case: NamespaceUseCase):
         # GIVEN
-        ns_path, path, next_path = "admin", "f.txt", PurePath("Trash/f.txt")
+        ns_path, path, next_path = "admin", "f.txt", Path("Trash/f.txt")
         filecore = cast(mock.MagicMock, ns_use_case.filecore)
         filecore.exists_at_path.return_value = False
         # WHEN
@@ -357,7 +356,7 @@ class TestMoveItemToTrash:
     ):
         # GIVEN
         ns_path, path = "admin", "f.txt"
-        next_path = PurePath("Trash/f 193700000000.txt")
+        next_path = Path("Trash/f 193700000000.txt")
         filecore = cast(mock.MagicMock, ns_use_case.filecore)
         filecore.exists_at_path.return_value = True
         # WHEN
@@ -365,7 +364,7 @@ class TestMoveItemToTrash:
         # THEN
         tz_now.assert_called_once_with()
         filecore.exists_at_path.assert_awaited_once_with(
-            ns_path, PurePath("Trash/f.txt")
+            ns_path, Path("Trash/f.txt")
         )
         filecore.move.assert_awaited_once_with(ns_path, path, next_path)
 

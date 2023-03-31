@@ -8,8 +8,9 @@ from app.app.files.domain import Namespace
 from app.app.files.repositories import INamespaceRepository
 
 if TYPE_CHECKING:
+    from app.app.files.domain import AnyPath
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
-    from app.typedefs import StrOrPath, StrOrUUID
+    from app.typedefs import StrOrUUID
 
 __all__ = ["NamespaceRepository"]
 
@@ -47,7 +48,7 @@ class NamespaceRepository(INamespaceRepository):
             raise Namespace.NotFound(msg) from exc
         return _from_db(obj)
 
-    async def get_by_path(self, path: StrOrPath) -> Namespace:
+    async def get_by_path(self, path: AnyPath) -> Namespace:
         query = """
             SELECT
                 Namespace {

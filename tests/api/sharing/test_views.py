@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os.path
 import urllib.parse
 import uuid
 from typing import TYPE_CHECKING
@@ -10,22 +9,22 @@ import pytest
 
 from app.api.files.exceptions import PathNotFound
 from app.api.sharing.exceptions import SharedLinkNotFound
-from app.app.files.domain import File, SharedLink
+from app.app.files.domain import File, Path, SharedLink
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
-    from app.app.files.domain import Namespace
+    from app.app.files.domain import AnyPath, Namespace
     from tests.api.conftest import TestClient
 
 pytestmark = [pytest.mark.asyncio]
 
 
-def _make_file(ns_path: str, path: str) -> File:
+def _make_file(ns_path: str, path: AnyPath) -> File:
     return File(
         id=uuid.uuid4(),
         ns_path=ns_path,
-        name=os.path.basename(path),
+        name=Path(path).name,
         path=path,
         size=10,
         mediatype="plain/text",

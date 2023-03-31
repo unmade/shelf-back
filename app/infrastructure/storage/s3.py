@@ -21,13 +21,13 @@ from ._datastructures import StreamZipFile
 if TYPE_CHECKING:
     from botocore.response import StreamingBody
 
-    from app.typedefs import StrOrPath
+    from app.app.files.domain import AnyPath
 
 __all__ = ["S3Storage"]
 
 
 class S3Storage(IStorage):
-    def __init__(self, location: StrOrPath):
+    def __init__(self, location: AnyPath):
         assert config.STORAGE_S3_ACCESS_KEY_ID is not None
         assert config.STORAGE_S3_SECRET_ACCESS_KEY is not None
         assert config.STORAGE_S3_REGION_NAME is not None
@@ -42,32 +42,32 @@ class S3Storage(IStorage):
             region_name=config.STORAGE_S3_REGION_NAME,
         )
 
-    def _joinpath(self, ns_path: StrOrPath, path: StrOrPath) -> str:
-        return os.path.normpath(os.path.join(ns_path, path))
+    def _joinpath(self, ns_path: AnyPath, path: AnyPath) -> str:
+        return os.path.normpath(os.path.join(str(ns_path), str(path)))
 
     @property
     def bucket(self):
         return self.s3.Bucket(self.bucket_name)
 
     @sync_to_async
-    def delete(self, ns_path: StrOrPath, path: StrOrPath) -> None:
+    def delete(self, ns_path: AnyPath, path: AnyPath) -> None:
         key = self._joinpath(ns_path, path)
         self.s3.Object(self.bucket_name, key).delete()
 
     @sync_to_async
-    def deletedir(self, ns_path: StrOrPath, path: StrOrPath) -> None:
+    def deletedir(self, ns_path: AnyPath, path: AnyPath) -> None:
         prefix = f"{self._joinpath(ns_path, path)}/"
         self.bucket.objects.filter(Prefix=prefix).delete()
 
-    async def emptydir(self, ns_path: StrOrPath, path: StrOrPath) -> None:
+    async def emptydir(self, ns_path: AnyPath, path: AnyPath) -> None:
         await self.deletedir(ns_path, path)
 
-    async def download(self, ns_path: StrOrPath, path: StrOrPath) -> ContentReader:
+    async def download(self, ns_path: AnyPath, path: AnyPath) -> ContentReader:
         stream = await self._download(ns_path, path)
         return ContentReader(iter_async(stream.iter_chunks(4096)), zipped=False)
 
     @sync_to_async
-    def _download(self, ns_path: StrOrPath, path: StrOrPath) -> StreamingBody:
+    def _download(self, ns_path: AnyPath, path: AnyPath) -> StreamingBody:
         key = self._joinpath(ns_path, path)
 
         try:
@@ -79,14 +79,14 @@ class S3Storage(IStorage):
 
         return obj["Body"]
 
-    async def downloaddir(self, ns_path: StrOrPath, path: StrOrPath) -> ContentReader:
+    async def downloaddir(self, ns_path: AnyPath, path: AnyPath) -> ContentReader:
         archive = stream_zip.stream_zip(self._downloaddir_iter(ns_path, path))
         return ContentReader(iter_async(archive), zipped=True)
 
     def _downloaddir_iter(
         self,
-        ns_path: StrOrPath,
-        path: StrOrPath,
+        ns_path: AnyPath,
+        path: AnyPath,
     ) -> Iterator[StreamZipFile]:
         ns_path = str(ns_path)
         fullpath = self._joinpath(ns_path, path)
@@ -107,7 +107,7 @@ class S3Storage(IStorage):
                     )
 
     @sync_to_async
-    def exists(self, ns_path: StrOrPath, path: StrOrPath) -> bool:
+    def exists(self, ns_path: AnyPath, path: AnyPath) -> bool:
         key = self._joinpath(ns_path, path)
 
         try:
@@ -121,7 +121,7 @@ class S3Storage(IStorage):
         return True
 
     @sync_to_async
-    def get_modified_time(self, ns_path: StrOrPath, path: StrOrPath) -> float:
+    def get_modified_time(self, ns_path: AnyPath, path: AnyPath) -> float:
         key = self._joinpath(ns_path, path)
         obj = self.s3.Object(self.bucket_name, key)
 
@@ -135,7 +135,7 @@ class S3Storage(IStorage):
         return obj.last_modified.timestamp()
 
     @sync_to_async
-    def iterdir(self, ns_path: StrOrPath, path: StrOrPath) -> Iterator[StorageFile]:
+    def iterdir(self, ns_path: AnyPath, path: AnyPath) -> Iterator[StorageFile]:
         ns_path = str(ns_path)
         bucket_name = self.bucket_name
         prefix = f"{self._joinpath(ns_path, path)}/"
@@ -165,15 +165,15 @@ class S3Storage(IStorage):
                     )
 
     @sync_to_async
-    def makedirs(self, ns_path: StrOrPath, path: StrOrPath) -> None:
+    def makedirs(self, ns_path: AnyPath, path: AnyPath) -> None:
         return None
 
     @sync_to_async
     def move(
         self,
-        ns_path: StrOrPath,
-        from_path: StrOrPath,
-        to_path: StrOrPath
+        ns_path: AnyPath,
+        from_path: AnyPath,
+        to_path: AnyPath
     ) -> None:
         from_key = self._joinpath(ns_path, from_path)
         to_key = self._joinpath(ns_path, to_path)
@@ -182,9 +182,9 @@ class S3Storage(IStorage):
     @sync_to_async
     def movedir(
         self,
-        ns_path: StrOrPath,
-        from_path: StrOrPath,
-        to_path: StrOrPath
+        ns_path: AnyPath,
+        from_path: AnyPath,
+        to_path: AnyPath
     ) -> None:
         from_prefix = f"{self._joinpath(ns_path, from_path)}/"
         to_prefix = f"{self._joinpath(ns_path, to_path)}/"
@@ -214,8 +214,8 @@ class S3Storage(IStorage):
     @sync_to_async
     def save(
         self,
-        ns_path: StrOrPath,
-        path: StrOrPath,
+        ns_path: AnyPath,
+        path: AnyPath,
         content: IO[bytes],
     ) -> StorageFile:
         key = self._joinpath(ns_path, path)
@@ -227,7 +227,7 @@ class S3Storage(IStorage):
         self.bucket.upload_fileobj(content, key)
 
         return StorageFile(
-            name=os.path.basename(path),
+            name=os.path.basename(str(path)),
             ns_path=str(ns_path),
             path=str(path),
             size=size,
@@ -236,7 +236,7 @@ class S3Storage(IStorage):
         )
 
     @sync_to_async
-    def size(self, ns_path: StrOrPath, path: StrOrPath) -> int:
+    def size(self, ns_path: AnyPath, path: AnyPath) -> int:
         key = self._joinpath(ns_path, path)
         obj = self.s3.Object(self.bucket_name, key)
 

@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING, Protocol
 from app.app.files.domain import Namespace
 
 if TYPE_CHECKING:
-    from app.typedefs import StrOrPath, StrOrUUID
+    from app.app.files.domain import AnyPath
+    from app.typedefs import StrOrUUID
 
 
 class INamespaceRepository(Protocol):
@@ -23,12 +24,12 @@ class INamespaceRepository(Protocol):
             Namespace: A namespace with a target owner ID.
         """
 
-    async def get_by_path(self, path: StrOrPath) -> Namespace:
+    async def get_by_path(self, path: AnyPath) -> Namespace:
         """
         Returns namespace with a target path.
 
         Args:
-            path (StrOrPath): Namespace path.
+            path (AnyPath): Namespace path.
 
         Raises:
             Namespace.NotFound: If namespace with a target path does not exists.

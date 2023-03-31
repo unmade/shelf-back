@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os.path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -12,6 +11,7 @@ from app.app.files.domain import (
     File,
     Fingerprint,
     Namespace,
+    Path,
     SharedLink,
     mediatypes,
 )
@@ -27,6 +27,7 @@ from app.infrastructure.database.edgedb.db import db_context
 if TYPE_CHECKING:
     from typing import Protocol
 
+    from app.app.files.domain import AnyPath
     from app.app.files.repositories import (
         IContentMetadataRepository,
         IFileRepository,
@@ -43,7 +44,10 @@ if TYPE_CHECKING:
 
     class FileFactory(Protocol):
         async def __call__(
-            self, ns_path: str, path: str | None = None, mediatype: str = "plain/text"
+            self,
+            ns_path: str,
+            path: AnyPath | None = None,
+            mediatype: str = "plain/text",
         ) -> File:
             ...
 
@@ -51,7 +55,7 @@ if TYPE_CHECKING:
         async def __call__(self, file_id: str, value: int) -> Fingerprint: ...
 
     class FolderFactory(Protocol):
-        async def __call__(self, ns_path: str, path: str | None = None) -> File: ...
+        async def __call__(self, ns_path: str, path: AnyPath | None = None) -> File: ...
 
     class SharedLinkFactory(Protocol):
         async def __call__(self, file_id: str) -> SharedLink: ...
@@ -145,7 +149,7 @@ def user_repo(_tx_database: EdgeDBDatabase):
 def file_factory(file_repo: IFileRepository) -> FileFactory:
     """A factory to create a saved File to the EdgeDB."""
     async def factory(
-        ns_path: str, path: str | None = None, mediatype: str = "plain/text"
+        ns_path: str, path: AnyPath | None = None, mediatype: str = "plain/text"
     ):
         if path is None:
             path = fake.unique.file_name(category="text", extension="txt")
@@ -153,7 +157,7 @@ def file_factory(file_repo: IFileRepository) -> FileFactory:
             File(
                 id=SENTINEL_ID,
                 ns_path=ns_path,
-                name=os.path.basename(path),
+                name=Path(path).name,
                 path=path,
                 size=10,
                 mediatype=mediatype,
@@ -174,14 +178,14 @@ def fingerprint_factory(fingerprint_repo: IFingerprintRepository) -> Fingerprint
 @pytest.fixture
 def folder_factory(file_repo: IFileRepository) -> FolderFactory:
     """A factory to create a saved Folder to the EdgeDB."""
-    async def factory(ns_path: str, path: str | None = None):
+    async def factory(ns_path: str, path: AnyPath | None = None):
         if path is None:
             path = fake.unique.file_name(category="text", extension="txt")
         return await file_repo.save(
             File(
                 id=SENTINEL_ID,
                 ns_path=ns_path,
-                name=os.path.basename(path),
+                name=Path(path).name,
                 path=path,
                 size=0,
                 mediatype=mediatypes.FOLDER,

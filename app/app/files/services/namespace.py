@@ -9,8 +9,9 @@ from app.app.infrastructure.database import SENTINEL_ID
 if TYPE_CHECKING:
     from uuid import UUID
 
+    from app.app.files.domain import AnyPath
     from app.app.files.repositories import INamespaceRepository
-    from app.typedefs import StrOrPath, StrOrUUID
+    from app.typedefs import StrOrUUID
 
     from .filecore import FileCoreService
 
@@ -27,12 +28,12 @@ class NamespaceService:
         self.db = database
         self.filecore = filecore
 
-    async def create(self, path: StrOrPath, owner_id: UUID) -> Namespace:
+    async def create(self, path: AnyPath, owner_id: UUID) -> Namespace:
         """
         Creates a namespace.
 
         Args:
-            path (StrOrPath): Namespace path.
+            path (AnyPath): Namespace path.
             owner_id (UUID): Namespace owner ID.
 
         Raises:
@@ -68,7 +69,7 @@ class NamespaceService:
         Returns namespace with a target path.
 
         Args:
-            path (StrOrPath): Namespace path.
+            path (AnyPath): Namespace path.
 
         Raises:
             Namespace.NotFound: If namespace with a target path does not exist.

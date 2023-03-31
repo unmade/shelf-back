@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from pathlib import PurePath
-
 import pytest
 from faker import Faker
 
-from app.app.files.domain import File, mediatypes
+from app.app.files.domain import File, Path, mediatypes
 
 fake = Faker()
 
@@ -20,7 +18,7 @@ def _make_file(
     return File(
         id=str(fake.uuid4()),
         ns_path=ns_path or fake.file_path(depth=1),
-        name=PurePath(pathname).name,
+        name=Path(pathname).name,
         path=str(pathname),
         size=fake.pyint(),
         mtime=fake.pyfloat(positive=True),
@@ -47,6 +45,18 @@ class TestFileEQ:
 
     def test_comparing_file_with_another_object_always_false(self):
         assert (_make_file() == {}) is False
+
+
+class TestRepr:
+    def test(self):
+        file = _make_file(ns_path="admin", path="home")
+        assert repr(file) == "<File ns_path='admin' path='home'>"
+
+
+class TestJson:
+    def test(self) -> None:
+        file = _make_file()
+        assert file.json()
 
 
 class TestIsHidden:

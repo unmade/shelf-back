@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os.path
 import uuid
 from typing import TYPE_CHECKING
 from unittest import mock
@@ -9,7 +8,7 @@ from unittest import mock
 import pytest
 
 from app import tasks
-from app.app.files.domain import File
+from app.app.files.domain import File, Path
 from app.tasks import ErrorCode, RelocationPath
 
 if TYPE_CHECKING:
@@ -17,6 +16,7 @@ if TYPE_CHECKING:
 
     from pytest import LogCaptureFixture
 
+    from app.app.files.domain import AnyPath
     from app.tasks import FileTaskResult
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("celery_session_worker")]
@@ -31,13 +31,11 @@ def setUp():
         yield
 
 
-def _make_file(ns_path: str, path: str):
-    from app.app.files.domain import File
-
+def _make_file(ns_path: str, path: AnyPath):
     return File(
         id=uuid.uuid4(),
         ns_path=ns_path,
-        name=os.path.basename(path),
+        name=Path(path).name,
         path=path,
         size=10,
         mediatype="plain/text",

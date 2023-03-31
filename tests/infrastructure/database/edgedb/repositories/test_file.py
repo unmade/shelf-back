@@ -12,9 +12,9 @@ from app.app.infrastructure.database import SENTINEL_ID
 from app.infrastructure.database.edgedb.db import db_context
 
 if TYPE_CHECKING:
-    from app.app.files.domain import Namespace
+    from app.app.files.domain import AnyPath, Namespace
     from app.infrastructure.database.edgedb.repositories import FileRepository
-    from app.typedefs import StrOrPath, StrOrUUID
+    from app.typedefs import StrOrUUID
     from tests.infrastructure.database.edgedb.conftest import FileFactory, FolderFactory
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
@@ -49,7 +49,7 @@ async def _get_by_id(file_id: StrOrUUID) -> File:
     )
 
 
-async def _get_by_path(ns_path: StrOrPath, path: StrOrPath) -> File:
+async def _get_by_path(ns_path: AnyPath, path: AnyPath) -> File:
     query = """
         SELECT
             File {
@@ -206,7 +206,7 @@ class TestGetByPathBatch:
     async def test_when_some_file_does_not_exist(
         self, file_repo: FileRepository, file: File,
     ):
-        paths = [file.path, f"{uuid.uuid4()}.txt"]
+        paths = [str(file.path), f"{uuid.uuid4()}.txt"]
         result = await file_repo.get_by_path_batch(file.ns_path, paths)
         assert result == [file]
 

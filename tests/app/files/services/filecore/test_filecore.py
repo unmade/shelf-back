@@ -1,21 +1,19 @@
 from __future__ import annotations
 
 import operator
-import os.path
 import uuid
 from io import BytesIO
-from pathlib import PurePath
 from typing import IO, TYPE_CHECKING
 from unittest import mock
 
 import pytest
 
-from app.app.files.domain import File, mediatypes
+from app.app.files.domain import File, Path, mediatypes
 from app.cache import disk_cache
 from app.toolkit import taskgroups
 
 if TYPE_CHECKING:
-    from app.app.files.domain import Namespace
+    from app.app.files.domain import AnyPath, Namespace
     from app.app.files.services import FileCoreService
 
     from ..conftest import BookmarkFactory, FileFactory, FolderFactory
@@ -24,12 +22,12 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
 
 def _make_file(
-    ns_path: str, path: str, size: int = 10, mediatype: str = "plain/text"
+    ns_path: str, path: AnyPath, size: int = 10, mediatype: str = "plain/text"
 ) -> File:
     return File(
         id=uuid.uuid4(),
         ns_path=ns_path,
-        name=os.path.basename(path),
+        name=Path(path).name,
         path=path,
         size=size,
         mediatype=mediatype,
@@ -86,7 +84,7 @@ class TestCreateFile:
         self, filecore: FileCoreService, namespace: Namespace,
     ):
         CONCURRENCY = 50
-        parent = PurePath("a/b/c")
+        parent = Path("a/b/c")
         paths = [parent / str(name) for name in range(CONCURRENCY)]
         contents = [BytesIO(b"1") for _ in range(CONCURRENCY)]
 

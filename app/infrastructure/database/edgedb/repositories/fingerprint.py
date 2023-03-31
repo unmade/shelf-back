@@ -9,9 +9,9 @@ from app.app.files.repositories import IFingerprintRepository
 from app.toolkit import json_
 
 if TYPE_CHECKING:
+    from app.app.files.domain import AnyPath
     from app.app.files.repositories.fingerprint import MatchResult
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
-    from app.typedefs import StrOrPath
 
 __all__ = ["FingerprintRepository"]
 
@@ -50,7 +50,7 @@ class FingerprintRepository(IFingerprintRepository):
         return self.db_context.get()
 
     async def intersect_all_with_prefix(
-        self, ns_path: StrOrPath, prefix: StrOrPath
+        self, ns_path: AnyPath, prefix: AnyPath
     ) -> MatchResult:
         query = """
             WITH

@@ -5,7 +5,7 @@ from io import BytesIO
 from typing import IO, TYPE_CHECKING, AsyncIterator, Iterator, Protocol
 
 if TYPE_CHECKING:
-    from app.typedefs import StrOrPath
+    from app.app.files.domain import AnyPath
 
 __all__ = ["ContentReader", "IStorage", "StorageFile"]
 
@@ -73,51 +73,51 @@ class StorageFile:
 class IStorage(Protocol):
     location: str
 
-    def __init__(self, location: StrOrPath):
+    def __init__(self, location: AnyPath):
         ...
 
     @abc.abstractmethod
-    async def delete(self, ns_path: StrOrPath, path: StrOrPath) -> None:
+    async def delete(self, ns_path: AnyPath, path: AnyPath) -> None:
         """
         Delete a file by path.
 
         If path does not exists or path is a directory, it will act as a no-op.
 
         Args:
-            ns_path (StrOrPath): Namespace path.
-            path (StrOrPath): File pathname relative to namespace.
+            ns_path (AnyPath): Namespace path.
+            path (AnyPath): File pathname relative to namespace.
         """
 
     @abc.abstractmethod
-    async def deletedir(self, ns_path: StrOrPath, path: StrOrPath) -> None:
+    async def deletedir(self, ns_path: AnyPath, path: AnyPath) -> None:
         """
         Delete a folder by path.
 
         If path does not exists, it will act as a no-op.
 
         Args:
-            ns_path (StrOrPath): Namespace path.
-            path (StrOrPath): Folder pathname relative to namespace.
+            ns_path (AnyPath): Namespace path.
+            path (AnyPath): Folder pathname relative to namespace.
         """
 
     @abc.abstractmethod
-    async def emptydir(self, ns_path: StrOrPath, path: StrOrPath) -> None:
+    async def emptydir(self, ns_path: AnyPath, path: AnyPath) -> None:
         """
         Deletes a folder content but not a folder itself.
 
         Args:
-            ns_path (StrOrPath): Namespace path.
-            path (StrOrPath): Folder pathname relative to namespace.
+            ns_path (AnyPath): Namespace path.
+            path (AnyPath): Folder pathname relative to namespace.
         """
 
     @abc.abstractmethod
-    async def download(self, ns_path: StrOrPath, path: StrOrPath) -> ContentReader:
+    async def download(self, ns_path: AnyPath, path: AnyPath) -> ContentReader:
         """
         Return an iterator over a file content.
 
         Args:
-            ns_path (StrOrPath): Namespace path.
-            path (StrOrPath): File pathname relative to namespace.
+            ns_path (AnyPath): Namespace path.
+            path (AnyPath): File pathname relative to namespace.
 
         Raises:
             File.NotFound: If path not found or path is a directory.
@@ -127,39 +127,39 @@ class IStorage(Protocol):
         """
 
     @abc.abstractmethod
-    async def downloaddir(self, ns_path: StrOrPath, path: StrOrPath) -> ContentReader:
+    async def downloaddir(self, ns_path: AnyPath, path: AnyPath) -> ContentReader:
         """
         Return an iterator over a zipped folder content.
 
         Args:
-            ns_path (StrOrPath): Namespace path.
-            path (StrOrPath): File pathname relative to namespace.
+            ns_path (AnyPath): Namespace path.
+            path (AnyPath): File pathname relative to namespace.
 
         Yields:
             ContentReader: Iterator over a file content.
         """
 
     @abc.abstractmethod
-    async def exists(self, ns_path: StrOrPath, path: StrOrPath) -> bool:
+    async def exists(self, ns_path: AnyPath, path: AnyPath) -> bool:
         """
         Check whether if file exists or not in the specified path.
 
         Args:
-            ns_path (StrOrPath): Namespace path.
-            path (StrOrPath): File pathname relative to namespace.
+            ns_path (AnyPath): Namespace path.
+            path (AnyPath): File pathname relative to namespace.
 
         Returns:
             bool: True if file exists, False otherwise.
         """
 
     @abc.abstractmethod
-    async def get_modified_time(self, ns_path: StrOrPath, path: StrOrPath) -> float:
+    async def get_modified_time(self, ns_path: AnyPath, path: AnyPath) -> float:
         """
         Get a datetime of the last modified time of the file.
 
         Args:
-            ns_path (StrOrPath): Namespace path.
-            path (StrOrPath): File pathname relative to namespace.
+            ns_path (AnyPath): Namespace path.
+            path (AnyPath): File pathname relative to namespace.
 
         Raises:
             File.NotFound: If file in path doesn't exists
@@ -171,15 +171,15 @@ class IStorage(Protocol):
     @abc.abstractmethod
     async def iterdir(
         self,
-        ns_path: StrOrPath,
-        path: StrOrPath,
+        ns_path: AnyPath,
+        path: AnyPath,
     ) -> Iterator[StorageFile]:
         """
         Return an iterator of StorageFile objects for a given path.
 
         Args:
-            ns_path (StrOrPath): Namespace path.
-            path (StrOrPath): File pathname relative to namespace.
+            ns_path (AnyPath): Namespace path.
+            path (AnyPath): File pathname relative to namespace.
 
         Raises:
             File.NotFound: If given path does not exist
@@ -190,13 +190,13 @@ class IStorage(Protocol):
         """
 
     @abc.abstractmethod
-    async def makedirs(self, ns_path: StrOrPath, path: StrOrPath) -> None:
+    async def makedirs(self, ns_path: AnyPath, path: AnyPath) -> None:
         """
         Create a directory with any missing directories in a given path.
 
         Args:
-            ns_path (StrOrPath): Namespace path.
-            path (StrOrPath): File pathname relative to namespace.
+            ns_path (AnyPath): Namespace path.
+            path (AnyPath): File pathname relative to namespace.
 
         Raises:
             File.AlreadyExists: If some file already exists in a given path.
@@ -206,9 +206,9 @@ class IStorage(Protocol):
     @abc.abstractmethod
     async def move(
         self,
-        ns_path: StrOrPath,
-        from_path: StrOrPath,
-        to_path: StrOrPath,
+        ns_path: AnyPath,
+        from_path: AnyPath,
+        to_path: AnyPath,
     ) -> None:
         """
         Move a file to the destination path. The destination path should include
@@ -216,9 +216,9 @@ class IStorage(Protocol):
         should as 'b/f.txt'.
 
         Args:
-            ns_path (StrOrPath): Namespace path.
-            from_path (StrOrPath): Current file pathname relative to namespace.
-            to_path (StrOrPath): Next file pathname relative to namespace.
+            ns_path (AnyPath): Namespace path.
+            from_path (AnyPath): Current file pathname relative to namespace.
+            to_path (AnyPath): Next file pathname relative to namespace.
 
         Raises:
             File.NotFound: If source or destination path does not exist.
@@ -228,9 +228,9 @@ class IStorage(Protocol):
     @abc.abstractmethod
     async def movedir(
         self,
-        ns_path: StrOrPath,
-        from_path: StrOrPath,
-        to_path: StrOrPath,
+        ns_path: AnyPath,
+        from_path: AnyPath,
+        to_path: AnyPath,
     ) -> None:
         """
         Move a folder to the destination path. The destination path should include
@@ -241,9 +241,9 @@ class IStorage(Protocol):
         If source path doesn't exists, it will act as a no-op.
 
         Args:
-            ns_path (StrOrPath): Namespace path.
-            from_path (StrOrPath): Current folder pathname relative to namespace.
-            to_path (StrOrPath): Next folder pathname relative to namespace.
+            ns_path (AnyPath): Namespace path.
+            from_path (AnyPath): Current folder pathname relative to namespace.
+            to_path (AnyPath): Next folder pathname relative to namespace.
 
         Raises:
             File.NotADirectory: If some parent of the destination is not a directory.
@@ -252,16 +252,16 @@ class IStorage(Protocol):
     @abc.abstractmethod
     async def save(
         self,
-        ns_path: StrOrPath,
-        path: StrOrPath,
+        ns_path: AnyPath,
+        path: AnyPath,
         content: IO[bytes],
     ) -> StorageFile:
         """
         Save content to a given path.
 
         Args:
-            ns_path (StrOrPath): Namespace path.
-            path (StrOrPath): File pathname relative to namespace.
+            ns_path (AnyPath): Namespace path.
+            path (AnyPath): File pathname relative to namespace.
             content (IO[bytes]): Content to save.
 
         Raises:
@@ -272,13 +272,13 @@ class IStorage(Protocol):
         """
 
     @abc.abstractmethod
-    async def size(self, ns_path: StrOrPath, path: StrOrPath) -> int:
+    async def size(self, ns_path: AnyPath, path: AnyPath) -> int:
         """
         Get the total size, in bytes, of the file referenced by path.
 
         Args:
-            ns_path (StrOrPath): Namespace path.
-            path (StrOrPath): File pathname relative to namespace.
+            ns_path (AnyPath): Namespace path.
+            path (AnyPath): File pathname relative to namespace.
 
         Raises:
             File.NotFound: If given path does not exist.
