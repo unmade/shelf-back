@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import abc
 from typing import TYPE_CHECKING
 
 from app.api.exceptions import APIError
@@ -15,7 +16,8 @@ class FilesError(APIError):
         assert path is not None, "Missing required argument: 'path'"
         self.message = self.get_message(path)
 
-    def get_message(self, path: AnyPath) -> str:
+    @abc.abstractmethod
+    def get_message(self, path: AnyPath) -> str:  # pragma: no cover
         raise NotImplementedError()
 
 

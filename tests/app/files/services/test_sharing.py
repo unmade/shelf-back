@@ -49,6 +49,18 @@ class TestGetLinkByFileID:
         assert link == db.shared_link.get_by_file_id.return_value
 
 
+class TestGetLinkByToken:
+    async def test(self, sharing_service: SharingService):
+        # GIVEN
+        file_id = str(uuid.uuid4())
+        # WHEN
+        link = await sharing_service.get_link_by_token(file_id)
+        # THEN
+        db = cast(mock.MagicMock, sharing_service.db)
+        db.shared_link.get_by_token.assert_awaited_once_with(file_id)
+        assert link == db.shared_link.get_by_token.return_value
+
+
 class TestRevokeLink:
     async def test(self, sharing_service: SharingService):
         token = "ec67376f"

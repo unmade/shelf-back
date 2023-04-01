@@ -116,12 +116,18 @@ class DuplicateFinderService:
         try:
             yield tracker
         finally:
-            await self.db.fingerprint.save_batch(tracker)
+            await self.db.fingerprint.save_batch(tracker.items)
 
 
 class _Tracker:
+    __slots__ = ["_items"]
+
     def __init__(self):
-        self._items = []
+        self._items: list[Fingerprint] = []
+
+    @property
+    def items(self) -> list[Fingerprint]:
+        return self._items
 
     async def add(self, file_id: str, content: IO[bytes]) -> None:
         value = await dhash.dhash(content)
@@ -131,11 +137,3 @@ class _Tracker:
         self._items.append(
             Fingerprint(file_id, value=value)
         )
-
-    def __eq__(self, other) -> bool:
-        if isinstance(other, _Tracker):
-            return self._items == other._items
-        return NotImplemented
-
-    def __iter__(self):
-        return iter(self._items)

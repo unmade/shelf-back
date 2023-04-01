@@ -13,7 +13,7 @@ SENTINEL_ID = uuid.UUID("00000000-0000-0000-0000-000000000000")
 
 class IDatabase(Protocol):
     async def __aenter__(self) -> Self:
-        return self
+        return self  # pragma: no cover
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         await self.shutdown()

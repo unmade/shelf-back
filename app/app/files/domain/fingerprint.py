@@ -38,7 +38,7 @@ class Fingerprint:
     def __repr__(self) -> str:
         return (
             f"{self.__class__.__name__}("
-            f"file_id={repr(self.file_id)}, "
-            f"value={repr(self.value)}"
+            f"file_id={self.file_id!r}, "
+            f"value={self.value!r}"
             ")"
         )

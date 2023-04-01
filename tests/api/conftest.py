@@ -8,7 +8,6 @@ import pytest
 from httpx import AsyncClient
 
 from app.api import deps
-from app.app.auth.domain import AccessToken
 from app.app.files.domain import Namespace
 from app.app.users.domain import Account, User
 from app.main import create_app
@@ -16,22 +15,12 @@ from app.main import create_app
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
-    from app.typedefs import StrOrUUID
 
 
 class TestClient(AsyncClient):
     def __init__(self, *, app: FastAPI, **kwargs):
         self.app = app
         super().__init__(app=app, **kwargs)
-
-    def login(self, user_id: StrOrUUID) -> TestClient:
-        """
-        Authenticates given user by creating access token and setting it as
-        the Authorization header.
-        """
-        token = AccessToken.build(str(user_id)).encode()
-        self.headers.update({"Authorization": f"Bearer {token}"})
-        return self
 
     def mock_namespace(self, namespace: Namespace):
         async def get_namespace():

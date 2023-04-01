@@ -9,6 +9,7 @@ from unittest import mock
 import pytest
 
 from app.app.files.domain import File, Path, mediatypes
+from app.app.files.services.filecore.filecore import _make_thumbnail_ttl
 from app.cache import disk_cache
 from app.toolkit import taskgroups
 
@@ -319,6 +320,30 @@ class TestEmptyFolder:
         storage_mock.assert_not_awaited()
 
 
+class TestExistsWithID:
+    async def test(self, filecore: FileCoreService):
+        # GIVEN
+        ns_path, file_id = "admin", str(uuid.uuid4())
+        # WHEN
+        with mock.patch.object(filecore, "db", autospec=filecore.db) as db:
+            result = await filecore.exists_with_id(ns_path, file_id)
+        # THEN
+        assert result == db.file.exists_with_id.return_value
+        db.file.exists_with_id.assert_awaited_once_with(ns_path, file_id)
+
+
+class TestExistsAtPath:
+    async def test(self, filecore: FileCoreService):
+        # GIVEN
+        ns_path, path = "admin", "home"
+        # WHEN
+        with mock.patch.object(filecore, "db", autospec=filecore.db) as db:
+            result = await filecore.exists_at_path(ns_path, path)
+        # THEN
+        assert result == db.file.exists_at_path.return_value
+        db.file.exists_at_path.assert_awaited_once_with(ns_path, path)
+
+
 class TestGetAvailablePath:
     @pytest.mark.parametrize(["name", "expected_name"], [
         ("f.txt", "f (1).txt"),
@@ -378,13 +403,39 @@ class TestGetAvailablePath:
 
 
 class TestGetById:
-    async def test(self, filecore: FileCoreService, file: File):
-        assert await filecore.get_by_id(file.id) == file
+    async def test(self, filecore: FileCoreService):
+        # GIVEN
+        file_id = str(uuid.uuid4())
+        # WHEN
+        with mock.patch.object(filecore, "db", autospec=filecore.db) as db:
+            result = await filecore.get_by_id(file_id)
+        # THEN
+        assert result == db.file.get_by_id.return_value
+        db.file.get_by_id.assert_awaited_once_with(file_id)
+
+
+class TestGetByIDBatch:
+    async def test(self, filecore: FileCoreService):
+        # GIVEN
+        ns_path, ids = "admin", [str(uuid.uuid4()), str(uuid.uuid4())]
+        # WHEN
+        with mock.patch.object(filecore, "db", autospec=filecore.db) as db:
+            result = await filecore.get_by_id_batch(ns_path, ids=ids)
+        # THEN
+        assert result == db.file.get_by_id_batch.return_value
+        db.file.get_by_id_batch.assert_awaited_once_with(ns_path, ids)
 
 
 class TestGetByPath:
-    async def test(self, filecore: FileCoreService, file: File):
-        assert await filecore.get_by_path(file.ns_path, file.path) == file
+    async def test(self, filecore: FileCoreService):
+        # GIVEN
+        ns_path, path = "admin", "home"
+        # WHEN
+        with mock.patch.object(filecore, "db", autospec=filecore.db) as db:
+            result = await filecore.get_by_path(ns_path, path)
+        # THEN
+        assert result == db.file.get_by_path.return_value
+        db.file.get_by_path.assert_awaited_once_with(ns_path, path)
 
 
 class TestIterByMediatypes:
@@ -795,3 +846,10 @@ class TestThumbnail:
             call = [{'ttl': 604800, 'name': 'simple', 'template': '{file_id}:{size}'}]
             assert list(detector.calls.values()) == [call]
             assert result1 == result2
+
+    @pytest.mark.parametrize(["size", "ttl"], [
+        (64, "7d"),
+        (256, "24h")],
+    )
+    async def test_ttl_depends_on_size(self, size: int, ttl: str):
+        assert _make_thumbnail_ttl(size=size) == ttl

@@ -20,9 +20,6 @@ class ContentReader:
     def __aiter__(self) -> AsyncIterator[bytes]:
         return self.content_iterator
 
-    async def __anext__(self) -> bytes:
-        return await anext(self.content_iterator)
-
     async def stream(self) -> IO[bytes]:
         buffer = BytesIO()
         async for chunk in self:
@@ -53,12 +50,12 @@ class StorageFile:
     def __repr__(self) -> str:
         return (
             f"{self.__class__.__name__}("
-            f"name='{self.name}', "
-            f"ns_path='{self.ns_path}', "
-            f"path='{self.path}', "
-            f"size={self.size}, "
-            f"mtime={self.mtime}, "
-            f"is_dir={self.is_dir()}"
+            f"name={self.name!r}, "
+            f"ns_path={self.ns_path!r}, "
+            f"path={self.path!r}, "
+            f"size={self.size!r}, "
+            f"mtime={self.mtime!r}, "
+            f"is_dir={self.is_dir()!r}"
             ")"
         )
 
@@ -72,9 +69,6 @@ class StorageFile:
 
 class IStorage(Protocol):
     location: str
-
-    def __init__(self, location: AnyPath):
-        ...
 
     @abc.abstractmethod
     async def delete(self, ns_path: AnyPath, path: AnyPath) -> None:

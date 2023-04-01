@@ -448,6 +448,9 @@ class TestSaveBatch:
         )
         await file_repo.save_batch([file_to_save])
 
+    async def test_when_empty_input(self, file_repo: FileRepository):
+        await file_repo.save_batch([])
+
 
 class TestUpdate:
     async def test(self, file_repo: FileRepository, file: File):

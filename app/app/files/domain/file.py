@@ -97,7 +97,7 @@ class File:
         )
 
     def __repr__(self) -> str:
-        return f"<File ns_path='{self.ns_path}' path='{self.path}'>"
+        return f"<File ns_path={self.ns_path!r} path={self.path!r}>"
 
     def is_folder(self) -> bool:
         """True if file is a folder, False otherwise."""

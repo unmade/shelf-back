@@ -45,12 +45,12 @@ def create_app() -> FastAPI:
 
     @app.on_event("shutdown")
     async def close_db_client():
-        await database.shutdown()
+        await database.shutdown()  # pragma: no cover
 
     return app
 
 
-def _create_database():
+def _create_database():  # pragma: no cover
     return EdgeDBDatabase(
         dsn=config.DATABASE_DSN,
         max_concurrency=4,
@@ -59,7 +59,7 @@ def _create_database():
     )
 
 
-def _create_storage():
+def _create_storage():  # pragma: no cover
     if config.STORAGE_TYPE == config.StorageType.s3:
         return S3Storage(
             location=config.STORAGE_LOCATION,

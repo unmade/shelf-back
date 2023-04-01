@@ -50,7 +50,7 @@ class TestFileEQ:
 class TestRepr:
     def test(self):
         file = _make_file(ns_path="admin", path="home")
-        assert repr(file) == "<File ns_path='admin' path='home'>"
+        assert repr(file) == "<File ns_path='admin' path=Path('home')>"
 
 
 class TestJson:

@@ -62,9 +62,6 @@ def celery_config():
 @pytest.fixture(autouse=True)
 def replace_storage_location_with_tmp_path(tmp_path: Path):
     """Monkey patches storage root_dir with a temporary directory."""
-    from app.infrastructure.storage import storage
-
-    storage.location = str(tmp_path)
     with mock.patch("app.config.STORAGE_LOCATION", tmp_path):
         yield
 
@@ -133,19 +130,6 @@ async def setup_test_db(reuse_db, db_dsn) -> None:
             tls_security=config.DATABASE_TLS_SECURITY,
         ) as db:
             await db.migrate()
-
-
-@pytest.fixture(scope="session")
-async def session_db_client(setup_test_db):
-    """A session scoped database client."""
-    database = EdgeDBDatabase(
-        dsn=config.DATABASE_DSN,
-        max_concurrency=4,
-        tls_ca_file=config.DATABASE_TLS_CA_FILE,
-        tls_security=config.DATABASE_TLS_SECURITY,
-    )
-    with mock.patch("app.main._create_database", return_value=database):
-        yield database.client
 
 
 @pytest.fixture(scope="session")

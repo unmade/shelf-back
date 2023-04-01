@@ -13,6 +13,10 @@ __all__ = [
 ]
 
 
+class InvalidCredentials(Exception):
+    pass
+
+
 class StorageQuotaExceeded(Exception):
     pass
 
@@ -39,6 +43,7 @@ class Account(BaseModel):
 
 class User(BaseModel):
     AlreadyExists = UserAlreadyExists
+    InvalidCredentials = InvalidCredentials
     NotFound = UserNotFound
 
     id: UUID

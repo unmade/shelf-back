@@ -425,9 +425,6 @@ class FileCoreService:
                 else:
                     if (key := folder) in missing:
                         missing[key].size += file.size
-                    for parent in folder.parents:
-                        if (key := parent) in missing:
-                            missing[key].size += file.size
                     total_size += file.size
                     size = file.size
                     mediatype = mediatypes.guess_unsafe(file.name)

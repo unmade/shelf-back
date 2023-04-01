@@ -44,7 +44,7 @@ class TestSignIn:
         self, client: TestClient, auth_use_case: MagicMock
     ):
         # GIVEN
-        auth_use_case.signin.side_effect = InvalidCredentials
+        auth_use_case.signin.side_effect = User.InvalidCredentials
         username, password = "admin", "root"
         data = {"username": username, "password": password}
         # WHEN

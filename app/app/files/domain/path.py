@@ -18,42 +18,40 @@ class Path:
 
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, self.__class__):
-            return self._path.lower() == other._path.lower()
+            return self._path.casefold() == other._path.casefold()
         if isinstance(other, str):
-            return self._path.lower() == other.lower()
+            return self._path.casefold() == other.casefold()
         if isinstance(other, PurePath):
-            return self._path.lower() == str(other).lower()
+            return self._path.casefold() == str(other).casefold()
         return NotImplemented
 
     def __gt__(self, other: Any) -> bool:
         if not isinstance(other, Path):
             return NotImplemented
-        return self._path > other._path
+        return self._path.casefold() > other._path.casefold()
 
     def __ge__(self, other: Any) -> bool:
         if not isinstance(other, Path):
             return NotImplemented
-        return self._path >= other._path
+        return self._path.casefold() >= other._path.casefold()
 
     def __hash__(self) -> int:
-        return hash((self._path.lower(),))
+        return hash((self._path.casefold(),))
 
     def __lt__(self, other: Any) -> bool:
         if not isinstance(other, Path):
             return NotImplemented
-        return self._path < other._path
+        return self._path.casefold() < other._path.casefold()
 
     def __le__(self, other: Any) -> bool:
         if not isinstance(other, Path):
             return NotImplemented
-        return self._path <= other._path
+        return self._path.casefold() <= other._path.casefold()
 
     def __repr__(self):
-        return "{}({!r})".format(self.__class__.__name__, self._path)
+        return f"{self.__class__.__name__}({self._path!r})"
 
     def __rtruediv__(self, key) -> Self:
-        if isinstance(key, self.__class__):
-            key = str(key)
         try:
             return self.__class__(os.path.join(key, self._path))
         except TypeError:
@@ -97,8 +95,12 @@ class Path:
 
     def is_relative_to(self, path: AnyPath) -> bool:
         """Returns whether or not this path is relative to the other path."""
-        start = os.path.normpath(f"{path}").lower()
-        return path == "." or self == path or self._path.lower().startswith(f"{start}/")
+        start = os.path.normpath(f"{path}").casefold()
+        return (
+            str(path) == "."
+            or self == path
+            or self._path.casefold().startswith(f"{start}/")
+        )
 
     def with_restored_casing(self, path: AnyPath) -> Self:
         if not self.is_relative_to(path):

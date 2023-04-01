@@ -1,16 +1,13 @@
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING, cast
+from typing import cast
 from unittest import mock
 
 import pytest
 
 from app.app.users.domain import Account, User
 from app.app.users.services import UserService
-
-if TYPE_CHECKING:
-    pass
 
 pytestmark = [pytest.mark.asyncio]
 
@@ -79,6 +76,18 @@ class TestCreate:
         make_password_mock.assert_called_once_with(given["password"])
         db.user.save.assert_awaited_once_with(expected["user"])
         db.account.save.assert_awaited_once_with(expected["account"])
+
+
+class TestGetAccount:
+    async def test(self, user_service: UserService):
+        # GIVEN
+        user_id = uuid.uuid4()
+        db = cast(mock.MagicMock, user_service.db)
+        # WHEN
+        account = await user_service.get_account(user_id)
+        # THEN
+        assert account == db.account.get_by_user_id.return_value
+        db.account.get_by_user_id.assert_awaited_once_with(user_id)
 
 
 class TestGetByID:

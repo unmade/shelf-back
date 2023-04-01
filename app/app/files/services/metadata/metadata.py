@@ -62,12 +62,18 @@ class MetadataService:
         try:
             yield tracker
         finally:
-            await self.db.metadata.save_batch(tracker)
+            await self.db.metadata.save_batch(tracker.items)
 
 
 class _Tracker:
+    __slots__ = ["_items"]
+
     def __init__(self):
-        self._items = []
+        self._items: list[ContentMetadata] = []
+
+    @property
+    def items(self) -> list[ContentMetadata]:
+        return self._items
 
     async def add(self, file_id: str, content: IO[bytes]) -> None:
         data = await readers.load(content)
@@ -77,11 +83,3 @@ class _Tracker:
         self._items.append(
             ContentMetadata(file_id=file_id, data=data)
         )
-
-    def __eq__(self, other) -> bool:
-        if isinstance(other, _Tracker):
-            return self._items == other._items
-        return NotImplemented
-
-    def __iter__(self):
-        return iter(self._items)

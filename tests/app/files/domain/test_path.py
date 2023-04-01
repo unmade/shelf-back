@@ -17,6 +17,37 @@ class TestInit:
         assert path._path == "a/b"
 
 
+class TestComparison:
+    def test_gt(self):
+        assert Path("b") > Path("a")
+        assert Path("b") > Path("A")
+        assert not Path("a") > Path("b")
+
+    def test_ge(self):
+        assert Path("a") >= Path("a")
+        assert Path("b") >= Path("a")
+        assert not Path("a") >= Path("b")
+
+    def test_lt(self):
+        assert Path("a") < Path("b")
+        assert not Path("b") < Path("a")
+
+    def test_le(self):
+        assert Path("a") <= Path("a")
+        assert Path("a") <= Path("b")
+        assert not Path("b") <= Path("a")
+
+    def test_comparing_with_other_types(self):
+        with pytest.raises(TypeError):
+            assert not Path("a") > object()
+        with pytest.raises(TypeError):
+            assert not Path("a") >= object()
+        with pytest.raises(TypeError):
+            assert not Path("b") < object()
+        with pytest.raises(TypeError):
+            assert not Path("a") <= object()
+
+
 class TestEQ:
     def test_case_insensitiveness(self):
         path = Path("a/B/c")

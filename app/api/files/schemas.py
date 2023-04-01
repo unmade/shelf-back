@@ -47,6 +47,8 @@ _THUMBNAIL_SIZES = {
 
 def _normalize(path: str) -> str:
     path = path.strip()
+    if not path:
+        raise MalformedPath("Path should not be empty")
     symbols = ["..", "~", "/"]
     for symbol in symbols:
         if path.startswith(symbol):
@@ -178,12 +180,10 @@ class DataExif(BaseModel):
 
 class GetContentMetadataResponse(BaseModel):
     file_id: str
-    data: DataExif | None
+    data: DataExif
 
     @classmethod
     def from_entity(cls, entity: ContentMetadata) -> Self:
-        if entity.data is None:
-            return cls(file_id=entity.file_id, data=None)
         return cls(
             file_id=entity.file_id,
             data=DataExif(
@@ -221,18 +221,19 @@ class MoveRequest(BaseModel):
     def path_should_not_be_home_or_trash_folders(cls, value: str):
         if value == "." or value.lower() == TRASH_FOLDER_NAME.lower():
             raise MalformedPath("Can't move Home or Trash folder")
-        return value.strip()
+        return value
 
     @validator("to_path")
     def to_path_should_not_be_inside_trash_folder(cls, value: str):
         if value.lower().startswith(f"{TRASH_FOLDER_NAME.lower()}/"):
             raise MalformedPath("Can't move files inside Trash")
-        return value.strip()
+        return value
 
     @root_validator
     def check_path_does_not_contain_itself(cls, values):
-        if values["to_path"].lower().startswith(f"{values['from_path'].lower()}/"):
-            raise MalformedPath("Destination path should not start with source path")
+        from_path, to_path = values["from_path"], values["to_path"]
+        if to_path.lower().startswith(f"{from_path.lower()}/"):
+            raise MalformedPath("'to_path' should not start with 'from_path'")
         return values
 
 

@@ -5,8 +5,7 @@ from unittest import mock
 
 import pytest
 
-from app.app.auth.usecases.auth import InvalidCredentials
-from app.app.users.domain.user import User
+from app.app.users.domain import User
 
 if TYPE_CHECKING:
     from app.app.auth.usecases import AuthUseCase
@@ -36,7 +35,7 @@ class TestSignIn:
         user_service = cast(mock.MagicMock, auth_use_case.user_service)
         user_service.get_by_username.side_effect = User.NotFound
         # WHEN
-        with pytest.raises(InvalidCredentials):
+        with pytest.raises(User.InvalidCredentials):
             await auth_use_case.signin(username, password)
         # THEN
         user_service.get_by_username.assert_awaited_once_with(username)
@@ -50,7 +49,7 @@ class TestSignIn:
         user = user_service.get_by_username.return_value
         user.check_password = mock.Mock(return_value=False)
         # WHEN
-        with pytest.raises(InvalidCredentials):
+        with pytest.raises(User.InvalidCredentials):
             await auth_use_case.signin(username, password)
         # THEN
         user_service.get_by_username.assert_awaited_once_with(username)

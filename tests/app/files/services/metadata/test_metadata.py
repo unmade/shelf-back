@@ -7,7 +7,6 @@ from unittest import mock
 import pytest
 
 from app.app.files.domain import ContentMetadata, Exif
-from app.app.files.services.metadata.metadata import _Tracker
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
@@ -75,17 +74,21 @@ class TestTrackBatch:
         image_content: IO[bytes],
     ):
         # GIVEN
-        file_ids = [str(uuid.uuid4()), str(uuid.uuid4())]
+        file_ids = [str(uuid.uuid4()) for _ in range(3)]
         db = cast(mock.MagicMock, metadata_service.db)
-        load_metadata.return_value = Exif(width=1280, height=800)
+        load_metadata.side_effect = [
+            Exif(width=1280, height=800),
+            None,
+            Exif(width=1440, height=900),
+        ]
         # WHEN
         async with metadata_service.track_batch() as tracker:
             await tracker.add(file_ids[0], image_content)
             await tracker.add(file_ids[1], image_content)
+            await tracker.add(file_ids[2], image_content)
         # THEN
-        expected = _Tracker()
-        expected._items = [
-            ContentMetadata(file_id=file_ids[0], data=load_metadata.return_value),
-            ContentMetadata(file_id=file_ids[1], data=load_metadata.return_value),
+        items = [
+            ContentMetadata(file_id=file_ids[0], data=Exif(width=1280, height=800)),
+            ContentMetadata(file_id=file_ids[2], data=Exif(width=1440, height=900)),
         ]
-        db.metadata.save_batch.assert_awaited_once_with(expected)
+        db.metadata.save_batch.assert_awaited_once_with(items)

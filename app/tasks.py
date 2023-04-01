@@ -54,7 +54,7 @@ class FileTaskResult:
         self.err_code = err_code
 
 
-def _create_database() -> EdgeDBDatabase:
+def _create_database() -> EdgeDBDatabase:  # pragma: no cover
     return EdgeDBDatabase(
         dsn=config.DATABASE_DSN,
         max_concurrency=1,
@@ -63,7 +63,7 @@ def _create_database() -> EdgeDBDatabase:
     )
 
 
-def _create_storage() -> IStorage:
+def _create_storage() -> IStorage:  # pragma: no cover
     if config.STORAGE_TYPE == config.StorageType.s3:
         return S3Storage(
             location=config.STORAGE_LOCATION,

@@ -179,8 +179,7 @@ def fingerprint_factory(fingerprint_repo: IFingerprintRepository) -> Fingerprint
 def folder_factory(file_repo: IFileRepository) -> FolderFactory:
     """A factory to create a saved Folder to the EdgeDB."""
     async def factory(ns_path: str, path: AnyPath | None = None):
-        if path is None:
-            path = fake.unique.file_name(category="text", extension="txt")
+        path = path or fake.unique.file_name(category="text", extension="txt")
         return await file_repo.save(
             File(
                 id=SENTINEL_ID,

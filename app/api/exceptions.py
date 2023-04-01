@@ -21,7 +21,7 @@ class APIError(Exception):
         self.message = message or self.default_message
 
     def __repr__(self):
-        return f"{self.__class__.__name__}(message='{self.message}')"
+        return f"{self.__class__.__name__}(message={self.message!r})"
 
     def as_dict(self) -> APIErrorDict:
         return {

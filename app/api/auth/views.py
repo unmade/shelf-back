@@ -7,7 +7,6 @@ from app import config
 from app.api import deps
 from app.api.exceptions import InvalidToken
 from app.app.auth.domain import TokenError
-from app.app.auth.usecases.auth import InvalidCredentials
 from app.app.users.domain import User
 from app.infrastructure.provider import UseCases
 
@@ -27,7 +26,7 @@ async def sign_in(
     username, password = form_data.username, form_data.password
     try:
         access, refresh = await usecases.auth.signin(username, password)
-    except InvalidCredentials as exc:
+    except User.InvalidCredentials as exc:
         raise exceptions.InvalidCredentials() from exc
 
     return TokensSchema(access_token=access, refresh_token=refresh)
