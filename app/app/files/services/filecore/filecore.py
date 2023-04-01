@@ -56,8 +56,7 @@ class FileCoreService:
         try:
             parent = await self.db.file.get_by_path(ns_path, path.parent)
         except File.NotFound:
-            with contextlib.suppress(File.AlreadyExists):
-                await self.create_folder(ns_path, str(path.parent))
+            await self.create_folder(ns_path, str(path.parent))
         else:
             if not parent.is_folder():
                 raise File.NotADirectory()
@@ -91,7 +90,6 @@ class FileCoreService:
             path (AnyPath): Path to a folder to create.
 
         Raises:
-            File.AlreadyExists: If folder with this path already exists.
             File.NotADirectory: If one of the path parents is not a directory.
 
         Returns:
@@ -113,22 +111,19 @@ class FileCoreService:
             paths[-1] = path.with_restored_casing(parents[-1].path)
 
         await self.storage.makedirs(ns_path, path)
-        for p in paths[index+1:]:
-            # parallel calls can create folder at the same path. Consider, for example,
-            # when the first call tries to create a folder at path 'a/b/c/f' and
-            # the second call tries to create at path 'a/b/c/d/f'. To solve that,
-            # simply ignore File.AlreadyExists error.
-            with contextlib.suppress(File.AlreadyExists):
-                await self.db.file.save(
-                    File(
-                        id=SENTINEL_ID,
-                        ns_path=str(ns_path),
-                        name=p.name,
-                        path=p,
-                        size=0,
-                        mediatype=mediatypes.FOLDER,
-                    )
+        await self.db.file.save_batch(
+            [
+                File(
+                    id=SENTINEL_ID,
+                    ns_path=str(ns_path),
+                    name=p.name,
+                    path=p,
+                    size=0,
+                    mediatype=mediatypes.FOLDER,
                 )
+                for p in paths[index+1:]
+            ]
+        )
         return await self.db.file.get_by_path(ns_path, path)
 
     async def delete(self, ns_path: AnyPath, path: AnyPath) -> File:
