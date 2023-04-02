@@ -26,7 +26,7 @@ def _create_database():
 
 
 def _create_storage():
-    if config.STORAGE_TYPE == config.StorageType.s3:
+    if config.STORAGE_TYPE == config.StorageType.s3:  # noqa: SIM300
         return S3Storage(
             location=config.STORAGE_LOCATION,
         )

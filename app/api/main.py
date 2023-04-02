@@ -62,7 +62,7 @@ def _create_database():  # pragma: no cover
 
 
 def _create_storage():  # pragma: no cover
-    if config.STORAGE_TYPE == config.StorageType.s3:
+    if config.STORAGE_TYPE == config.StorageType.s3:  # noqa: SIM300
         return S3Storage(
             location=config.STORAGE_LOCATION,
         )

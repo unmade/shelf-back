@@ -82,7 +82,7 @@ class FileSchema(BaseModel):
     @staticmethod
     def _make_thumbnail_url(request: Request, file: File) -> str | None:
         if thumbnails.is_supported(file.mediatype):
-            return request.url_for("get_thumbnail", file_id=file.id)
+            return str(request.url_for("get_thumbnail", file_id=file.id))
         return None
 
 

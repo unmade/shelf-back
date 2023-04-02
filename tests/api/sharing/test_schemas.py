@@ -17,7 +17,7 @@ class TestSharedLinkFileSchema:
         # WHEN
         result = SharedLinkFileSchema._make_thumbnail_url(file, token, request)
         # THEN
-        assert result == request.url_for.return_value
+        assert result == str(request.url_for.return_value)
         request.url_for.assert_called_once_with(
             "get_shared_link_thumbnail", token=token
         )

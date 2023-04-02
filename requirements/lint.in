@@ -1,10 +1,8 @@
 -c base.txt
 -c test.txt
 
-pre-commit
-# install mypy from source as 0.991 doesn't support Self
-git+https://github.com/python/mypy.git@7efe8e5487804014ecf8cb9b6e08f7194f61f963
-
+mypy>=1.1,<2
+pre-commit>=3.2,<4
 
 # these dependencies are needed for mypy:
 

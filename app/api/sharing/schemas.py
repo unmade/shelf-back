@@ -36,7 +36,7 @@ class SharedLinkFileSchema(BaseModel):
     @staticmethod
     def _make_thumbnail_url(file: File, token: str, request: Request) -> str | None:
         if thumbnails.is_supported(file.mediatype):
-            return request.url_for("get_shared_link_thumbnail", token=token)
+            return str(request.url_for("get_shared_link_thumbnail", token=token))
         return None
 
 

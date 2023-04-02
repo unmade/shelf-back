@@ -1,8 +1,8 @@
 -c base.txt
 
-faker
-httpx
-pytest
+faker>=18.3,<19
+httpx>=0.23,<1
+pytest>=7.2.2,<8
 pytest-asyncio==0.16.0
 pytest-celery
-pytest-cov
+pytest-cov>=4,<5
