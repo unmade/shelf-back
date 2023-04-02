@@ -89,24 +89,6 @@ def ns_use_case(app: FastAPI):
 
 
 @pytest.fixture
-def ns_service(app: FastAPI):
-    """A mock of a NamespaceService instance."""
-    services = app.state.provider.services
-    new = mock.MagicMock(services.namespace)
-    with mock.patch.object(services, "namespace", new) as patch:
-        yield patch
-
-
-@pytest.fixture
-def user_service(app: FastAPI):
-    """A mock of a UserService instance."""
-    services = app.state.provider.services
-    spec = mock.MagicMock(services.user)
-    with mock.patch.object(services, "user", spec) as mocked:
-        yield mocked
-
-
-@pytest.fixture
 def user_use_case(app: FastAPI):
     """A mock of a UserUseCase instance."""
     usecases = app.state.provider.usecases

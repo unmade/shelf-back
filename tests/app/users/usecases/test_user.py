@@ -46,6 +46,49 @@ class TestAddBookmark:
         bookmark_service.add_bookmark.assert_not_awaited()
 
 
+class TestCreateSuperUser:
+    async def test(self, user_use_case: UserUseCase):
+        # GIVEN
+        username, password = "admin", "password"
+        ns_service = cast(mock.MagicMock, user_use_case.ns_service)
+        user_service = cast(mock.MagicMock, user_use_case.user_service)
+        # WHEN
+        result = await user_use_case.create_superuser(username, password)
+        # THEN
+        assert result == user_service.create.return_value
+        user_service.create.assert_awaited_once_with(username, password)
+        user = user_service.create.return_value
+        ns_service.create.assert_awaited_once_with(user.username, owner_id=user.id)
+
+
+class TestGetAccount:
+    async def test(self, user_use_case: UserUseCase):
+        # GIVEN
+        user_id = uuid.uuid4()
+        user_service = cast(mock.MagicMock, user_use_case.user_service)
+        # WHEN
+        result = await user_use_case.get_account(user_id)
+        # THEN
+        assert result == user_service.get_account.return_value
+        user_service.get_account.assert_awaited_once_with(user_id)
+
+
+class TestGetAccountSpaceUsage:
+    async def test(self, user_use_case: UserUseCase):
+        # GIVEN
+        user_id = uuid.uuid4()
+        ns_service = cast(mock.MagicMock, user_use_case.ns_service)
+        user_service = cast(mock.MagicMock, user_use_case.user_service)
+        account = user_service.get_account.return_value
+        space_used = ns_service.get_space_used_by_owner_id.return_value
+        # WHEN
+        result = await user_use_case.get_account_space_usage(user_id)
+        # THEN
+        assert result == (space_used, account.storage_quota)
+        user_service.get_account.assert_awaited_once_with(user_id)
+        ns_service.get_space_used_by_owner_id.assert_awaited_once_with(user_id)
+
+
 class TestListBookmark:
     async def test(self, user_use_case: UserUseCase):
         # GIVEN

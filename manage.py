@@ -63,15 +63,14 @@ def createsuperuser(
         storage = _create_storage()
         async with _create_database() as database:
             provider = Provider(database=database, storage=storage)
-            services = provider.services
+            usecases = provider.usecases
             try:
-                user = await services.user.create(username, password, superuser=True)
+                await usecases.user.create_superuser(username, password)
             except User.AlreadyExists:
                 if not exist_ok:
                     raise
                 typer.echo("User already exists, skipping...")
             else:
-                await services.namespace.create(user.username, owner_id=user.id)
                 typer.echo("User created successfully.")
 
     print("error")

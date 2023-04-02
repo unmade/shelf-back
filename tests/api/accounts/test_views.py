@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from app.app.users.usecases.user import AccountSpaceUsage
+
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
@@ -18,12 +20,12 @@ class TestGetCurrent:
     async def test(
         self,
         client: TestClient,
+        user_use_case: MagicMock,
         account: Account,
         user: User,
-        user_service: MagicMock,
     ):
         # GIVEN
-        user_service.get_account.return_value = account
+        user_use_case.get_account.return_value = account
         # WHEN
         client.mock_user(user)
         response = await client.get(self.url)
@@ -43,19 +45,16 @@ class TestGetSpaceUsage:
     async def test(
         self,
         client: TestClient,
-        account: Account,
+        user_use_case: MagicMock,
         user: User,
-        ns_service: MagicMock,
-        user_service: MagicMock,
     ):
         # GIVEN
-        user_service.get_account.return_value = account
-        ns_service.get_space_used_by_owner_id.return_value = 256
+        space_usage = AccountSpaceUsage(used=256, quota=1024)
+        user_use_case.get_account_space_usage.return_value = space_usage
         # WHEN
         client.mock_user(user)
         response = await client.get(self.url)
         # THEN
-        assert response.json() == {"quota": account.storage_quota, "used": 256}
+        assert response.json() == {"quota": space_usage.quota, "used": space_usage.used}
         assert response.status_code == 200
-        user_service.get_account.assert_awaited_once_with(user.id)
-        ns_service.get_space_used_by_owner_id.assert_awaited_once_with(user.id)
+        user_use_case.get_account_space_usage.assert_awaited_once_with(user.id)

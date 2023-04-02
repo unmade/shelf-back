@@ -1,14 +1,19 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 from app.app.files.domain import File
 
 if TYPE_CHECKING:
     from app.app.files.services import FileCoreService, NamespaceService
-    from app.app.users.domain import Bookmark
+    from app.app.users.domain import Account, Bookmark, User
     from app.app.users.services import BookmarkService, UserService
     from app.typedefs import StrOrUUID
+
+
+class AccountSpaceUsage(NamedTuple):
+    used: int
+    quota: int | None
 
 
 class UserUseCase:
@@ -46,6 +51,53 @@ class UserUseCase:
         if file.ns_path != namespace.path:
             raise File.NotFound() from None
         return await self.bookmark_service.add_bookmark(user_id, file_id)
+
+    async def create_superuser(self, username, password) -> User:
+        """
+        Create a superuser with unlimited storage quote.
+
+        Args:
+            username (_type_): User username
+            password (_type_): USer password
+
+        Returns:
+            User: A created superuser.
+        """
+        user = await self.user_service.create(username, password)
+        await self.ns_service.create(user.username, owner_id=user.id)
+        return user
+
+    async def get_account(self, user_id: StrOrUUID) -> Account:
+        """
+        Returns an account for a given user ID.
+
+        Args:
+            user_id (StrOrUUID): User ID to return an account for.
+
+        Raises:
+            User.NotFound: If account for given user ID does not exists.
+
+        Returns:
+            Account: an Account instance.
+        """
+        return await self.user_service.get_account(user_id)
+
+    async def get_account_space_usage(self, user_id: StrOrUUID) -> AccountSpaceUsage:
+        """
+        Returns an account for a given user ID.
+
+        Args:
+            user_id (StrOrUUID): User ID to return an account for.
+
+        Raises:
+            User.NotFound: If account for given user ID does not exists.
+
+        Returns:
+            AccountSpaceUsage: A tuple of used and total available space for account.
+        """
+        account = await self.user_service.get_account(user_id)
+        used = await self.ns_service.get_space_used_by_owner_id(user_id)
+        return AccountSpaceUsage(used=used, quota=account.storage_quota)
 
     async def list_bookmarks(self, user_id: StrOrUUID) -> list[Bookmark]:
         """
