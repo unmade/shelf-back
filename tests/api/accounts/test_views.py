@@ -17,6 +17,7 @@ pytestmark = [pytest.mark.asyncio]
 
 class TestGetCurrent:
     url = "/accounts/get_current"
+
     async def test(
         self,
         client: TestClient,

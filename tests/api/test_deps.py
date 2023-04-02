@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 from unittest import mock
 
 import pytest
+from fastapi import Request
 
 from app.api import deps, exceptions
 from app.app.auth.domain import AccessToken
@@ -33,6 +34,12 @@ def usecases():
             user_service=mock.MagicMock(UserService)
         ),
     )
+
+
+class TestUseCases:
+    async def test(self):
+        request = mock.MagicMock(Request)
+        assert await deps.usecases(request) == request.state.provider.usecases
 
 
 class TestCurrentUser:

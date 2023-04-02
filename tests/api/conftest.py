@@ -9,8 +9,12 @@ from httpx import AsyncClient
 
 from app.api import deps
 from app.api.main import create_app
+from app.app.auth.usecases import AuthUseCase
 from app.app.files.domain import Namespace
+from app.app.files.usecases import NamespaceUseCase, SharingUseCase
 from app.app.users.domain import Account, User
+from app.app.users.usecases import UserUseCase
+from app.infrastructure.provider import UseCases
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -39,7 +43,7 @@ class TestClient(AsyncClient):
 @pytest.fixture(scope="session")
 def app():
     """Application fixture."""
-    return create_app()
+    return create_app(lifespan=mock.MagicMock())
 
 
 @pytest.fixture
@@ -47,6 +51,48 @@ async def client(app):
     """Test client fixture to make requests against app endpoints."""
     async with TestClient(app=app, base_url="http://test") as cli:
         yield cli
+
+
+@pytest.fixture
+def _usecases():
+    return mock.MagicMock(
+        UseCases,
+        auth=mock.MagicMock(AuthUseCase),
+        namespace=mock.MagicMock(NamespaceUseCase),
+        sharing=mock.MagicMock(SharingUseCase),
+        user=mock.MagicMock(UserUseCase),
+    )
+
+
+@pytest.fixture
+def auth_use_case(_usecases: UseCases):
+    """A mocked instance of a AuthUseCase."""
+    return _usecases.auth
+
+
+@pytest.fixture
+def ns_use_case(_usecases: UseCases):
+    """A mocked instance of a NamespaceUseCase."""
+    return _usecases.namespace
+
+
+@pytest.fixture
+def sharing_use_case(_usecases: UseCases):
+    """A mocked instance of a SharingManager."""
+    return _usecases.sharing
+
+
+@pytest.fixture
+def user_use_case(_usecases: UseCases):
+    """A mock of a UserUseCase instance."""
+    return _usecases.user
+
+
+@pytest.fixture(autouse=True)
+def mock_usecases_deps(app: FastAPI, _usecases: UseCases):
+    def get_usecases():
+        return _usecases
+    app.dependency_overrides[deps.usecases] = get_usecases
 
 
 @pytest.fixture
@@ -67,39 +113,3 @@ async def account(user: User):
 @pytest.fixture
 async def namespace(user: User):
     return Namespace(id=uuid.uuid4(), path="admin", owner_id=user.id)
-
-
-@pytest.fixture
-def auth_use_case(app: FastAPI):
-    """A mocked instance of a AuthUseCase."""
-    usecases = app.state.provider.usecases
-    new = mock.MagicMock(usecases.auth)
-    with mock.patch.object(usecases, "auth", new) as patch:
-        yield patch
-
-
-@pytest.fixture
-def ns_use_case(app: FastAPI):
-    """A mocked instance of a NamespaceUseCase."""
-    usecases = app.state.provider.usecases
-    new = mock.MagicMock(usecases.namespace)
-    with mock.patch.object(usecases, "namespace", new) as patch:
-        yield patch
-
-
-@pytest.fixture
-def user_use_case(app: FastAPI):
-    """A mock of a UserUseCase instance."""
-    usecases = app.state.provider.usecases
-    spec = mock.MagicMock(usecases.user)
-    with mock.patch.object(usecases, "user", spec) as mocked:
-        yield mocked
-
-
-@pytest.fixture
-def sharing_use_case(app: FastAPI):
-    """A mocked instance of a SharingManager."""
-    usecases = app.state.provider.usecases
-    new = mock.MagicMock(usecases.sharing)
-    with mock.patch.object(usecases, "sharing", new) as patch:
-        yield patch

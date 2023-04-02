@@ -22,7 +22,7 @@ reusable_oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/sign_in", auto_error=Fals
 
 
 async def usecases(request: Request) -> UseCases:
-    provider = cast(Provider, request.app.state.provider)
+    provider = cast(Provider, request.state.provider)
     return provider.usecases
 
 
