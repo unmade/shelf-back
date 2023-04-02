@@ -66,7 +66,7 @@ def replace_storage_location_with_tmp_path(tmp_path: Path):
         yield
 
 
-@pytest.fixture(autouse=True, scope="session")
+@pytest.fixture(scope="session", autouse=True)
 def db_dsn() -> tuple[str, str, str]:
     """
     Parse DSN from config and return tuple:
@@ -82,7 +82,7 @@ def db_dsn() -> tuple[str, str, str]:
     return server_dsn, db_dsn, db_name
 
 
-@pytest.fixture(autouse=True, scope="session")
+@pytest.fixture(scope="session", autouse=True)
 def replace_database_dsn(db_dsn):
     """Replace database DSN with a test value."""
     _, dsn, _ = db_dsn

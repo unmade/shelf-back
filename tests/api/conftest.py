@@ -8,13 +8,12 @@ import pytest
 from httpx import AsyncClient
 
 from app.api import deps
+from app.api.main import create_app
 from app.app.files.domain import Namespace
 from app.app.users.domain import Account, User
-from app.main import create_app
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
-
 
 
 class TestClient(AsyncClient):

@@ -17,7 +17,7 @@ pytestmark = [pytest.mark.asyncio]
 runner = CliRunner()
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def setUp():
     with (
         mock.patch("manage._create_database"),

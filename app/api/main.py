@@ -4,10 +4,12 @@ import sentry_sdk
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app import api, config
+from app import config
 from app.infrastructure.database.edgedb.db import EdgeDBDatabase
 from app.infrastructure.provider import Provider
 from app.infrastructure.storage import FileSystemStorage, S3Storage
+
+from . import exceptions, router
 
 sentry_sdk.init(
     config.SENTRY_DSN,
@@ -31,10 +33,10 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    app.include_router(api.router)
+    app.include_router(router)
 
     app.add_exception_handler(
-        api.exceptions.APIError, api.exceptions.api_error_exception_handler,
+        exceptions.APIError, exceptions.api_error_exception_handler,
     )
 
     database = _create_database()

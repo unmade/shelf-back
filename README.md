@@ -54,7 +54,7 @@ celery -A app.tasks worker --loglevel=INFO
 Start the application:
 
 ```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+uvicorn app.api.main:app --host 0.0.0.0 --port 8000
 ```
 
 #### Running EdgeDB on Apple Silicon

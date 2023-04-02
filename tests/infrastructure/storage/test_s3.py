@@ -39,7 +39,7 @@ def s3_resource(s3_storage: S3Storage):
     return s3_storage.s3
 
 
-@pytest.fixture(autouse=True, scope="module")
+@pytest.fixture(scope="module", autouse=True)
 def setup_bucket(tmp_bucket: str, s3_resource):  # pragma: no cover
     """Setups fixture to create a new bucket."""
     bucket = s3_resource.Bucket(tmp_bucket)
@@ -52,7 +52,7 @@ def setup_bucket(tmp_bucket: str, s3_resource):  # pragma: no cover
         raise
 
 
-@pytest.fixture(autouse=True, scope="module")
+@pytest.fixture(scope="module", autouse=True)
 def teardown_bucket(tmp_bucket: str, s3_resource):  # pragma: no cover
     """Teardown fixture to remove all files in the bucket, then remove the bucket."""
     try:
