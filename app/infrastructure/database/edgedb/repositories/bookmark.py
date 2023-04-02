@@ -59,7 +59,10 @@ class BookmarkRepository(IBookmarkRepository):
         except edgedb.NoDataError as exc:
             raise User.NotFound(f"No user with id: '{user_id}'") from exc
 
-        return [entry.id for entry in user.bookmarks]
+        return [
+            Bookmark(user_id=str(user_id), file_id=str(entry.id))
+            for entry in user.bookmarks
+        ]
 
     async def save(self, bookmark: Bookmark) -> Bookmark:
         query = """

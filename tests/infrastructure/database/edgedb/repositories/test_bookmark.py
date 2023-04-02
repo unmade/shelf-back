@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
 
-async def _save_bookmark(user_id: StrOrUUID, file_id: StrOrUUID):
+async def _save_bookmark(user_id: StrOrUUID, file_id: StrOrUUID) -> Bookmark:
     query = """
         UPDATE User
         FILTER .id = <uuid>$user_id
@@ -31,6 +31,7 @@ async def _save_bookmark(user_id: StrOrUUID, file_id: StrOrUUID):
         ) }"""
     conn = db_context.get()
     await conn.query_required_single(query, user_id=user_id, file_id=file_id)
+    return Bookmark(user_id=str(user_id), file_id=str(file_id))
 
 
 async def _list_bookmarks_id(user_id: StrOrUUID) -> list[UUID]:
@@ -85,12 +86,14 @@ class TestListAll:
         # GIVEN
         file_a = await file_factory(namespace.path)
         file_b = await file_factory(namespace.path)
-        await _save_bookmark(namespace.owner_id, file_a.id)
-        await _save_bookmark(namespace.owner_id, file_b.id)
+        bookmarks = [
+            await _save_bookmark(namespace.owner_id, file_a.id),
+            await _save_bookmark(namespace.owner_id, file_b.id),
+        ]
         # WHEN
-        bookmarks = await bookmark_repo.list_all(namespace.owner_id)
+        result = await bookmark_repo.list_all(namespace.owner_id)
         # THEN
-        assert sorted(str(v) for v in bookmarks) == sorted([file_a.id, file_b.id])
+        assert result == bookmarks
 
     async def test_when_no_bookmarks(
         self, bookmark_repo: BookmarkRepository, user: User
