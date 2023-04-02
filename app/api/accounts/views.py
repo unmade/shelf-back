@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
-from app.api import deps
-from app.app.users.domain import User
-from app.infrastructure.provider import UseCases
+from app.api.deps import CurrentUserDeps, UseCasesDeps
 
 from .schemas import (
     AccountSchema,
@@ -16,8 +14,8 @@ router = APIRouter()
 
 @router.get("/get_current")
 async def get_current(
-    user: User = Depends(deps.current_user),
-    usecases: UseCases = Depends(deps.usecases),
+    user: CurrentUserDeps,
+    usecases: UseCasesDeps,
 ) -> AccountSchema:
     """Get account information for a current user."""
     # normally, we would re-raised UserNotFound error, but if some user,
@@ -29,8 +27,8 @@ async def get_current(
 
 @router.get("/get_space_usage")
 async def get_space_usage(
-    user: User = Depends(deps.current_user),
-    usecases: UseCases = Depends(deps.usecases),
+    user: CurrentUserDeps,
+    usecases: UseCasesDeps,
 ) -> GetAccountSpaceUsageResponse:
     """Get the space usage information for the current account."""
     space_usage = await usecases.user.get_account_space_usage(user.id)

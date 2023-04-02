@@ -3,15 +3,15 @@ from __future__ import annotations
 from uuid import UUID
 
 import celery.states
-from fastapi import APIRouter, Depends, Form, Query, Request, UploadFile
+from fastapi import APIRouter, Form, Query, Request, UploadFile
 from fastapi import File as FileParam
 from fastapi.responses import ORJSONResponse, Response, StreamingResponse
 
 from app import tasks
-from app.api import deps, shortcuts
-from app.app.files.domain import ContentMetadata, File, Namespace, mediatypes
+from app.api import shortcuts
+from app.api.deps import NamespaceDeps, UseCasesDeps
+from app.app.files.domain import ContentMetadata, File, mediatypes
 from app.app.users.domain import Account
-from app.infrastructure.provider import UseCases
 
 from . import exceptions
 from .schemas import (
@@ -44,8 +44,8 @@ router = APIRouter()
 async def create_folder(
     request: Request,
     payload: PathRequest,
-    namespace: Namespace = Depends(deps.namespace),
-    usecases: UseCases = Depends(deps.usecases),
+    namespace: NamespaceDeps,
+    usecases: UseCasesDeps,
 ) -> FileSchema:
     """
     Create a new folder with a target path.
@@ -67,7 +67,7 @@ async def create_folder(
 @router.post("/delete_immediately_batch")
 def delete_immediately_batch(
     payload: DeleteImmediatelyBatchRequest,
-    namespace: Namespace = Depends(deps.namespace),
+    namespace: NamespaceDeps,
 ) -> AsyncTaskID:
     """Permanently delete multiple files or folders."""
     paths = [item.path for item in payload.items]
@@ -79,7 +79,7 @@ def delete_immediately_batch(
 def delete_immediately_check(
     request: Request,
     payload: AsyncTaskID,
-    _: Namespace = Depends(deps.namespace),
+    _: NamespaceDeps,
 ) -> DeleteImmediatelyBatchCheckResponse:
     response_model = DeleteImmediatelyBatchCheckResponse
     task = tasks.celery_app.AsyncResult(str(payload.async_task_id))
@@ -96,8 +96,8 @@ def delete_immediately_check(
 
 @router.get("/download")
 async def download(
+    usecases: UseCasesDeps,
     key: str = Query(None),
-    usecases: UseCases = Depends(deps.usecases),
 ):
     """
     Download a file or a folder.
@@ -132,8 +132,8 @@ async def download(
 @router.post("/download")
 async def download_xhr(
     payload: PathRequest,
-    namespace: Namespace = Depends(deps.namespace),
-    usecases: UseCases = Depends(deps.usecases),
+    namespace: NamespaceDeps,
+    usecases: UseCasesDeps,
 ):
     """
     Download a file or a folder.
@@ -162,9 +162,7 @@ async def download_xhr(
 
 
 @router.post("/empty_trash")
-def empty_trash(
-    namespace: Namespace = Depends(deps.namespace),
-) -> AsyncTaskID:
+def empty_trash(namespace: NamespaceDeps) -> AsyncTaskID:
     """Delete all files and folders in the Trash folder."""
     task = tasks.empty_trash.delay(namespace.path)
     return AsyncTaskID(async_task_id=task.id)
@@ -173,7 +171,7 @@ def empty_trash(
 @router.post("/empty_trash/check")
 def empty_trash_check(
     payload: AsyncTaskID,
-    _: Namespace = Depends(deps.namespace),
+    _: NamespaceDeps,
 ) -> EmptyTrashCheckResponse:
     """Return empty_trash status."""
     response_model = EmptyTrashCheckResponse
@@ -187,8 +185,8 @@ def empty_trash_check(
 async def find_duplicates(
     request: Request,
     payload: FindDuplicatesRequest,
-    namespace: Namespace = Depends(deps.namespace),
-    usecases: UseCases = Depends(deps.usecases),
+    namespace: NamespaceDeps,
+    usecases: UseCasesDeps,
 ):
     """Find all duplicate files in a folder including all sub-folders."""
     ns_path = namespace.path
@@ -215,8 +213,8 @@ async def find_duplicates(
 async def get_batch(
     request: Request,
     payload: GetBatchRequest,
-    namespace: Namespace = Depends(deps.namespace),
-    usecases: UseCases = Depends(deps.usecases),
+    namespace: NamespaceDeps,
+    usecases: UseCasesDeps,
 ):
     """Return all files with specified IDs."""
     ns_path = namespace.path
@@ -237,8 +235,8 @@ async def get_batch(
 async def get_download_url(
     request: Request,
     payload: PathRequest,
-    namespace: Namespace = Depends(deps.namespace),
-    usecases: UseCases = Depends(deps.usecases),
+    namespace: NamespaceDeps,
+    usecases: UseCasesDeps,
 ) -> GetDownloadUrlResponse:
     """Return a link to download requested file or folder."""
     try:
@@ -255,8 +253,8 @@ async def get_download_url(
 @router.post("/get_content_metadata")
 async def get_content_metadata(
     payload: PathRequest,
-    usecases: UseCases = Depends(deps.usecases),
-    namespace: Namespace = Depends(deps.namespace),
+    namespace: NamespaceDeps,
+    usecases: UseCasesDeps,
 ) -> GetContentMetadataResponse:
     """Return content metadata for a given file."""
     try:
@@ -272,8 +270,8 @@ async def get_content_metadata(
 async def get_thumbnail(
     file_id: UUID,
     size: ThumbnailSize,
-    usecases: UseCases = Depends(deps.usecases),
-    namespace: Namespace = Depends(deps.namespace),
+    namespace: NamespaceDeps,
+    usecases: UseCasesDeps,
 ):
     """Get thumbnail for an image file."""
     try:
@@ -303,8 +301,8 @@ async def get_thumbnail(
 async def list_folder(
     request: Request,
     payload: PathRequest,
-    namespace: Namespace = Depends(deps.namespace),
-    usecases: UseCases = Depends(deps.usecases),
+    namespace: NamespaceDeps,
+    usecases: UseCasesDeps,
 ):
     """
     List content of a folder with a given path.
@@ -333,7 +331,7 @@ async def list_folder(
 @router.post("/move_batch")
 def move_batch(
     payload: MoveBatchRequest,
-    namespace: Namespace = Depends(deps.namespace),
+    namespace: NamespaceDeps,
 ) -> AsyncTaskID:
     """Move multiple files or folders to different locations at once."""
     task = tasks.move_batch.delay(namespace.path, payload.items)
@@ -344,7 +342,7 @@ def move_batch(
 def move_batch_check(
     request: Request,
     payload: AsyncTaskID,
-    _: Namespace = Depends(deps.namespace),
+    _: NamespaceDeps,
 ) -> MoveBatchCheckResponse:
     """Return move_batch status and a list of results."""
     response_model = MoveBatchCheckResponse
@@ -363,7 +361,7 @@ def move_batch_check(
 @router.post("/move_to_trash_batch")
 def move_to_trash_batch(
     payload: MoveToTrashBatchRequest,
-    namespace: Namespace = Depends(deps.namespace),
+    namespace: NamespaceDeps,
 ) -> AsyncTaskID:
     """
     Move several files or folders to Trash at once.
@@ -378,10 +376,10 @@ def move_to_trash_batch(
 @router.post("/upload")
 async def upload_file(
     request: Request,
+    namespace: NamespaceDeps,
+    usecases: UseCasesDeps,
     file: UploadFile = FileParam(...),
     path: PathParam = Form(...),
-    namespace: Namespace = Depends(deps.namespace),
-    usecases: UseCases = Depends(deps.usecases),
 ) -> FileSchema:
     """Upload file to the specified path."""
     filepath = path.__root__

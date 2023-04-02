@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Request, Response
 
-from app.api import deps, shortcuts
+from app.api import shortcuts
+from app.api.deps import NamespaceDeps, UseCasesDeps
 from app.api.files.exceptions import PathNotFound
 from app.api.files.schemas import PathRequest, ThumbnailSize
-from app.app.files.domain import File, Namespace, SharedLink, mediatypes
-from app.infrastructure.provider import UseCases
+from app.app.files.domain import File, SharedLink, mediatypes
 
 from .exceptions import SharedLinkNotFound
 from .schemas import (
@@ -25,8 +25,8 @@ router = APIRouter()
 @router.post("/create_shared_link")
 async def create_shared_link(
     payload: PathRequest,
-    namespace: Namespace = Depends(deps.namespace),
-    usecases: UseCases = Depends(deps.usecases)
+    namespace: NamespaceDeps,
+    usecases: UseCasesDeps,
 ) -> CreateSharedLinkResponse:
     """Create a shared link for a file in a given path."""
     ns_path = str(namespace.path)
@@ -41,8 +41,8 @@ async def create_shared_link(
 @router.post("/get_shared_link")
 async def get_shared_link(
     payload: PathRequest,
-    namespace: Namespace = Depends(deps.namespace),
-    usecases: UseCases = Depends(deps.usecases)
+    namespace: NamespaceDeps,
+    usecases: UseCasesDeps,
 ) -> GetSharedLinkResponse:
     """Return shared link for a file in a given path."""
     ns_path = str(namespace.path)
@@ -60,7 +60,7 @@ async def get_shared_link(
 async def get_shared_link_download_url(
     request: Request,
     payload: GetSharedLinkDownloadUrlRequest,
-    usecases: UseCases = Depends(deps.usecases)
+    usecases: UseCasesDeps,
 ) -> GetSharedLinkDownloadUrlResponse:
     """Return a link to download a shared link file."""
     try:
@@ -78,7 +78,7 @@ async def get_shared_link_download_url(
 async def get_shared_link_file(
     request: Request,
     payload: GetSharedLinkFileRequest,
-    usecases: UseCases = Depends(deps.usecases)
+    usecases: UseCasesDeps,
 ) -> SharedLinkFileSchema:
     """Return a shared link file information."""
     try:
@@ -93,7 +93,7 @@ async def get_shared_link_file(
 async def get_shared_link_thumbnail(
     token: str,
     size: ThumbnailSize,
-    usecases: UseCases = Depends(deps.usecases)
+    usecases: UseCasesDeps,
 ):
     """Get a thumbnail for a shared link file."""
     try:
@@ -114,8 +114,8 @@ async def get_shared_link_thumbnail(
 @router.post("/revoke_shared_link")
 async def revoke_shared_link(
     payload: RevokeSharedLinkRequest,
-    _: Namespace = Depends(deps.namespace),
-    usecases: UseCases = Depends(deps.usecases)
+    _: NamespaceDeps,
+    usecases: UseCasesDeps,
 ) -> None:
     """Revoke shared link."""
     await usecases.sharing.revoke_link(payload.token)

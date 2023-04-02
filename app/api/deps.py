@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import cast
+from typing import Annotated, cast
 
 from fastapi import Depends, Request
 from fastapi.security import OAuth2PasswordBearer
@@ -13,9 +13,9 @@ from app.infrastructure.provider import Provider, UseCases
 from . import exceptions
 
 __all__ = [
-    "usecases",
-    "current_user",
-    "namespace",
+    "CurrentUserDeps",
+    "NamespaceDeps",
+    "UseCasesDeps",
 ]
 
 reusable_oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/sign_in", auto_error=False)
@@ -38,8 +38,8 @@ def token_payload(token: str | None = Depends(reusable_oauth2)) -> AccessToken:
 
 
 async def current_user(
+    usecases: UseCasesDeps,
     payload: AccessToken = Depends(token_payload),
-    usecases: UseCases = Depends(usecases),
 ) -> User:
     """Returns user from a token payload."""
     try:
@@ -49,11 +49,16 @@ async def current_user(
 
 
 async def namespace(
-    user: User = Depends(current_user),
-    usecases: UseCases = Depends(usecases),
+    user: CurrentUserDeps,
+    usecases: UseCasesDeps,
 ) -> Namespace:
     """Returns a namespace for a user from a token payload."""
     # If namespace is not found, we should fail, so don't catch Namespace.NotFound here.
     # We should fail because the system is in the inconsistent state - user exists,
     # but doesn't have a namespace
     return await usecases.namespace.namespace.get_by_owner_id(user.id)
+
+
+UseCasesDeps = Annotated[UseCases, Depends(usecases)]
+CurrentUserDeps = Annotated[User, Depends(current_user)]
+NamespaceDeps = Annotated[Namespace, Depends(namespace)]

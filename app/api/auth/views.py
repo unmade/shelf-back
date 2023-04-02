@@ -4,11 +4,10 @@ from fastapi import APIRouter, Depends, Header
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app import config
-from app.api import deps
+from app.api.deps import UseCasesDeps
 from app.api.exceptions import InvalidToken
 from app.app.auth.domain import TokenError
 from app.app.users.domain import User
-from app.infrastructure.provider import UseCases
 
 from . import exceptions
 from .schemas import SignUpRequest, TokensSchema
@@ -18,8 +17,8 @@ router = APIRouter()
 
 @router.post("/sign_in")
 async def sign_in(
+    usecases: UseCasesDeps,
     form_data: OAuth2PasswordRequestForm = Depends(),
-    usecases: UseCases = Depends(deps.usecases),
 ) -> TokensSchema:
     """Grant new access token for a given credentials."""
 
@@ -35,7 +34,7 @@ async def sign_in(
 @router.post("/sign_up")
 async def sign_up(
     payload: SignUpRequest,
-    usecases: UseCases = Depends(deps.usecases),
+    usecases: UseCasesDeps,
 ) -> TokensSchema:
     """Create a new account with given credentials and grant a new access token."""
     if config.FEATURES_SIGN_UP_DISABLED:
@@ -55,8 +54,8 @@ async def sign_up(
 
 @router.post("/refresh_token")
 async def refresh_tokens(
+    usecases: UseCasesDeps,
     x_shelf_refresh_token: str | None = Header(default=None),
-    usecases: UseCases = Depends(deps.usecases),
 ) -> TokensSchema:
     """Grant new access token based on current access token."""
     refresh_token = x_shelf_refresh_token
