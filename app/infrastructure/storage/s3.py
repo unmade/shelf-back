@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import datetime
 import os
 import os.path
+from io import BufferedReader
 from typing import IO, TYPE_CHECKING, Iterator
 
 import boto3
@@ -24,6 +26,13 @@ if TYPE_CHECKING:
     from app.app.files.domain import AnyPath
 
 __all__ = ["S3Storage"]
+
+
+# upload_obj can accidentally close the file, to prevent it use this workaround
+# see: https://github.com/boto/s3transfer/issues/80#issuecomment-482534256
+class NonCloseableBufferedReader(BufferedReader):
+    def close(self):
+        self.flush()
 
 
 class S3Storage(IStorage):
@@ -211,8 +220,7 @@ class S3Storage(IStorage):
 
         self.s3.Object(self.bucket_name, from_key).delete()
 
-    @sync_to_async
-    def save(
+    async def save(
         self,
         ns_path: AnyPath,
         path: AnyPath,
@@ -224,7 +232,9 @@ class S3Storage(IStorage):
         size = content.seek(0, 2)
         content.seek(0)
 
-        self.bucket.upload_fileobj(content, key)
+        loop = asyncio.get_running_loop()
+        fileobj = NonCloseableBufferedReader(content)  # type: ignore[arg-type]
+        await loop.run_in_executor(None, self.bucket.upload_fileobj, fileobj, key)
 
         return StorageFile(
             name=os.path.basename(str(path)),
