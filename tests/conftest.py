@@ -12,7 +12,7 @@ import pytest
 from faker import Faker
 from PIL import Image
 
-from app import config
+from app.config import FileSystemStorageConfig, config
 from app.infrastructure.database.edgedb import EdgeDBDatabase
 from app.tasks import CeleryConfig
 
@@ -62,7 +62,8 @@ def celery_config():
 @pytest.fixture(autouse=True)
 def replace_storage_location_with_tmp_path(tmp_path: Path):
     """Monkey patches storage root_dir with a temporary directory."""
-    with mock.patch("app.config.STORAGE_LOCATION", tmp_path):
+    conf = FileSystemStorageConfig(fs_location=str(tmp_path))
+    with mock.patch.object(config, "storage", conf):
         yield
 
 
@@ -74,8 +75,7 @@ def db_dsn() -> tuple[str, str, str]:
         - second element is a DSN, but database name has suffix '_text'
         - third element is test database name (with suffix '_text')
     """
-    assert config.DATABASE_DSN is not None
-    scheme, netloc, path, query, fragments = urlsplit(config.DATABASE_DSN)
+    scheme, netloc, path, query, fragments = urlsplit(config.database.dsn)
     server_dsn = urlunsplit((scheme, netloc, "", query, fragments))
     db_name = f"{path.strip('/')}_test"
     db_dsn = urlunsplit((scheme, netloc, f"/{db_name}", query, fragments))
@@ -86,7 +86,8 @@ def db_dsn() -> tuple[str, str, str]:
 def replace_database_dsn(db_dsn):
     """Replace database DSN with a test value."""
     _, dsn, _ = db_dsn
-    with mock.patch("app.config.DATABASE_DSN", dsn):
+    db_conf = config.database.copy(update={"dsn": dsn})
+    with mock.patch.object(config, "database", db_conf):
         yield
 
 
@@ -107,10 +108,7 @@ async def setup_test_db(reuse_db, db_dsn) -> None:
     server_dsn, dsn, db_name = db_dsn
 
     async with EdgeDBDatabase(
-        dsn=server_dsn,
-        max_concurrency=1,
-        tls_ca_file=config.DATABASE_TLS_CA_FILE,
-        tls_security=config.DATABASE_TLS_SECURITY,
+        config=config.database.copy(update={"dsn": server_dsn})
     ) as db:
         should_migrate = True
         try:
@@ -124,10 +122,7 @@ async def setup_test_db(reuse_db, db_dsn) -> None:
 
     if should_migrate:
         async with EdgeDBDatabase(
-            dsn=dsn,
-            max_concurrency=1,
-            tls_ca_file=config.DATABASE_TLS_CA_FILE,
-            tls_security=config.DATABASE_TLS_SECURITY,
+            config.database.copy(update={"dsn": dsn, "edgedb_max_concurrency": 1})
         ) as db:
             await db.migrate()
 

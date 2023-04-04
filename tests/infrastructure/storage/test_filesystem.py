@@ -45,9 +45,12 @@ def file_factory(tmp_path: Path):
 
 
 @pytest.fixture
-def fs_storage(tmp_path: Path) -> FileSystemStorage:
+def fs_storage() -> FileSystemStorage:
     """An instance of FileSystemStorage with `tmp_path` fixture as a location."""
-    return FileSystemStorage(tmp_path)
+    from app.config import FileSystemStorageConfig, config
+
+    assert isinstance(config.storage, FileSystemStorageConfig)
+    return FileSystemStorage(config.storage)
 
 
 async def test_delete(file_factory, fs_storage: FileSystemStorage):

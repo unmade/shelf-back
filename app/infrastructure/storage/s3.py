@@ -13,9 +13,9 @@ from asgiref.sync import sync_to_async
 from botocore.client import Config
 from botocore.exceptions import ClientError
 
-from app import config
 from app.app.files.domain import File
 from app.app.infrastructure.storage import ContentReader, IStorage, StorageFile
+from app.config import S3StorageConfig
 
 from ._compat import iter_async
 from ._datastructures import StreamZipFile
@@ -36,19 +36,16 @@ class NonCloseableBufferedReader(BufferedReader):
 
 
 class S3Storage(IStorage):
-    def __init__(self, location: AnyPath):
-        assert config.STORAGE_S3_ACCESS_KEY_ID is not None
-        assert config.STORAGE_S3_SECRET_ACCESS_KEY is not None
-        assert config.STORAGE_S3_REGION_NAME is not None
-        self.location = str(location)
-        self.bucket_name = config.STORAGE_S3_BUCKET_NAME
+    def __init__(self, config: S3StorageConfig):
+        self.location = str(config.s3_location)
+        self.bucket_name = config.s3_bucket
         self.s3 = boto3.resource(
             "s3",
             endpoint_url=self.location,
-            aws_access_key_id=config.STORAGE_S3_ACCESS_KEY_ID,
-            aws_secret_access_key=config.STORAGE_S3_SECRET_ACCESS_KEY,
+            aws_access_key_id=config.s3_access_key_id,
+            aws_secret_access_key=config.s3_secret_access_key,
             config=Config(signature_version="s3v4"),
-            region_name=config.STORAGE_S3_REGION_NAME,
+            region_name=config.s3_region,
         )
 
     def _joinpath(self, ns_path: AnyPath, path: AnyPath) -> str:

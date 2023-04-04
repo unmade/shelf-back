@@ -10,6 +10,7 @@ import pytest
 
 from app.app.files.domain import File, Fingerprint, Path
 from app.app.users.domain import Account
+from app.config import config
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
@@ -95,7 +96,7 @@ class TestAddFile:
     ):
         ns_path, path, content = "admin", "f.txt", BytesIO(b"Dummy Content!")
         with (
-            mock.patch("app.config.FEATURES_UPLOAD_FILE_MAX_SIZE", 5),
+            mock.patch.object(config.features, "upload_file_max_size", 5),
             pytest.raises(File.TooLarge),
         ):
             await ns_use_case.add_file(ns_path, path, content)

@@ -8,7 +8,7 @@ from typing import Self, cast
 from jose import jwt
 from pydantic import BaseModel, ValidationError
 
-from app import config
+from app.config import config
 from app.toolkit import timezone
 
 __all__ = [
@@ -36,7 +36,7 @@ class Encodable:
     @classmethod
     def decode(cls, token: str) -> Self:
         try:
-            payload = jwt.decode(token, config.APP_SECRET_KEY, algorithms=[ALGORITHM])
+            payload = jwt.decode(token, config.auth.secret_key, algorithms=[ALGORITHM])
             return cls(**payload)
         except (jwt.JWTError, ValidationError) as exc:
             raise InvalidToken() from exc
@@ -46,7 +46,7 @@ class Encodable:
             str,
             jwt.encode(
                 self.dict(),  # type: ignore[attr-defined]
-                key=config.APP_SECRET_KEY,
+                key=config.auth.secret_key,
                 algorithm=ALGORITHM,
             ),
         )
@@ -60,7 +60,7 @@ class AccessToken(Encodable, BaseModel):
     def build(cls, user_id: str) -> Self:
         return cls(
             sub=user_id,
-            exp=timezone.now() + config.ACCESS_TOKEN_EXPIRE,
+            exp=timezone.now() + config.auth.access_token_ttl,
         )
 
 
@@ -74,7 +74,7 @@ class RefreshToken(Encodable, BaseModel):
     def build(cls, user_id: str) -> Self:
         return cls(
             sub=user_id,
-            exp=timezone.now() + config.REFRESH_TOKEN_EXPIRE,
+            exp=timezone.now() + config.auth.refresh_token_ttl,
             family_id=secrets.token_hex(16),
             token_id=uuid.uuid4().hex,
         )

@@ -8,7 +8,6 @@ from uuid import UUID
 from pydantic import BaseModel, root_validator, validator
 
 from app.app.files.services.filecore import thumbnails
-from app.config import TRASH_FOLDER_NAME
 from app.tasks import ErrorCode as TaskErrorCode
 
 from .exceptions import FileAlreadyDeleted, MalformedPath
@@ -126,7 +125,7 @@ class AsyncTaskResult(BaseModel):
 class DeleteImmediatelyRequest(PathRequest):
     @validator("path")
     def check_path_is_not_special(cls, value: str):
-        if value.lower() in (TRASH_FOLDER_NAME.lower(), "."):
+        if value.casefold() in {".", "trash"}:
             message = f"Path '{value}' is a special path and can't be deleted"
             raise MalformedPath(message)
         return value
@@ -219,13 +218,13 @@ class MoveRequest(BaseModel):
 
     @validator("from_path", "to_path")
     def path_should_not_be_home_or_trash_folders(cls, value: str):
-        if value == "." or value.lower() == TRASH_FOLDER_NAME.lower():
+        if value == "." or value.casefold() == "trash":
             raise MalformedPath("Can't move Home or Trash folder")
         return value
 
     @validator("to_path")
     def to_path_should_not_be_inside_trash_folder(cls, value: str):
-        if value.lower().startswith(f"{TRASH_FOLDER_NAME.lower()}/"):
+        if value.casefold().startswith("trash/"):
             raise MalformedPath("Can't move files inside Trash")
         return value
 
@@ -249,9 +248,9 @@ class MoveBatchCheckResponse(BaseModel):
 class MoveToTrashRequest(PathRequest):
     @validator("path")
     def check_path_is_not_trash(cls, value: str):
-        if value.lower() == TRASH_FOLDER_NAME.lower():
+        if value.casefold() == "trash":
             raise MalformedPath("Can't move Trash into itself")
-        if value.lower().startswith(f"{TRASH_FOLDER_NAME.lower()}/"):
+        if value.casefold().startswith("trash/"):
             raise FileAlreadyDeleted(path=value)
         return value
 

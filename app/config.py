@@ -1,42 +1,16 @@
 from __future__ import annotations
 
 import enum
-import os
 from datetime import timedelta
 from pathlib import Path
+from typing import Literal
+
+from pydantic import AnyUrl, BaseModel, BaseSettings, Field, RedisDsn
 
 _MB = 2**20
 _GB = 2**30
 
-
-def _get_bool(key: str) -> bool:
-    value = os.getenv(key)
-    if value is not None:
-        return value.lower() in ["true", "1", "t"]
-    return False
-
-
-def _get_int_or_none(key: str) -> int | None:
-    value = os.getenv(key)
-    if value is not None:
-        return int(value)
-    return value
-
-
-def _get_list(key: str, default: list[str] | None = None) -> list[str]:
-    value = os.getenv(key)
-    if value is not None:
-        return value.split(",")
-    if default is not None:
-        return default
-    return []
-
-
-def _get_optional_path(key: str, basepath: Path) -> str | None:
-    value = os.getenv(key)
-    if value is not None:
-        return str(basepath / value)
-    return value
+_BASE_DIR = Path(__file__).absolute().resolve().parent.parent
 
 
 class StorageType(str, enum.Enum):
@@ -44,53 +18,114 @@ class StorageType(str, enum.Enum):
     s3 = "s3"
 
 
-ACCESS_TOKEN_EXPIRE = timedelta(
-    minutes=float(os.getenv("ACCESS_TOKEN_EXPIRE_IN_MINUTES", 15)),
-)
+class AbsPath(str):
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, value) -> str:
+        if not isinstance(value, str):
+            raise TypeError('string required')
+        if Path(value).is_absolute():
+            return value
+        return str(_BASE_DIR / value)
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}({super().__repr__()})'
 
 
-APP_NAME = os.getenv("APP_NAME", "Shelf")
-APP_DEBUG = _get_bool("APP_DEBUG")
-APP_SECRET_KEY = os.environ["APP_SECRET_KEY"]
-APP_VERSION = os.getenv("APP_VERSION", "dev")
+class StringList(list[str]):
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
 
-BASE_DIR = Path(__file__).absolute().resolve().parent.parent
+    @classmethod
+    def validate(cls, value) -> list[str]:
+        if isinstance(value, str):
+            return value.split(",")
+        if not isinstance(value, list):
+            raise TypeError('list or string required')
+        return value
 
-CACHE_BACKEND_DSN = os.getenv("CACHE_BACKEND_DSN", "mem://")
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}({super().__repr__()})'
 
-CELERY_BACKEND_DSN = os.environ["CELERY_BACKEND_DSN"]
-CELERY_BROKER_DSN = os.environ["CELERY_BROKER_DSN"]
 
-CLIENT_CACHE_MAX_SIZE = os.getenv("CLIENT_CACHE_MAX_SIZE_IN_BYTES", _GB)
+class AuthConfig(BaseModel):
+    secret_key: str
+    access_token_ttl: timedelta = timedelta(minutes=15)
+    refresh_token_ttl: timedelta = timedelta(minutes=15)
 
-CORS_ALLOW_ORIGINS = _get_list("CORS_ALLOW_ORIGINS")
 
-DATABASE_DSN = os.getenv("DATABASE_DSN")
-DATABASE_TLS_CA_FILE = _get_optional_path("DATABASE_TLS_CA_FILE", basepath=BASE_DIR)
-DATABASE_TLS_SECURITY = os.getenv("DATABASE_TLS_SECURITY")
+class CacheConfig(BaseModel):
+    backend_dsn: Literal["mem://"] | RedisDsn = "mem://"
+    disk_cache_max_size: int = _GB
 
-FEATURES_SIGN_UP_DISABLED = _get_bool("FEATURES_SIGN_UP_DISABLED")
-FEATURES_UPLOAD_FILE_MAX_SIZE = int(
-    os.getenv(
-        "FEATURES_UPLOAD_FILE_MAX_SIZE_IN_BYTES",
-        default=10000 * _MB,
-    )
-)
 
-REFRESH_TOKEN_EXPIRE = timedelta(
-    minutes=float(os.getenv("REFRESH_TOKEN_EXPIRE_IN_MINUTES", 7200)),  # 5 days
-)
+class CeleryConfig(BaseModel):
+    backend_dsn: RedisDsn
+    broker_dsn: RedisDsn
 
-STORAGE_TYPE = StorageType(os.getenv("STORAGE_TYPE", "filesystem"))
-STORAGE_LOCATION = os.environ["STORAGE_LOCATION"]
-STORAGE_QUOTA = _get_int_or_none("STORAGE_QUOTA_PER_ACCOUNT_IN_BYTES")
 
-STORAGE_S3_ACCESS_KEY_ID = os.getenv("STORAGE_S3_ACCESS_KEY_ID")
-STORAGE_S3_SECRET_ACCESS_KEY = os.getenv("STORAGE_S3_SECRET_ACCESS_KEY")
-STORAGE_S3_BUCKET_NAME = os.getenv("STORAGE_S3_BUCKET_NAME", "shelf")
-STORAGE_S3_REGION_NAME = os.getenv("STORAGE_S3_REGION_NAME")
+class CORSConfig(BaseModel):
+    allowed_origins: StringList = StringList([])
+    allowed_methods: StringList = StringList(["*"])
+    allowed_headers: StringList = StringList(["*"])
 
-SENTRY_DSN = os.getenv("SENTRY_DSN")
-SENTRY_ENV = os.getenv("SENTRY_ENV")
 
-TRASH_FOLDER_NAME = "Trash"
+class EdgeDBConfig(BaseModel):
+    dsn: str
+    edgedb_tls_ca_file: AbsPath | None = None
+    edgedb_tls_security: str | None = None
+    edgedb_schema: AbsPath = AbsPath(str(_BASE_DIR / "./dbschema/default.esdl"))
+    edgedb_max_concurrency: int | None = None
+
+
+class FeatureConfig(BaseModel):
+    sign_up_disabled: bool = False
+    upload_file_max_size: int = 100 * _MB
+
+
+class FileSystemStorageConfig(BaseModel):
+    type: Literal[StorageType.filesystem] = StorageType.filesystem
+    quota: int | None = 512 * _MB
+    fs_location: str
+
+
+class S3StorageConfig(BaseModel):
+    type: Literal[StorageType.s3] = StorageType.s3
+    quota: int | None = 512 * _MB
+    s3_location: str
+    s3_access_key_id: str
+    s3_secret_access_key: str
+    s3_bucket: str = "shelf"
+    s3_region: str
+
+
+class SentryConfig(BaseModel):
+    dsn: AnyUrl | None = None
+    environment: str | None = None
+
+
+class AppConfig(BaseSettings):
+    app_name: str = "Shelf"
+    app_version: str = "dev"
+    app_debug: bool = False
+
+    auth: AuthConfig
+    cache: CacheConfig = CacheConfig()
+    cors: CORSConfig = CORSConfig()
+    celery: CeleryConfig
+    database: EdgeDBConfig
+    features: FeatureConfig = FeatureConfig()
+    sentry: SentryConfig = SentryConfig()
+    storage: FileSystemStorageConfig | S3StorageConfig = Field(discriminator="type")
+
+    class Config:
+        env_file = '.env', '.env.prod'
+        env_file_encoding = 'utf-8'
+        env_nested_delimiter = "__"
+
+
+config = AppConfig()

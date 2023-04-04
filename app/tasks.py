@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING
 from celery import Celery
 from pydantic import BaseModel
 
-from app import config
 from app.app.files.domain import File
+from app.config import FileSystemStorageConfig, S3StorageConfig, config
 from app.infrastructure.database.edgedb.db import EdgeDBDatabase
 from app.infrastructure.provider import Provider
 from app.infrastructure.storage import FileSystemStorage, S3Storage
@@ -56,19 +56,16 @@ class FileTaskResult:
 
 def _create_database() -> EdgeDBDatabase:  # pragma: no cover
     return EdgeDBDatabase(
-        dsn=config.DATABASE_DSN,
-        max_concurrency=1,
-        tls_ca_file=config.DATABASE_TLS_CA_FILE,
-        tls_security=config.DATABASE_TLS_SECURITY,
+        config=config.database.copy(update={"edgedb_max_concurrency": 1})
     )
 
 
 def _create_storage() -> IStorage:  # pragma: no cover
-    if config.STORAGE_TYPE == config.StorageType.s3:  # noqa: SIM300
-        return S3Storage(
-            location=config.STORAGE_LOCATION,
-        )
-    return FileSystemStorage(location=config.STORAGE_LOCATION)
+    if isinstance(config.storage, S3StorageConfig):
+        return S3Storage(config.storage)
+    if isinstance(config.storage, FileSystemStorageConfig):
+        return FileSystemStorage(config.storage)
+    return None
 
 
 def exc_to_err_code(exc: Exception) -> ErrorCode:
@@ -87,8 +84,8 @@ def exc_to_err_code(exc: Exception) -> ErrorCode:
 
 
 class CeleryConfig:
-    broker_url = config.CELERY_BROKER_DSN
-    result_backend = config.CELERY_BACKEND_DSN
+    broker_url = config.celery.broker_dsn
+    result_backend = config.celery.backend_dsn
     task_serializer = "pickle"
     result_serializer = "pickle"
     event_serializer = "json"

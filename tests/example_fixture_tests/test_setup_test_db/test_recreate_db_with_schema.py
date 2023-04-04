@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Iterator
 import edgedb
 import pytest
 
-from app import config
+from app.config import config
 
 if TYPE_CHECKING:
     from edgedb import Client
@@ -36,11 +36,12 @@ def db_dsn(db_dsn):
 
 @contextlib.contextmanager
 def create_db_client(dsn: str) -> Iterator[Client]:
+    db_config = config.database.copy(update={"dsn": dsn, "edgedb_max_concurrency": 1})
     with edgedb.create_client(
-        dsn=dsn,
-        max_concurrency=1,
-        tls_ca_file=config.DATABASE_TLS_CA_FILE,
-        tls_security=config.DATABASE_TLS_SECURITY,
+        dsn=db_config.dsn,
+        max_concurrency=db_config.edgedb_max_concurrency,
+        tls_ca_file=db_config.edgedb_tls_ca_file,
+        tls_security=db_config.edgedb_tls_security,
     ) as client:
         yield client
 

@@ -18,7 +18,7 @@ Create a new virtual environment:
 
 ```bash
 python3 -m venv .venv
-source ./.venv/bin/activate && source dev.env
+source ./.venv/bin/activate
 ```
 
 Install requirements:
@@ -67,10 +67,10 @@ Unfortunately running edgedb locally doesn't allow to configure port and
 certificates, so you have to set `DATABASE_DSN` environment variable to run test:
 
 ```bash
-DATABASE_DSN=edgedb://edgedb:root@localhost:10700/edgedb  pytest
+DATABASE__DSN=edgedb://edgedb:root@localhost:10700/edgedb  pytest
 ```
 
-To run a uvicorn you have to unset `DATABASE_DSN` and `DATABASE_TLS_CA_FILE`
+To run a uvicorn you have to unset `DATABASE__DSN` and `DATABASE__EDGEDB_TLS_CA_FILE`
 environment variables.
 
 ### Adding new requirements
@@ -117,28 +117,29 @@ superuser on the first image run:
 
 ## Environment variables
 
-|Name                 | Required | Default | Description|
-|:--------------------|:-------- |:------- |:-----------|
-|APP_NAME             | - | Shelf  | Application name |
-|APP_DEBUG            | - | False  | Whether to run app in debug mode |
-|APP_SECRET_KEY       | + | -      | Application secret key. This is used to provide cryptographic signing, and should be set to a unique, unpredictable value |
-|APP_VERSION          | - | dev    | Application version. Normally, this env is set during build |
-|CACHE_BACKEND_DSN    | - | mem:// | Cache backend DSN. See options [here](https://github.com/Krukov/cashews) |
-|CELERY_BACKEND_DSN   | + | -      | Celery broker DSN |
-|CELERY_BROKER_DSN    | + | -      | Celery result backend DSN  |
-|CLIENT_CACHE_MAX_SIZE| - | -      | Client cache size limit in bytes |
-|CORS_ALLOW_ORIGINS   | - | []     | A comma-separated list of origins that should be permitted to make cross-origin requests |
-|DATABASE_DSN         | - | -      | Database DSN. If not set, then fallback to EdgeDB envs |
-|DATABASE_TLS_CA_FILE | - | -      | Path to TLS Certificate file to connect to the database. If not set, then fallback to EDGEDB_TLS_CA |
-|DATABASE_TLS_SECURITY| - | -      | Set the TLS security mode |
-|FEATURES_SIGN_UP_DISABLED              | - | False | Whether sign up is disabled or not |
-|FEATURES_UPLOAD_FILE_MAX_SIZE_IN_BYTES | - | 104857600 | Maximum upload file size. Default to 100 MB |
-|STORAGE_TYPE         | - | filesystem | A primary storage type. Either `filesystem` or `s3` options are available |
-|STORAGE_LOCATION     | - | ./data | Storage location. Path should be provided without trailing slash |
-|STORAGE_QUOTA_PER_ACCOUNT_IN_BYTES | - | None | Default storage quota per account in bytes. If not set, then account has unlimited storage |
-|STORAGE_S3_ACCESS_KEY_ID     | - | -     | S3 access key id. Required only if `s3` storage type is used |
-|STORAGE_S3_SECRET_ACCESS_KEY | - | -     | S3 secret access key. Required only if `s3` storage type is used |
-|STORAGE_S3_BUCKET_NAME       | - | shelf | S3 bucket to use to store files. Required only if `s3` storage type is used |
-|STORAGE_S3_REGION_NAME       | - | -     | S3 region. Required only if `s3` storage type is used |
-|SENTRY_DSN                   | - | None   | Sentry DSN |
-|SENTRY_ENV                   | - | None   | Sentry environment |
+|Name                          | Required | Default | Description|
+|:-----------------------------|:-------- |:------- |:-----------|
+|APP_NAME                      | - | Shelf  | Application name |
+|APP_DEBUG                     | - | False  | Whether to run app in debug mode |
+|APP_VERSION                   | - | dev    | Application version. Normally, this env is set during build |
+|AUTH__SECRET_KEY              | + | -      | Application secret key. This is used to provide cryptographic signing, and should be set to a unique, unpredictable value |
+|CACHE__BACKEND_DSN            | - | mem:// | Cache backend DSN. See options [here](https://github.com/Krukov/cashews) |
+|CACHE__DISK_CACHE_MAX_SIZE    | - | -      | Client cache size limit in bytes |
+|CELERY__BACKEND_DSN           | + | -      | Celery broker DSN |
+|CELERY__BROKER_DSN            | + | -      | Celery result backend DSN  |
+|CORS__ALLOWED_ORIGINS         | - | []     | A comma-separated list of origins that should be permitted to make cross-origin requests |
+|DATABASE__DSN                 | - | -      | Database DSN. If not set, then fallback to EdgeDB envs |
+|DATABASE__EDGEDB_TLS_CA_FILE  | - | -      | Path to TLS Certificate file to connect to the database. If not set, then fallback to EDGEDB_TLS_CA |
+|DATABASE__EDGEDB_TLS_SECURITY | - | -      | Set the TLS security mode |
+|FEATURES__SIGN_UP_DISABLED    | - | False  | Whether sign up is disabled or not |
+|FEATURES__UPLOAD_FILE_MAX     | - | 104857600 | Maximum upload file size. Default to 100 MB |
+|SENTRY__DSN                   | - | None   | Sentry DSN |
+|SENTRY__ENV                   | - | None   | Sentry environment |
+|STORAGE__TYPE                 | - | filesystem | A primary storage type. Either `filesystem` or `s3` options are available |
+|STORAGE__QUOTA                | - | None   | Default storage quota per account in bytes. If not set, then account has unlimited storage |
+|STORAGE__FS_LOCATION          | - | ./data | FileSystem Storage location. Path should be provided without trailing slash |
+|STORAGE__S3_LOCATION          | + | -      | S3 location |
+|STORAGE__S3_ACCESS_KEY_ID     | - | -      | S3 access key id. Required only if `s3` storage type is used |
+|STORAGE__S3_SECRET_ACCESS_KEY | - | -      | S3 secret access key. Required only if `s3` storage type is used |
+|STORAGE__S3_BUCKET_NAME       | - | shelf  | S3 bucket to use to store files. Required only if `s3` storage type is used |
+|STORAGE__S3_REGION_NAME       | - | -      | S3 region. Required only if `s3` storage type is used |

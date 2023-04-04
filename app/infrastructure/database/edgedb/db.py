@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextvars import ContextVar
+from pathlib import Path
 from typing import TYPE_CHECKING, AsyncIterator, Self
 
 import edgedb
@@ -19,6 +20,7 @@ from app.app.users.repositories import (
     IBookmarkRepository,
     IUserRepository,
 )
+from app.config import EdgeDBConfig
 
 from .repositories import (
     AccountRepository,
@@ -47,18 +49,13 @@ class EdgeDBDatabase(IDatabase):
     shared_link: ISharedLinkRepository
     user: IUserRepository
 
-    def __init__(
-        self,
-        dsn: str | None,
-        max_concurrency: int | None,
-        tls_ca_file: str = None,
-        tls_security: str = None,
-    ) -> None:
+    def __init__(self, config: EdgeDBConfig) -> None:
+        self.config = config
         self.client = edgedb.create_async_client(
-            dsn=dsn,
-            max_concurrency=max_concurrency,
-            tls_ca_file=tls_ca_file,
-            tls_security=tls_security,
+            dsn=config.dsn,
+            max_concurrency=config.edgedb_max_concurrency,
+            tls_ca_file=config.edgedb_tls_ca_file,
+            tls_security=config.edgedb_tls_security,
         )
         db_context.set(self.client)
 
@@ -90,9 +87,7 @@ class EdgeDBDatabase(IDatabase):
                     db_context.reset(token)
 
     async def migrate(self) -> None:
-        from app import config
-
-        schema = (config.BASE_DIR / "./dbschema/default.esdl").read_text()
+        schema = Path(self.config.edgedb_schema).read_text()
         async for tx in self.client.transaction():
             async with tx:
                 await tx.execute(f"""

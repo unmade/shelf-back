@@ -26,7 +26,6 @@ from app.infrastructure.storage import FileSystemStorage
 from app.toolkit import security
 
 if TYPE_CHECKING:
-    from pathlib import Path
     from typing import Protocol
 
     from pytest import FixtureRequest
@@ -58,11 +57,15 @@ fake = Faker()
 @pytest.fixture(scope="module")
 def _database(setup_test_db, db_dsn):
     """Returns an EdgeDBDatabase instance."""
+    from app.config import EdgeDBConfig
+
     _, dsn, _ = db_dsn
     return EdgeDBDatabase(
-        dsn,
-        max_concurrency=1,
-        tls_security="insecure"
+        config=EdgeDBConfig(
+            dsn=dsn,
+            edgedb_max_concurrency=1,
+            edgedb_tls_security="insecure",
+        )
     )
 
 
@@ -103,9 +106,12 @@ def _db_or_tx(request: FixtureRequest):
 
 
 @pytest.fixture
-def _storage(tmp_path: Path):
+def _storage():
     """A storage instance."""
-    return FileSystemStorage(tmp_path)
+    from app.config import FileSystemStorageConfig, config
+
+    assert isinstance(config.storage, FileSystemStorageConfig)
+    return FileSystemStorage(config.storage)
 
 
 @pytest.fixture

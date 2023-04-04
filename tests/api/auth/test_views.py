@@ -5,7 +5,6 @@ from unittest import mock
 
 import pytest
 
-from app import config
 from app.api.auth.exceptions import (
     InvalidCredentials,
     SignUpDisabled,
@@ -15,6 +14,7 @@ from app.api.exceptions import InvalidToken
 from app.app.auth.domain.tokens import ReusedToken
 from app.app.auth.services.token import Tokens
 from app.app.users.domain import User
+from app.config import config
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
@@ -74,7 +74,7 @@ class TestSignUp:
         auth_use_case.signup.assert_awaited_once_with(
             payload["username"],
             payload["password"],
-            storage_quota=config.STORAGE_QUOTA,
+            storage_quota=config.storage.quota,
         )
 
     async def test_when_disabled(self, client: TestClient, auth_use_case: MagicMock):
@@ -86,7 +86,7 @@ class TestSignUp:
         }
 
         # WHEN
-        with mock.patch("app.config.FEATURES_SIGN_UP_DISABLED", True):
+        with mock.patch.object(config.features, "sign_up_disabled", True):
             response = await client.post(self.url, json=payload)
         # THEN
         assert response.json() == SignUpDisabled().as_dict()

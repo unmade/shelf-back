@@ -82,7 +82,7 @@ orjson==3.8.9
     # via -r requirements/base.in
 passlib==1.7.4
     # via -r requirements/base.in
-pi-heif==0.10.0
+pi-heif==0.10.1
     # via -r requirements/base.in
 pillow==9.5.0
     # via
@@ -96,7 +96,7 @@ pyasn1==0.4.8
     #   rsa
 pycparser==2.21
     # via cffi
-pydantic[email]==1.10.7
+pydantic[dotenv,email]==1.10.7
     # via
     #   -r requirements/base.in
     #   fastapi
@@ -107,7 +107,9 @@ python-dateutil==2.8.2
     #   -r requirements/base.in
     #   botocore
 python-dotenv==1.0.0
-    # via uvicorn
+    # via
+    #   pydantic
+    #   uvicorn
 python-jose[cryptography]==3.3.0
     # via -r requirements/base.in
 python-multipart==0.0.6

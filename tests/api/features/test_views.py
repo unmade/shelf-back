@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from app import config
+from app.config import config
 
 if TYPE_CHECKING:
     from tests.api.conftest import TestClient
@@ -18,11 +18,11 @@ async def test_list_features(client: TestClient):
         "items": [
             {
                 "name": "sign_up_disabled",
-                "value": config.FEATURES_SIGN_UP_DISABLED,
+                "value": config.features.sign_up_disabled,
             },
             {
                 "name": "upload_file_max_size",
-                "value": config.FEATURES_UPLOAD_FILE_MAX_SIZE,
+                "value": config.features.upload_file_max_size,
             },
         ],
     }

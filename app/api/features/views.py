@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app import config
+from app.config import config
 
 from .schemas import Feature, FeatureName, ListFeatureResponse
 
@@ -16,11 +16,11 @@ async def list_all() -> ListFeatureResponse:
         items=[
             Feature.construct(
                 name=FeatureName.sign_up_disabled,
-                value=config.FEATURES_SIGN_UP_DISABLED,
+                value=config.features.sign_up_disabled,
             ),
             Feature.construct(
                 name=FeatureName.upload_file_max_size,
-                value=config.FEATURES_UPLOAD_FILE_MAX_SIZE,
+                value=config.features.upload_file_max_size,
             ),
         ],
     )

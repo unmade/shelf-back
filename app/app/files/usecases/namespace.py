@@ -3,11 +3,11 @@ from __future__ import annotations
 import itertools
 from typing import IO, TYPE_CHECKING
 
-from app import config
 from app.app.files.domain import File, Path
 from app.app.files.services.dupefinder import dhash
 from app.app.files.services.metadata import readers as metadata_readers
 from app.app.users.domain import Account
+from app.config import config
 from app.toolkit import taskgroups, timezone
 
 if TYPE_CHECKING:
@@ -73,7 +73,7 @@ class NamespaceUseCase:
             raise File.MalformedPath("Uploads to the Trash folder are not allowed")
 
         size = content.seek(0, 2)
-        if size > config.FEATURES_UPLOAD_FILE_MAX_SIZE:
+        if size > config.features.upload_file_max_size:
             raise File.TooLarge()
 
         ns = await self.namespace.get_by_path(str(ns_path))

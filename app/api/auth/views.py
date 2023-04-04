@@ -3,11 +3,11 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Header
 from fastapi.security import OAuth2PasswordRequestForm
 
-from app import config
 from app.api.deps import UseCasesDeps
 from app.api.exceptions import InvalidToken
 from app.app.auth.domain import TokenError
 from app.app.users.domain import User
+from app.config import config
 
 from . import exceptions
 from .schemas import SignUpRequest, TokensSchema
@@ -37,14 +37,14 @@ async def sign_up(
     usecases: UseCasesDeps,
 ) -> TokensSchema:
     """Create a new account with given credentials and grant a new access token."""
-    if config.FEATURES_SIGN_UP_DISABLED:
+    if config.features.sign_up_disabled:
         raise exceptions.SignUpDisabled()
 
     try:
        access, refresh = await usecases.auth.signup(
             payload.username,
             payload.password,
-            storage_quota=config.STORAGE_QUOTA,
+            storage_quota=config.storage.quota,
         )
     except User.AlreadyExists as exc:
         raise exceptions.UserAlreadyExists(str(exc)) from exc

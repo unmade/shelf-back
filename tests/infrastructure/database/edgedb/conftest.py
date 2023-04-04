@@ -66,11 +66,15 @@ fake = Faker()
 @pytest.fixture(scope="module")
 def _database(setup_test_db, db_dsn):
     """Returns an EdgeDBDatabase instance."""
+    from app.config import EdgeDBConfig
+
     _, dsn, _ = db_dsn
     return EdgeDBDatabase(
-        dsn,
-        max_concurrency=1,
-        tls_security="insecure"
+        config=EdgeDBConfig(
+            dsn=dsn,
+            edgedb_max_concurrency=1,
+            edgedb_tls_security="insecure",
+        )
     )
 
 

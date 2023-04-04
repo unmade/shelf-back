@@ -5,8 +5,8 @@ import asyncio
 import typer
 import uvloop
 
-from app import config
 from app.app.users.domain import User
+from app.config import FileSystemStorageConfig, S3StorageConfig, config
 from app.infrastructure.database.edgedb.db import EdgeDBDatabase
 from app.infrastructure.provider import Provider
 from app.infrastructure.storage import FileSystemStorage, S3Storage
@@ -18,19 +18,16 @@ uvloop.install()
 
 def _create_database():
     return EdgeDBDatabase(
-        dsn=config.DATABASE_DSN,
-        max_concurrency=1,
-        tls_ca_file=config.DATABASE_TLS_CA_FILE,
-        tls_security=config.DATABASE_TLS_SECURITY,
+        config=config.database.copy(update={"edgedb_max_concurrency": 1})
     )
 
 
 def _create_storage():
-    if config.STORAGE_TYPE == config.StorageType.s3:  # noqa: SIM300
-        return S3Storage(
-            location=config.STORAGE_LOCATION,
-        )
-    return FileSystemStorage(location=config.STORAGE_LOCATION)
+    if isinstance(config.storage, S3StorageConfig):
+        return S3Storage(config.storage)
+    if isinstance(config.storage, FileSystemStorageConfig):
+        return FileSystemStorage(config.storage)
+    return None
 
 
 @cli.command()

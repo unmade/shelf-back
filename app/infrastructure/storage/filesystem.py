@@ -13,6 +13,7 @@ from asgiref.sync import sync_to_async
 
 from app.app.files.domain import File
 from app.app.infrastructure.storage import ContentReader, IStorage, StorageFile
+from app.config import FileSystemStorageConfig
 
 from ._compat import iter_async
 from ._datastructures import StreamZipFile
@@ -24,8 +25,8 @@ __all__ = ["FileSystemStorage"]
 
 
 class FileSystemStorage(IStorage):
-    def __init__(self, location: AnyPath):
-        self.location = str(location)
+    def __init__(self, config: FileSystemStorageConfig):
+        self.location = config.fs_location
 
     @staticmethod
     def _joinpath(path: AnyPath, *paths: AnyPath) -> str:

@@ -9,8 +9,10 @@ import pytest
 from asgiref.sync import sync_to_async
 from botocore.exceptions import ClientError
 from botocore.stub import Stubber
+from pydantic import BaseSettings
 
 from app.app.files.domain import File
+from app.config import AppConfig, S3StorageConfig
 from app.infrastructure.storage.s3 import S3Storage
 
 if TYPE_CHECKING:
@@ -19,18 +21,29 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.asyncio, pytest.mark.storage_s3]
 
 
-@pytest.fixture(scope="module")
-def tmp_bucket() -> str:
-    """A bucket name used in tests."""
-    return "shelf-test"
+class _S3StorageConfig(S3StorageConfig):
+    type: str  # type: ignore
+    s3_bucket: str = "shelft-test"
+
+
+class _AppConfig(AppConfig, BaseSettings):
+    storage: _S3StorageConfig
 
 
 @pytest.fixture(scope="module")
-def s3_storage(tmp_bucket: str) -> S3Storage:
+def s3_config():
+    return _AppConfig().storage
+
+
+@pytest.fixture(scope="module")
+def tmp_bucket(s3_config: S3StorageConfig):
+    return s3_config.s3_bucket
+
+
+@pytest.fixture(scope="module")
+def s3_storage(s3_config: S3StorageConfig) -> S3Storage:
     """An instance of `S3Storage` with a `tmp_path` fixture as a location."""
-    storage = S3Storage("http://localhost:9000")
-    storage.bucket_name = tmp_bucket
-    return storage
+    return S3Storage(s3_config)
 
 
 @pytest.fixture(scope="module")
