@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 
 import edgedb
@@ -28,29 +29,35 @@ def edgedb_config():
 
 
 @pytest.fixture(scope="session")
-async def setup_edgedb_database(
-    reuse_db: bool, edgedb_config: EdgeDBConfig
-) -> None:
+def setup_edgedb_database(reuse_db: bool, edgedb_config: EdgeDBConfig) -> None:
     """
     Creates a test database and apply migration. If database already exists and
     no `--reuse-db` provided, then test database will be re-created.
     """
-    assert edgedb_config.dsn is not None
-    server_config = edgedb_config.copy(update={"dsn": edgedb_config.dsn.origin})
-    async with EdgeDBDatabase(server_config) as db:
-        should_migrate = True
-        try:
-            await db.client.execute(f"CREATE DATABASE {edgedb_config.dsn.name};")
-        except edgedb.DuplicateDatabaseDefinitionError:
-            if not reuse_db:
-                await db.client.execute(f"DROP DATABASE {edgedb_config.dsn.name};")
-                await db.client.execute(f"CREATE DATABASE {edgedb_config.dsn.name};")
-            else:
-                should_migrate = False
+    # this fixture is synchronous, cause pytest-asyncio doesn't work well with pytester
+    async def _create_db():
+        assert edgedb_config.dsn is not None
+        db_name = edgedb_config.dsn.name
+        server_config = edgedb_config.copy(update={"dsn": edgedb_config.dsn.origin})
+        async with EdgeDBDatabase(server_config) as db:
+            created = True
+            try:
+                await db.client.execute(f"CREATE DATABASE {db_name};")
+            except edgedb.DuplicateDatabaseDefinitionError:
+                if not reuse_db:
+                    await db.client.execute(f"DROP DATABASE {db_name};")
+                    await db.client.execute(f"CREATE DATABASE {db_name};")
+                else:
+                    created = False
+        return created
 
-    if should_migrate:
+    async def _migrate():
         async with EdgeDBDatabase(edgedb_config) as db:
             await db.migrate()
+
+    should_migrate = asyncio.run(_create_db())
+    if should_migrate:
+        asyncio.run(_migrate())
 
 
 @pytest.fixture(autouse=True)
