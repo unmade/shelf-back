@@ -21,8 +21,6 @@ from app.app.users.domain import (
     User,
 )
 from app.app.users.domain.bookmark import Bookmark
-from app.infrastructure.database.edgedb import EdgeDBDatabase
-from app.infrastructure.database.edgedb.db import db_context
 
 if TYPE_CHECKING:
     from typing import Protocol
@@ -40,7 +38,7 @@ if TYPE_CHECKING:
         IBookmarkRepository,
         IUserRepository,
     )
-    from app.infrastructure.database.edgedb.typedefs import EdgeDBTransaction
+    from app.infrastructure.database.edgedb import EdgeDBDatabase
 
     class FileFactory(Protocol):
         async def __call__(
@@ -63,90 +61,52 @@ if TYPE_CHECKING:
 fake = Faker()
 
 
-@pytest.fixture(scope="module")
-def _database(setup_test_db, db_dsn):
-    """Returns an EdgeDBDatabase instance."""
-    from app.config import EdgeDBConfig
-
-    _, dsn, _ = db_dsn
-    return EdgeDBDatabase(
-        config=EdgeDBConfig(
-            dsn=dsn,
-            edgedb_max_concurrency=1,
-            edgedb_tls_security="insecure",
-        )
-    )
-
-
 @pytest.fixture
-async def _tx(_database: EdgeDBDatabase):
-    """Yields a transaction and rollback it after each test."""
-    async for transaction in _database.client.transaction():
-        transaction._managed = True
-        try:
-            yield transaction
-        finally:
-            await transaction._exit(Exception, None)
-
-
-@pytest.fixture
-def _tx_database(_database: EdgeDBDatabase, _tx: EdgeDBTransaction):
-    """EdgeDBDatabase instance where all queries run in the same transaction."""
-    # pytest-asyncio doesn't support contextvars properly, so set the context manually
-    # in a regular non-async fixture.
-    token = db_context.set(_tx)
-    try:
-        yield _database
-    finally:
-        db_context.reset(token)
-
-
-@pytest.fixture
-def account_repo(_tx_database: EdgeDBDatabase):
+def account_repo(edgedb_database: EdgeDBDatabase):
     """An EdgeDB instance of IAccountRepository"""
-    return _tx_database.account
+    return edgedb_database.account
 
 
 @pytest.fixture
-def bookmark_repo(_tx_database: EdgeDBDatabase):
+def bookmark_repo(edgedb_database: EdgeDBDatabase):
     """An EdgeDB instance of IBookmarkRepository"""
-    return _tx_database.bookmark
+    return edgedb_database.bookmark
 
 
 @pytest.fixture
-def file_repo(_tx_database: EdgeDBDatabase):
+def file_repo(edgedb_database: EdgeDBDatabase):
     """An EdgeDB instance of IFileRepository"""
-    return _tx_database.file
+    return edgedb_database.file
 
 
 @pytest.fixture
-def fingerprint_repo(_tx_database: EdgeDBDatabase):
+def fingerprint_repo(edgedb_database: EdgeDBDatabase):
     """An EdgeDB instance of IFingerprintRepository"""
-    return _tx_database.fingerprint
+    return edgedb_database.fingerprint
 
 
 @pytest.fixture
-def metadata_repo(_tx_database: EdgeDBDatabase):
+def metadata_repo(edgedb_database: EdgeDBDatabase):
     """An EdgeDB instance of IContentMetadataRepository"""
-    return _tx_database.metadata
+    return edgedb_database.metadata
 
 
 @pytest.fixture
-def namespace_repo(_tx_database: EdgeDBDatabase):
+def namespace_repo(edgedb_database: EdgeDBDatabase):
     """An EdgeDB instance of INamespaceRepository"""
-    return _tx_database.namespace
+    return edgedb_database.namespace
 
 
 @pytest.fixture
-def shared_link_repo(_tx_database: EdgeDBDatabase):
+def shared_link_repo(edgedb_database: EdgeDBDatabase):
     """An EdgeDB instance of ISharedLinkRepository"""
-    return _tx_database.shared_link
+    return edgedb_database.shared_link
 
 
 @pytest.fixture
-def user_repo(_tx_database: EdgeDBDatabase):
+def user_repo(edgedb_database: EdgeDBDatabase):
     """An EdgeDB instance of IUserRepository"""
-    return _tx_database.user
+    return edgedb_database.user
 
 
 @pytest.fixture

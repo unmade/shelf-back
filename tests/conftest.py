@@ -3,27 +3,21 @@ from __future__ import annotations
 import asyncio
 from importlib import resources
 from io import BytesIO
-from typing import TYPE_CHECKING
-from unittest import mock
-from urllib.parse import urlsplit, urlunsplit
 
-import edgedb
 import pytest
 from faker import Faker
 from PIL import Image
 
-from app.config import FileSystemStorageConfig, config
-from app.infrastructure.database.edgedb import EdgeDBDatabase
 from app.tasks import CeleryConfig
-
-if TYPE_CHECKING:
-    from pathlib import Path
-
-    from pytest import FixtureRequest
 
 fake = Faker()
 
-pytest_plugins = ["pytester"]
+pytest_plugins = [
+    "pytester",
+    "tests.fixtures.infrastructure.edgedb",
+    "tests.fixtures.infrastructure.fs_storage",
+    "tests.fixtures.infrastructure.s3_storage",
+]
 
 
 def pytest_addoption(parser):
@@ -36,6 +30,14 @@ def pytest_addoption(parser):
             "If the database does not exists it will be created"
         ),
     )
+
+
+@pytest.fixture(scope="session")
+def event_loop():
+    """Redefine pytest-asyncio event_loop fixture with 'session' scope."""
+    loop = asyncio.get_event_loop_policy().get_event_loop()
+    yield loop
+    loop.close()
 
 
 @pytest.fixture(scope="session")
@@ -57,106 +59,6 @@ def celery_config():
         "accept_content": CeleryConfig.accept_content,
         "result_accept_content": CeleryConfig.result_accept_content,
     }
-
-
-@pytest.fixture(autouse=True)
-def replace_storage_location_with_tmp_path(tmp_path: Path):
-    """Monkey patches storage root_dir with a temporary directory."""
-    conf = FileSystemStorageConfig(fs_location=str(tmp_path))
-    with mock.patch.object(config, "storage", conf):
-        yield
-
-
-@pytest.fixture(scope="session", autouse=True)
-def db_dsn() -> tuple[str, str, str]:
-    """
-    Parse DSN from config and return tuple:
-        - first element is a DSN to server, without database name
-        - second element is a DSN, but database name has suffix '_text'
-        - third element is test database name (with suffix '_text')
-    """
-    scheme, netloc, path, query, fragments = urlsplit(config.database.dsn)
-    server_dsn = urlunsplit((scheme, netloc, "", query, fragments))
-    db_name = f"{path.strip('/')}_test"
-    db_dsn = urlunsplit((scheme, netloc, f"/{db_name}", query, fragments))
-    return server_dsn, db_dsn, db_name
-
-
-@pytest.fixture(scope="session", autouse=True)
-def replace_database_dsn(db_dsn):
-    """Replace database DSN with a test value."""
-    _, dsn, _ = db_dsn
-    db_conf = config.database.copy(update={"dsn": dsn})
-    with mock.patch.object(config, "database", db_conf):
-        yield
-
-
-@pytest.fixture(scope="session")
-def event_loop():
-    """Redefine pytest-asyncio event_loop fixture with 'session' scope."""
-    loop = asyncio.get_event_loop_policy().get_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest.fixture(scope="session")
-async def setup_test_db(reuse_db, db_dsn) -> None:
-    """
-    Create test database and apply migration. If database already exists and
-    no `--reuse-db` provided, then test database will be re-created.
-    """
-    server_dsn, dsn, db_name = db_dsn
-
-    async with EdgeDBDatabase(
-        config=config.database.copy(update={"dsn": server_dsn})
-    ) as db:
-        should_migrate = True
-        try:
-            await db.client.execute(f"CREATE DATABASE {db_name};")
-        except edgedb.DuplicateDatabaseDefinitionError:
-            if not reuse_db:
-                await db.client.execute(f"DROP DATABASE {db_name};")
-                await db.client.execute(f"CREATE DATABASE {db_name};")
-            else:
-                should_migrate = False
-
-    if should_migrate:
-        async with EdgeDBDatabase(
-            config.database.copy(update={"dsn": dsn, "edgedb_max_concurrency": 1})
-        ) as db:
-            await db.migrate()
-
-
-@pytest.fixture(scope="session")
-def session_sync_client(setup_test_db, db_dsn):
-    _, dsn, _ = db_dsn
-    with edgedb.create_client(
-        dsn,
-        max_concurrency=1,
-        tls_security="insecure",
-    ) as client:
-        yield client
-
-
-@pytest.fixture(autouse=True)
-def flush_db_if_needed(request: FixtureRequest):
-    """Flush database after each tests."""
-    try:
-        yield
-    finally:
-        if marker := request.node.get_closest_marker("database"):
-            if marker.kwargs.get("transaction", False):
-                session_db_client = request.getfixturevalue("session_sync_client")
-                session_db_client.execute("""
-                    DELETE Account;
-                    DELETE File;
-                    DELETE FileMetadata;
-                    DELETE Fingerprint;
-                    DELETE MediaType;
-                    DELETE Namespace;
-                    DELETE SharedLink;
-                    DELETE User;
-                """)
 
 
 @pytest.fixture

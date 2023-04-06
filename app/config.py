@@ -3,7 +3,8 @@ from __future__ import annotations
 import enum
 from datetime import timedelta
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Self
+from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import AnyUrl, BaseModel, BaseSettings, Field, RedisDsn
 
@@ -33,6 +34,30 @@ class AbsPath(str):
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}({super().__repr__()})'
+
+
+class EdgeDBDSN(AnyUrl):
+    __slots__ = tuple(AnyUrl.__slots__)
+
+    allowed_schemes = {"edgedb"}
+
+    @property
+    def name(self) -> str:
+        """Returns database name."""
+        result = urlsplit(self)
+        return result.path.strip('/')
+
+    @property
+    def origin(self) -> str:
+        """Return database host."""
+        result = urlsplit(self)
+        return urlunsplit((result.scheme, result.netloc, "", "", ""))
+
+    def with_name(self, name: str) -> Self:
+        """Returns a copy of current config with updated database name."""
+        scheme, netloc, _, query, fragments = urlsplit(self)
+        dsn = urlunsplit((scheme, netloc, f"/{name}", query, fragments))
+        return self.__class__(dsn, scheme=scheme)  # type: ignore[no-any-return]
 
 
 class StringList(list[str]):
@@ -75,7 +100,7 @@ class CORSConfig(BaseModel):
 
 
 class EdgeDBConfig(BaseModel):
-    dsn: str
+    dsn: EdgeDBDSN | None = None
     edgedb_tls_ca_file: AbsPath | None = None
     edgedb_tls_security: str | None = None
     edgedb_schema: AbsPath = AbsPath(str(_BASE_DIR / "./dbschema/default.esdl"))
@@ -123,8 +148,8 @@ class AppConfig(BaseSettings):
     storage: FileSystemStorageConfig | S3StorageConfig = Field(discriminator="type")
 
     class Config:
-        env_file = '.env', '.env.prod'
-        env_file_encoding = 'utf-8'
+        env_file = ".env", ".env.prod"
+        env_file_encoding = "utf-8"
         env_nested_delimiter = "__"
 
 

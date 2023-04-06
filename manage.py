@@ -70,7 +70,6 @@ def createsuperuser(
             else:
                 typer.echo("User created successfully.")
 
-    print("error")
     asyncio.run(_createuser(username, password))
 
 

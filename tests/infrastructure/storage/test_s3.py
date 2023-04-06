@@ -9,10 +9,8 @@ import pytest
 from asgiref.sync import sync_to_async
 from botocore.exceptions import ClientError
 from botocore.stub import Stubber
-from pydantic import BaseSettings
 
 from app.app.files.domain import File
-from app.config import AppConfig, S3StorageConfig
 from app.infrastructure.storage.s3 import S3Storage
 
 if TYPE_CHECKING:
@@ -21,83 +19,8 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.asyncio, pytest.mark.storage_s3]
 
 
-class _S3StorageConfig(S3StorageConfig):
-    type: str  # type: ignore
-    s3_bucket: str = "shelft-test"
-
-
-class _AppConfig(AppConfig, BaseSettings):
-    storage: _S3StorageConfig
-
-
-@pytest.fixture(scope="module")
-def s3_config():
-    return _AppConfig().storage
-
-
-@pytest.fixture(scope="module")
-def tmp_bucket(s3_config: S3StorageConfig):
-    return s3_config.s3_bucket
-
-
-@pytest.fixture(scope="module")
-def s3_storage(s3_config: S3StorageConfig) -> S3Storage:
-    """An instance of `S3Storage` with a `tmp_path` fixture as a location."""
-    return S3Storage(s3_config)
-
-
-@pytest.fixture(scope="module")
-def s3_resource(s3_storage: S3Storage):
-    """An s3 resource client."""
-    return s3_storage.s3
-
-
-@pytest.fixture(scope="module", autouse=True)
-def setup_bucket(tmp_bucket: str, s3_resource):  # pragma: no cover
-    """Setups fixture to create a new bucket."""
-    bucket = s3_resource.Bucket(tmp_bucket)
-
-    try:
-        bucket.create()
-    except ClientError as exc:
-        if exc.response["Error"]["Code"] == "BucketAlreadyOwnedByYou":
-            return
-        raise
-
-
-@pytest.fixture(scope="module", autouse=True)
-def teardown_bucket(tmp_bucket: str, s3_resource):  # pragma: no cover
-    """Teardown fixture to remove all files in the bucket, then remove the bucket."""
-    try:
-        yield
-    finally:
-        from botocore.exceptions import ClientError
-
-        bucket = s3_resource.Bucket(tmp_bucket)
-
-        try:
-            bucket.load()
-        except ClientError as exc:
-            if exc.response["Error"]["Code"] == "404":
-                return
-            raise
-
-        bucket.objects.delete()
-        bucket.delete()
-
-
-@pytest.fixture(autouse=True)
-def teatdown_files(tmp_bucket: str, s3_resource):
-    """Teatdown fixture to clean up all files in the bucket after each test."""
-    try:
-        yield
-    finally:
-        bucket = s3_resource.Bucket(tmp_bucket)
-        bucket.objects.delete()
-
-
 @pytest.fixture
-def file_factory(tmp_bucket: str, s3_resource):
+def file_factory(s3_bucket: str, s3_resource):
     """
     A file factory for a S3Storage.
 
@@ -112,7 +35,7 @@ def file_factory(tmp_bucket: str, s3_resource):
         if isinstance(content, bytes):
             content = BytesIO(content)
 
-        s3_resource.Bucket(tmp_bucket).upload_fileobj(content, path)
+        s3_resource.Bucket(s3_bucket).upload_fileobj(content, path)
 
     return create_file
 
@@ -426,11 +349,11 @@ async def test_movedir_but_destination_is_not_a_dir(
     assert excinfo.value.response["Error"]["Code"] in codes
 
 
-async def test_save(tmp_bucket: str, s3_resource, s3_storage: S3Storage):
+async def test_save(s3_bucket: str, s3_resource, s3_storage: S3Storage):
     content = BytesIO(b"I'm Dummy file!")
     file = await s3_storage.save("user", "a/f.txt", content=content)
 
-    obj = s3_resource.Object(tmp_bucket, "user/a/f.txt")
+    obj = s3_resource.Object(s3_bucket, "user/a/f.txt")
     assert file.name == "f.txt"
     assert file.ns_path == "user"
     assert file.path == "a/f.txt"

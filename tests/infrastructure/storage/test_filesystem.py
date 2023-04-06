@@ -44,15 +44,6 @@ def file_factory(tmp_path: Path):
     return create_file
 
 
-@pytest.fixture
-def fs_storage() -> FileSystemStorage:
-    """An instance of FileSystemStorage with `tmp_path` fixture as a location."""
-    from app.config import FileSystemStorageConfig, config
-
-    assert isinstance(config.storage, FileSystemStorageConfig)
-    return FileSystemStorage(config.storage)
-
-
 async def test_delete(file_factory, fs_storage: FileSystemStorage):
     fullpath = await file_factory("user/f.txt")
     assert fullpath.exists()
