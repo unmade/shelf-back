@@ -34,13 +34,12 @@ def setup_edgedb_database(reuse_db: bool, edgedb_config: EdgeDBConfig) -> None:
     Creates a test database and apply migration. If database already exists and
     no `--reuse-db` provided, then test database will be re-created.
     """
-    # this fixture is synchronous, cause pytest-asyncio doesn't work well with pytester
     async def _create_db():
         assert edgedb_config.dsn is not None
         db_name = edgedb_config.dsn.name
         server_config = edgedb_config.copy(update={"dsn": edgedb_config.dsn.origin})
+        created = True
         async with EdgeDBDatabase(server_config) as db:
-            created = True
             try:
                 await db.client.execute(f"CREATE DATABASE {db_name};")
             except edgedb.DuplicateDatabaseDefinitionError:
@@ -55,6 +54,7 @@ def setup_edgedb_database(reuse_db: bool, edgedb_config: EdgeDBConfig) -> None:
         async with EdgeDBDatabase(edgedb_config) as db:
             await db.migrate()
 
+    # fixture is synchronous, cause pytest-asyncio doesn't work well with pytester
     should_migrate = asyncio.run(_create_db())
     if should_migrate:
         asyncio.run(_migrate())

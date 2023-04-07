@@ -6,8 +6,6 @@ import pytest
 
 from app.app.files.services.filecore import thumbnails
 
-pytestmark = [pytest.mark.asyncio]
-
 
 class TestIsSupported:
     @pytest.mark.parametrize(["mediatype", "supported"], [
@@ -18,6 +16,7 @@ class TestIsSupported:
         assert thumbnails.is_supported(mediatype) is supported
 
 
+@pytest.mark.asyncio
 class TestThumbnail:
     async def test_text(self):
         # GIVEN

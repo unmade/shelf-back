@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from app.app.files.domain import AnyPath
     from app.tasks import FileTaskResult
 
-pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("celery_session_worker")]
+pytestmark = [pytest.mark.usefixtures("celery_session_worker")]
 
 
 @pytest.fixture(scope="module", autouse=True)

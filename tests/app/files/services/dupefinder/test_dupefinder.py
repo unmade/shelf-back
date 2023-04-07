@@ -14,9 +14,8 @@ if TYPE_CHECKING:
     from app.app.files.repositories.fingerprint import MatchResult
     from app.app.files.services import DuplicateFinderService
 
-pytestmark = [pytest.mark.asyncio]
 
-
+@pytest.mark.asyncio
 class TestFindInFolder:
     @mock.patch("app.app.files.services.DuplicateFinderService._group")
     async def test(self, _group, dupefinder: DuplicateFinderService):
@@ -80,6 +79,7 @@ class TestGroup:
         ]
 
 
+@pytest.mark.asyncio
 @mock.patch("app.app.files.services.dupefinder.dhash.dhash")
 class TestTrack:
     async def test(
@@ -111,6 +111,7 @@ class TestTrack:
         db.fingerprint.save.assert_not_awaited()
 
 
+@pytest.mark.asyncio
 @mock.patch("app.app.files.services.dupefinder.dhash.dhash")
 class TestTrackBatch:
     async def test(

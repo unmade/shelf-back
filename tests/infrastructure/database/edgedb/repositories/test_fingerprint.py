@@ -33,7 +33,7 @@ async def _get_by_file_id(file_id: StrOrUUID):
     [0, (0, 0, 0, 0)],
     [9_223_372_036_854_775_807, (65_535, 65_535, 65_535, 32_767)]
 ])
-def test_split_int8_by_int2(given, expected):
+async def test_split_int8_by_int2(given, expected):
     assert _split_int8_by_int2(given) == expected
 
 
@@ -41,7 +41,7 @@ def test_split_int8_by_int2(given, expected):
     [(36, 36096, 52428, 61423), 17289262673409605668],
     [(65_535, 65_535, 65_535, 32_767), 9_223_372_036_854_775_807],
 ])
-def test_join_int2(given, expected):
+async def test_join_int2(given, expected):
     assert _join_int2(*reversed(given)) == expected
 
 

@@ -15,9 +15,9 @@ attrs==22.2.0
     # via
     #   -c requirements/test.txt
     #   pytest
-boto3-stubs[s3]==1.26.104
+boto3-stubs[s3]==1.26.108
     # via -r requirements/lint.in
-botocore-stubs==1.29.104
+botocore-stubs==1.29.108
     # via boto3-stubs
 certifi==2022.12.7
     # via
@@ -39,7 +39,7 @@ fastapi==0.95.0
     # via
     #   -r requirements/lint.in
     #   sentry-sdk
-filelock==3.10.7
+filelock==3.11.0
     # via virtualenv
 h11==0.14.0
     # via
@@ -62,7 +62,7 @@ iniconfig==2.0.0
     # via
     #   -c requirements/test.txt
     #   pytest
-mypy==1.1.1
+mypy==1.2.0
     # via -r requirements/lint.in
 mypy-boto3-s3==1.26.104
     # via boto3-stubs
@@ -80,7 +80,7 @@ pluggy==1.0.0
     # via
     #   -c requirements/test.txt
     #   pytest
-pre-commit==3.2.1
+pre-commit==3.2.2
     # via -r requirements/lint.in
 pydantic==1.10.7
     # via
@@ -116,7 +116,7 @@ types-awscrt==0.16.13.post1
     #   types-s3transfer
 types-orjson==3.6.2
     # via -r requirements/lint.in
-types-python-dateutil==2.8.19.11
+types-python-dateutil==2.8.19.12
     # via -r requirements/lint.in
 types-s3transfer==0.6.0.post7
     # via boto3-stubs

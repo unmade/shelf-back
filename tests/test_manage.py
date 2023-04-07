@@ -12,7 +12,12 @@ from manage import cli
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [
+    # using pytest.mark.asyncio leads to a warning message,
+    # because all test are regular. However manage.py functions use asyncio.run
+    # to run whole test suit correctly we need a running event loop.
+    pytest.mark.usefixtures("event_loop")
+]
 
 runner = CliRunner()
 

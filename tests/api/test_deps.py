@@ -19,8 +19,6 @@ from app.toolkit import timezone
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
-pytestmark = [pytest.mark.asyncio]
-
 
 @pytest.fixture
 def usecases():
@@ -36,12 +34,14 @@ def usecases():
     )
 
 
+@pytest.mark.asyncio
 class TestUseCases:
     async def test(self):
         request = mock.MagicMock(Request)
         assert await deps.usecases(request) == request.state.provider.usecases
 
 
+@pytest.mark.asyncio
 class TestCurrentUser:
     @pytest.fixture
     def payload(self, user: User):
@@ -63,6 +63,7 @@ class TestCurrentUser:
         usecases.user.user_service.get_by_id.assert_awaited_once_with(payload.sub)
 
 
+@pytest.mark.asyncio
 class TestNamespace:
     async def test(self, user: User, usecases: MagicMock):
         # WHEN
