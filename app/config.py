@@ -3,7 +3,7 @@ from __future__ import annotations
 import enum
 from datetime import timedelta
 from pathlib import Path
-from typing import Literal, Self
+from typing import Annotated, Literal, Self, TypeAlias
 from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import AnyUrl, BaseModel, BaseSettings, Field, RedisDsn
@@ -128,6 +128,15 @@ class S3StorageConfig(BaseModel):
     s3_region: str
 
 
+DatabaseConfig: TypeAlias = EdgeDBConfig
+
+
+StorageConfig: TypeAlias = Annotated[
+    FileSystemStorageConfig | S3StorageConfig,
+    Field(discriminator="type")
+]
+
+
 class SentryConfig(BaseModel):
     dsn: AnyUrl | None = None
     environment: str | None = None
@@ -142,10 +151,10 @@ class AppConfig(BaseSettings):
     cache: CacheConfig = CacheConfig()
     cors: CORSConfig = CORSConfig()
     celery: CeleryConfig
-    database: EdgeDBConfig
+    database: DatabaseConfig
     features: FeatureConfig = FeatureConfig()
     sentry: SentryConfig = SentryConfig()
-    storage: FileSystemStorageConfig | S3StorageConfig = Field(discriminator="type")
+    storage: StorageConfig
 
     class Config:
         env_file = ".env", ".env.prod"

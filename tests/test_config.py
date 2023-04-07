@@ -28,6 +28,7 @@ class TestStringList:
         ("single", ["single"]),
         ("", [""]),
         ("first,second", ["first", "second"]),
+        (["first", "second"], ["first", "second"]),
     ])
     def test_converting_to_list(self, given, expected):
         assert StringList.validate(given) == expected

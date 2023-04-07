@@ -10,16 +10,13 @@ from celery import Celery
 from pydantic import BaseModel
 
 from app.app.files.domain import File
-from app.config import FileSystemStorageConfig, S3StorageConfig, config
-from app.infrastructure.database.edgedb.db import EdgeDBDatabase
-from app.infrastructure.provider import Provider
-from app.infrastructure.storage import FileSystemStorage, S3Storage
+from app.config import config
+from app.infrastructure.context import AppContext
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from app.app.files.domain import AnyPath
-    from app.app.infrastructure import IStorage
 
 logger = logging.getLogger(__name__)
 
@@ -52,20 +49,6 @@ class FileTaskResult:
     ) -> None:
         self.file = file
         self.err_code = err_code
-
-
-def _create_database() -> EdgeDBDatabase:  # pragma: no cover
-    return EdgeDBDatabase(
-        config=config.database.copy(update={"edgedb_max_concurrency": 1})
-    )
-
-
-def _create_storage() -> IStorage:  # pragma: no cover
-    if isinstance(config.storage, S3StorageConfig):
-        return S3Storage(config.storage)
-    if isinstance(config.storage, FileSystemStorageConfig):
-        return FileSystemStorage(config.storage)
-    return None
 
 
 def exc_to_err_code(exc: Exception) -> ErrorCode:
@@ -126,18 +109,14 @@ async def delete_immediately_batch(
         list[FileTaskResult]: List, where each item contains either a moved file
             or an error code.
     """
-    storage = _create_storage()
 
     results = []
-    async with _create_database() as database:
-        provider = Provider(database=database, storage=storage)
-        usecases = provider.usecases
-
+    async with AppContext(config.database, config.storage) as ctx:
         for path in paths:
             file, err_code = None, None
 
             try:
-                file = await usecases.namespace.delete_item(ns_path, path)
+                file = await ctx.usecases.namespace.delete_item(ns_path, path)
             except Exception as exc:
                 err_code = exc_to_err_code(exc)
                 if err_code == ErrorCode.internal:
@@ -156,13 +135,9 @@ async def empty_trash(ns_path: AnyPath) -> None:
     Args:
         namespace (Namespace): Namespace where Trash should be emptied.
     """
-    storage = _create_storage()
-
-    async with _create_database() as database:
-        provider = Provider(database=database, storage=storage)
-        usecases = provider.usecases
+    async with AppContext(config.database, config.storage) as ctx:
         try:
-            await usecases.namespace.empty_trash(ns_path)
+            await ctx.usecases.namespace.empty_trash(ns_path)
         except Exception:
             logger.exception("Unexpectedly failed to empty trash folder")
 
@@ -184,19 +159,14 @@ async def move_batch(
         list[FileTaskResult]: List, where each item contains either a moved file
             or an error code.
     """
-    storage = _create_storage()
-
     results = []
-    async with _create_database() as database:
-        provider = Provider(database=database, storage=storage)
-        usecases = provider.usecases
-
+    async with AppContext(config.database, config.storage) as ctx:
         for relocation in relocations:
             path, next_path = relocation.from_path, relocation.to_path
             file, err_code = None, None
 
             try:
-                file = await usecases.namespace.move_item(ns_path, path, next_path)
+                file = await ctx.usecases.namespace.move_item(ns_path, path, next_path)
             except Exception as exc:
                 err_code = exc_to_err_code(exc)
                 if err_code == ErrorCode.internal:
@@ -223,18 +193,13 @@ async def move_to_trash_batch(
         list[FileTaskResult]: List, where each item contains either a moved file
             or an error code.
     """
-    storage = _create_storage()
-
     results = []
-    async with _create_database() as database:
-        provider = Provider(database=database, storage=storage)
-        usecases = provider.usecases
-
+    async with AppContext(config.database, config.storage) as ctx:
         for path in paths:
             file, err_code = None, None
 
             try:
-                file = await usecases.namespace.move_item_to_trash(ns_path, path)
+                file = await ctx.usecases.namespace.move_item_to_trash(ns_path, path)
             except Exception as exc:
                 err_code = exc_to_err_code(exc)
                 if err_code == ErrorCode.internal:

@@ -4,9 +4,13 @@ from pathlib import PurePath
 from typing import TYPE_CHECKING
 
 import pytest
+from edgedb.asyncio_client import AsyncIOClient, AsyncIOIteration
+
+from app.infrastructure.database.edgedb import EdgeDBDatabase
+from app.infrastructure.database.edgedb.db import db_context
 
 if TYPE_CHECKING:
-    from pytest import Pytester
+    from pytest import FixtureRequest, Pytester
 
 pytestmark = [pytest.mark.metatest]
 
@@ -38,3 +42,23 @@ class TestSetupEdgeDBDatabase:
         pytester.copy_example(str(self.EXAMPLES / "test_reusing_db.py"))
         result = pytester.runpytest("--reuse-db")
         result.assert_outcomes(passed=1)
+
+
+@pytest.mark.usefixtures("event_loop")
+class TestEdgeDBDatabase:
+    def test_accessing_without_marker(self, request: FixtureRequest):
+        with pytest.raises(RuntimeError) as excinfo:
+            request.getfixturevalue("edgedb_database")
+        assert str(excinfo.value) == "Access to the database without `database` marker!"
+
+    @pytest.mark.database
+    def test_database_marker(self, request: FixtureRequest):
+        database = request.getfixturevalue("edgedb_database")
+        assert isinstance(database, EdgeDBDatabase)
+        assert isinstance(db_context.get(), AsyncIOIteration)
+
+    @pytest.mark.database(transaction=True)
+    def test_when_database_marker_has_transaction(self, request: FixtureRequest):
+        database = request.getfixturevalue("edgedb_database")
+        assert isinstance(database, EdgeDBDatabase)
+        assert isinstance(db_context.get(), AsyncIOClient)

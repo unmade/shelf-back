@@ -14,7 +14,7 @@ from app.app.files.domain import Namespace
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
 from app.app.users.domain import Account, User
 from app.app.users.usecases import UserUseCase
-from app.infrastructure.provider import UseCases
+from app.infrastructure.context import UseCases
 
 if TYPE_CHECKING:
     from fastapi import FastAPI

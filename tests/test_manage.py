@@ -24,10 +24,7 @@ runner = CliRunner()
 
 @pytest.fixture(scope="module", autouse=True)
 def setUp():
-    with (
-        mock.patch("manage._create_database"),
-        mock.patch("manage._create_storage"),
-    ):
+    with mock.patch("app.infrastructure.context.Infrastructure"):
         yield
 
 

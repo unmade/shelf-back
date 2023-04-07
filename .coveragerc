@@ -15,6 +15,7 @@ exclude_lines =
     pragma: no cover
     TYPE_CHECKING
     from __future__ import annotations
+    assert_never
 omit =
     app/typedefs.py
     tests/example_fixture_tests/*

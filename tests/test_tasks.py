@@ -24,10 +24,7 @@ pytestmark = [pytest.mark.usefixtures("celery_session_worker")]
 
 @pytest.fixture(scope="module", autouse=True)
 def setUp():
-    with (
-        mock.patch("app.tasks._create_database"),
-        mock.patch("app.tasks._create_storage"),
-    ):
+    with mock.patch("app.infrastructure.context.Infrastructure"):
         yield
 
 

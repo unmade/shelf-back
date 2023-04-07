@@ -44,7 +44,7 @@ if TYPE_CHECKING:
             ...
 
     class FolderFactory(Protocol):
-        async def __call__(self, ns_path: str, path: str | None = None) -> File: ...
+        async def __call__(self, ns_path: str, path: str) -> File: ...
 
 fake = Faker()
 
@@ -120,9 +120,7 @@ def file_factory(filecore: FileCoreService) -> FileFactory:
 @pytest.fixture
 def folder_factory(filecore: FileCoreService) -> FolderFactory:
     """A factory to create a File instance saved to the DB and storage."""
-    async def factory(ns_path: str, path: str | None = None):
-        if path is None:
-            path = fake.unique.file_name(category="text", extension="txt")
+    async def factory(ns_path: str, path: str):
         return await filecore.create_folder(ns_path, path)
     return factory
 

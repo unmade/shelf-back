@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from contextlib import AsyncExitStack
+from typing import TYPE_CHECKING, assert_never
 
 from app.app.auth.services import TokenService
 from app.app.auth.usecases import AuthUseCase
@@ -15,25 +16,68 @@ from app.app.files.usecases import NamespaceUseCase, SharingUseCase
 from app.app.users.services import BookmarkService, UserService
 from app.app.users.usecases import UserUseCase
 from app.cache import cache
+from app.config import (
+    DatabaseConfig,
+    FileSystemStorageConfig,
+    S3StorageConfig,
+    StorageConfig,
+)
+from app.infrastructure.database.edgedb import EdgeDBDatabase
+from app.infrastructure.storage import FileSystemStorage, S3Storage
 
 if TYPE_CHECKING:
     from app.app.infrastructure.storage import IStorage
 
-    from .database.edgedb import EdgeDBDatabase
 
 __all__ = [
-    "Provider",
-    "Services",
+    "AppContext",
     "UseCases",
 ]
 
 
-class Provider:
-    __slots__ = ["services", "usecases"]
+class AppContext:
+    __slots__ = ["usecases", "_stack", "_infra"]
 
-    def __init__(self, database: EdgeDBDatabase, storage: IStorage):
-        self.services = Services(database=database, storage=storage)
-        self.usecases = UseCases(self.services)
+    def __init__(self, db_config: DatabaseConfig, storage_config: StorageConfig):
+        self._stack = AsyncExitStack()
+        self._infra = Infrastructure(db_config, storage_config)
+        services = Services(self._infra.database, self._infra.storage)
+        self.usecases = UseCases(services)
+
+    async def __aenter__(self):
+        await self._stack.enter_async_context(self._infra)
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        await self._stack.aclose()
+
+
+class Infrastructure:
+    __slots__ = ["database", "storage", "_stack"]
+
+    def __init__(self, db_config: DatabaseConfig, storage_config: StorageConfig):
+        self.database = self._get_database(db_config)
+        self.storage = self._get_storage(storage_config)
+        self._stack = AsyncExitStack()
+
+    async def __aenter__(self):
+        await self._stack.enter_async_context(self.database)
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        await self._stack.aclose()
+
+    @staticmethod
+    def _get_database(db_config: DatabaseConfig) -> EdgeDBDatabase:
+        return EdgeDBDatabase(db_config)
+
+    @staticmethod
+    def _get_storage(storage_config: StorageConfig) -> IStorage:
+        if isinstance(storage_config, S3StorageConfig):
+            return S3Storage(storage_config)
+        if isinstance(storage_config, FileSystemStorageConfig):
+            return FileSystemStorage(storage_config)
+        assert_never(storage_config)
 
 
 class Services:

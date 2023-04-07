@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, cast
+from typing import Annotated
 
 from fastapi import Depends, Request
 from fastapi.security import OAuth2PasswordBearer
@@ -8,7 +8,7 @@ from fastapi.security import OAuth2PasswordBearer
 from app.app.auth.domain import AccessToken, TokenError
 from app.app.files.domain import Namespace
 from app.app.users.domain import User
-from app.infrastructure.provider import Provider, UseCases
+from app.infrastructure.context import UseCases
 
 from . import exceptions
 
@@ -21,9 +21,8 @@ __all__ = [
 reusable_oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/sign_in", auto_error=False)
 
 
-async def usecases(request: Request) -> UseCases:
-    provider = cast(Provider, request.state.provider)
-    return provider.usecases
+async def usecases(request: Request):
+    return request.state.usecases
 
 
 def token_payload(token: str | None = Depends(reusable_oauth2)) -> AccessToken:

@@ -7,10 +7,8 @@ import sentry_sdk
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import FileSystemStorageConfig, S3StorageConfig, config
-from app.infrastructure.database.edgedb.db import EdgeDBDatabase
-from app.infrastructure.provider import Provider
-from app.infrastructure.storage import FileSystemStorage, S3Storage
+from app.config import config
+from app.infrastructure.context import AppContext, UseCases
 
 from . import exceptions, router
 
@@ -22,37 +20,20 @@ sentry_sdk.init(
 
 
 class State(TypedDict):
-    provider: Provider
+    usecases: UseCases
 
 
 class Lifespan:
-    __slots__ = ["database", "storage"]
+    __slots__ = ["ctx"]
 
     def __init__(self):
         # instantiate database synchronously to correctly set context vars
-        self.database = self._create_database()
-        self.storage = self._create_storage()
+        self.ctx = AppContext(config.database, config.storage)
 
     @contextlib.asynccontextmanager
     async def __call__(self, app: FastAPI) -> AsyncIterator[State]:
-        async with self.database as database:
-            provider = Provider(
-                database=database,
-                storage=self.storage,
-            )
-            yield {"provider": provider}
-
-    @staticmethod
-    def _create_database():  # pragma: no cover
-        return EdgeDBDatabase(config=config.database)
-
-    @staticmethod
-    def _create_storage():  # pragma: no cover
-        if isinstance(config.storage, S3StorageConfig):
-            return S3Storage(config.storage)
-        if isinstance(config.storage, FileSystemStorageConfig):
-            return FileSystemStorage(config.storage)
-        return None
+        async with self.ctx as ctx:
+            yield {"usecases": ctx.usecases}
 
 
 def create_app(*, lifespan: AsyncContextManager[State] | None = None) -> FastAPI:

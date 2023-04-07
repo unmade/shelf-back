@@ -38,7 +38,7 @@ def usecases():
 class TestUseCases:
     async def test(self):
         request = mock.MagicMock(Request)
-        assert await deps.usecases(request) == request.state.provider.usecases
+        assert await deps.usecases(request) == request.state.usecases
 
 
 @pytest.mark.asyncio

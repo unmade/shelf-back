@@ -1,37 +1,30 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 
 import typer
 import uvloop
 
 from app.app.users.domain import User
-from app.config import FileSystemStorageConfig, S3StorageConfig, config
-from app.infrastructure.database.edgedb.db import EdgeDBDatabase
-from app.infrastructure.provider import Provider
-from app.infrastructure.storage import FileSystemStorage, S3Storage
+from app.config import config
+from app.infrastructure.context import AppContext
 
 cli = typer.Typer()
 
 uvloop.install()
 
 
-def _create_database():
-    return EdgeDBDatabase(
-        config=config.database.copy(update={"edgedb_max_concurrency": 1})
-    )
-
-
-def _create_storage():
-    if isinstance(config.storage, S3StorageConfig):
-        return S3Storage(config.storage)
-    if isinstance(config.storage, FileSystemStorageConfig):
-        return FileSystemStorage(config.storage)
-    return None
+def async_to_sync(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return asyncio.run(func(*args, **kwargs))
+    return wrapper
 
 
 @cli.command()
-def createsuperuser(
+@async_to_sync
+async def createsuperuser(
     username: str = typer.Option(
         ...,
         help="username",
@@ -56,60 +49,42 @@ def createsuperuser(
     ),
 ) -> None:
     """Create a new super user with namespace, home and trash directories."""
-    async def _createuser(username: str, password: str):
-        storage = _create_storage()
-        async with _create_database() as database:
-            provider = Provider(database=database, storage=storage)
-            usecases = provider.usecases
-            try:
-                await usecases.user.create_superuser(username, password)
-            except User.AlreadyExists:
-                if not exist_ok:
-                    raise
-                typer.echo("User already exists, skipping...")
-            else:
-                typer.echo("User created successfully.")
-
-    asyncio.run(_createuser(username, password))
+    async with AppContext(config.database, config.storage) as ctx:
+        try:
+            await ctx.usecases.user.create_superuser(username, password)
+        except User.AlreadyExists:
+            if not exist_ok:
+                raise
+            typer.echo("User already exists, skipping...")
+        else:
+            typer.echo("User created successfully.")
 
 
 @cli.command()
-def reindex(namespace: str) -> None:
+@async_to_sync
+async def reindex(namespace: str) -> None:
     """Reindex files in the storage for a given namespace."""
-    async def _reindex():
-        storage = _create_storage()
-        async with _create_database() as database:
-            provider = Provider(database=database, storage=storage)
-            usecases = provider.usecases
-            await usecases.namespace.reindex(namespace)
-
-    asyncio.run(_reindex())
+    async with AppContext(config.database, config.storage) as ctx:
+        await ctx.usecases.namespace.reindex(namespace)
 
 
 @cli.command()
-def reindex_content(namespace: str) -> None:
+@async_to_sync
+async def reindex_content(namespace: str) -> None:
     """
     Restore additional information about files, such as file fingerprints and content
     metadata.
     """
-    async def _reindex_content():
-        storage = _create_storage()
-        async with _create_database() as database:
-            provider = Provider(database=database, storage=storage)
-            usecases = provider.usecases
-            await usecases.namespace.reindex_contents(namespace)
-
-    asyncio.run(_reindex_content())
+    async with AppContext(config.database, config.storage) as ctx:
+        await ctx.usecases.namespace.reindex_contents(namespace)
 
 
 @cli.command()
-def migrate() -> None:
+@async_to_sync
+async def migrate() -> None:
     """Apply target schema to a database."""
-    async def run_migration() -> None:
-        async with _create_database() as database:
-            await database.migrate()
-
-    asyncio.run(run_migration())
+    async with AppContext(config.database, config.storage) as ctx:
+        await ctx.infra.database.migrate()
 
 
 if __name__ == "__main__":
