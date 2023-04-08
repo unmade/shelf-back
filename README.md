@@ -123,8 +123,10 @@ superuser on the first image run:
 |APP_DEBUG                     | - | False  | Whether to run app in debug mode |
 |APP_VERSION                   | - | dev    | Application version. Normally, this env is set during build |
 |AUTH__SECRET_KEY              | + | -      | Application secret key. This is used to provide cryptographic signing, and should be set to a unique, unpredictable value |
+|AUTH__ACCESS_TOKEN_TTL        | - | 15m    | A time-to-live of the access token. |
+|AUTH__REFRESH_TOKEN_TTL       | - | 3d     | A time-to-live of the refresh token. |
 |CACHE__BACKEND_DSN            | - | mem:// | Cache backend DSN. See options [here](https://github.com/Krukov/cashews) |
-|CACHE__DISK_CACHE_MAX_SIZE    | - | -      | Client cache size limit in bytes |
+|CACHE__DISK_CACHE_MAX_SIZE    | - | -      | Client cache size limit in bytes. Can be set in a format like "512MB", "1GB" |
 |CELERY__BACKEND_DSN           | + | -      | Celery broker DSN |
 |CELERY__BROKER_DSN            | + | -      | Celery result backend DSN  |
 |CORS__ALLOWED_ORIGINS         | - | []     | A comma-separated list of origins that should be permitted to make cross-origin requests |
@@ -132,11 +134,11 @@ superuser on the first image run:
 |DATABASE__EDGEDB_TLS_CA_FILE  | - | -      | Path to TLS Certificate file to connect to the database. If not set, then fallback to EDGEDB_TLS_CA |
 |DATABASE__EDGEDB_TLS_SECURITY | - | -      | Set the TLS security mode |
 |FEATURES__SIGN_UP_DISABLED    | - | False  | Whether sign up is disabled or not |
-|FEATURES__UPLOAD_FILE_MAX     | - | 104857600 | Maximum upload file size. Default to 100 MB |
+|FEATURES__UPLOAD_FILE_MAX     | - | 100MB | Maximum upload file size. Default to 100 MB |
 |SENTRY__DSN                   | - | None   | Sentry DSN |
 |SENTRY__ENV                   | - | None   | Sentry environment |
 |STORAGE__TYPE                 | - | filesystem | A primary storage type. Either `filesystem` or `s3` options are available |
-|STORAGE__QUOTA                | - | None   | Default storage quota per account in bytes. If not set, then account has unlimited storage |
+|STORAGE__QUOTA                | - | None   | Default storage quota per account in bytes. If not set, then account has unlimited storage. Can be set in a format like "512MB", "1GB"  |
 |STORAGE__FS_LOCATION          | - | ./data | FileSystem Storage location. Path should be provided without trailing slash |
 |STORAGE__S3_LOCATION          | + | -      | S3 location |
 |STORAGE__S3_ACCESS_KEY_ID     | - | -      | S3 access key id. Required only if `s3` storage type is used |
