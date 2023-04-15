@@ -6,6 +6,7 @@ from unittest import mock
 import pytest
 from typer.testing import CliRunner
 
+from app.app.infrastructure import IDatabase
 from app.app.users.domain import User
 from manage import cli
 
@@ -24,8 +25,9 @@ runner = CliRunner()
 
 @pytest.fixture(scope="module", autouse=True)
 def setUp():
-    with mock.patch("app.infrastructure.context.Infrastructure"):
-        yield
+    with mock.patch("app.infrastructure.context.Infrastructure") as infra:
+        infra().database = mock.AsyncMock(IDatabase)
+        yield infra
 
 
 class TestCreateSuperuser:
@@ -96,3 +98,9 @@ class TestReindexContent:
 
         assert result.exit_code == 0
         reindex_mock.assert_awaited_once_with("admin")
+
+
+class TestMigrate:
+    def test(self):
+        result = runner.invoke(cli, ["migrate"])
+        assert result.exit_code == 0

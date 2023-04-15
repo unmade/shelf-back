@@ -6,7 +6,7 @@ __all__ = ["ITokenRepository"]
 
 
 class ITokenRepository(Protocol):
-    async def delete(self, key: str) -> str:
+    async def delete(self, key: str) -> bool:
         """
         Deletes token by key.
 
@@ -14,7 +14,7 @@ class ITokenRepository(Protocol):
             key (str): A key, typically a token family ID.
 
         Returns:
-            str: Deleted token.
+            bool: True if token was deleted, False otherwise.
         """
 
     async def get(self, key: str) -> str | None:

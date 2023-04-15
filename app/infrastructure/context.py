@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextlib import AsyncExitStack
-from typing import TYPE_CHECKING, assert_never
+from typing import TYPE_CHECKING, Self, assert_never
 
 from app.app.auth.services import TokenService
 from app.app.auth.usecases import AuthUseCase
@@ -44,7 +44,7 @@ class AppContext:
         services = Services(self._infra.database, self._infra.storage)
         self.usecases = UseCases(services)
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Self:
         await self._stack.enter_async_context(self._infra)
         return self
 
@@ -60,7 +60,7 @@ class Infrastructure:
         self.storage = self._get_storage(storage_config)
         self._stack = AsyncExitStack()
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Self:
         await self._stack.enter_async_context(self.database)
         return self
 

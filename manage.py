@@ -84,7 +84,7 @@ async def reindex_content(namespace: str) -> None:
 async def migrate() -> None:
     """Apply target schema to a database."""
     async with AppContext(config.database, config.storage) as ctx:
-        await ctx.infra.database.migrate()
+        await ctx._infra.database.migrate()
 
 
 if __name__ == "__main__":
