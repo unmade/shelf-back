@@ -90,13 +90,12 @@ jobs:
         STORAGE__S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
         STORAGE__S3_REGION_NAME: "us-east-1"
       run: |
-        pytest --cov
+        pytest --cov --cov-report=xml
 
     - name: Send coverage report
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      # install codecov here as it has dependency conflicts with httpx
-      run: |
-        pip install codecov
-        coverage xml
-        codecov
+      uses: codecov/codecov-action@v3
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: ./coverage.xml
+        fail_ci_if_error: true
+        verbose: true
