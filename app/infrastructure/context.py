@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING, Self, assert_never
 
+from app.app.audit.services import AuditTrailService
 from app.app.auth.services import TokenService
 from app.app.auth.usecases import AuthUseCase
 from app.app.files.services import (
@@ -24,6 +25,7 @@ from app.config import (
 )
 from app.infrastructure.database.edgedb import EdgeDBDatabase
 from app.infrastructure.storage import FileSystemStorage, S3Storage
+from app.toolkit import taskgroups
 
 if TYPE_CHECKING:
     from app.app.infrastructure.storage import IStorage
@@ -49,6 +51,7 @@ class AppContext:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        await taskgroups.wait_background_tasks(timeout=30)
         await self._stack.aclose()
 
 
@@ -82,6 +85,7 @@ class Infrastructure:
 
 class Services:
     __slots__ = [
+        "audit_trail",
         "bookmark",
         "dupefinder",
         "filecore",
@@ -93,6 +97,7 @@ class Services:
     ]
 
     def __init__(self, database: EdgeDBDatabase, storage: IStorage):
+        self.audit_trail = AuditTrailService(database=database)
         self.bookmark = BookmarkService(database=database)
         self.filecore = FileCoreService(database=database, storage=storage)
         self.dupefinder = DuplicateFinderService(database=database)
@@ -108,11 +113,13 @@ class UseCases:
 
     def __init__(self, services: Services):
         self.auth = AuthUseCase(
+            audit_trail=services.audit_trail,
             namespace_service=services.namespace,
             token_service=services.token,
             user_service=services.user,
         )
         self.namespace = NamespaceUseCase(
+            audit_trail=services.audit_trail,
             dupefinder=services.dupefinder,
             filecore=services.filecore,
             metadata=services.metadata,

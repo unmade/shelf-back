@@ -71,6 +71,8 @@ def flush_edgedb_database_if_needed(request: FixtureRequest):
                 session_db_client = request.getfixturevalue("_session_sync_client")
                 session_db_client.execute("""
                     DELETE Account;
+                    DELETE AuditTrail;
+                    DELETE AuditTrailAction;
                     DELETE File;
                     DELETE FileMetadata;
                     DELETE Fingerprint;

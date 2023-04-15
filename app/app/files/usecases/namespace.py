@@ -11,6 +11,7 @@ from app.config import config
 from app.toolkit import taskgroups, timezone
 
 if TYPE_CHECKING:
+    from app.app.audit.services import AuditTrailService
     from app.app.files.domain import AnyPath, ContentMetadata
     from app.app.files.services import (
         DuplicateFinderService,
@@ -25,16 +26,20 @@ __all__ = ["NamespaceUseCase"]
 
 
 class NamespaceUseCase:
-    __slots__ = ["dupefinder", "filecore", "metadata", "namespace", "user"]
+    __slots__ = [
+        "audit_trail", "dupefinder", "filecore", "metadata", "namespace", "user"
+    ]
 
     def __init__(
         self,
+        audit_trail: AuditTrailService,
         dupefinder: DuplicateFinderService,
         filecore: FileCoreService,
         metadata: MetadataService,
         namespace: NamespaceService,
         user: UserService,
     ):
+        self.audit_trail = audit_trail
         self.dupefinder = dupefinder
         self.filecore = filecore
         self.metadata = metadata
@@ -59,11 +64,11 @@ class NamespaceUseCase:
             content (IO): Actual file content.
 
         Raises:
+            Account.StorageQuotaExceeded: If storage quota exceeded.
             File.TooLarge: If upload file size exceeds max upload size limit.
             File.AlreadyExists: If a file in a target path already exists.
             File.MalformedPath: If path is invalid (e.g. uploading to Trash folder).
             File.NotADirectory: If one of the path parents is not a folder.
-            Account.StorageQuotaExceeded: If storage quota exceeded.
 
         Returns:
             File: Saved file.
@@ -87,6 +92,7 @@ class NamespaceUseCase:
         await self.dupefinder.track(file.id, content)
         await self.metadata.track(file.id, content)
 
+        taskgroups.schedule(self.audit_trail.file_added(file))
         return file
 
     async def create_folder(self, ns_path: AnyPath, path: AnyPath) -> File:
@@ -105,7 +111,9 @@ class NamespaceUseCase:
             File: Created folder.
         """
         assert Path(path) not in {Path("."), Path("Trash")}
-        return await self.filecore.create_folder(ns_path, path)
+        folder = await self.filecore.create_folder(ns_path, path)
+        taskgroups.schedule(self.audit_trail.folder_created(folder))
+        return folder
 
     async def delete_item(self, ns_path: AnyPath, path: AnyPath) -> File:
         """
@@ -142,6 +150,7 @@ class NamespaceUseCase:
             ns_path (AnyPath): Namespace path where to empty the Trash folder.
         """
         await self.filecore.empty_folder(ns_path, "trash")
+        taskgroups.schedule(self.audit_trail.trash_emptied())
 
     async def find_duplicates(
         self, ns_path: AnyPath, path: AnyPath, max_distance: int = 5
@@ -272,7 +281,9 @@ class NamespaceUseCase:
         assert Path(path) not in {Path("."), Path("Trash")}, (
             "Can't move Home or Trash folder."
         )
-        return await self.filecore.move(ns_path, path, next_path)
+        file = await self.filecore.move(ns_path, path, next_path)
+        taskgroups.schedule(self.audit_trail.file_moved(file))
+        return file
 
     async def move_item_to_trash(self, ns_path: AnyPath, path: AnyPath) -> File:
         """
@@ -296,7 +307,9 @@ class NamespaceUseCase:
             timestamp = f"{timezone.now():%H%M%S%f}"
             next_path = next_path.with_stem(f"{next_path.stem} {timestamp}")
 
-        return await self.filecore.move(ns_path, path, next_path)
+        file = await self.filecore.move(ns_path, path, next_path)
+        taskgroups.schedule(self.audit_trail.file_trashed(file))
+        return file
 
     async def reindex(self, ns_path: AnyPath) -> None:
         """

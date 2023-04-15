@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Self
 from unittest import mock
 
 import pytest
@@ -9,6 +9,7 @@ from httpx import AsyncClient
 
 from app.api import deps
 from app.api.main import create_app
+from app.app.audit.domain import CurrentUserContext
 from app.app.auth.usecases import AuthUseCase
 from app.app.files.domain import Namespace
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
@@ -20,21 +21,29 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
 
 
+
 class TestClient(AsyncClient):
     def __init__(self, *, app: FastAPI, **kwargs):
         self.app = app
         super().__init__(app=app, **kwargs)
 
-    def mock_namespace(self, namespace: Namespace):
+    def mock_current_user_ctx(self, current_user_ctx: CurrentUserContext) -> Self:
+        async def get_current_user_ctx():
+            return current_user_ctx
+
+        self.app.dependency_overrides[deps.current_user_ctx] = get_current_user_ctx
+        return self
+
+    def mock_namespace(self, namespace: Namespace) -> Self:
         async def get_namespace():
             return namespace
 
         self.app.dependency_overrides[deps.namespace] = get_namespace
         return self
 
-    def mock_user(self, user: User):
+    def mock_user(self, user: User) -> Self:
         async def get_current_user():
-            return user
+            return CurrentUserContext.User(id=user.id, username=user.username)
 
         self.app.dependency_overrides[deps.current_user] = get_current_user
         return self

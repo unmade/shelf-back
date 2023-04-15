@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, AsyncIterator, Self
 import edgedb
 from edgedb.asyncio_client import AsyncIOIteration
 
+from app.app.audit.repositories import IAuditTrailRepository
 from app.app.files.repositories import (
     IContentMetadataRepository,
     IFileRepository,
@@ -24,6 +25,7 @@ from app.config import EdgeDBConfig
 
 from .repositories import (
     AccountRepository,
+    AuditTrailRepository,
     BookmarkRepository,
     ContentMetadataRepository,
     FileRepository,
@@ -41,6 +43,7 @@ db_context: EdgeDBContext = ContextVar("db_context")
 
 class EdgeDBDatabase(IDatabase):
     account: IAccountRepository
+    audit_trail: IAuditTrailRepository
     bookmark: IBookmarkRepository
     file: IFileRepository
     fingerprint: IFingerprintRepository
@@ -60,6 +63,7 @@ class EdgeDBDatabase(IDatabase):
         db_context.set(self.client)
 
         self.account= AccountRepository(db_context=db_context)
+        self.audit_trail = AuditTrailRepository(db_context=db_context)
         self.bookmark = BookmarkRepository(db_context=db_context)
         self.file = FileRepository(db_context=db_context)
         self.fingerprint = FingerprintRepository(db_context=db_context)

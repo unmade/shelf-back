@@ -7,6 +7,7 @@ import pytest
 from fastapi import Request
 
 from app.api import deps, exceptions
+from app.app.audit.domain import CurrentUserContext
 from app.app.auth.domain import AccessToken
 from app.app.auth.domain.tokens import InvalidToken
 from app.app.files.services import NamespaceService
@@ -42,16 +43,19 @@ class TestUseCases:
 
 
 @pytest.mark.asyncio
-class TestCurrentUser:
+class TestCurrentUserContext:
     @pytest.fixture
     def payload(self, user: User):
         return AccessToken(sub=str(user.id), exp=timezone.now())
 
-    async def test(self, payload: AccessToken, usecases: MagicMock):
+    async def test(self, payload: AccessToken, usecases: MagicMock, user: User):
+        # GIVEN
+        usecases.user.user_service.get_by_id.return_value = user
         # WHEN
-        result = await deps.current_user(payload=payload, usecases=usecases)
+        result = await anext(deps.current_user_ctx(payload=payload, usecases=usecases))
         # THEN
-        assert result == usecases.user.user_service.get_by_id.return_value
+        current_user = CurrentUserContext.User(id=user.id, username=user.username)
+        assert result == CurrentUserContext(user=current_user)
         usecases.user.user_service.get_by_id.assert_awaited_once_with(payload.sub)
 
     async def test_when_user_not_found(self, payload: AccessToken, usecases: MagicMock):
@@ -59,15 +63,28 @@ class TestCurrentUser:
         usecases.user.user_service.get_by_id.side_effect = User.NotFound
         # WHEN/THEN
         with pytest.raises(exceptions.UserNotFound):
-            await deps.current_user(payload=payload, usecases=usecases)
+            await anext(deps.current_user_ctx(payload=payload, usecases=usecases))
         usecases.user.user_service.get_by_id.assert_awaited_once_with(payload.sub)
+
+
+@pytest.mark.asyncio
+class TestCurrentUser:
+    async def test(self, user: User):
+        # GIVEN
+        current_user = CurrentUserContext.User(id=user.id, username=user.username)
+        ctx = CurrentUserContext(user=current_user)
+        # WHEN
+        result = await deps.current_user(ctx=ctx)
+        # THEN
+        assert result == ctx.user
 
 
 @pytest.mark.asyncio
 class TestNamespace:
     async def test(self, user: User, usecases: MagicMock):
+        current_user = CurrentUserContext.User(id=user.id, username=user.username)
         # WHEN
-        result = await deps.namespace(user=user, usecases=usecases)
+        result = await deps.namespace(user=current_user, usecases=usecases)
         # THEN
         assert result == usecases.namespace.namespace.get_by_owner_id.return_value
         usecases.namespace.namespace.get_by_owner_id.assert_awaited_once_with(user.id)

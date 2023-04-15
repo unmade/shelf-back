@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import contextlib
-from typing import AsyncContextManager, AsyncIterator, TypedDict
+from contextlib import AbstractAsyncContextManager
+from typing import AsyncIterator, TypedDict
 
 import sentry_sdk
 from fastapi import FastAPI
@@ -36,7 +37,10 @@ class Lifespan:
             yield {"usecases": ctx.usecases}
 
 
-def create_app(*, lifespan: AsyncContextManager[State] | None = None) -> FastAPI:
+def create_app(
+    *,
+    lifespan: AbstractAsyncContextManager[State] | None = None,
+) -> FastAPI:
     """Create a new app."""
     app = FastAPI(
         title=config.app_name,

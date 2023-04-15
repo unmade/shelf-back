@@ -9,7 +9,7 @@ from fastapi.responses import ORJSONResponse, Response, StreamingResponse
 
 from app import tasks
 from app.api import shortcuts
-from app.api.deps import NamespaceDeps, UseCasesDeps
+from app.api.deps import CurrentUserContextDeps, NamespaceDeps, UseCasesDeps
 from app.app.files.domain import ContentMetadata, File, mediatypes
 from app.app.users.domain import Account
 
@@ -162,9 +162,12 @@ async def download_xhr(
 
 
 @router.post("/empty_trash")
-def empty_trash(namespace: NamespaceDeps) -> AsyncTaskID:
+def empty_trash(
+    namespace: NamespaceDeps,
+    current_user_context: CurrentUserContextDeps,
+) -> AsyncTaskID:
     """Delete all files and folders in the Trash folder."""
-    task = tasks.empty_trash.delay(namespace.path)
+    task = tasks.empty_trash.delay(namespace.path, context=current_user_context)
     return AsyncTaskID(async_task_id=task.id)
 
 
@@ -332,9 +335,11 @@ async def list_folder(
 def move_batch(
     payload: MoveBatchRequest,
     namespace: NamespaceDeps,
+    current_user_ctx: CurrentUserContextDeps,
 ) -> AsyncTaskID:
     """Move multiple files or folders to different locations at once."""
-    task = tasks.move_batch.delay(namespace.path, payload.items)
+    ns_path = namespace.path
+    task = tasks.move_batch.delay(ns_path, payload.items, context=current_user_ctx)
     return AsyncTaskID(async_task_id=task.id)
 
 
@@ -362,14 +367,16 @@ def move_batch_check(
 def move_to_trash_batch(
     payload: MoveToTrashBatchRequest,
     namespace: NamespaceDeps,
+    current_user_ctx: CurrentUserContextDeps,
 ) -> AsyncTaskID:
     """
     Move several files or folders to Trash at once.
 
     To check task result use the same endpoint to check regular move result.
     """
+    ns_path = namespace.path
     paths = [item.path for item in payload.items]
-    task = tasks.move_to_trash_batch.delay(namespace.path, paths)
+    task = tasks.move_to_trash_batch.delay(ns_path, paths, context=current_user_ctx)
     return AsyncTaskID(async_task_id=task.id)
 
 

@@ -14,7 +14,29 @@ module default {
         };
     }
 
-    type File {
+    abstract type Auditable {}
+
+    type AuditTrailAction {
+        required property name -> str {
+            constraint exclusive;
+        };
+    }
+
+    type AuditTrail {
+        required property created_at -> datetime;
+
+        required link action -> AuditTrailAction {
+            on target delete DELETE SOURCE;
+        };
+        multi link assets -> Auditable {
+            on target delete DELETE SOURCE;
+        };
+        required link user -> User {
+            on target delete DELETE SOURCE;
+        };
+    }
+
+    type File extending Auditable {
         required property name -> str;
         required property path -> str;
         required property size -> int64;

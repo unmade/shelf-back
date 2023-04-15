@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, AsyncIterator
 
 from fastapi import Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 
+from app.app.audit.domain import CurrentUserContext
+from app.app.audit.domain.current_user_context import CurrentUser
 from app.app.auth.domain import AccessToken, TokenError
 from app.app.files.domain import Namespace
 from app.app.users.domain import User
@@ -14,6 +16,7 @@ from . import exceptions
 
 __all__ = [
     "CurrentUserDeps",
+    "CurrentUserContextDeps",
     "NamespaceDeps",
     "UseCasesDeps",
 ]
@@ -36,15 +39,24 @@ def token_payload(token: str | None = Depends(reusable_oauth2)) -> AccessToken:
         raise exceptions.InvalidToken() from exc
 
 
-async def current_user(
+async def current_user_ctx(
     usecases: UseCasesDeps,
     payload: AccessToken = Depends(token_payload),
-) -> User:
-    """Returns user from a token payload."""
+) -> AsyncIterator[CurrentUserContext]:
+    """Sets context about current user."""
     try:
-        return await usecases.user.user_service.get_by_id(payload.sub)
+        user = await usecases.user.user_service.get_by_id(payload.sub)
     except User.NotFound as exc:
         raise exceptions.UserNotFound() from exc
+
+    current_user = CurrentUser(id=user.id, username=user.username)
+    with CurrentUserContext(user=current_user) as ctx:
+        yield ctx
+
+
+async def current_user(ctx: CurrentUserContextDeps) -> CurrentUser:
+    """Returns current user."""
+    return ctx.user
 
 
 async def namespace(
@@ -58,6 +70,7 @@ async def namespace(
     return await usecases.namespace.namespace.get_by_owner_id(user.id)
 
 
-UseCasesDeps = Annotated[UseCases, Depends(usecases)]
-CurrentUserDeps = Annotated[User, Depends(current_user)]
+CurrentUserDeps = Annotated[CurrentUser, Depends(current_user)]
+CurrentUserContextDeps = Annotated[CurrentUserContext, Depends(current_user_ctx)]
 NamespaceDeps = Annotated[Namespace, Depends(namespace)]
+UseCasesDeps = Annotated[UseCases, Depends(usecases)]

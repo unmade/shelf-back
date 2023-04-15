@@ -380,14 +380,18 @@ class TestEmptyTrash:
     async def test(
         self, client: TestClient, namespace: Namespace, empty_trash: MagicMock,
     ):
+        # GIVEN
+        context = mock.MagicMock()
         expected_task_id = uuid.uuid4()
         empty_trash.delay.return_value = mock.Mock(id=expected_task_id)
-        client.mock_namespace(namespace)
+        client.mock_current_user_ctx(context).mock_namespace(namespace)
+        # WHEN
         response = await client.post(self.url)
+        # THEN
         task_id = response.json()["async_task_id"]
         assert task_id == str(expected_task_id)
         assert response.status_code == 200
-        empty_trash.delay.assert_called_once_with(namespace.path)
+        empty_trash.delay.assert_called_once_with(namespace.path, context=context)
 
 
 class TestEmptyTrashCheck:
@@ -746,6 +750,8 @@ class TestMoveBatch:
     async def test(
         self, client: TestClient, namespace: Namespace, move_batch: MagicMock,
     ):
+        # GIVEN
+        context = mock.MagicMock()
         expected_task_id = uuid.uuid4()
         move_batch.delay.return_value = mock.Mock(id=expected_task_id)
         payload = {
@@ -754,13 +760,16 @@ class TestMoveBatch:
                 for i in range(3)
             ]
         }
-        client.mock_namespace(namespace)
+        client.mock_current_user_ctx(context).mock_namespace(namespace)
+        # WHEN
         response = await client.post("/files/move_batch", json=payload)
 
         task_id = response.json()["async_task_id"]
         assert task_id == str(expected_task_id)
         assert response.status_code == 200
-        move_batch.delay.assert_called_once_with(namespace.path, payload["items"])
+        move_batch.delay.assert_called_once_with(
+            namespace.path, payload["items"], context=context
+        )
 
 
 class TestMoveBatchCheck:
@@ -825,6 +834,8 @@ class TestMoveToTrashBatch:
     async def test(
         self, client: TestClient, namespace: Namespace, move_to_trash_batch: MagicMock,
     ):
+        # GIVEN
+        context = mock.MagicMock()
         expected_task_id = uuid.uuid4()
         move_to_trash_batch.delay.return_value = mock.Mock(id=expected_task_id)
         payload = {
@@ -832,14 +843,17 @@ class TestMoveToTrashBatch:
                 {"path": f"{i}.txt"} for i in range(3)
             ]
         }
-        client.mock_namespace(namespace)
+        client.mock_current_user_ctx(context).mock_namespace(namespace)
+        # WHEN
         response = await client.post(self.url, json=payload)
-
+        # THEN
         task_id = response.json()["async_task_id"]
         assert task_id == str(expected_task_id)
         assert response.status_code == 200
         paths = [f"{i}.txt" for i in range(3)]
-        move_to_trash_batch.delay.assert_called_once_with(namespace.path, paths)
+        move_to_trash_batch.delay.assert_called_once_with(
+            namespace.path, paths, context=context
+        )
 
 
 class TestUpload:

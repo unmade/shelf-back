@@ -1,4 +1,5 @@
 from .account import AccountRepository
+from .audit import AuditTrailRepository
 from .bookmark import BookmarkRepository
 from .file import FileRepository
 from .fingerprint import FingerprintRepository
@@ -9,6 +10,7 @@ from .user import UserRepository
 
 __all__ = [
     "AccountRepository",
+    "AuditTrailRepository",
     "BookmarkRepository",
     "ContentMetadataRepository",
     "FileRepository",

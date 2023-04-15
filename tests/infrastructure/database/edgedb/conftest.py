@@ -68,6 +68,12 @@ def account_repo(edgedb_database: EdgeDBDatabase):
 
 
 @pytest.fixture
+def audit_trail_repo(edgedb_database: EdgeDBDatabase):
+    """An EdgeDB instance of IAuditTrailRepository"""
+    return edgedb_database.audit_trail
+
+
+@pytest.fixture
 def bookmark_repo(edgedb_database: EdgeDBDatabase):
     """An EdgeDB instance of IBookmarkRepository"""
     return edgedb_database.bookmark

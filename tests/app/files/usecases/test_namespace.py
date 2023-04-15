@@ -35,6 +35,7 @@ def _make_file(ns_path: str, path: AnyPath, size: int = 10) -> File:
 class TestAddFile:
     async def test_unlimited_storage_quota(self, ns_use_case: NamespaceUseCase):
         # GIVEN
+        audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
         filecore = cast(mock.MagicMock, ns_use_case.filecore)
         dupefinder = cast(mock.MagicMock, ns_use_case.dupefinder)
         metadata = cast(mock.MagicMock, ns_use_case.metadata)
@@ -58,9 +59,11 @@ class TestAddFile:
         owner_id = ns_service.get_by_path.return_value.owner_id
         user_service.get_account.assert_awaited_once_with(owner_id)
         ns_service.get_space_used_by_owner_id.assert_not_awaited()
+        audit_trail.file_added.assert_called_once_with(result)
 
     async def test_limited_storage_quota(self, ns_use_case: NamespaceUseCase):
         # GIVEN
+        audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
         filecore = cast(mock.MagicMock, ns_use_case.filecore)
         dupefinder = cast(mock.MagicMock, ns_use_case.dupefinder)
         metadata = cast(mock.MagicMock, ns_use_case.metadata)
@@ -85,6 +88,7 @@ class TestAddFile:
         owner_id = ns_service.get_by_path.return_value.owner_id
         user_service.get_account.assert_awaited_once_with(owner_id)
         ns_service.get_space_used_by_owner_id.assert_awaited_once_with(owner_id)
+        audit_trail.file_added.assert_called_once_with(result)
 
     async def test_when_adding_to_trash_folder(self, ns_use_case: NamespaceUseCase):
         ns_path, path, content = "admin", "Trash/f.txt", BytesIO(b"Dummy Content!")
@@ -105,6 +109,7 @@ class TestAddFile:
         self, ns_use_case: NamespaceUseCase
     ):
         # GIVEN
+        audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
         filecore = cast(mock.MagicMock, ns_use_case.filecore)
         dupefinder = cast(mock.MagicMock, ns_use_case.dupefinder)
         metadata = cast(mock.MagicMock, ns_use_case.metadata)
@@ -128,17 +133,21 @@ class TestAddFile:
         owner_id = ns_service.get_by_path.return_value.owner_id
         user_service.get_account.assert_awaited_once_with(owner_id)
         ns_service.get_space_used_by_owner_id.assert_awaited_once_with(owner_id)
+        audit_trail.file_added.assert_not_called()
 
 
 class TestCreateFolder:
     async def test(self, ns_use_case: NamespaceUseCase):
         # GIVEN
         ns_path, path = "admin", "f.txt"
+        audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
         filecore = cast(mock.MagicMock, ns_use_case.filecore)
         # WHEN
-        await ns_use_case.create_folder(ns_path, path)
+        result = await ns_use_case.create_folder(ns_path, path)
         # THEN
+        assert result == filecore.create_folder.return_value
         filecore.create_folder.assert_awaited_once_with(ns_path, path)
+        audit_trail.folder_created.assert_called_once_with(result)
 
 
 class TestDeleteItem:
@@ -179,11 +188,13 @@ class TestEmptyTrash:
     async def test(self, ns_use_case: NamespaceUseCase):
         # GIVEN
         ns_path = "admin"
+        audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
         filecore = cast(mock.MagicMock, ns_use_case.filecore)
         # WHEN
         await ns_use_case.empty_trash(ns_path)
         # THEN
         filecore.empty_folder.assert_awaited_once_with(ns_path, "trash")
+        audit_trail.trash_emptied.assert_called_once_with()
 
 
 class TestFindDuplicates:
@@ -323,11 +334,14 @@ class TestMoveItem:
     async def test(self, ns_use_case: NamespaceUseCase):
         # GIVEN
         ns_path, at_path, to_path = "admin", "a/b", "a/c"
+        audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
         filecore = cast(mock.MagicMock, ns_use_case.filecore)
         # WHEN
-        await ns_use_case.move_item(ns_path, at_path, to_path)
+        result = await ns_use_case.move_item(ns_path, at_path, to_path)
         # THEN
+        assert result == filecore.move.return_value
         filecore.move.assert_awaited_once_with(ns_path, at_path, to_path)
+        audit_trail.file_moved.assert_called_once_with(result)
 
     @pytest.mark.parametrize("path", [".", "Trash", "trash"])
     async def test_when_moving_to_a_special_folder(
@@ -343,13 +357,16 @@ class TestMoveItemToTrash:
     async def test(self, ns_use_case: NamespaceUseCase):
         # GIVEN
         ns_path, path, next_path = "admin", "f.txt", Path("Trash/f.txt")
+        audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
         filecore = cast(mock.MagicMock, ns_use_case.filecore)
         filecore.exists_at_path.return_value = False
         # WHEN
-        await ns_use_case.move_item_to_trash(ns_path, path)
+        result = await ns_use_case.move_item_to_trash(ns_path, path)
         # THEN
+        assert result == filecore.move.return_value
         filecore.exists_at_path.assert_awaited_once_with(ns_path, next_path)
         filecore.move.assert_awaited_once_with(ns_path, path, next_path)
+        audit_trail.file_trashed.assert_called_once_with(result)
 
     @mock.patch("app.toolkit.timezone.now", return_value=datetime(2000, 1, 1, 19, 37))
     async def test_when_path_at_trash_exists(

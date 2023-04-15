@@ -3,8 +3,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from app.app.users.domain import User
+from app.toolkit import taskgroups
 
 if TYPE_CHECKING:
+    from app.app.audit.services import AuditTrailService
     from app.app.auth.services import TokenService
     from app.app.auth.services.token import Tokens
     from app.app.files.services import NamespaceService
@@ -14,14 +16,16 @@ __all__ = ["AuthUseCase"]
 
 
 class AuthUseCase:
-    __slots__ = ["ns_service", "token_service", "user_service"]
+    __slots__ = ["audit_trail", "ns_service", "token_service", "user_service"]
 
     def __init__(
         self,
+        audit_trail: AuditTrailService,
         namespace_service: NamespaceService,
         token_service: TokenService,
         user_service: UserService,
     ):
+        self.audit_trail = audit_trail
         self.ns_service = namespace_service
         self.token_service = token_service
         self.user_service = user_service
@@ -33,6 +37,8 @@ class AuthUseCase:
             raise User.InvalidCredentials() from exc
         if not user.check_password(password):
             raise User.InvalidCredentials() from None
+
+        taskgroups.schedule(self.audit_trail.user_signed_in(user))
         return await self.token_service.create(str(user.id))
 
     async def signup(

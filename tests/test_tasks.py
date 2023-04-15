@@ -8,6 +8,7 @@ from unittest import mock
 import pytest
 
 from app import tasks
+from app.app.audit.domain import CurrentUserContext
 from app.app.files.domain import File, Path
 from app.tasks import ErrorCode, RelocationPath
 
@@ -26,6 +27,15 @@ pytestmark = [pytest.mark.usefixtures("celery_session_worker")]
 def setUp():
     with mock.patch("app.infrastructure.context.Infrastructure"):
         yield
+
+
+def _make_context() -> CurrentUserContext:
+    return CurrentUserContext(
+        user=CurrentUserContext.User(
+            id=uuid.uuid4(),
+            username="admin",
+        )
+    )
 
 
 def _make_file(ns_path: str, path: AnyPath):
@@ -94,18 +104,26 @@ class TestEmptyTrash:
         with mock.patch(target) as patch:
             yield patch
 
-    async def test(self, empty_trash: MagicMock):
+    def test(self, empty_trash: MagicMock):
+        # GIVEN
         ns_path = "admin"
-        task = tasks.empty_trash.delay(ns_path)
+        context = _make_context()
+        # WHEN
+        task = tasks.empty_trash.delay(ns_path, context=context)
+        # THEN
         task.get(timeout=2)
         empty_trash.assert_awaited_once_with(ns_path)
 
-    async def test_when_failed_unexpectedly(
+    def test_when_failed_unexpectedly(
         self, caplog: LogCaptureFixture, empty_trash: MagicMock
     ):
+        # GIVEN
         ns_path = "admin"
+        context = _make_context()
         empty_trash.side_effect = Exception
-        task = tasks.empty_trash.delay(ns_path)
+        # WHEN
+        task = tasks.empty_trash.delay(ns_path, context=context)
+        # THEN
         task.get(timeout=2)
         empty_trash.assert_awaited_once_with(ns_path)
         msg = "Unexpectedly failed to empty trash folder"
@@ -121,7 +139,9 @@ class TestMoveBatch:
             yield move_file_mock
 
     def test(self, caplog: LogCaptureFixture, move_item: MagicMock):
+        # GIVEN
         ns_path = "admin"
+        context = _make_context()
         move_item.side_effect = [
             _make_file(ns_path, "folder/a.txt"),
             File.MissingParent,
@@ -136,8 +156,10 @@ class TestMoveBatch:
             RelocationPath(from_path="d.txt", to_path="f.txt"),
         ]
 
-        task = tasks.move_batch.delay(ns_path, relocations)
+        # WHEN
+        task = tasks.move_batch.delay(ns_path, relocations, context=context)
 
+        # THEN
         results: list[FileTaskResult] = task.get(timeout=2)
         assert len(results) == 4
 
@@ -168,7 +190,9 @@ class TestMovetoTrashFile:
             yield move_file_mock
 
     def test(self, caplog: LogCaptureFixture, move_to_trash: MagicMock):
+        # GIVEN
         ns_path = "admin"
+        context = _make_context()
         side_effect = [
             _make_file(ns_path, "Trash/a.txt"),
             File.NotFound,
@@ -178,8 +202,11 @@ class TestMovetoTrashFile:
         move_to_trash.side_effect = side_effect
 
         paths = ["a.txt", "b.txt", "c.txt", "d.txt"]
-        task = tasks.move_to_trash_batch.delay(ns_path, paths)
 
+        # WHEN
+        task = tasks.move_to_trash_batch.delay(ns_path, paths, context=context)
+
+        # THEN
         results: list[FileTaskResult] = task.get(timeout=2)
         assert len(results) == 4
 
