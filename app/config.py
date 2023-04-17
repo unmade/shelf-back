@@ -181,6 +181,9 @@ class EdgeDBConfig(BaseModel):
     edgedb_schema: AbsPath = AbsPath(str(_BASE_DIR / "./dbschema/default.esdl"))
     edgedb_max_concurrency: int | None = None
 
+    def with_pool_size(self, size: int) -> Self:
+        return self.copy(update={"edgedb_max_concurrency": size})
+
 
 class FeatureConfig(BaseModel):
     sign_up_disabled: bool = False

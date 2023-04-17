@@ -112,7 +112,7 @@ async def delete_immediately_batch(
     """
 
     results = []
-    async with AppContext(config.database, config.storage) as ctx:
+    async with AppContext(config.database.with_pool_size(1), config.storage) as ctx:
         for path in paths:
             file, err_code = None, None
 
@@ -140,7 +140,7 @@ async def empty_trash(
     Args:
         namespace (Namespace): Namespace where Trash should be emptied.
     """
-    async with AppContext(config.database, config.storage) as ctx:
+    async with AppContext(config.database.with_pool_size(1), config.storage) as ctx:
         with context:
             try:
                 await ctx.usecases.namespace.empty_trash(ns_path)
@@ -168,7 +168,7 @@ async def move_batch(
             or an error code.
     """
     results = []
-    async with AppContext(config.database, config.storage) as ctx:
+    async with AppContext(config.database.with_pool_size(1), config.storage) as ctx:
         move_item = ctx.usecases.namespace.move_item
         with context:
             for relocation in relocations:
@@ -206,7 +206,7 @@ async def move_to_trash_batch(
             or an error code.
     """
     results = []
-    async with AppContext(config.database, config.storage) as ctx:
+    async with AppContext(config.database.with_pool_size(1), config.storage) as ctx:
         move_item_to_trash = ctx.usecases.namespace.move_item_to_trash
         with context:
             for path in paths:
