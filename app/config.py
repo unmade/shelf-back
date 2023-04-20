@@ -163,11 +163,6 @@ class CacheConfig(BaseModel):
     disk_cache_max_size: BytesSize = BytesSize(BytesSize.multipliers["gb"])
 
 
-class CeleryConfig(BaseModel):
-    backend_dsn: RedisDsn
-    broker_dsn: RedisDsn
-
-
 class CORSConfig(BaseModel):
     allowed_origins: StringList = StringList([])
     allowed_methods: StringList = StringList(["*"])
@@ -206,18 +201,23 @@ class S3StorageConfig(BaseModel):
     s3_region: str
 
 
-DatabaseConfig: TypeAlias = EdgeDBConfig
+class SentryConfig(BaseModel):
+    dsn: AnyUrl | None = None
+    environment: str | None = None
 
+
+class ARQWorkerConfig(BaseModel):
+    broker_dsn: RedisDsn
+
+
+DatabaseConfig: TypeAlias = EdgeDBConfig
 
 StorageConfig: TypeAlias = Annotated[
     FileSystemStorageConfig | S3StorageConfig,
     Field(discriminator="type")
 ]
 
-
-class SentryConfig(BaseModel):
-    dsn: AnyUrl | None = None
-    environment: str | None = None
+WorkerConfig: TypeAlias = ARQWorkerConfig
 
 
 class AppConfig(BaseSettings):
@@ -228,11 +228,11 @@ class AppConfig(BaseSettings):
     auth: AuthConfig
     cache: CacheConfig = CacheConfig()
     cors: CORSConfig = CORSConfig()
-    celery: CeleryConfig
     database: DatabaseConfig
     features: FeatureConfig = FeatureConfig()
     sentry: SentryConfig = SentryConfig()
     storage: StorageConfig
+    worker: WorkerConfig
 
     class Config:
         env_file = ".env", ".env.prod"

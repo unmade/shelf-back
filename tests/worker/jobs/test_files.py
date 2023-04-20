@@ -2,40 +2,23 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from unittest import mock
 
 import pytest
 
-from app import tasks
 from app.app.audit.domain import CurrentUserContext
 from app.app.files.domain import File, Path
-from app.tasks import ErrorCode, RelocationPath
+from app.worker.jobs import files
+from app.worker.jobs.files import ErrorCode, RelocationPath
 
 if TYPE_CHECKING:
-    from unittest.mock import MagicMock
-
     from pytest import LogCaptureFixture
 
     from app.app.files.domain import AnyPath
-    from app.tasks import FileTaskResult
+    from app.worker.main import ARQContext
 
-pytestmark = [pytest.mark.usefixtures("celery_session_worker")]
-
-
-@pytest.fixture(scope="module", autouse=True)
-def setUp():
-    with mock.patch("app.infrastructure.context.Infrastructure"):
-        yield
-
-
-def _make_context() -> CurrentUserContext:
-    return CurrentUserContext(
-        user=CurrentUserContext.User(
-            id=uuid.uuid4(),
-            username="admin",
-        )
-    )
+pytestmark = [pytest.mark.asyncio]
 
 
 def _make_file(ns_path: str, path: AnyPath):
@@ -49,20 +32,18 @@ def _make_file(ns_path: str, path: AnyPath):
     )
 
 
-@pytest.mark.database(transaction=False)
-def test_celery_works():
-    task = tasks.ping.delay()
-    assert task.get(timeout=1) == "pong"
+def _make_context() -> CurrentUserContext:
+    return CurrentUserContext(
+        user=CurrentUserContext.User(
+            id=uuid.uuid4(),
+            username="admin",
+        )
+    )
 
 
 class TestDeleteImmediatelyBatch:
-    @pytest.fixture
-    def delete_item(self):
-        target = "app.app.files.usecases.NamespaceUseCase.delete_item"
-        with mock.patch(target) as patch:
-            yield patch
-
-    def test(self, caplog: LogCaptureFixture, delete_item: MagicMock):
+    async def test(self, caplog: LogCaptureFixture, arq_context: ARQContext):
+        # GIVEN
         ns_path = "admin"
         side_effect = [
             _make_file(ns_path, "Trash/a.txt"),
@@ -70,12 +51,14 @@ class TestDeleteImmediatelyBatch:
             Exception,
             _make_file(ns_path, "Tras/f.txt"),
         ]
-        delete_item.side_effect = side_effect
-
+        usecases = cast(mock.MagicMock, arq_context["usecases"])
+        usecases.namespace.delete_item.side_effect = side_effect
         paths = ["a.txt", "b.txt", "c.txt", "d.txt"]
-        task = tasks.delete_immediately_batch.delay(ns_path, paths)
 
-        results: list[FileTaskResult] = task.get(timeout=2)
+        # WHEN
+        results = await files.delete_immediately_batch(arq_context, ns_path, paths)
+
+        # THEN
         assert len(results) == 4
 
         assert results[0].file is not None
@@ -90,59 +73,48 @@ class TestDeleteImmediatelyBatch:
         assert results[3].file is not None
         assert results[3].file.path == side_effect[3].path
 
-        assert delete_item.await_count == 4
+        assert usecases.namespace.delete_item.await_count == len(results)
 
         msg = "Unexpectedly failed to delete a file"
-        log_record = ("app.tasks", logging.ERROR, msg)
+        log_record = ("app.worker.jobs.files", logging.ERROR, msg)
         assert caplog.record_tuples == [log_record]
 
 
 class TestEmptyTrash:
-    @pytest.fixture
-    def empty_trash(self):
-        target = "app.app.files.usecases.NamespaceUseCase.empty_trash"
-        with mock.patch(target) as patch:
-            yield patch
-
-    def test(self, empty_trash: MagicMock):
+    async def test(self, arq_context: ARQContext):
         # GIVEN
         ns_path = "admin"
         context = _make_context()
+        usecases = cast(mock.MagicMock, arq_context["usecases"])
         # WHEN
-        task = tasks.empty_trash.delay(ns_path, context=context)
+        await files.empty_trash(arq_context, ns_path, context=context)
         # THEN
-        task.get(timeout=2)
-        empty_trash.assert_awaited_once_with(ns_path)
+        usecases.namespace.empty_trash.assert_awaited_once_with(ns_path)
 
-    def test_when_failed_unexpectedly(
-        self, caplog: LogCaptureFixture, empty_trash: MagicMock
+    async def test_when_failed_unexpectedly(
+        self, caplog: LogCaptureFixture, arq_context: ARQContext
     ):
         # GIVEN
         ns_path = "admin"
         context = _make_context()
-        empty_trash.side_effect = Exception
+        usecases = cast(mock.MagicMock, arq_context["usecases"])
+        usecases.namespace.empty_trash.side_effect = Exception
         # WHEN
-        task = tasks.empty_trash.delay(ns_path, context=context)
+        await files.empty_trash(arq_context, ns_path, context=context)
         # THEN
-        task.get(timeout=2)
-        empty_trash.assert_awaited_once_with(ns_path)
+        usecases.namespace.empty_trash.assert_awaited_once_with(ns_path)
         msg = "Unexpectedly failed to empty trash folder"
-        log_record = ("app.tasks", logging.ERROR, msg)
+        log_record = ("app.worker.jobs.files", logging.ERROR, msg)
         assert caplog.record_tuples == [log_record]
 
 
 class TestMoveBatch:
-    @pytest.fixture
-    def move_item(self):
-        target = "app.app.files.usecases.NamespaceUseCase.move_item"
-        with mock.patch(target) as move_file_mock:
-            yield move_file_mock
-
-    def test(self, caplog: LogCaptureFixture, move_item: MagicMock):
+    async def test(self, caplog: LogCaptureFixture, arq_context: ARQContext):
         # GIVEN
         ns_path = "admin"
         context = _make_context()
-        move_item.side_effect = [
+        usecases = cast(mock.MagicMock, arq_context["usecases"])
+        usecases.namespace.move_item.side_effect = [
             _make_file(ns_path, "folder/a.txt"),
             File.MissingParent,
             Exception,
@@ -157,10 +129,11 @@ class TestMoveBatch:
         ]
 
         # WHEN
-        task = tasks.move_batch.delay(ns_path, relocations, context=context)
+        results = await files.move_batch(
+            arq_context, ns_path, relocations, context=context
+        )
 
         # THEN
-        results: list[FileTaskResult] = task.get(timeout=2)
         assert len(results) == 4
 
         assert results[0].file is not None
@@ -175,21 +148,15 @@ class TestMoveBatch:
         assert results[3].file is not None
         assert results[3].file.path == relocations[3].to_path
 
-        assert move_item.await_count == 4
+        assert usecases.namespace.move_item.await_count == len(results)
 
         msg = "Unexpectedly failed to move a file"
-        log_record = ("app.tasks", logging.ERROR, msg)
+        log_record = ("app.worker.jobs.files", logging.ERROR, msg)
         assert caplog.record_tuples == [log_record]
 
 
 class TestMovetoTrashFile:
-    @pytest.fixture
-    def move_to_trash(self):
-        target = "app.app.files.usecases.NamespaceUseCase.move_item_to_trash"
-        with mock.patch(target) as move_file_mock:
-            yield move_file_mock
-
-    def test(self, caplog: LogCaptureFixture, move_to_trash: MagicMock):
+    async def test(self, caplog: LogCaptureFixture, arq_context: ARQContext):
         # GIVEN
         ns_path = "admin"
         context = _make_context()
@@ -199,16 +166,18 @@ class TestMovetoTrashFile:
             Exception,
             _make_file(ns_path, "Tras/f.txt"),
         ]
-        move_to_trash.side_effect = side_effect
+        usecases = cast(mock.MagicMock, arq_context["usecases"])
+        usecases.namespace.move_item_to_trash.side_effect = side_effect
 
         paths = ["a.txt", "b.txt", "c.txt", "d.txt"]
 
         # WHEN
-        task = tasks.move_to_trash_batch.delay(ns_path, paths, context=context)
+        results = await files.move_to_trash_batch(
+            arq_context, ns_path, paths, context=context
+        )
 
         # THEN
-        results: list[FileTaskResult] = task.get(timeout=2)
-        assert len(results) == 4
+        assert len(results) == len(side_effect)
 
         assert results[0].file is not None
         assert results[0].file.path == side_effect[0].path
@@ -222,8 +191,8 @@ class TestMovetoTrashFile:
         assert results[3].file is not None
         assert results[3].file.path == side_effect[3].path
 
-        assert move_to_trash.await_count == 4
+        assert usecases.namespace.move_item_to_trash.await_count == len(results)
 
         msg = "Unexpectedly failed to move file to trash"
-        log_record = ("app.tasks", logging.ERROR, msg)
+        log_record = ("app.worker.jobs.files", logging.ERROR, msg)
         assert caplog.record_tuples == [log_record]

@@ -13,13 +13,13 @@ from app.app.audit.domain import CurrentUserContext
 from app.app.auth.usecases import AuthUseCase
 from app.app.files.domain import Namespace
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
+from app.app.infrastructure.worker import IWorker
 from app.app.users.domain import Account, User
 from app.app.users.usecases import UserUseCase
 from app.infrastructure.context import UseCases
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
-
 
 
 class TestClient(AsyncClient):
@@ -99,9 +99,21 @@ def user_use_case(_usecases: UseCases):
 
 @pytest.fixture(autouse=True)
 def mock_usecases_deps(app: FastAPI, _usecases: UseCases):
-    def get_usecases():
+    async def get_usecases():
         return _usecases
     app.dependency_overrides[deps.usecases] = get_usecases
+
+
+@pytest.fixture
+def worker_mock():
+    return mock.MagicMock(IWorker)
+
+
+@pytest.fixture(autouse=True)
+def mock_worker_deps(app: FastAPI, worker_mock: mock.MagicMock):
+    async def get_worker():
+        return worker_mock
+    app.dependency_overrides[deps.worker] = get_worker
 
 
 @pytest.fixture

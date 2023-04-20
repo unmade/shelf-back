@@ -45,10 +45,10 @@ Apply migration:
 python manage.py migrate schema.esdl
 ```
 
-Start Celery:
+Start the worker:
 
 ```bash
-celery -A app.tasks worker --loglevel=INFO
+arq app.worker.main.WorkerSettings
 ```
 
 Start the application:
@@ -127,8 +127,6 @@ superuser on the first image run:
 |AUTH__REFRESH_TOKEN_TTL       | - | 3d     | A time-to-live of the refresh token. |
 |CACHE__BACKEND_DSN            | - | mem:// | Cache backend DSN. See options [here](https://github.com/Krukov/cashews) |
 |CACHE__DISK_CACHE_MAX_SIZE    | - | -      | Client cache size limit in bytes. Can be set in a format like "512MB", "1GB" |
-|CELERY__BACKEND_DSN           | + | -      | Celery broker DSN |
-|CELERY__BROKER_DSN            | + | -      | Celery result backend DSN  |
 |CORS__ALLOWED_ORIGINS         | - | []     | A comma-separated list of origins that should be permitted to make cross-origin requests |
 |DATABASE__DSN                 | - | -      | Database DSN. If not set, then fallback to EdgeDB envs |
 |DATABASE__EDGEDB_TLS_CA_FILE  | - | -      | Path to TLS Certificate file to connect to the database. If not set, then fallback to EDGEDB_TLS_CA |
@@ -145,3 +143,4 @@ superuser on the first image run:
 |STORAGE__S3_SECRET_ACCESS_KEY | - | -      | S3 secret access key. Required only if `s3` storage type is used |
 |STORAGE__S3_BUCKET_NAME       | - | shelf  | S3 bucket to use to store files. Required only if `s3` storage type is used |
 |STORAGE__S3_REGION_NAME       | - | -      | S3 region. Required only if `s3` storage type is used |
+|WORKER__BROKER_DSN            | + | -      | Worker broker DSN |

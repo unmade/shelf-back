@@ -43,6 +43,13 @@ class TestUseCases:
 
 
 @pytest.mark.asyncio
+class TestWorker:
+    async def test(self):
+        request = mock.MagicMock(Request)
+        assert await deps.worker(request) == request.state.worker
+
+
+@pytest.mark.asyncio
 class TestCurrentUserContext:
     @pytest.fixture
     def payload(self, user: User):

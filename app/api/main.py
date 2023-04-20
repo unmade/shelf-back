@@ -8,6 +8,7 @@ import sentry_sdk
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.app.infrastructure.worker import IWorker
 from app.config import config
 from app.infrastructure.context import AppContext, UseCases
 
@@ -22,6 +23,7 @@ sentry_sdk.init(
 
 class State(TypedDict):
     usecases: UseCases
+    worker: IWorker
 
 
 class Lifespan:
@@ -29,12 +31,15 @@ class Lifespan:
 
     def __init__(self):
         # instantiate database synchronously to correctly set context vars
-        self.ctx = AppContext(config.database, config.storage)
+        self.ctx = AppContext(config.database, config.storage, config.worker)
 
     @contextlib.asynccontextmanager
     async def __call__(self, app: FastAPI) -> AsyncIterator[State]:
         async with self.ctx as ctx:
-            yield {"usecases": ctx.usecases}
+            yield {
+                "usecases": ctx.usecases,
+                "worker": ctx._infra.worker,
+            }
 
 
 def create_app(

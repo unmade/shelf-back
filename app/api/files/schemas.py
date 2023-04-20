@@ -8,7 +8,7 @@ from uuid import UUID
 from pydantic import BaseModel, root_validator, validator
 
 from app.app.files.services.filecore import thumbnails
-from app.tasks import ErrorCode as TaskErrorCode
+from app.worker.jobs.files import ErrorCode as TaskErrorCode
 
 from .exceptions import FileAlreadyDeleted, MalformedPath
 
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from fastapi import Request
 
     from app.app.files.domain import ContentMetadata, File
-    from app.tasks import FileTaskResult
+    from app.worker.jobs.files import FileTaskResult
 
 
 class ThumbnailSize(str, Enum):
@@ -98,7 +98,7 @@ class PathRequest(BaseModel):
 
 
 class AsyncTaskID(BaseModel):
-    async_task_id: UUID
+    async_task_id: str
 
 
 class AsyncTaskStatus(str, Enum):

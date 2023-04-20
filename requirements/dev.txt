@@ -27,9 +27,7 @@ pexpect==4.8.0
 pickleshare==0.7.5
     # via ipython
 prompt-toolkit==3.0.38
-    # via
-    #   -c requirements/test.txt
-    #   ipython
+    # via ipython
 ptyprocess==0.7.0
     # via pexpect
 pure-eval==0.2.2
@@ -47,6 +45,4 @@ traitlets==5.9.0
     #   ipython
     #   matplotlib-inline
 wcwidth==0.2.6
-    # via
-    #   -c requirements/test.txt
-    #   prompt-toolkit
+    # via prompt-toolkit

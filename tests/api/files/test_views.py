@@ -8,7 +8,6 @@ from tempfile import SpooledTemporaryFile
 from typing import TYPE_CHECKING
 from unittest import mock
 
-import celery.states
 import pytest
 
 from app.api import shortcuts
@@ -24,11 +23,13 @@ from app.api.files.exceptions import (
     ThumbnailUnavailable,
     UploadFileTooLarge,
 )
+from app.api.files.schemas import MoveBatchRequest
 from app.app.files.domain import ContentMetadata, Exif, File, Path, mediatypes
 from app.app.infrastructure.storage import ContentReader
+from app.app.infrastructure.worker import Job, JobStatus
 from app.app.users.domain import Account
-from app.tasks import ErrorCode as TaskErrorCode
-from app.tasks import FileTaskResult
+from app.worker.jobs.files import ErrorCode as TaskErrorCode
+from app.worker.jobs.files import FileTaskResult
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
@@ -124,37 +125,39 @@ class TestCreateFolder:
 class TestDeleteImmediatelyBatch:
     url = "/files/delete_immediately_batch"
 
-    @pytest.fixture
-    def delete_batch(self):
-        with mock.patch("app.tasks.delete_immediately_batch") as patch:
-            yield patch
-
     async def test(
-        self, client: TestClient, namespace: Namespace, delete_batch: MagicMock,
+        self, client: TestClient, namespace: Namespace, worker_mock: MagicMock
     ):
-        expected_task_id = uuid.uuid4()
-        delete_batch.delay.return_value = mock.Mock(id=expected_task_id)
+        # GIVEN
+        expected_job_id = str(uuid.uuid4())
+        worker_mock.enqueue.return_value = Job(id=expected_job_id)
         payload = {
             "items": [
                 {"path": f"{i}.txt"} for i in range(3)
             ]
         }
         client.mock_namespace(namespace)
+        # WHEN
         response = await client.post(self.url, json=payload)
-
-        task_id = response.json()["async_task_id"]
-        assert task_id == str(expected_task_id)
+        # THEN
+        job_id = response.json()["async_task_id"]
+        assert job_id == str(expected_job_id)
         assert response.status_code == 200
         paths = [f"{i}.txt" for i in range(3)]
-        delete_batch.delay.assert_called_once_with(namespace.path, paths)
+        worker_mock.enqueue.assert_awaited_once_with(
+            "delete_immediately_batch", namespace.path, paths
+        )
 
     @pytest.mark.parametrize("path", [".", "Trash"])
     async def test_when_path_is_malformed(
         self, client: TestClient, namespace: Namespace, path: str
     ):
+        # GIVEN
         payload = {"items": [{"path": path}]}
         client.mock_namespace(namespace)
+        # WHEN
         response = await client.post(self.url, json=payload)
+        # THEN
         message = f"Path '{path}' is a special path and can't be deleted"
         assert response.json() == MalformedPath(message).as_dict()
         assert response.status_code == 400
@@ -163,41 +166,41 @@ class TestDeleteImmediatelyBatch:
 class TestDeleteImmediatelyBatchCheck:
     url = "/files/delete_immediately_batch/check"
 
-    @pytest.fixture
-    def task_result(self):
-        with mock.patch("app.tasks.celery_app.AsyncResult") as patch:
-            yield patch
-
-    async def test_when_task_is_pending(
-        self, client: TestClient, namespace: Namespace, task_result: MagicMock
+    async def test_when_job_is_pending(
+        self, client: TestClient, namespace: Namespace, worker_mock: MagicMock,
     ):
-        task_id = uuid.uuid4()
-        payload = {"async_task_id": str(task_id)}
+        # GIVEN
+        job_id = str(uuid.uuid4())
+        payload = {"async_task_id": job_id}
         client.mock_namespace(namespace)
+        worker_mock.get_status.return_value = JobStatus.pending
+        # WHEN
         response = await client.post(self.url, json=payload)
-        assert response.json()["status"] == 'pending'
+        # THEN
+        assert response.json()["status"] == "pending"
         assert response.json()["result"] is None
         assert response.status_code == 200
-        task_result.assert_called_once_with(str(task_id))
+        worker_mock.get_status.assert_awaited_once_with(job_id)
 
-    async def test_when_task_is_completed(
-        self, client: TestClient, namespace: Namespace, task_result: MagicMock
+    async def test_when_job_is_completed(
+        self, client: TestClient, namespace: Namespace, worker_mock: MagicMock
     ):
+        # GIVEN
         ns_path = str(namespace.path)
-        task_id = uuid.uuid4()
-        task_result.return_value = mock.Mock(
-            status=celery.states.SUCCESS,
-            result=[
-                FileTaskResult(file=_make_file(ns_path, "f.txt"), err_code=None),
-                FileTaskResult(file=None, err_code=TaskErrorCode.file_not_found),
-            ]
-        )
-        payload = {"async_task_id": str(task_id)}
-
+        job_id = str(uuid.uuid4())
+        worker_mock.get_status.return_value = JobStatus.complete
+        worker_mock.get_result.return_value = [
+            FileTaskResult(file=_make_file(ns_path, "f.txt"), err_code=None),
+            FileTaskResult(file=None, err_code=TaskErrorCode.file_not_found),
+        ]
+        payload = {"async_task_id": job_id}
         client.mock_namespace(namespace)
+
+        # WHEN
         response = await client.post(self.url, json=payload)
 
-        assert response.json()["status"] == 'completed'
+        # THEN
+        assert response.json()["status"] == "completed"
         results = response.json()["result"]
         assert len(results) == 2
 
@@ -208,7 +211,8 @@ class TestDeleteImmediatelyBatchCheck:
         assert results[1]["err_code"] == "file_not_found"
 
         assert response.status_code == 200
-        task_result.assert_called_once_with(str(task_id))
+        worker_mock.get_status.assert_awaited_once_with(job_id)
+        worker_mock.get_result.assert_awaited_once_with(job_id)
 
 
 class TestDownload:
@@ -372,64 +376,59 @@ class TestDownloadXHR:
 class TestEmptyTrash:
     url = "/files/empty_trash"
 
-    @pytest.fixture
-    def empty_trash(self):
-        with mock.patch("app.tasks.empty_trash") as patch:
-            yield patch
-
     async def test(
-        self, client: TestClient, namespace: Namespace, empty_trash: MagicMock,
+        self, client: TestClient, namespace: Namespace, worker_mock: MagicMock
     ):
         # GIVEN
         context = mock.MagicMock()
-        expected_task_id = uuid.uuid4()
-        empty_trash.delay.return_value = mock.Mock(id=expected_task_id)
+        expected_job_id = str(uuid.uuid4())
+        worker_mock.enqueue.return_value = Job(id=expected_job_id)
         client.mock_current_user_ctx(context).mock_namespace(namespace)
         # WHEN
         response = await client.post(self.url)
         # THEN
-        task_id = response.json()["async_task_id"]
-        assert task_id == str(expected_task_id)
+        job_id = response.json()["async_task_id"]
+        assert job_id == str(expected_job_id)
         assert response.status_code == 200
-        empty_trash.delay.assert_called_once_with(namespace.path, context=context)
+        worker_mock.enqueue.assert_awaited_once_with(
+            "empty_trash", namespace.path, context=context
+        )
 
 
 class TestEmptyTrashCheck:
     url = "/files/empty_trash/check"
 
-    @pytest.fixture
-    def task_result(self):
-        with mock.patch("app.tasks.celery_app.AsyncResult") as patch:
-            yield patch
-
-    async def test_when_task_is_pending(
-        self, client: TestClient, namespace: Namespace, task_result: MagicMock
+    async def test_when_job_is_pending(
+        self, client: TestClient, namespace: Namespace, worker_mock: MagicMock
     ):
-        task_id = uuid.uuid4()
-        payload = {"async_task_id": str(task_id)}
+        # GIVEN
+        job_id = str(uuid.uuid4())
+        payload = {"async_task_id": job_id}
         client.mock_namespace(namespace)
+        worker_mock.get_status.return_value = JobStatus.pending
+        # WHEN
         response = await client.post(self.url, json=payload)
-        assert response.json()["status"] == 'pending'
+        # THEN
+        assert response.json()["status"] == "pending"
         assert response.json()["result"] is None
         assert response.status_code == 200
-        task_result.assert_called_once_with(str(task_id))
+        worker_mock.get_status.assert_awaited_once_with(job_id)
 
-    async def test_when_task_is_completed(
-        self, client: TestClient, namespace: Namespace, task_result: MagicMock
+    async def test_when_job_is_completed(
+        self, client: TestClient, namespace: Namespace, worker_mock: MagicMock
     ):
-        task_id = uuid.uuid4()
-        task_result.return_value = mock.Mock(
-            status=celery.states.SUCCESS,
-            result=None
-        )
-        payload = {"async_task_id": str(task_id)}
-
+        # GIVEN
+        job_id = str(uuid.uuid4())
+        payload = {"async_task_id": job_id}
         client.mock_namespace(namespace)
+        worker_mock.get_status.return_value = JobStatus.complete
+        # WHEN
         response = await client.post(self.url, json=payload)
-
-        assert response.json()["status"] == 'completed'
+        # THEN
+        assert response.json()["status"] == "completed"
         assert response.json()["result"] is None
-        task_result.assert_called_once_with(str(task_id))
+        assert response.status_code == 200
+        worker_mock.get_status.assert_awaited_once_with(job_id)
 
 
 class TestFindDuplicates:
@@ -742,73 +741,70 @@ class TestListFolder:
 
 
 class TestMoveBatch:
-    @pytest.fixture
-    def move_batch(self):
-        with mock.patch("app.tasks.move_batch") as patch:
-            yield patch
+    url = "/files/move_batch"
 
     async def test(
-        self, client: TestClient, namespace: Namespace, move_batch: MagicMock,
+        self, client: TestClient, namespace: Namespace, worker_mock: MagicMock,
     ):
         # GIVEN
         context = mock.MagicMock()
-        expected_task_id = uuid.uuid4()
-        move_batch.delay.return_value = mock.Mock(id=expected_task_id)
-        payload = {
+        expected_job_id = str(uuid.uuid4())
+        worker_mock.enqueue.return_value = Job(id=expected_job_id)
+        payload = MoveBatchRequest.parse_obj({
             "items": [
                 {"from_path": f"{i}.txt", "to_path": f"folder/{i}.txt"}
                 for i in range(3)
             ]
-        }
+        })
         client.mock_current_user_ctx(context).mock_namespace(namespace)
         # WHEN
-        response = await client.post("/files/move_batch", json=payload)
-
-        task_id = response.json()["async_task_id"]
-        assert task_id == str(expected_task_id)
+        response = await client.post(self.url, json=payload.dict())
+        # THEN
+        job_id = response.json()["async_task_id"]
+        assert job_id == str(expected_job_id)
         assert response.status_code == 200
-        move_batch.delay.assert_called_once_with(
-            namespace.path, payload["items"], context=context
+        worker_mock.enqueue.assert_awaited_once_with(
+            "move_batch", namespace.path, payload.items, context=context
         )
 
 
 class TestMoveBatchCheck:
     url = "/files/move_batch/check"
 
-    @pytest.fixture
-    def task_result(self):
-        with mock.patch("app.tasks.celery_app.AsyncResult") as patch:
-            yield patch
-
-    async def test_when_task_is_pending(
-        self, client: TestClient, namespace: Namespace, task_result: MagicMock
+    async def test_when_job_is_pending(
+        self, client: TestClient, namespace: Namespace, worker_mock: MagicMock
     ):
-        task_id = uuid.uuid4()
-        payload = {"async_task_id": str(task_id)}
+            # GIVEN
+        job_id = str(uuid.uuid4())
+        payload = {"async_task_id": job_id}
         client.mock_namespace(namespace)
+        worker_mock.get_status.return_value = JobStatus.pending
+        # WHEN
         response = await client.post(self.url, json=payload)
-        assert response.json()["status"] == 'pending'
+        # THEN
+        assert response.json()["status"] == "pending"
         assert response.json()["result"] is None
         assert response.status_code == 200
-        task_result.assert_called_once_with(str(task_id))
+        worker_mock.get_status.assert_awaited_once_with(job_id)
 
-    async def test_when_task_is_completed(
-        self, client: TestClient, namespace: Namespace, task_result: MagicMock
+    async def test_when_job_is_completed(
+        self, client: TestClient, namespace: Namespace, worker_mock: MagicMock
     ):
+        # GIVEN
         ns_path = str(namespace.path)
-        task_id = uuid.uuid4()
-        task_result.return_value = mock.Mock(
-            status=celery.states.SUCCESS,
-            result=[
-                FileTaskResult(file=_make_file(ns_path, "f.txt"), err_code=None),
-                FileTaskResult(file=None, err_code=TaskErrorCode.file_not_found),
-            ]
-        )
-        payload = {"async_task_id": str(task_id)}
-
+        job_id = str(uuid.uuid4())
+        worker_mock.get_status.return_value = JobStatus.complete
+        worker_mock.get_result.return_value = [
+            FileTaskResult(file=_make_file(ns_path, "f.txt"), err_code=None),
+            FileTaskResult(file=None, err_code=TaskErrorCode.file_not_found),
+        ]
+        payload = {"async_task_id": job_id}
         client.mock_namespace(namespace)
+
+        # WHEN
         response = await client.post(self.url, json=payload)
 
+        # THEN
         assert response.json()["status"] == 'completed'
         results = response.json()["result"]
         assert len(results) == 2
@@ -820,24 +816,20 @@ class TestMoveBatchCheck:
         assert results[1]["err_code"] == "file_not_found"
 
         assert response.status_code == 200
-        task_result.assert_called_once_with(str(task_id))
+        worker_mock.get_status.assert_awaited_once_with(job_id)
+        worker_mock.get_result.assert_awaited_once_with(job_id)
 
 
 class TestMoveToTrashBatch:
     url = "/files/move_to_trash_batch"
 
-    @pytest.fixture
-    def move_to_trash_batch(self):
-        with mock.patch("app.tasks.move_to_trash_batch") as patch:
-            yield patch
-
     async def test(
-        self, client: TestClient, namespace: Namespace, move_to_trash_batch: MagicMock,
+        self, client: TestClient, namespace: Namespace, worker_mock: MagicMock,
     ):
         # GIVEN
         context = mock.MagicMock()
-        expected_task_id = uuid.uuid4()
-        move_to_trash_batch.delay.return_value = mock.Mock(id=expected_task_id)
+        expected_job_id = str(uuid.uuid4())
+        worker_mock.enqueue.return_value = Job(id=expected_job_id)
         payload = {
             "items": [
                 {"path": f"{i}.txt"} for i in range(3)
@@ -847,12 +839,12 @@ class TestMoveToTrashBatch:
         # WHEN
         response = await client.post(self.url, json=payload)
         # THEN
-        task_id = response.json()["async_task_id"]
-        assert task_id == str(expected_task_id)
+        job_id = response.json()["async_task_id"]
+        assert job_id == str(expected_job_id)
         assert response.status_code == 200
-        paths = [f"{i}.txt" for i in range(3)]
-        move_to_trash_batch.delay.assert_called_once_with(
-            namespace.path, paths, context=context
+        paths = [item["path"] for item in payload["items"]]
+        worker_mock.enqueue.assert_awaited_once_with(
+            "move_to_trash_batch", namespace.path, paths, context=context
         )
 
 

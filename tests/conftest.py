@@ -8,12 +8,11 @@ import pytest
 from faker import Faker
 from PIL import Image
 
-from app.tasks import CeleryConfig
-
 fake = Faker()
 
 pytest_plugins = [
     "pytester",
+    "tests.fixtures.infrastructure.arq_worker",
     "tests.fixtures.infrastructure.edgedb",
     "tests.fixtures.infrastructure.fs_storage",
     "tests.fixtures.infrastructure.s3_storage",
@@ -49,18 +48,6 @@ def reuse_db(pytestconfig):
     the test run.
     """
     return pytestconfig.getoption("reuse_db", False)
-
-
-@pytest.fixture(scope='session')
-def celery_config():
-    return {
-        "broker_url": CeleryConfig.broker_url,
-        "result_backend": CeleryConfig.result_backend,
-        "result_serializer": CeleryConfig.result_serializer,
-        "event_serializer": CeleryConfig.event_serializer,
-        "accept_content": CeleryConfig.accept_content,
-        "result_accept_content": CeleryConfig.result_accept_content,
-    }
 
 
 @pytest.fixture

@@ -14,8 +14,12 @@ if TYPE_CHECKING:
 
 class TestInfrastructure:
     @pytest.mark.asyncio
-    async def test_as_context_manager(self, edgedb_config, fs_storage_config):
-        async with Infrastructure(edgedb_config, fs_storage_config) as infra:
+    async def test_as_context_manager(
+        self, edgedb_config, fs_storage_config, arq_worker_config
+    ):
+        async with Infrastructure(
+            edgedb_config, fs_storage_config, arq_worker_config
+        ) as infra:
             assert isinstance(infra, Infrastructure)
 
     @pytest.mark.parametrize(["config_name", "database_cls"], [

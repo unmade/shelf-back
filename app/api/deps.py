@@ -9,6 +9,7 @@ from app.app.audit.domain import CurrentUserContext
 from app.app.audit.domain.current_user_context import CurrentUser
 from app.app.auth.domain import AccessToken, TokenError
 from app.app.files.domain import Namespace
+from app.app.infrastructure.worker import IWorker
 from app.app.users.domain import User
 from app.infrastructure.context import UseCases
 
@@ -19,6 +20,7 @@ __all__ = [
     "CurrentUserContextDeps",
     "NamespaceDeps",
     "UseCasesDeps",
+    "WorkerDeps",
 ]
 
 reusable_oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/sign_in", auto_error=False)
@@ -26,6 +28,10 @@ reusable_oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/sign_in", auto_error=Fals
 
 async def usecases(request: Request):
     return request.state.usecases
+
+
+async def worker(request: Request):
+    return request.state.worker
 
 
 def token_payload(token: str | None = Depends(reusable_oauth2)) -> AccessToken:
@@ -74,3 +80,4 @@ CurrentUserDeps = Annotated[CurrentUser, Depends(current_user)]
 CurrentUserContextDeps = Annotated[CurrentUserContext, Depends(current_user_ctx)]
 NamespaceDeps = Annotated[Namespace, Depends(namespace)]
 UseCasesDeps = Annotated[UseCases, Depends(usecases)]
+WorkerDeps = Annotated[IWorker, Depends(worker)]

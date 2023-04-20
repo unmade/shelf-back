@@ -22,14 +22,15 @@ from app.config import (
     FileSystemStorageConfig,
     S3StorageConfig,
     StorageConfig,
+    WorkerConfig,
 )
 from app.infrastructure.database.edgedb import EdgeDBDatabase
 from app.infrastructure.storage import FileSystemStorage, S3Storage
+from app.infrastructure.worker import ARQWorker
 from app.toolkit import taskgroups
 
 if TYPE_CHECKING:
-    from app.app.infrastructure.storage import IStorage
-
+    from app.app.infrastructure import IStorage, IWorker
 
 __all__ = [
     "AppContext",
@@ -38,11 +39,16 @@ __all__ = [
 
 
 class AppContext:
-    __slots__ = ["usecases", "_stack", "_infra"]
+    __slots__ = ["usecases", "_infra", "_stack"]
 
-    def __init__(self, db_config: DatabaseConfig, storage_config: StorageConfig):
+    def __init__(
+        self,
+        db_config: DatabaseConfig,
+        storage_config: StorageConfig,
+        worker_config: WorkerConfig,
+    ):
         self._stack = AsyncExitStack()
-        self._infra = Infrastructure(db_config, storage_config)
+        self._infra = Infrastructure(db_config, storage_config, worker_config)
         services = Services(self._infra.database, self._infra.storage)
         self.usecases = UseCases(services)
 
@@ -56,15 +62,24 @@ class AppContext:
 
 
 class Infrastructure:
-    __slots__ = ["database", "storage", "_stack"]
+    __slots__ = ["database", "storage", "worker", "_stack"]
 
-    def __init__(self, db_config: DatabaseConfig, storage_config: StorageConfig):
+    def __init__(
+        self,
+        db_config: DatabaseConfig,
+        storage_config: StorageConfig,
+        worker_config: WorkerConfig,
+    ):
         self.database = self._get_database(db_config)
         self.storage = self._get_storage(storage_config)
+        self.worker = self._get_worker(worker_config)
         self._stack = AsyncExitStack()
 
     async def __aenter__(self) -> Self:
-        await self._stack.enter_async_context(self.database)
+        await taskgroups.gather(
+            self._stack.enter_async_context(self.database),
+            self._stack.enter_async_context(self.worker),
+        )
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -81,6 +96,10 @@ class Infrastructure:
         if isinstance(storage_config, FileSystemStorageConfig):
             return FileSystemStorage(storage_config)
         assert_never(storage_config)
+
+    @staticmethod
+    def _get_worker(worker_config: WorkerConfig) -> IWorker:
+        return ARQWorker(worker_config)
 
 
 class Services:

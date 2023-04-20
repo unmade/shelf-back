@@ -2,15 +2,14 @@ from __future__ import annotations
 
 from uuid import UUID
 
-import celery.states
 from fastapi import APIRouter, Form, Query, Request, UploadFile
 from fastapi import File as FileParam
 from fastapi.responses import ORJSONResponse, Response, StreamingResponse
 
-from app import tasks
 from app.api import shortcuts
-from app.api.deps import CurrentUserContextDeps, NamespaceDeps, UseCasesDeps
+from app.api.deps import CurrentUserContextDeps, NamespaceDeps, UseCasesDeps, WorkerDeps
 from app.app.files.domain import ContentMetadata, File, mediatypes
+from app.app.infrastructure.worker import JobStatus
 from app.app.users.domain import Account
 
 from . import exceptions
@@ -65,31 +64,34 @@ async def create_folder(
 
 
 @router.post("/delete_immediately_batch")
-def delete_immediately_batch(
+async def delete_immediately_batch(
     payload: DeleteImmediatelyBatchRequest,
     namespace: NamespaceDeps,
+    worker: WorkerDeps,
 ) -> AsyncTaskID:
     """Permanently delete multiple files or folders."""
     paths = [item.path for item in payload.items]
-    task = tasks.delete_immediately_batch.delay(namespace.path, paths)
-    return AsyncTaskID(async_task_id=task.id)
+    job = await worker.enqueue("delete_immediately_batch", namespace.path, paths)
+    return AsyncTaskID(async_task_id=job.id)
 
 
 @router.post("/delete_immediately_batch/check")
-def delete_immediately_check(
+async def delete_immediately_check(
     request: Request,
     payload: AsyncTaskID,
     _: NamespaceDeps,
+    worker: WorkerDeps,
 ) -> DeleteImmediatelyBatchCheckResponse:
     response_model = DeleteImmediatelyBatchCheckResponse
-    task = tasks.celery_app.AsyncResult(str(payload.async_task_id))
-    if task.status == celery.states.SUCCESS:
+    status = await worker.get_status(payload.async_task_id)
+    if status == JobStatus.complete:
+        result = await worker.get_result(payload.async_task_id)
         return response_model(
             status=AsyncTaskStatus.completed,
             result=[
                 AsyncTaskResult.from_entity(result, request=request)
-                for result in task.result
-            ],
+                for result in result
+            ]
         )
     return response_model(status=AsyncTaskStatus.pending)
 
@@ -162,24 +164,27 @@ async def download_xhr(
 
 
 @router.post("/empty_trash")
-def empty_trash(
+async def empty_trash(
     namespace: NamespaceDeps,
-    current_user_context: CurrentUserContextDeps,
+    current_user_ctx: CurrentUserContextDeps,
+    worker: WorkerDeps,
 ) -> AsyncTaskID:
     """Delete all files and folders in the Trash folder."""
-    task = tasks.empty_trash.delay(namespace.path, context=current_user_context)
-    return AsyncTaskID(async_task_id=task.id)
+    job = await worker.enqueue("empty_trash", namespace.path, context=current_user_ctx)
+    return AsyncTaskID(async_task_id=job.id)
 
 
 @router.post("/empty_trash/check")
-def empty_trash_check(
+async def empty_trash_check(
     payload: AsyncTaskID,
     _: NamespaceDeps,
+    worker: WorkerDeps,
 ) -> EmptyTrashCheckResponse:
     """Return empty_trash status."""
     response_model = EmptyTrashCheckResponse
-    task = tasks.celery_app.AsyncResult(str(payload.async_task_id))
-    if task.status == celery.states.SUCCESS:
+    status = await worker.get_status(payload.async_task_id)
+    if status == JobStatus.complete:
+        await worker.get_result(payload.async_task_id)
         return response_model(status=AsyncTaskStatus.completed)
     return response_model(status=AsyncTaskStatus.pending)
 
@@ -332,52 +337,58 @@ async def list_folder(
 
 
 @router.post("/move_batch")
-def move_batch(
+async def move_batch(
     payload: MoveBatchRequest,
     namespace: NamespaceDeps,
     current_user_ctx: CurrentUserContextDeps,
+    worker: WorkerDeps,
 ) -> AsyncTaskID:
     """Move multiple files or folders to different locations at once."""
-    ns_path = namespace.path
-    task = tasks.move_batch.delay(ns_path, payload.items, context=current_user_ctx)
-    return AsyncTaskID(async_task_id=task.id)
+    job = await worker.enqueue(
+        "move_batch", namespace.path, payload.items, context=current_user_ctx
+    )
+    return AsyncTaskID(async_task_id=job.id)
 
 
 @router.post("/move_batch/check")
-def move_batch_check(
+async def move_batch_check(
     request: Request,
     payload: AsyncTaskID,
     _: NamespaceDeps,
+    worker: WorkerDeps,
 ) -> MoveBatchCheckResponse:
     """Return move_batch status and a list of results."""
     response_model = MoveBatchCheckResponse
-    task = tasks.celery_app.AsyncResult(str(payload.async_task_id))
-    if task.status == celery.states.SUCCESS:
+    status = await worker.get_status(payload.async_task_id)
+    if status == JobStatus.complete:
+        result = await worker.get_result(payload.async_task_id)
         return response_model(
             status=AsyncTaskStatus.completed,
             result=[
                 AsyncTaskResult.from_entity(result, request=request)
-                for result in task.result
-            ],
+                for result in result
+            ]
         )
     return response_model(status=AsyncTaskStatus.pending)
 
 
 @router.post("/move_to_trash_batch")
-def move_to_trash_batch(
+async def move_to_trash_batch(
     payload: MoveToTrashBatchRequest,
     namespace: NamespaceDeps,
     current_user_ctx: CurrentUserContextDeps,
+    worker: WorkerDeps,
 ) -> AsyncTaskID:
     """
     Move several files or folders to Trash at once.
 
     To check task result use the same endpoint to check regular move result.
     """
-    ns_path = namespace.path
     paths = [item.path for item in payload.items]
-    task = tasks.move_to_trash_batch.delay(ns_path, paths, context=current_user_ctx)
-    return AsyncTaskID(async_task_id=task.id)
+    job = await worker.enqueue(
+        "move_to_trash_batch", namespace.path, paths, context=current_user_ctx
+    )
+    return AsyncTaskID(async_task_id=job.id)
 
 
 @router.post("/upload")

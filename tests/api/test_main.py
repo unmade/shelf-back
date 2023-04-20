@@ -16,5 +16,5 @@ class TestLifeSpan:
         with mock.patch("app.infrastructure.context.Infrastructure"):
             lifespan = Lifespan()
             async with lifespan(app=app) as state:
-                assert state == {"usecases": mock.ANY}
+                assert state == {"usecases": mock.ANY, "worker": mock.ANY}
                 assert isinstance(state["usecases"], UseCases)
