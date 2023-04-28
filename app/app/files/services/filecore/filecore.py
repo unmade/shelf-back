@@ -423,8 +423,9 @@ class FileCoreService:
                     size = 0
                     mediatype = mediatypes.FOLDER
                 else:
-                    if (key := folder) in missing:
-                        missing[key].size += file.size
+                    for item in itertools.chain((folder, ), folder.parents):
+                        if item in missing:
+                            missing[item].size += file.size
                     total_size += file.size
                     size = file.size
                     mediatype = mediatypes.guess_unsafe(file.name)
