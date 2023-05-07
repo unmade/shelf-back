@@ -9,10 +9,12 @@ from app.app.auth.usecases import AuthUseCase
 from app.app.files.services import (
     DuplicateFinderService,
     FileCoreService,
+    FileService,
     MetadataService,
     NamespaceService,
     SharingService,
 )
+from app.app.files.services.file.mount import MountService
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
 from app.app.users.services import BookmarkService, UserService
 from app.app.users.usecases import UserUseCase
@@ -107,6 +109,7 @@ class Services:
         "audit_trail",
         "bookmark",
         "dupefinder",
+        "file",
         "filecore",
         "metadata",
         "namespace",
@@ -119,6 +122,10 @@ class Services:
         self.audit_trail = AuditTrailService(database=database)
         self.bookmark = BookmarkService(database=database)
         self.filecore = FileCoreService(database=database, storage=storage)
+        self.file = FileService(
+            filecore=self.filecore,
+            mount_service=MountService(database=database),
+        )
         self.dupefinder = DuplicateFinderService(database=database)
         self.metadata = MetadataService(database=database)
         self.namespace = NamespaceService(database=database, filecore=self.filecore)
@@ -140,6 +147,7 @@ class UseCases:
         self.namespace = NamespaceUseCase(
             audit_trail=services.audit_trail,
             dupefinder=services.dupefinder,
+            file=services.file,
             filecore=services.filecore,
             metadata=services.metadata,
             namespace=services.namespace,

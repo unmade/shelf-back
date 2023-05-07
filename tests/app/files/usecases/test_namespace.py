@@ -307,18 +307,18 @@ class TestListFolder:
     async def test(self, ns_use_case: NamespaceUseCase):
         # GIVEN
         ns_path, path = "admin", "home"
-        filecore = cast(mock.MagicMock, ns_use_case.filecore)
+        file_service = cast(mock.MagicMock, ns_use_case.file)
         # WHEN
         result = await ns_use_case.list_folder(ns_path, path)
         # THEN
-        assert result == filecore.list_folder.return_value
-        filecore.list_folder.assert_awaited_once_with(ns_path, path)
+        assert result == file_service.list_folder.return_value
+        file_service.list_folder.assert_awaited_once_with(ns_path, path)
 
     async def test_list_root_folder(self, ns_use_case: NamespaceUseCase):
         # GIVEN
         ns_path, path = "admin", "."
-        filecore = cast(mock.MagicMock, ns_use_case.filecore)
-        filecore.list_folder.return_value = [
+        file_service = cast(mock.MagicMock, ns_use_case.file)
+        file_service.list_folder.return_value = [
             _make_file(ns_path, "."),
             _make_file(ns_path, "trash"),
             _make_file(ns_path, "home"),
@@ -326,8 +326,8 @@ class TestListFolder:
         # WHEN
         result = await ns_use_case.list_folder(ns_path, path)
         # THEN
-        assert result == [filecore.list_folder.return_value[-1]]
-        filecore.list_folder.assert_awaited_once_with(ns_path, path)
+        assert result == [file_service.list_folder.return_value[-1]]
+        file_service.list_folder.assert_awaited_once_with(ns_path, path)
 
 
 class TestMoveItem:

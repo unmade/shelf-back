@@ -89,6 +89,32 @@ module default {
         };
     }
 
+    type Share {
+        required link file -> File {
+            constraint exclusive;
+            on target delete DELETE SOURCE;
+        };
+        multi link members := .<share[is ShareMember];
+    }
+
+    type ShareMember {
+        required link share -> Share;
+        required property permissions -> int16;
+        required multi link user -> User {
+            on target delete DELETE SOURCE;
+        };
+    }
+
+    type ShareMountPoint {
+        required property display_name -> str;
+        required link member -> ShareMember {
+            constraint exclusive;
+        };
+        required link parent -> File {
+            on target delete DELETE SOURCE;
+        };
+    }
+
     type SharedLink {
         required property token  -> str {
             constraint exclusive;

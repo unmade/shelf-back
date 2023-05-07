@@ -16,6 +16,16 @@ class Path:
     def __init__(self, path: str | Self | PurePath):
         self._path = os.path.normpath(str(path))
 
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, value) -> Self:
+        if not isinstance(value, (cls, str, PurePath)):
+            raise TypeError('string, pathlib.PurePath or Path required')
+        return cls(value)
+
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, self.__class__):
             return self._path.casefold() == other._path.casefold()

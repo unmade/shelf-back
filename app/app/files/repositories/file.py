@@ -12,7 +12,7 @@ from typing import (
 from app.app.files.domain import File
 
 if TYPE_CHECKING:
-    from app.app.files.domain import AnyPath
+    from app.app.files.domain import AnyFile, AnyPath
     from app.typedefs import StrOrUUID
 
 __all__ = ["IFileRepository", "FileUpdate"]
@@ -178,7 +178,7 @@ class IFileRepository(Protocol):
 
     async def list_with_prefix(
         self, ns_path: AnyPath, prefix: AnyPath
-    ) -> list[File]:
+    ) -> list[AnyFile]:
         """
         Lists all files with a path starting with a given prefix.
 
@@ -187,7 +187,7 @@ class IFileRepository(Protocol):
             prefix (AnyPath): Target prefix.
 
         Returns:
-            list[File]: List of all files/folders with a target prefix.
+            list[AnyFile]: List of all files/folders with a target prefix.
         """
 
     async def replace_path_prefix(
