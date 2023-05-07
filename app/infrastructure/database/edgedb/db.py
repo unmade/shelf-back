@@ -12,6 +12,7 @@ from app.app.files.repositories import (
     IContentMetadataRepository,
     IFileRepository,
     IFingerprintRepository,
+    IMountRepository,
     INamespaceRepository,
     ISharedLinkRepository,
 )
@@ -30,6 +31,7 @@ from .repositories import (
     ContentMetadataRepository,
     FileRepository,
     FingerprintRepository,
+    MountRepository,
     NamespaceRepository,
     SharedLinkRepository,
     UserRepository,
@@ -48,6 +50,7 @@ class EdgeDBDatabase(IDatabase):
     file: IFileRepository
     fingerprint: IFingerprintRepository
     metadata: IContentMetadataRepository
+    mount: IMountRepository
     namespace: INamespaceRepository
     shared_link: ISharedLinkRepository
     user: IUserRepository
@@ -68,6 +71,7 @@ class EdgeDBDatabase(IDatabase):
         self.file = FileRepository(db_context=db_context)
         self.fingerprint = FingerprintRepository(db_context=db_context)
         self.metadata = ContentMetadataRepository(db_context=db_context)
+        self.mount = MountRepository(db_context=db_context)
         self.namespace = NamespaceRepository(db_context=db_context)
         self.shared_link = SharedLinkRepository(db_context=db_context)
         self.user = UserRepository(db_context=db_context)

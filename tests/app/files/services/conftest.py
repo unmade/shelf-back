@@ -15,10 +15,12 @@ from app.app.files.repositories import (
 from app.app.files.services import (
     DuplicateFinderService,
     FileCoreService,
+    FileService,
     MetadataService,
     NamespaceService,
     SharingService,
 )
+from app.app.files.services.file.mount import MountService
 from app.app.users.services import BookmarkService, UserService
 from app.toolkit import security
 
@@ -60,6 +62,14 @@ def dupefinder():
 def filecore(edgedb_database: EdgeDBDatabase, fs_storage: IStorage):
     """A filecore service instance."""
     return FileCoreService(database=edgedb_database, storage=fs_storage)
+
+
+@pytest.fixture
+def file_service():
+    """A file service instance."""
+    filecore = mock.MagicMock(FileCoreService)
+    mount_service = mock.MagicMock(MountService)
+    return FileService(filecore=filecore, mount_service=mount_service)
 
 
 @pytest.fixture

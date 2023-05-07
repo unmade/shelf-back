@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from typing import TYPE_CHECKING
 
 import pytest
@@ -30,6 +31,7 @@ if TYPE_CHECKING:
         IContentMetadataRepository,
         IFileRepository,
         IFingerprintRepository,
+        IMountRepository,
         INamespaceRepository,
         ISharedLinkRepository,
     )
@@ -39,6 +41,7 @@ if TYPE_CHECKING:
         IUserRepository,
     )
     from app.infrastructure.database.edgedb import EdgeDBDatabase
+    from app.typedefs import StrOrUUID
 
     class FileFactory(Protocol):
         async def __call__(
@@ -53,10 +56,31 @@ if TYPE_CHECKING:
         async def __call__(self, file_id: str, value: int) -> Fingerprint: ...
 
     class FolderFactory(Protocol):
-        async def __call__(self, ns_path: str, path: AnyPath | None = None) -> File: ...
+        async def __call__(self, ns_path: str, path: AnyPath | None = None) -> File:
+            ...
+
+    class MountFactory(Protocol):
+        async def __call__(
+            self,
+            source_file_id: StrOrUUID,
+            target_folder_id: StrOrUUID,
+            display_name: str,
+        ):
+            ...
+
+    class NamespaceFactory(Protocol):
+        async def __call__(self, path: AnyPath, owner_id: StrOrUUID) -> Namespace:
+            ...
 
     class SharedLinkFactory(Protocol):
-        async def __call__(self, file_id: str) -> SharedLink: ...
+        async def __call__(self, file_id: str) -> SharedLink:
+            ...
+
+    class UserFactory(Protocol):
+        async def __call__(
+            self, username: str | None = None, password: str | None = None
+        ) -> User:
+            ...
 
 fake = Faker()
 
@@ -95,6 +119,12 @@ def fingerprint_repo(edgedb_database: EdgeDBDatabase):
 def metadata_repo(edgedb_database: EdgeDBDatabase):
     """An EdgeDB instance of IContentMetadataRepository"""
     return edgedb_database.metadata
+
+
+@pytest.fixture
+async def mount_repo(edgedb_database: EdgeDBDatabase):
+    """An EdgeDB instance of IMountRepository"""
+    return edgedb_database.mount
 
 
 @pytest.fixture
@@ -164,6 +194,35 @@ def folder_factory(file_repo: IFileRepository) -> FolderFactory:
 
 
 @pytest.fixture
+def namespace_factory(namespace_repo: INamespaceRepository):
+    """A factory to persist Namespace to the EdgeDB."""
+    async def factory(path: AnyPath, owner_id: StrOrUUID):
+        return await namespace_repo.save(
+            Namespace(
+                id=SENTINEL_ID,
+                path=str(path),
+                owner_id=uuid.UUID(str(owner_id)),
+            )
+        )
+    return factory
+
+
+@pytest.fixture
+def user_factory(user_repo: IUserRepository):
+    """A factory to persist User to the EdgeDB."""
+    async def factory(username: str | None = None, password: str | None = None):
+        return await user_repo.save(
+            User(
+                id=SENTINEL_ID,
+                username=username or fake.unique.user_name(),
+                password=password or fake.password(),
+                superuser=False,
+            )
+        )
+    return factory
+
+
+@pytest.fixture
 async def account(user: User, account_repo: IAccountRepository):
     """An Account instance saved to the EdgeDB."""
     return await account_repo.save(
@@ -217,6 +276,41 @@ async def content_metadata(metadata_repo: IContentMetadataRepository, file: File
             data=exif,
         )
     )
+
+
+@pytest.fixture
+def mount_factory(mount_repo: IMountRepository):
+    """A factory to mount file/folder into another folder."""
+    async def factory(
+        source_file_id: StrOrUUID, target_folder_id: StrOrUUID, display_name: str
+    ):
+        query = """
+            WITH
+                source := (SELECT File FILTER .id = <uuid>$source_file_id),
+                target_folder := (SELECT File FILTER .id = <uuid>$target_folder_id),
+            INSERT ShareMountPoint {
+                display_name := <str>$display_name,
+                parent := target_folder,
+                member := (
+                    INSERT ShareMember {
+                        permissions := 0,
+                        user := target_folder.namespace.owner,
+                        share := (
+                            INSERT Share {
+                                file := source,
+                            }
+                        )
+                    }
+                )
+            }
+        """
+        await mount_repo.conn.query_required_single(  # type: ignore
+            query,
+            display_name=display_name,
+            source_file_id=source_file_id,
+            target_folder_id=target_folder_id,
+        )
+    return factory
 
 
 @pytest.fixture

@@ -12,10 +12,11 @@ from app.toolkit import taskgroups, timezone
 
 if TYPE_CHECKING:
     from app.app.audit.services import AuditTrailService
-    from app.app.files.domain import AnyPath, ContentMetadata
+    from app.app.files.domain import AnyFile, AnyPath, ContentMetadata
     from app.app.files.services import (
         DuplicateFinderService,
         FileCoreService,
+        FileService,
         MetadataService,
         NamespaceService,
     )
@@ -27,13 +28,14 @@ __all__ = ["NamespaceUseCase"]
 
 class NamespaceUseCase:
     __slots__ = [
-        "audit_trail", "dupefinder", "filecore", "metadata", "namespace", "user"
+        "audit_trail", "dupefinder", "file", "filecore", "metadata", "namespace", "user"
     ]
 
     def __init__(
         self,
         audit_trail: AuditTrailService,
         dupefinder: DuplicateFinderService,
+        file: FileService,
         filecore: FileCoreService,
         metadata: MetadataService,
         namespace: NamespaceService,
@@ -41,6 +43,7 @@ class NamespaceUseCase:
     ):
         self.audit_trail = audit_trail
         self.dupefinder = dupefinder
+        self.file = file
         self.filecore = filecore
         self.metadata = metadata
         self.namespace = namespace
@@ -233,7 +236,7 @@ class NamespaceUseCase:
     async def get_item_at_path(self, ns_path: AnyPath, path: AnyPath) -> File:
         return await self.filecore.get_by_path(ns_path, path)
 
-    async def list_folder(self, ns_path: AnyPath, path: AnyPath) -> list[File]:
+    async def list_folder(self, ns_path: AnyPath, path: AnyPath) -> list[AnyFile]:
         """
         Lists all files in the folder at a given path.
 
@@ -249,9 +252,9 @@ class NamespaceUseCase:
             File.NotADirectory: If path points to a file.
 
         Returns:
-            List[File]: List of all files/folders in a folder with a target path.
+            List[AnyFile]: List of all files/folders in a folder with a target path.
         """
-        files = await self.filecore.list_folder(ns_path, path)
+        files = await self.file.list_folder(ns_path, path)
         if path == ".":
             special_paths = {Path("."), Path("trash")}
             return [file for file in files if file.path not in special_paths]

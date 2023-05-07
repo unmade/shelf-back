@@ -22,7 +22,7 @@ if TYPE_CHECKING:
         Sequence,
     )
 
-    from app.app.files.domain import AnyPath
+    from app.app.files.domain import AnyFile, AnyPath
     from app.app.files.repositories import IFileRepository
     from app.app.infrastructure import IDatabase
     from app.app.infrastructure.storage import ContentReader, IStorage
@@ -282,7 +282,7 @@ class FileCoreService:
                 return
             yield files
 
-    async def list_folder(self, ns_path: AnyPath, path: AnyPath) -> list[File]:
+    async def list_folder(self, ns_path: AnyPath, path: AnyPath) -> list[AnyFile]:
         """
         Lists all files in the folder at a given path.
 

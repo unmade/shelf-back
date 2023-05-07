@@ -8,6 +8,7 @@ from app.app.audit.services import AuditTrailService
 from app.app.files.services import (
     DuplicateFinderService,
     FileCoreService,
+    FileService,
     MetadataService,
     NamespaceService,
     SharingService,
@@ -22,6 +23,7 @@ def ns_use_case():
     return NamespaceUseCase(
         audit_trail=mock.MagicMock(spec=AuditTrailService),
         dupefinder=mock.MagicMock(spec=DuplicateFinderService),
+        file=mock.MagicMock(spec=FileService),
         filecore=mock.MagicMock(spec=FileCoreService),
         metadata=mock.MagicMock(spec=MetadataService),
         namespace=mock.MagicMock(spec=NamespaceService),

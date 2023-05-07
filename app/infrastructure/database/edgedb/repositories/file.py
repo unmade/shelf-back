@@ -10,13 +10,15 @@ from typing import (
 
 import edgedb
 
-from app.app.files.domain import File, mediatypes
+from app.app.files.domain import File, MountedFile
+from app.app.files.domain.mount import MountPoint
+from app.app.files.domain.path import Path
 from app.app.files.repositories import IFileRepository
 from app.app.files.repositories.file import FileUpdate
 from app.infrastructure.database.edgedb import autocast
 
 if TYPE_CHECKING:
-    from app.app.files.domain import AnyPath
+    from app.app.files.domain import AnyFile, AnyPath
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
     from app.typedefs import StrOrUUID
 
@@ -32,6 +34,42 @@ def _from_db(ns_path: str, obj) -> File:
         size=obj.size,
         mtime=obj.mtime,
         mediatype=obj.mediatype.name,
+    )
+
+
+def _from_db_v2(ns_path: str, obj) -> AnyFile:
+    if not getattr(obj, "mount_point", None):
+        return File(
+            id=obj.id,
+            ns_path=ns_path,
+            name=obj.name,
+            path=obj.path,
+            size=obj.size,
+            mtime=obj.mtime,
+            mediatype=obj.mediatype.name,
+        )
+
+    mount_point = MountPoint(
+        display_name=obj.mount_point.display_name,
+        source=MountPoint.Source(
+            ns_path=obj.namespace.path,
+            path=obj.path,
+        ),
+        folder=MountPoint.ContainingFolder(
+            ns_path=ns_path,
+            path=obj.mount_point.parent.path
+        ),
+    )
+
+    return MountedFile(
+        id=obj.id,
+        ns_path=mount_point.folder.ns_path,
+        name=mount_point.display_path.name,
+        path=mount_point.display_path,
+        size=obj.size,
+        mtime=obj.mtime,
+        mediatype=obj.mediatype.name,
+        mount_point=mount_point,
     )
 
 
@@ -295,26 +333,69 @@ class FileRepository(IFileRepository):
 
     async def list_with_prefix(
         self, ns_path: AnyPath, prefix: AnyPath
-    ) -> list[File]:
-        query = f"""
-            SELECT
-                File {{
-                    id, name, path, size, mtime, mediatype: {{ name }},
-                }}
-            FILTER
-                .namespace.path = <str>$ns_path
-                AND
-                .path LIKE <str>$prefix ++ '%'
-                AND
-                .path NOT LIKE <str>$prefix ++ '%/%'
-            ORDER BY
-                .mediatype.name = '{mediatypes.FOLDER}' DESC
-            THEN
-                str_lower(.path) ASC
+    ) -> list[AnyFile]:
+        query = """
+            WITH
+                namespace := (SELECT Namespace FILTER .path = <str>$ns_path),
+                parent := (
+                    SELECT
+                        File
+                    FILTER
+                        .path = <str>$parent_path
+                        AND
+                        .namespace = namespace
+                    ),
+                files := {
+                    (
+                        SELECT
+                            File
+                        FILTER
+                            .namespace = namespace
+                            AND
+                            .path LIKE <str>$prefix ++ '%'
+                            AND
+                            .path NOT LIKE <str>$prefix ++ '%/%'
+                    ),
+                    (
+                        SELECT
+                            ShareMountPoint
+                        FILTER
+                            .parent = parent
+                    ).member.share.file
+                },
+                SELECT files {
+                    id,
+                    name,
+                    path,
+                    size,
+                    mtime,
+                    mediatype := .mediatype { name },
+                    namespace := .namespace { path },
+                    mount_point := (
+                        SELECT
+                            ShareMountPoint {
+                                display_name,
+                                parent: { path },
+                            }
+                        FILTER
+                            .member.share.file.id = files.id
+                            and .parent = parent
+                        LIMIT 1
+                    ),
+                }
+                ORDER BY
+                    .mediatype.name = 'application/directory' DESC
+                THEN
+                    str_lower(.mount_point.display_name ?? .name) ASC
         """
 
-        objs = await self.conn.query(query, ns_path=str(ns_path), prefix=str(prefix))
-        return [_from_db(str(ns_path), obj) for obj in objs]
+        objs = await self.conn.query(
+            query,
+            ns_path=str(ns_path),
+            prefix=str(prefix),
+            parent_path=str(Path(prefix)),
+        )
+        return [_from_db_v2(str(ns_path), obj) for obj in objs]
 
     async def replace_path_prefix(
         self, ns_path: AnyPath, prefix: AnyPath, next_prefix: AnyPath
