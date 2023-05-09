@@ -154,6 +154,7 @@ class UseCases:
             user=services.user,
         )
         self.sharing = SharingUseCase(
+            file_service=services.file,
             filecore=services.filecore,
             sharing=services.sharing,
         )

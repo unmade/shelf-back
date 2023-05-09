@@ -9,8 +9,6 @@ from unittest import mock
 import pytest
 
 from app.app.files.domain import File, Path, mediatypes
-from app.app.files.services.filecore.filecore import _make_thumbnail_ttl
-from app.cache import disk_cache
 from app.toolkit import taskgroups
 
 if TYPE_CHECKING:
@@ -254,15 +252,15 @@ class TestDelete:
 class TestDownload:
     async def test_on_file(self, filecore: FileCoreService, file: File):
         with mock.patch.object(filecore, "storage", autospec=True) as storage_mock:
-            content = await filecore.download(file.id)
+            result = await filecore.download(file.id)
         storage_mock.download.assert_awaited_once_with(file.ns_path, file.path)
-        assert content == storage_mock.download.return_value
+        assert result == (file, storage_mock.download.return_value)
 
     async def test_on_folder(self, filecore, folder: File):
         with mock.patch.object(filecore, "storage", autospec=True) as storage_mock:
-            content = await filecore.download(folder.id)
+            result = await filecore.download(folder.id)
         storage_mock.downloaddir.assert_awaited_once_with(folder.ns_path, folder.path)
-        assert content == storage_mock.downloaddir.return_value
+        assert result == (folder, storage_mock.downloaddir.return_value)
 
 
 class TestEmptyFolder:
@@ -811,45 +809,3 @@ class TestReindex:
         with pytest.raises(File.NotADirectory):
             await filecore.reindex(namespace.path, "a")
         assert not await filecore.db.file.exists_at_path(namespace.path, "a")
-
-
-class TestThumbnail:
-    async def test(
-        self,
-        filecore: FileCoreService,
-        file_factory: FileFactory,
-        namespace: Namespace,
-        image_content: IO[bytes],
-    ):
-        file = await file_factory(namespace.path, content=image_content)
-        filecache, thumbnail = await filecore.thumbnail(file.id, size=64)
-        assert filecache == file
-        assert isinstance(thumbnail, bytes)
-
-    async def test_cache_hits(
-        self,
-        filecore: FileCoreService,
-        file_factory: FileFactory,
-        namespace: Namespace,
-        image_content: IO[bytes],
-    ):
-        # GIVEN
-        file = await file_factory(namespace.path, content=image_content)
-        with disk_cache.detect as detector:
-            # WHEN hits for the first time
-            result1 = await filecore.thumbnail(file.id, size=64)
-            # THEN cache miss
-            assert detector.calls == {}
-            # WHEN hits for the second time
-            result2 = await filecore.thumbnail(file.id, size=64)
-            # THEN cache hit
-            call = [{'ttl': 604800, 'name': 'simple', 'template': '{file_id}:{size}'}]
-            assert list(detector.calls.values()) == [call]
-            assert result1 == result2
-
-    @pytest.mark.parametrize(["size", "ttl"], [
-        (64, "7d"),
-        (256, "24h")],
-    )
-    async def test_ttl_depends_on_size(self, size: int, ttl: str):
-        assert _make_thumbnail_ttl(size=size) == ttl

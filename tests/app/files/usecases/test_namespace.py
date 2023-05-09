@@ -3,12 +3,13 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 from io import BytesIO
-from typing import TYPE_CHECKING, cast
+from typing import IO, TYPE_CHECKING, cast
 from unittest import mock
 
 import pytest
 
 from app.app.files.domain import File, Fingerprint, Path
+from app.app.infrastructure.storage import ContentReader
 from app.app.users.domain import Account
 from app.config import config
 
@@ -174,14 +175,12 @@ class TestDownload:
     async def test(self, ns_use_case: NamespaceUseCase):
         # GIVEN
         ns_path, path = "admin", "f.txt"
-        filecore = cast(mock.MagicMock, ns_use_case.filecore)
+        file_service = cast(mock.MagicMock, ns_use_case.file)
         # WHEN
         result = await ns_use_case.download(ns_path, path)
         # THEN
-        expected = (filecore.get_by_path.return_value, filecore.download.return_value)
-        assert result == expected
-        filecore.get_by_path.assert_called_once_with(ns_path, path)
-        filecore.download.assert_called_once_with(filecore.get_by_path.return_value.id)
+        assert result == file_service.download.return_value
+        file_service.download.assert_called_once_with(ns_path, path)
 
 
 class TestEmptyTrash:
@@ -242,14 +241,14 @@ class TestGetFileMetadata:
     async def test(self, ns_use_case: NamespaceUseCase):
         # GIVEN
         ns_path, path = "admin", "home"
-        filecore = cast(mock.MagicMock, ns_use_case.filecore)
+        file_service = cast(mock.MagicMock, ns_use_case.file)
         metadata = cast(mock.MagicMock, ns_use_case.metadata)
         # WHEN
         result = await ns_use_case.get_file_metadata(ns_path, path)
         # THEN
         assert result == metadata.get_by_file_id.return_value
-        filecore.get_by_path.assert_awaited_once_with(ns_path, path)
-        file = filecore.get_by_path.return_value
+        file_service.get_at_path.assert_awaited_once_with(ns_path, path)
+        file = file_service.get_at_path.return_value
         metadata.get_by_file_id.assert_awaited_once_with(file.id)
 
 
@@ -258,49 +257,25 @@ class TestGetFileThumbnail:
         # GIVEN
         ns_path, path = "admin", "img.jpeg"
         file, thumbnail = _make_file(ns_path, path), mock.ANY
-        filecore = cast(mock.MagicMock, ns_use_case.filecore)
-        filecore.thumbnail.return_value = file, thumbnail
+        file_service = cast(mock.MagicMock, ns_use_case.file)
+        file_service.thumbnail.return_value = file, thumbnail
         # WHEN
         result = await ns_use_case.get_file_thumbnail(ns_path, file.id, size=32)
         # THEN
-        assert result == filecore.thumbnail.return_value
-        filecore.thumbnail.assert_awaited_once_with(file.id, size=32)
-
-    async def test_when_file_does_not_exist(self, ns_use_case: NamespaceUseCase):
-        # GIVEN
-        ns_path = "admin"
-        file_id = str(uuid.uuid4())
-        filecore = cast(mock.MagicMock, ns_use_case.filecore)
-        filecore.thumbnail.side_effect = File.NotFound
-        # WHEN/THEN
-        with pytest.raises(File.NotFound):
-            await ns_use_case.get_file_thumbnail(ns_path, file_id, size=32)
-        filecore.thumbnail.assert_awaited_once_with(file_id, size=32)
-
-    async def test_when_file_in_the_other_namespace(
-        self, ns_use_case: NamespaceUseCase
-    ):
-        # GIVEN
-        ns_path, path = "admin", "img.jpeg"
-        file, thumbnail = _make_file(ns_path, path), mock.ANY
-        filecore = cast(mock.MagicMock, ns_use_case.filecore)
-        filecore.thumbnail.return_value = file, thumbnail
-        # WHEN/THEN
-        with pytest.raises(File.NotFound):
-            await ns_use_case.get_file_thumbnail("user", file.id, size=32)
-        filecore.thumbnail.assert_awaited_once_with(file.id, size=32)
+        assert result == file_service.thumbnail.return_value
+        file_service.thumbnail.assert_awaited_once_with(ns_path, file.id, size=32)
 
 
 class TestGetItemAtPath:
     async def test(self, ns_use_case: NamespaceUseCase):
         # GIVEN
         ns_path, path = "admin", "f.txt"
-        filecore = cast(mock.MagicMock, ns_use_case.filecore)
+        file_service = cast(mock.MagicMock, ns_use_case.file)
         # WHEN
         result = await ns_use_case.get_item_at_path(ns_path, path)
         # THEN
-        assert result == filecore.get_by_path.return_value
-        filecore.get_by_path.assert_awaited_once_with(ns_path, path)
+        assert result == file_service.get_at_path.return_value
+        file_service.get_at_path.assert_called_once_with(ns_path, path)
 
 
 class TestListFolder:
@@ -400,7 +375,7 @@ class TestReindex:
 
 
 class TestReindexContents:
-    async def test(self, ns_use_case: NamespaceUseCase):
+    async def test(self, ns_use_case: NamespaceUseCase, image_content: IO[bytes]):
         # GIVEN
         ns_path = "admin"
         jpg_1 = _make_file(ns_path, "a/b/img (1).jpeg")
@@ -412,6 +387,10 @@ class TestReindexContents:
 
         filecore = cast(mock.MagicMock, ns_use_case.filecore)
         filecore.iter_by_mediatypes.return_value = iter_by_mediatypes_result()
+        filecore.download.side_effect = [
+            (jpg_1, ContentReader.from_iter(image_content, zipped=False)),
+            (jpg_2, ContentReader.from_iter(image_content, zipped=False)),
+        ]
         dupefinder = cast(mock.MagicMock, ns_use_case.dupefinder)
         meta_service = cast(mock.MagicMock, ns_use_case.metadata)
 

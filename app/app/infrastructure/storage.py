@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import abc
+import asyncio
 from io import BytesIO
-from typing import IO, TYPE_CHECKING, AsyncIterator, Iterator, Protocol
+from typing import IO, TYPE_CHECKING, AsyncIterator, Iterator, Protocol, Self, cast
 
 if TYPE_CHECKING:
     from app.app.files.domain import AnyPath
@@ -10,12 +11,28 @@ if TYPE_CHECKING:
 __all__ = ["ContentReader", "IStorage", "StorageFile"]
 
 
+_sentinel = object()
+
+
 class ContentReader:
     __slots__ = ["content_iterator", "zipped"]
 
-    def __init__(self, content_iterator: AsyncIterator[bytes], *, zipped):
+    def __init__(self, content_iterator: AsyncIterator[bytes], *, zipped: bool):
         self.content_iterator = content_iterator
         self.zipped = zipped
+
+    @classmethod
+    def from_iter(cls, it: Iterator[bytes], *, zipped: bool) -> Self:
+        return cls(cls._iter_async(it), zipped=zipped)
+
+    @staticmethod
+    async def _iter_async(it: Iterator[bytes]) -> AsyncIterator[bytes]:
+        loop = asyncio.get_running_loop()
+        while True:
+            value = await loop.run_in_executor(None, next, it, _sentinel)
+            if value is _sentinel:
+                break
+            yield cast(bytes, value)
 
     def __aiter__(self) -> AsyncIterator[bytes]:
         return self.content_iterator

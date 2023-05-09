@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, root_validator, validator
 
-from app.app.files.services.filecore import thumbnails
+from app.app.files.services.file import thumbnails
 from app.worker.jobs.files import ErrorCode as TaskErrorCode
 
 from .exceptions import FileAlreadyDeleted, MalformedPath

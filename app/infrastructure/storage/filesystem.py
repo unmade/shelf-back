@@ -15,7 +15,6 @@ from app.app.files.domain import File
 from app.app.infrastructure.storage import ContentReader, IStorage, StorageFile
 from app.config import FileSystemStorageConfig
 
-from ._compat import iter_async
 from ._datastructures import StreamZipFile
 
 if TYPE_CHECKING:
@@ -99,7 +98,7 @@ class FileSystemStorage(IStorage):
 
     async def downloaddir(self, ns_path: AnyPath, path: AnyPath) -> ContentReader:
         archive = stream_zip.stream_zip(self._downloaddir_iter(ns_path, path))
-        return ContentReader(iter_async(archive), zipped=True)
+        return ContentReader.from_iter(archive, zipped=True)
 
     def _downloaddir_iter(
         self,
