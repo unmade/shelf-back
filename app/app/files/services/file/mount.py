@@ -18,6 +18,18 @@ class MountService:
     def __init__(self, database: IServiceDatabase) -> None:
         self.db = database
 
+    async def get_closest_by_source(
+        self, source_ns_path: str, source_path: AnyPath, target_ns_path: str
+    ) -> MountPoint | None:
+        try:
+            return await self.db.mount.get_closest_by_source(
+                source_ns_path=source_ns_path,
+                source_path=source_path,
+                target_ns_path=target_ns_path,
+            )
+        except MountPoint.NotFound:
+            return None
+
     async def resolve_path(self, ns_path: AnyPath, path: AnyPath) -> FullyQualifiedPath:
         """
         Returns fully-qualified path if the path is a mount point or inside mount point,

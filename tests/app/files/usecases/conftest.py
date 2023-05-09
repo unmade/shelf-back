@@ -35,6 +35,7 @@ def ns_use_case():
 def sharing_use_case():
     """A mocked SharingManager instance."""
     return SharingUseCase(
+        file_service=mock.MagicMock(spec=FileService),
         filecore=mock.MagicMock(spec=FileCoreService),
         sharing=mock.MagicMock(spec=SharingService),
     )

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import itertools
-from typing import IO, TYPE_CHECKING
+from typing import IO, TYPE_CHECKING, cast
 
-from app.app.files.domain import File, Path
+from app.app.files.domain import AnyFile, File, Path
 from app.app.files.services.dupefinder import dhash
 from app.app.files.services.metadata import readers as metadata_readers
 from app.app.users.domain import Account
@@ -12,7 +12,7 @@ from app.toolkit import taskgroups, timezone
 
 if TYPE_CHECKING:
     from app.app.audit.services import AuditTrailService
-    from app.app.files.domain import AnyFile, AnyPath, ContentMetadata
+    from app.app.files.domain import AnyPath, ContentMetadata
     from app.app.files.services import (
         DuplicateFinderService,
         FileCoreService,
@@ -140,10 +140,8 @@ class NamespaceUseCase:
 
     async def download(
         self, ns_path: AnyPath, path: AnyPath
-    ) -> tuple[File, ContentReader]:
-        file = await self.filecore.get_by_path(ns_path, path)
-        content = await self.filecore.download(file.id)
-        return file, content
+    ) -> tuple[AnyFile, ContentReader]:
+        return await self.file.download(ns_path, path)
 
     async def empty_trash(self, ns_path: AnyPath) -> None:
         """
@@ -203,12 +201,12 @@ class NamespaceUseCase:
         Returns:
             ContentMetadata: A file content metadata
         """
-        file = await self.filecore.get_by_path(ns_path, path)
+        file = await self.file.get_at_path(ns_path, path)
         return await self.metadata.get_by_file_id(file.id)
 
     async def get_file_thumbnail(
         self, ns_path: AnyPath, file_id: str, size: int
-    ) -> tuple[File, bytes]:
+    ) -> tuple[AnyFile, bytes]:
         """
         Generates in-memory thumbnail with preserved aspect ratio.
 
@@ -223,18 +221,15 @@ class NamespaceUseCase:
             ThumbnailUnavailable: If file is not an image.
 
         Returns:
-            tuple[File, bytes]: Tuple of file and thumbnail content.
+            tuple[AnyFile, bytes]: Tuple of file and thumbnail content.
         """
-        file, thumbnail = await self.filecore.thumbnail(file_id, size=size)
-        # normally we would check if file exists before calling `filecore.thumbnail`,
-        # but since thumbnail is cached it is faster to hit cache and then
-        # check if file belongs to a namespace
-        if str(file.ns_path) != str(ns_path):
-            raise File.NotFound()
-        return file, thumbnail
+        return cast(
+            tuple[AnyFile, bytes],
+            await self.file.thumbnail(ns_path, file_id, size=size)
+        )
 
-    async def get_item_at_path(self, ns_path: AnyPath, path: AnyPath) -> File:
-        return await self.filecore.get_by_path(ns_path, path)
+    async def get_item_at_path(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:
+        return await self.file.get_at_path(ns_path, path)
 
     async def list_folder(self, ns_path: AnyPath, path: AnyPath) -> list[AnyFile]:
         """
@@ -362,6 +357,6 @@ class NamespaceUseCase:
                 ))
 
     async def _reindex_content(self, file: File, trackers) -> None:
-        content_reader = await self.filecore.download(file.id)
+        _, content_reader = await self.filecore.download(file.id)
         for tracker in trackers:
             await tracker.add(file.id, await content_reader.stream())

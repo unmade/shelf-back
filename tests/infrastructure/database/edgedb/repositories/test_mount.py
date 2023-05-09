@@ -19,6 +19,46 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
 
+class TestGetClosestBySource:
+    async def test(
+        self,
+        mount_repo: MountRepository,
+        user_factory: UserFactory,
+        namespace_factory: NamespaceFactory,
+        folder_factory: FolderFactory,
+        mount_factory: MountFactory,
+        namespace: Namespace,
+    ):
+        # GIVEN
+        folder = await folder_factory(namespace.path, "Folder")
+
+        user_b = await user_factory()
+        namespace_b = await namespace_factory(user_b.username, owner_id=user_b.id)
+        shared_folder = await folder_factory(namespace_b.path, "Shared Folder")
+        inner_folder = await folder_factory(namespace_b.path, "Shared Folder/Docs")
+
+        await mount_factory(shared_folder.id, folder.id, "Team Folder")
+
+        # WHEN: getting by exact path
+        mp_1 = await mount_repo.get_closest_by_source(
+            shared_folder.ns_path, shared_folder.path, namespace.path
+        )
+
+        # THEN
+        assert mp_1.source.ns_path == shared_folder.ns_path
+        assert mp_1.source.path == shared_folder.path
+        assert mp_1.folder.ns_path == folder.ns_path
+        assert mp_1.folder.path == folder.path
+
+        # WHEN: getting by a path containing mount point
+        mp_2 = await mount_repo.get_closest_by_source(
+            inner_folder.ns_path, inner_folder.path, namespace.path
+        )
+
+        # THEN
+        assert mp_2 == mp_1
+
+
 class TestGetClosest:
     async def test(
         self,
@@ -39,19 +79,19 @@ class TestGetClosest:
         await mount_factory(shared_folder.id, folder.id, "Team Folder")
 
         # WHEN: getting by exact path
-        mount = await mount_repo.get_closest(namespace.path, "Folder/Team Folder")
+        mp_1 = await mount_repo.get_closest(namespace.path, "Folder/Team Folder")
 
         # THEN
-        assert mount.source.ns_path == shared_folder.ns_path
-        assert mount.source.path == shared_folder.path
-        assert mount.folder.ns_path == folder.ns_path
-        assert mount.folder.path == folder.path
+        assert mp_1.source.ns_path == shared_folder.ns_path
+        assert mp_1.source.path == shared_folder.path
+        assert mp_1.folder.ns_path == folder.ns_path
+        assert mp_1.folder.path == folder.path
 
         # WHEN: getting by a path containing mount point
-        mp = await mount_repo.get_closest(namespace.path, "Folder/Team Folder/f.txt")
+        mp_2 = await mount_repo.get_closest(namespace.path, "Folder/Team Folder/f.txt")
 
         # THEN
-        assert mp == mount
+        assert mp_2 == mp_1
 
     async def test_when_mount_does_not_exist(
         self,

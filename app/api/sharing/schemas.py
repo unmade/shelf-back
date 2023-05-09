@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Self
 
 from pydantic import BaseModel
 
-from app.app.files.services.filecore import thumbnails
+from app.app.files.services.file import thumbnails
 
 if TYPE_CHECKING:
     from fastapi import Request

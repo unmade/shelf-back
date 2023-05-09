@@ -8,10 +8,7 @@ from typing import TYPE_CHECKING
 from app.app.files.domain import File, Path, mediatypes
 from app.app.files.repositories.file import FileUpdate
 from app.app.infrastructure.database import SENTINEL_ID
-from app.cache import disk_cache
 from app.toolkit import taskgroups
-
-from . import thumbnails
 
 if TYPE_CHECKING:
     from typing import (
@@ -154,13 +151,13 @@ class FileCoreService:
 
         return file
 
-    async def download(self, file_id: StrOrUUID) -> ContentReader:
+    async def download(self, file_id: StrOrUUID) -> tuple[File, ContentReader]:
         file = await self.get_by_id(str(file_id))
         if file.is_folder():
             download_func = self.storage.downloaddir
         else:
             download_func = self.storage.download
-        return await download_func(file.ns_path, file.path)
+        return file, await download_func(file.ns_path, file.path)
 
     async def empty_folder(self, ns_path: AnyPath, path: AnyPath) -> None:
         file = await self.db.file.get_by_path(ns_path, path)
@@ -453,26 +450,3 @@ class FileCoreService:
 
         file_update = FileUpdate(id=root.id, size=total_size)
         await self.db.file.update(file_update)
-
-    @disk_cache(key="{file_id}:{size}", ttl=_make_thumbnail_ttl)
-    async def thumbnail(self, file_id: str, *, size: int) -> tuple[File, bytes]:
-        """
-        Generate in-memory thumbnail with preserved aspect ratio.
-
-        Args:
-            file_id (StrOrUUID): Target file ID.
-            size (int): Thumbnail dimension.
-
-        Raises:
-            File.NotFound: If file with this path does not exists.
-            File.IsADirectory: If file is a directory.
-            ThumbnailUnavailable: If file is not an image.
-
-        Returns:
-            tuple[File, bytes]: Tuple of file and thumbnail content.
-        """
-        file = await self.db.file.get_by_id(file_id)
-        content_reader = await self.storage.download(file.ns_path, file.path)
-        content = await content_reader.stream()
-        thumbnail = await thumbnails.thumbnail(content, size=size)
-        return file, thumbnail

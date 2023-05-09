@@ -37,6 +37,70 @@ class MountRepository(IMountRepository):
     def conn(self) -> EdgeDBAnyConn:
         return self.db_context.get()
 
+    async def get_closest_by_source(
+        self, source_ns_path: AnyPath, source_path: AnyPath, target_ns_path: AnyPath
+    ) -> MountPoint:
+        query = """
+            WITH
+                target_ns := (
+                    SELECT
+                        Namespace
+                    FILTER
+                        .path = <str>$target_ns_path
+                ),
+                source_ns := (
+                    SELECT
+                        Namespace
+                    FILTER
+                        .path = <str>$source_ns_path
+                ),
+                sources := (
+                    SELECT
+                        File
+                    FILTER
+                        .namespace = source_ns
+                        and .path IN {array_unpack(<array<str>>$paths)}
+                ),
+            SELECT
+                ShareMountPoint {
+                    display_name,
+                    parent: {
+                        path
+                    },
+                    member: {
+                        share: {
+                            file: {
+                                path,
+                                namespace: {
+                                    path
+                                },
+                            },
+                        },
+                    },
+                }
+            FILTER
+                .member.share.file IN sources
+                and .parent.namespace = target_ns
+            ORDER BY
+                .member.share.file.path DESC
+            LIMIT 1
+        """
+
+        path = Path(source_path)
+        parents = list(path.parents)
+
+        try:
+            obj = await self.conn.query_required_single(
+                query,
+                source_ns_path=str(source_ns_path),
+                target_ns_path=target_ns_path,
+                paths=[str(path)] + [str(p) for p in parents],
+            )
+        except edgedb.NoDataError as exc:
+            raise MountPoint.NotFound() from exc
+
+        return _from_db(target_ns_path, obj)
+
     async def get_closest(self, ns_path: AnyPath, path: AnyPath) -> MountPoint:
         query = """
             WITH

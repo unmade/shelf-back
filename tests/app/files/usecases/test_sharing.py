@@ -41,16 +41,16 @@ class TestGetLinkThumbnail:
     async def test(self, sharing_use_case: SharingUseCase):
         # GIVEN
         token = "shared-link-token"
-        filecore = cast(mock.MagicMock, sharing_use_case.filecore)
+        file_service = cast(mock.MagicMock, sharing_use_case.file_service)
         sharing_service = cast(mock.MagicMock, sharing_use_case.sharing)
         # WHEN
         result = await sharing_use_case.get_link_thumbnail(token, size=32)
         # THEN
         sharing_service.get_link_by_token.assert_awaited_once_with(token)
-        filecore.thumbnail.assert_awaited_once_with(
+        file_service.thumbnail.assert_awaited_once_with(
             sharing_service.get_link_by_token.return_value.file_id, size=32
         )
-        assert result == filecore.thumbnail.return_value
+        assert result == file_service.thumbnail.return_value
 
 
 class TestGetSharedItem:

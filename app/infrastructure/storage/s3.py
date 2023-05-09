@@ -17,7 +17,6 @@ from app.app.files.domain import File
 from app.app.infrastructure.storage import ContentReader, IStorage, StorageFile
 from app.config import S3StorageConfig
 
-from ._compat import iter_async
 from ._datastructures import StreamZipFile
 
 if TYPE_CHECKING:
@@ -70,7 +69,7 @@ class S3Storage(IStorage):
 
     async def download(self, ns_path: AnyPath, path: AnyPath) -> ContentReader:
         stream = await self._download(ns_path, path)
-        return ContentReader(iter_async(stream.iter_chunks(4096)), zipped=False)
+        return ContentReader.from_iter(stream.iter_chunks(4096), zipped=False)
 
     @sync_to_async
     def _download(self, ns_path: AnyPath, path: AnyPath) -> StreamingBody:
@@ -87,7 +86,7 @@ class S3Storage(IStorage):
 
     async def downloaddir(self, ns_path: AnyPath, path: AnyPath) -> ContentReader:
         archive = stream_zip.stream_zip(self._downloaddir_iter(ns_path, path))
-        return ContentReader(iter_async(archive), zipped=True)
+        return ContentReader.from_iter(archive, zipped=True)
 
     def _downloaddir_iter(
         self,

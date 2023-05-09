@@ -23,3 +23,18 @@ class IMountRepository(Protocol):
         Returns:
             MountPoint: Resolved MountPoint for a given path.
         """
+
+    async def get_closest_by_source(
+        self, source_ns_path: AnyPath, source_path: AnyPath, target_ns_path: AnyPath
+    ) -> MountPoint:
+        """
+        Returns mount point in the target namespace for a source file.
+
+        Args:
+            source_ns_path (AnyPath): Real namespace path of a mounted file.
+            source_path (AnyPath): Real path of a mounted file.
+            target_ns_path (AnyPath): Namespace where file is mounted.
+
+        Returns:
+            MountPoint: Resolved MountPoint for a given file.
+        """
