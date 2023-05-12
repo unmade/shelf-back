@@ -9,7 +9,7 @@ from app.app.infrastructure.database import SENTINEL_ID
 if TYPE_CHECKING:
     from app.app.audit.domain.audit import AuditTrailAction
     from app.app.audit.repositories import IAuditTrailRepository
-    from app.app.files.domain import File
+    from app.app.files.domain import AnyFile
     from app.app.users.domain import User
 
     class IServiceDatabase(Protocol):
@@ -22,7 +22,7 @@ class AuditTrailService:
     def __init__(self, database: IServiceDatabase) -> None:
         self.db = database
 
-    async def _track_file_action(self, action: AuditTrailAction, file: File) -> None:
+    async def _track_file_action(self, action: AuditTrailAction, file: AnyFile) -> None:
         ctx = current_user_ctx.get()
         await self.db.audit_trail.save(
             AuditTrail(
@@ -53,16 +53,16 @@ class AuditTrailService:
             )
         )
 
-    async def file_added(self, file: File) -> None:
+    async def file_added(self, file: AnyFile) -> None:
         await self._track_file_action(AuditTrail.Action.file_added, file=file)
 
-    async def file_moved(self, file: File) -> None:
+    async def file_moved(self, file: AnyFile) -> None:
         await self._track_file_action(AuditTrail.Action.file_moved, file=file)
 
-    async def file_trashed(self, file: File) -> None:
+    async def file_trashed(self, file: AnyFile) -> None:
         await self._track_file_action(AuditTrail.Action.file_trashed, file=file)
 
-    async def folder_created(self, file: File) -> None:
+    async def folder_created(self, file: AnyFile) -> None:
         await self._track_file_action(AuditTrail.Action.folder_created, file=file)
 
     async def trash_emptied(self) -> None:

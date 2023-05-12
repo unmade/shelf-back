@@ -37,7 +37,7 @@ class TestAddFile:
     async def test_unlimited_storage_quota(self, ns_use_case: NamespaceUseCase):
         # GIVEN
         audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
-        filecore = cast(mock.MagicMock, ns_use_case.filecore)
+        file_service = cast(mock.MagicMock, ns_use_case.file)
         dupefinder = cast(mock.MagicMock, ns_use_case.dupefinder)
         metadata = cast(mock.MagicMock, ns_use_case.metadata)
         ns_service = cast(mock.MagicMock, ns_use_case.namespace)
@@ -52,8 +52,8 @@ class TestAddFile:
         result = await ns_use_case.add_file(ns_path, path, content)
 
         # THEN
-        assert result == filecore.create_file.return_value
-        filecore.create_file.assert_awaited_once_with(ns_path, path, content)
+        assert result == file_service.create_file.return_value
+        file_service.create_file.assert_awaited_once_with(ns_path, path, content)
         dupefinder.track.assert_awaited_once_with(result.id, content)
         metadata.track.assert_awaited_once_with(result.id, content)
 
@@ -65,7 +65,7 @@ class TestAddFile:
     async def test_limited_storage_quota(self, ns_use_case: NamespaceUseCase):
         # GIVEN
         audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
-        filecore = cast(mock.MagicMock, ns_use_case.filecore)
+        file_service = cast(mock.MagicMock, ns_use_case.file)
         dupefinder = cast(mock.MagicMock, ns_use_case.dupefinder)
         metadata = cast(mock.MagicMock, ns_use_case.metadata)
         ns_service = cast(mock.MagicMock, ns_use_case.namespace)
@@ -81,8 +81,8 @@ class TestAddFile:
         result = await ns_use_case.add_file(ns_path, path, content)
 
         # THEN
-        assert result == filecore.create_file.return_value
-        filecore.create_file.assert_awaited_once_with(ns_path, path, content)
+        assert result == file_service.create_file.return_value
+        file_service.create_file.assert_awaited_once_with(ns_path, path, content)
         dupefinder.track.assert_awaited_once_with(result.id, content)
         metadata.track.assert_awaited_once_with(result.id, content)
 
@@ -111,7 +111,7 @@ class TestAddFile:
     ):
         # GIVEN
         audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
-        filecore = cast(mock.MagicMock, ns_use_case.filecore)
+        file_service = cast(mock.MagicMock, ns_use_case.file)
         dupefinder = cast(mock.MagicMock, ns_use_case.dupefinder)
         metadata = cast(mock.MagicMock, ns_use_case.metadata)
         ns_service = cast(mock.MagicMock, ns_use_case.namespace)
@@ -127,7 +127,7 @@ class TestAddFile:
             await ns_use_case.add_file(ns_path, path, content)
 
         # THEN
-        filecore.create_file.assert_not_awaited()
+        file_service.create_file.assert_not_awaited()
         dupefinder.track.assert_not_awaited()
         metadata.track.assert_not_awaited()
 
@@ -142,12 +142,12 @@ class TestCreateFolder:
         # GIVEN
         ns_path, path = "admin", "f.txt"
         audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
-        filecore = cast(mock.MagicMock, ns_use_case.filecore)
+        file_service = cast(mock.MagicMock, ns_use_case.file)
         # WHEN
         result = await ns_use_case.create_folder(ns_path, path)
         # THEN
-        assert result == filecore.create_folder.return_value
-        filecore.create_folder.assert_awaited_once_with(ns_path, path)
+        assert result == file_service.create_folder.return_value
+        file_service.create_folder.assert_awaited_once_with(ns_path, path)
         audit_trail.folder_created.assert_called_once_with(result)
 
 
@@ -155,11 +155,11 @@ class TestDeleteItem:
     async def test(self, ns_use_case: NamespaceUseCase):
         # GIVEN
         ns_path, path = "admin", "f.txt"
-        filecore = cast(mock.MagicMock, ns_use_case.filecore)
+        file_service = cast(mock.MagicMock, ns_use_case.file)
         # WHEN
         await ns_use_case.delete_item(ns_path, path)
         # THEN
-        filecore.delete.assert_awaited_once_with(ns_path, path)
+        file_service.delete.assert_awaited_once_with(ns_path, path)
 
     @pytest.mark.parametrize("path", [".", "Trash"])
     async def test_when_deleting_a_special_path(
@@ -188,11 +188,11 @@ class TestEmptyTrash:
         # GIVEN
         ns_path = "admin"
         audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
-        filecore = cast(mock.MagicMock, ns_use_case.filecore)
+        file_service = cast(mock.MagicMock, ns_use_case.file)
         # WHEN
         await ns_use_case.empty_trash(ns_path)
         # THEN
-        filecore.empty_folder.assert_awaited_once_with(ns_path, "trash")
+        file_service.empty_folder.assert_awaited_once_with(ns_path, "trash")
         audit_trail.trash_emptied.assert_called_once_with()
 
 
