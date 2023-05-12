@@ -192,3 +192,8 @@ class FullyQualifiedPath(NamedTuple):
     ns_path: str
     path: Path
     mount_point: MountPoint | None = None
+
+    def is_mount_point(self) -> bool:
+        if self.mount_point is None:
+            return False
+        return self.mount_point.display_path == self.path

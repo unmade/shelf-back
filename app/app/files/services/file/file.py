@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import IO, TYPE_CHECKING
 
 from app.app.files.domain import File, MountedFile, MountPoint
 from app.cache import disk_cache
@@ -49,6 +49,25 @@ class FileService:
         self.filecore = filecore
         self.mount_service = mount_service
 
+    async def create_file(
+        self, ns_path: AnyPath, path: AnyPath, content: IO[bytes]
+    ) -> AnyFile:
+        fq_path = await self.mount_service.resolve_path(ns_path, path)
+        file = await self.filecore.create_file(fq_path.ns_path, fq_path.path, content)
+        return _resolve_file(file, fq_path.mount_point)
+
+    async def create_folder(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:
+        fq_path = await self.mount_service.resolve_path(ns_path, path)
+        file = await self.filecore.create_folder(fq_path.ns_path, fq_path.path)
+        return _resolve_file(file, fq_path.mount_point)
+
+    async def delete(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:
+        fq_path = await self.mount_service.resolve_path(ns_path, path)
+        if fq_path.is_mount_point():
+            raise File.NotFound()
+        file = await self.filecore.delete(fq_path.ns_path, fq_path.path)
+        return _resolve_file(file, fq_path.mount_point)
+
     async def download(
         self, ns_path: AnyPath, path: AnyPath
     ) -> tuple[AnyFile, ContentReader]:
@@ -56,6 +75,10 @@ class FileService:
         file = await self.filecore.get_by_path(fq_path.ns_path, fq_path.path)
         _, content = await self.filecore.download(file.id)
         return _resolve_file(file, fq_path.mount_point), content
+
+    async def empty_folder(self, ns_path: AnyPath, path: AnyPath) -> None:
+        fq_path = await self.mount_service.resolve_path(ns_path, path)
+        await self.filecore.empty_folder(fq_path.ns_path, fq_path.path)
 
     async def get_at_path(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:
         fq_path = await self.mount_service.resolve_path(ns_path, path)

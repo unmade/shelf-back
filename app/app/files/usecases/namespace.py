@@ -51,7 +51,7 @@ class NamespaceUseCase:
 
     async def add_file(
         self, ns_path: AnyPath, path: AnyPath, content: IO[bytes]
-    ) -> File:
+    ) -> AnyFile:
         """
         Saves a file to a storage and to a database. Additionally calculates and saves
         dhash and fingerprint for supported mediatypes.
@@ -74,7 +74,7 @@ class NamespaceUseCase:
             File.NotADirectory: If one of the path parents is not a folder.
 
         Returns:
-            File: Saved file.
+            AnyFile: Saved file.
         """
         path = Path(path)
         if path.is_relative_to("trash"):
@@ -91,14 +91,14 @@ class NamespaceUseCase:
             if (used + size) > account.storage_quota:
                 raise Account.StorageQuotaExceeded()
 
-        file = await self.filecore.create_file(ns_path, path, content)
+        file = await self.file.create_file(ns_path, path, content)
         await self.dupefinder.track(file.id, content)
         await self.metadata.track(file.id, content)
 
         taskgroups.schedule(self.audit_trail.file_added(file))
         return file
 
-    async def create_folder(self, ns_path: AnyPath, path: AnyPath) -> File:
+    async def create_folder(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:
         """
         Creates a folder with any missing parents in a namespace with a `ns_path`.
 
@@ -111,14 +111,14 @@ class NamespaceUseCase:
             File.NotADirectory: If one of the path parents is not a directory.
 
         Returns:
-            File: Created folder.
+            AnyFile: Created folder.
         """
         assert Path(path) not in {Path("."), Path("Trash")}
-        folder = await self.filecore.create_folder(ns_path, path)
+        folder = await self.file.create_folder(ns_path, path)
         taskgroups.schedule(self.audit_trail.folder_created(folder))
         return folder
 
-    async def delete_item(self, ns_path: AnyPath, path: AnyPath) -> File:
+    async def delete_item(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:
         """
         Permanently deletes a file or a folder. If path is a folder deletes a folder
         with all of its contents.
@@ -131,12 +131,12 @@ class NamespaceUseCase:
             File.NotFound: If a file/folder with a given path does not exists.
 
         Returns:
-            File: Deleted file.
+            AnyFile: Deleted file.
         """
         assert Path(path) not in {Path("."), Path("Trash")}, (
             "Can't delete Home or Trash folder."
         )
-        return await self.filecore.delete(ns_path, path)
+        return await self.file.delete(ns_path, path)
 
     async def download(
         self, ns_path: AnyPath, path: AnyPath
@@ -150,7 +150,7 @@ class NamespaceUseCase:
         Args:
             ns_path (AnyPath): Namespace path where to empty the Trash folder.
         """
-        await self.filecore.empty_folder(ns_path, "trash")
+        await self.file.empty_folder(ns_path, "trash")
         taskgroups.schedule(self.audit_trail.trash_emptied())
 
     async def find_duplicates(

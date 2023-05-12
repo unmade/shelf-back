@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from io import BytesIO
 from typing import IO, TYPE_CHECKING, cast
 from unittest import mock
 
@@ -54,7 +55,7 @@ def _make_mounted_file(source_file: File, ns_path: str, path: AnyPath) -> Mounte
         )
 
 
-class TestResolvePath:
+class TestResolveFile:
     def test_regular_file(self):
         # GIVEN
         file = _make_file("admin", "f.txt")
@@ -149,6 +150,74 @@ class TestResolvePath:
 
 
 @pytest.mark.asyncio
+class TestCreateFile:
+    async def test(self, file_service: FileService):
+        # GIVEN
+        ns_path, path, content = "admin", "f.txt", BytesIO(b"Dummy")
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        # WHEN
+        result = await file_service.create_file(ns_path, path, content)
+        # THEN
+        mount_service.resolve_path.assert_awaited_once_with(ns_path, path)
+        file = filecore.create_file.return_value
+        fq_path = mount_service.resolve_path.return_value
+        assert result == _resolve_file(file, fq_path.mount_point)
+        filecore.create_file.assert_called_once_with(
+            fq_path.ns_path, fq_path.path, content
+        )
+
+
+@pytest.mark.asyncio
+class TestCreateFolder:
+    async def test(self, file_service: FileService):
+        # GIVEN
+        ns_path, path = "admin", "f.txt"
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        # WHEN
+        result = await file_service.create_folder(ns_path, path)
+        # THEN
+        mount_service.resolve_path.assert_awaited_once_with(ns_path, path)
+        file = filecore.create_folder.return_value
+        fq_path = mount_service.resolve_path.return_value
+        assert result == _resolve_file(file, fq_path.mount_point)
+        filecore.create_folder.assert_called_once_with(fq_path.ns_path, fq_path.path)
+
+
+@pytest.mark.asyncio
+class TestDelete:
+    async def test(self, file_service: FileService):
+        # GIVEN
+        ns_path, path = "admin", "f.txt"
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        fq_path = mount_service.resolve_path.return_value
+        fq_path.is_mount_point = mock.MagicMock(return_value=False)
+        # WHEN
+        result = await file_service.delete(ns_path, path)
+        # THEN
+        mount_service.resolve_path.assert_awaited_once_with(ns_path, path)
+        file = filecore.delete.return_value
+        assert result == _resolve_file(file, fq_path.mount_point)
+        filecore.delete.assert_called_once_with(fq_path.ns_path, fq_path.path)
+
+    async def test_deleting_a_mount_point(self, file_service: FileService):
+        # GIVEN
+        ns_path, path = "admin", "f.txt"
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        fq_path = mount_service.resolve_path.return_value
+        fq_path.is_mount_point = mock.MagicMock(return_value=True)
+        # WHEN
+        with pytest.raises(File.NotFound):
+            await file_service.delete(ns_path, path)
+        # THEN
+        mount_service.resolve_path.assert_awaited_once_with(ns_path, path)
+        filecore.delete.assert_not_called()
+
+
+@pytest.mark.asyncio
 class TestDownload:
     async def test(self, file_service: FileService):
         # GIVEN
@@ -165,6 +234,21 @@ class TestDownload:
         assert result == (_resolve_file(file, fq_path.mount_point), content)
         filecore.get_by_path.assert_called_once_with(fq_path.ns_path, fq_path.path)
         filecore.download.assert_called_once_with(filecore.get_by_path.return_value.id)
+
+
+@pytest.mark.asyncio
+class TestEmptyFolder:
+    async def test(self, file_service: FileService):
+        # GIVEN
+        ns_path, path = "admin", "folder"
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        # WHEN
+        await file_service.empty_folder(ns_path, path)
+        # THEN
+        mount_service.resolve_path.assert_awaited_once_with(ns_path, path)
+        fq_path = mount_service.resolve_path.return_value
+        filecore.empty_folder.assert_called_once_with(fq_path.ns_path, fq_path.path)
 
 
 @pytest.mark.asyncio
