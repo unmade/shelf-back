@@ -217,9 +217,8 @@ class IStorage(Protocol):
     @abc.abstractmethod
     async def move(
         self,
-        ns_path: AnyPath,
-        from_path: AnyPath,
-        to_path: AnyPath,
+        at: tuple[AnyPath, AnyPath],
+        to: tuple[AnyPath, AnyPath],
     ) -> None:
         """
         Move a file to the destination path. The destination path should include
@@ -227,9 +226,8 @@ class IStorage(Protocol):
         should as 'b/f.txt'.
 
         Args:
-            ns_path (AnyPath): Namespace path.
-            from_path (AnyPath): Current file pathname relative to namespace.
-            to_path (AnyPath): Next file pathname relative to namespace.
+            at (tuple[AnyPath, AnyPath]): Namespace path and prefix to be replaced.
+            to (tuple[AnyPath, AnyPath]): New mamespace path and prefix.
 
         Raises:
             File.NotFound: If source or destination path does not exist.
@@ -239,9 +237,8 @@ class IStorage(Protocol):
     @abc.abstractmethod
     async def movedir(
         self,
-        ns_path: AnyPath,
-        from_path: AnyPath,
-        to_path: AnyPath,
+        at: tuple[AnyPath, AnyPath],
+        to: tuple[AnyPath, AnyPath],
     ) -> None:
         """
         Move a folder to the destination path. The destination path should include
@@ -252,9 +249,8 @@ class IStorage(Protocol):
         If source path doesn't exists, it will act as a no-op.
 
         Args:
-            ns_path (AnyPath): Namespace path.
-            from_path (AnyPath): Current folder pathname relative to namespace.
-            to_path (AnyPath): Next folder pathname relative to namespace.
+            at (tuple[AnyPath, AnyPath]): Namespace path and prefix to be replaced.
+            to (tuple[AnyPath, AnyPath]): New mamespace path and prefix.
 
         Raises:
             File.NotADirectory: If some parent of the destination is not a directory.

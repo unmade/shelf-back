@@ -310,12 +310,12 @@ class TestMoveItem:
         # GIVEN
         ns_path, at_path, to_path = "admin", "a/b", "a/c"
         audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
-        filecore = cast(mock.MagicMock, ns_use_case.filecore)
+        file_service = cast(mock.MagicMock, ns_use_case.file)
         # WHEN
         result = await ns_use_case.move_item(ns_path, at_path, to_path)
         # THEN
-        assert result == filecore.move.return_value
-        filecore.move.assert_awaited_once_with(ns_path, at_path, to_path)
+        assert result == file_service.move.return_value
+        file_service.move.assert_awaited_once_with(ns_path, at_path, to_path)
         audit_trail.file_moved.assert_called_once_with(result)
 
     @pytest.mark.parametrize("path", [".", "Trash", "trash"])
@@ -335,12 +335,13 @@ class TestMoveItemToTrash:
         audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
         filecore = cast(mock.MagicMock, ns_use_case.filecore)
         filecore.exists_at_path.return_value = False
+        file_service = cast(mock.MagicMock, ns_use_case.file)
         # WHEN
         result = await ns_use_case.move_item_to_trash(ns_path, path)
         # THEN
-        assert result == filecore.move.return_value
+        assert result == file_service.move.return_value
         filecore.exists_at_path.assert_awaited_once_with(ns_path, next_path)
-        filecore.move.assert_awaited_once_with(ns_path, path, next_path)
+        file_service.move.assert_awaited_once_with(ns_path, path, next_path)
         audit_trail.file_trashed.assert_called_once_with(result)
 
     @mock.patch("app.toolkit.timezone.now", return_value=datetime(2000, 1, 1, 19, 37))
@@ -352,6 +353,7 @@ class TestMoveItemToTrash:
         next_path = Path("Trash/f 193700000000.txt")
         filecore = cast(mock.MagicMock, ns_use_case.filecore)
         filecore.exists_at_path.return_value = True
+        file_service = cast(mock.MagicMock, ns_use_case.file)
         # WHEN
         await ns_use_case.move_item_to_trash(ns_path, path)
         # THEN
@@ -359,7 +361,7 @@ class TestMoveItemToTrash:
         filecore.exists_at_path.assert_awaited_once_with(
             ns_path, Path("Trash/f.txt")
         )
-        filecore.move.assert_awaited_once_with(ns_path, path, next_path)
+        file_service.move.assert_awaited_once_with(ns_path, path, next_path)
 
 
 class TestReindex:

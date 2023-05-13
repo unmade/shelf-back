@@ -304,11 +304,14 @@ class FileCoreService:
         return await self.db.file.list_with_prefix(ns_path, prefix)
 
     async def move(
-        self, ns_path: AnyPath, at_path: AnyPath, to_path: AnyPath
+        self, at: tuple[AnyPath, AnyPath], to: tuple[AnyPath, AnyPath]
     ) -> File:
         """
         Moves a file or a folder to a different location in the target Namespace.
         If the source path is a folder all its contents will be moved.
+
+        If the file is moved tothe mounted folder that it actually being transferred to
+        other namespace (the one that mounted folder belongs).
 
         Args:
             ns_path (AnyPath): Namespace path where file/folder should be moved
@@ -324,28 +327,26 @@ class FileCoreService:
         Returns:
             File: Moved file/folder.
         """
-        at_path = Path(at_path)
-        to_path = Path(to_path)
+        at_ns_path, at_path = at[0], Path(at[1])
+        to_ns_path, to_path = to[0], Path(to[1])
 
-        renamed = at_path == to_path and str(at_path) != str(to_path)
-        assert not to_path.is_relative_to(at_path) or renamed, (
-            "Can't move to itself."
-        )
+        if at_ns_path == to_ns_path:
+            case_changed = at_path == to_path and str(at_path) != str(to_path)
+            if not case_changed and to_path.is_relative_to(at_path):
+                raise File.MalformedPath("Can't move to itself.")
 
-        paths = [at_path, to_path, to_path.parent]
+        file = await self.db.file.get_by_path(at_ns_path, at_path)
+
+        paths = [to_path, to_path.parent]
         files = {
             file.path: file
-            for file in await self.db.file.get_by_path_batch(ns_path, paths)
+            for file in await self.db.file.get_by_path_batch(to_ns_path, paths)
         }
 
-        file = files.get(at_path)
-        if file is None:
-            raise File.NotFound() from None
-
-        if to_path.parent not in files:
+        next_parent = files.get(to_path.parent)
+        if next_parent is None:
             raise File.MissingParent() from None
 
-        next_parent = files[to_path.parent]
         if not next_parent.is_folder():
             raise File.NotADirectory() from None
 
@@ -355,31 +356,36 @@ class FileCoreService:
 
         # preserve parent casing
         to_path = next_parent.path / to_path.name
-        return await self._move(file, to_path)
+        return await self._move(file, to_ns_path, to_path)
 
-    async def _move(self, file: File, next_path: AnyPath) -> File:
+    async def _move(self, file: File, to_ns_path: AnyPath, to_path: AnyPath) -> File:
         """Actually moves a file or a folder in the storage and in the database."""
-        ns_path = file.ns_path
-        path = file.path
-        next_path = Path(next_path)
+        at_ns_path, at_path, size = file.ns_path, file.path, file.size
+        to_path = Path(to_path)
 
-        to_decrease = set(path.parents) - set(next_path.parents)
-        to_increase = set(next_path.parents) - set(path.parents)
+        to_decrease = set(at_path.parents)
+        to_increase = set(to_path.parents)
+        if at_ns_path == to_ns_path:
+            to_decrease -= set(to_path.parents)
+            to_increase -= set(at_path.parents)
 
         file_update = FileUpdate(
-            id=file.id,
-            name=next_path.name,
-            path=str(next_path),
+            ns_path=str(to_ns_path),
+            name=to_path.name,
+            path=str(to_path),
         )
 
         move_storage = self.storage.movedir if file.is_folder() else self.storage.move
-        await move_storage(ns_path, file.path, file_update["path"])
+        await move_storage(at=(at_ns_path, file.path), to=(to_ns_path, to_path))
         async for _ in self.db.atomic():
-            updated_file = await self.db.file.update(file_update)
+            updated_file = await self.db.file.update(file, file_update)
             if file.is_folder():
-                await self.db.file.replace_path_prefix(ns_path, path, next_path)
-            await self.db.file.incr_size_batch(ns_path, to_decrease, value=-file.size)
-            await self.db.file.incr_size_batch(ns_path, to_increase, value=file.size)
+                await self.db.file.replace_path_prefix(
+                    at=(at_ns_path, at_path),
+                    to=(to_ns_path, to_path),
+                )
+            await self.db.file.incr_size_batch(at_ns_path, to_decrease, value=-size)
+            await self.db.file.incr_size_batch(to_ns_path, to_increase, value=size)
         return updated_file
 
     async def reindex(self, ns_path: AnyPath, path: AnyPath) -> None:
@@ -448,5 +454,5 @@ class FileCoreService:
         if root is None:
             root = await self.create_folder(ns_path, path)
 
-        file_update = FileUpdate(id=root.id, size=total_size)
-        await self.db.file.update(file_update)
+        file_update = FileUpdate(size=total_size)
+        await self.db.file.update(root, file_update)

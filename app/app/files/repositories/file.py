@@ -4,7 +4,6 @@ from typing import (
     TYPE_CHECKING,
     Iterable,
     Protocol,
-    Required,
     Sequence,
     TypedDict,
 )
@@ -19,7 +18,7 @@ __all__ = ["IFileRepository", "FileUpdate"]
 
 
 class FileUpdate(TypedDict, total=False):
-    id: Required[str]
+    ns_path: str
     name: str
     path: str
     size: int
@@ -191,15 +190,14 @@ class IFileRepository(Protocol):
         """
 
     async def replace_path_prefix(
-        self, ns_path: AnyPath, prefix: AnyPath, next_prefix: AnyPath
+        self, at: tuple[AnyPath, AnyPath], to: tuple[AnyPath, AnyPath]
     ) -> None:
         """
-        Replaces `prefix` with a `next_prefix` for all paths starting with a `prefix`.
+        Replaces `namespace` and `prefix` for all files match `at` with a `to`.
 
         Args:
-            ns_path (AnyPath): Namespace path.
-            prefix (AnyPath): Prefix to be replaced.
-            next_prefix (AnyPath): Prefix to be replaces to.
+            at (tuple[AnyPath, AnyPath]): Namespace path and prefix to be replaced.
+            to (tuple[AnyPath, AnyPath]): New mamespace path and prefix.
         """
 
     async def save(self, file: File) -> File:
@@ -224,12 +222,13 @@ class IFileRepository(Protocol):
             files (Iterable[File]): Iterable of files to be saved.
         """
 
-    async def update(self, file_update: FileUpdate) -> File:
+    async def update(self, file: File, fields: FileUpdate) -> File:
         """
         Updates a file with provided set of fields.
 
         Args:
-            file (FileUpdate): a file fields to be updated with new values.
+            file (File): file to be updated.
+            fields (FileUpdate): a file fields to be updated with new values.
 
         Raises:
             File.NotFound: if a file with given ID does not exists.

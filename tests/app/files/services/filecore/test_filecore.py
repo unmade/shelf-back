@@ -15,7 +15,13 @@ if TYPE_CHECKING:
     from app.app.files.domain import AnyPath, Namespace
     from app.app.files.services import FileCoreService
 
-    from ..conftest import BookmarkFactory, FileFactory, FolderFactory
+    from ..conftest import (
+        BookmarkFactory,
+        FileFactory,
+        FolderFactory,
+        NamespaceFactory,
+        UserFactory,
+    )
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
@@ -519,8 +525,7 @@ class TestListFolder:
             await filecore.list_folder(namespace.path, "home")
 
 
-
-class TestMoveFile:
+class TestMoveV2:
     async def test_moving_a_file(
         self,
         filecore: FileCoreService,
@@ -531,12 +536,39 @@ class TestMoveFile:
         ns_path = namespace.path
         file = await file_factory(namespace.path, "f.txt")
         # WHEN
-        moved_file = await filecore.move(ns_path, file.path, ".f.txt")
+        moved_file = await filecore.move(
+            at=(ns_path, file.path),
+            to=(ns_path, ".f.txt"),
+        )
         # THEN
         assert moved_file.name == ".f.txt"
         assert moved_file.path == ".f.txt"
         assert await filecore.storage.exists(namespace.path, ".f.txt")
         assert await filecore.db.file.exists_at_path(namespace.path, ".f.txt")
+
+    async def test_moving_a_file_beetwen_namespaces(
+        self,
+        filecore: FileCoreService,
+        file_factory: FileFactory,
+        namespace_factory: NamespaceFactory,
+        user_factory: UserFactory,
+        namespace: Namespace,
+    ):
+        # GIVEN
+        user_b = await user_factory("user")
+        namespace_b = await namespace_factory(user_b.username, owner_id=user_b.id)
+        file = await file_factory(namespace.path, "f.txt")
+        # WHEN
+        await filecore.move(
+            at=(namespace.path, file.path),
+            to=(namespace_b.path, file.path),
+        )
+        # THEN
+        # assert moved_file.name == ".f.txt"
+        # assert moved_file.path == ".f.txt"
+        # assert not await filecore.storage.exists(namespace.path, "f.txt")
+        assert not await filecore.db.file.exists_at_path(namespace.path, "f.txt")
+        assert await filecore.db.file.exists_at_path(namespace_b.path, "f.txt")
 
     async def test_moving_a_folder(
         self,
@@ -549,7 +581,10 @@ class TestMoveFile:
         await file_factory(ns_path, path="a/b/f.txt")
 
         # WHEN: rename folder 'b' to 'c'
-        moved_file = await filecore.move(ns_path, "a/b", "a/c")
+        moved_file = await filecore.move(
+            at=(ns_path, "a/b"),
+            to=(ns_path, "a/c"),
+        )
 
         # THEN
         assert moved_file.name == "c"
@@ -565,6 +600,43 @@ class TestMoveFile:
         assert await filecore.storage.exists(ns_path, "a/c/f.txt")
         assert await filecore.db.file.exists_at_path(ns_path, "a/c/f.txt")
 
+    async def test_moving_a_folder_beetwen_namespaces(
+        self,
+        filecore: FileCoreService,
+        file_factory: FileFactory,
+        folder_factory: FolderFactory,
+        namespace_factory: NamespaceFactory,
+        user_factory: UserFactory,
+        namespace: Namespace,
+    ):
+        # GIVEN
+        ns_path = namespace.path
+        await file_factory(ns_path, path="a/b/f.txt")
+
+        user_b = await user_factory("user")
+        namespace_b = await namespace_factory(user_b.username, owner_id=user_b.id)
+        await folder_factory(namespace_b.path, "a")
+
+        # WHEN: move folder 'b' to folder 'a' under name 'c'
+        moved_file = await filecore.move(
+            at=(namespace.path, "a/b"),
+            to=(namespace_b.path, "a/c"),
+        )
+
+        # THEN
+        assert moved_file.name == "c"
+        assert moved_file.path == "a/c"
+
+        # assert not await filecore.storage.exists(ns_path, "a/b")
+        assert not await filecore.db.file.exists_at_path(ns_path, "a/b")
+        # assert not await filecore.storage.exists(ns_path, "a/b/f.txt")
+        assert not await filecore.db.file.exists_at_path(ns_path, "a/b/f.txt")
+
+        # assert await filecore.storage.exists(ns_path, "a/c")
+        assert await filecore.db.file.exists_at_path(namespace_b.path, "a/c")
+        # assert await filecore.storage.exists(ns_path, "a/c/f.txt")
+        assert await filecore.db.file.exists_at_path(namespace_b.path, "a/c/f.txt")
+
     async def test_updating_parents_size(
         self,
         filecore: FileCoreService,
@@ -572,16 +644,18 @@ class TestMoveFile:
         namespace: Namespace,
     ):
         # GIVEN
-        ns_path = namespace.path
-        await file_factory(ns_path, "a/b/f.txt")
-        await file_factory(ns_path, "a/b/c/x.txt")
-        await file_factory(ns_path, "a/b/c/y.txt")
-        await file_factory(ns_path, "a/g/z.txt")
+        await file_factory(namespace.path, "a/b/f.txt")
+        await file_factory(namespace.path, "a/b/c/x.txt")
+        await file_factory(namespace.path, "a/b/c/y.txt")
+        await file_factory(namespace.path, "a/g/z.txt")
         # WHEN
-        await filecore.move(ns_path, "a/b/c", "a/g/c")
+        await filecore.move(
+            at=(namespace.path, "a/b/c"),
+            to=(namespace.path, "a/g/c"),
+        )
         # THEN
         paths = [".", "a", "a/b", "a/g"]
-        h, a, b, g = await filecore.db.file.get_by_path_batch(ns_path, paths)
+        h, a, b, g = await filecore.db.file.get_by_path_batch(namespace.path, paths)
         assert h.size == 40
         assert a.size == 40
         assert b.size == 10
@@ -597,7 +671,10 @@ class TestMoveFile:
         ns_path = namespace.path
         await file_factory(namespace.path, path="file.txt")
         # WHEN
-        moved_file = await filecore.move(ns_path, "file.txt", "File.txt")
+        moved_file = await filecore.move(
+            at=(ns_path, "file.txt"),
+            to=(ns_path, "File.txt"),
+        )
         # THEN
         assert moved_file.name == "File.txt"
         assert moved_file.path == "File.txt"
@@ -616,10 +693,11 @@ class TestMoveFile:
         await folder_factory(namespace.path, "a")
         await folder_factory(namespace.path, "a/B")
         await file_factory(namespace.path, "a/f")
-
         # WHEN: move file from 'a/f' to 'a/B/F.TXT'
-        moved_file = await filecore.move(ns_path, "A/F", "A/b/F.TXT")
-
+        moved_file = await filecore.move(
+            at=(ns_path, "A/F"),
+            to=(ns_path, "A/b/F.TXT"),
+        )
         # THEN
         assert moved_file.name == "F.TXT"
         assert moved_file.path == "a/B/F.TXT"
@@ -632,7 +710,10 @@ class TestMoveFile:
         self, filecore: FileCoreService, namespace: Namespace
     ):
         with pytest.raises(File.NotFound):
-            await filecore.move(namespace.path, "f.txt", "a/f.txt")
+            await filecore.move(
+                at=(namespace.path, "f.txt"),
+                to=(namespace.path, "a/f.txt"),
+            )
 
     async def test_when_next_path_is_taken(
         self,
@@ -643,7 +724,10 @@ class TestMoveFile:
         await file_factory(namespace.path, "a/b/x.txt")
         await file_factory(namespace.path, "a/c/y.txt")
         with pytest.raises(File.AlreadyExists):
-            await filecore.move(namespace.path, "a/b", "a/c")
+            await filecore.move(
+                at=(namespace.path, "a/b"),
+                to=(namespace.path, "a/c"),
+            )
 
     async def test_when_next_path_parent_is_missing(
         self,
@@ -653,7 +737,10 @@ class TestMoveFile:
     ):
         await file_factory(namespace.path, "f.txt")
         with pytest.raises(File.MissingParent):
-            await filecore.move(namespace.path, "f.txt", "a/f.txt")
+            await filecore.move(
+                at=(namespace.path, "f.txt"),
+                to=(namespace.path, "a/f.txt"),
+            )
 
     async def test_when_next_path_is_not_a_folder(
         self,
@@ -664,7 +751,10 @@ class TestMoveFile:
         await file_factory(namespace.path, "x.txt")
         await file_factory(namespace.path, "y")
         with pytest.raises(File.NotADirectory):
-            await filecore.move(namespace.path, "x.txt", "y/x.txt")
+            await filecore.move(
+                at=(namespace.path, "x.txt"),
+                to=(namespace.path, "y/x.txt"),
+            )
 
     @pytest.mark.parametrize(["a", "b"], [
         ("a/b", "a/b/b"),
@@ -677,8 +767,8 @@ class TestMoveFile:
         a: str,
         b: str,
     ):
-        with pytest.raises(AssertionError) as excinfo:
-            await filecore.move(namespace.path, a, b)
+        with pytest.raises(File.MalformedPath) as excinfo:
+            await filecore.move(at=(namespace.path, a), to=(namespace.path, b))
         assert str(excinfo.value) == "Can't move to itself."
 
 

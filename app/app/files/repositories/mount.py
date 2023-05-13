@@ -1,11 +1,16 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, TypedDict
 
 if TYPE_CHECKING:
     from app.app.files.domain import AnyPath, MountPoint
 
 __all__ = ["IMountRepository"]
+
+
+class MountPointUpdate(TypedDict):
+    folder: AnyPath
+    display_name: str
 
 
 class IMountRepository(Protocol):
@@ -37,4 +42,18 @@ class IMountRepository(Protocol):
 
         Returns:
             MountPoint: Resolved MountPoint for a given file.
+        """
+
+    async def update(
+        self, mount_point: MountPoint, fields: MountPointUpdate
+    ) -> MountPoint:
+        """
+        Updates existing mount point with values provided in `fields`.
+
+        Args:
+            mount_point (MountPoint): Existing Mount Point
+            fields (MountPointUpdate): Fields to update.
+
+        Returns:
+            MountPoint: Updated Mount Point.
         """

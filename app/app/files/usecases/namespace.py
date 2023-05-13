@@ -257,7 +257,7 @@ class NamespaceUseCase:
 
     async def move_item(
         self, ns_path: AnyPath, path: AnyPath, next_path: AnyPath
-    ) -> File:
+    ) -> AnyFile:
         """
         Moves a file or a folder to a different location in the target Namespace.
         If the source path is a folder all its contents will be moved.
@@ -274,16 +274,16 @@ class NamespaceUseCase:
             File.NotADirectory: If one of the 'next_path' parents is not a folder.
 
         Returns:
-            File: Moved file/folder.
+            AnyFile: Moved file/folder.
         """
         assert Path(path) not in {Path("."), Path("Trash")}, (
             "Can't move Home or Trash folder."
         )
-        file = await self.filecore.move(ns_path, path, next_path)
+        file = await self.file.move(ns_path, path, next_path)
         taskgroups.schedule(self.audit_trail.file_moved(file))
         return file
 
-    async def move_item_to_trash(self, ns_path: AnyPath, path: AnyPath) -> File:
+    async def move_item_to_trash(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:
         """
         Moves a file or folder to the Trash folder in the target Namespace.
         If path is a folder all its contents will be moved.
@@ -297,7 +297,7 @@ class NamespaceUseCase:
             File.NotFound: If source path does not exists.
 
         Returns:
-            File: Moved file.
+            AnyFile: Moved file.
         """
         next_path = Path("Trash") / Path(path).name
 
@@ -305,7 +305,7 @@ class NamespaceUseCase:
             timestamp = f"{timezone.now():%H%M%S%f}"
             next_path = next_path.with_stem(f"{next_path.stem} {timestamp}")
 
-        file = await self.filecore.move(ns_path, path, next_path)
+        file = await self.file.move(ns_path, path, next_path)
         taskgroups.schedule(self.audit_trail.file_trashed(file))
         return file
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import abc
 from typing import TYPE_CHECKING, Any, NamedTuple
 
 from app.app.files.domain import mediatypes
@@ -56,7 +57,7 @@ class ThumbnailUnavailable(FileError):
     pass
 
 
-class File:
+class _BaseFile:
     __slots__ = ("id", "ns_path", "name", "path", "size", "mtime", "mediatype")
 
     Error = FileError
@@ -89,7 +90,7 @@ class File:
         self.mediatype = mediatype
 
     def __eq__(self, other: Any) -> bool:
-        if not isinstance(other, File):
+        if not isinstance(other, self.__class__):
             return NotImplemented
 
         return all(
@@ -98,11 +99,13 @@ class File:
         )
 
     def __repr__(self) -> str:
-        return f"<File ns_path={self.ns_path!r} path={self.path!r}>"
+        cls_name = self.__class__.__name__
+        return f"<{cls_name} ns_path={self.ns_path!r} path={self.path!r}>"
 
     @property
+    @abc.abstractmethod
     def shared(self) -> bool:
-        return False
+        raise NotImplementedError()
 
     def is_folder(self) -> bool:
         """True if file is a folder, False otherwise."""
@@ -125,10 +128,18 @@ class File:
         })
 
 
-class MountedFile:
-    __slots__ = (
-        "id", "ns_path", "name", "path", "size", "mtime", "mediatype", "mount_point",
-    )
+class File(_BaseFile):
+    """Regular file with a path pointing to the actual location of the file."""
+
+    @property
+    def shared(self) -> bool:
+        return False
+
+
+class MountedFile(_BaseFile):
+    """A file with a path that is a mount point or a location in a mount point."""
+
+    __slots__ = _BaseFile.__slots__ + ("mount_point", )
 
     def __init__(
         self,
@@ -142,53 +153,29 @@ class MountedFile:
         mtime: float | None = None,
         mount_point: MountPoint = None,
     ) -> None:
-        self.id = str(id)
-        self.ns_path = ns_path
-        self.name = name
-        self.path = Path(path)
-        self.size = size
-        self.mtime = mtime or mtime_factory()
-        self.mediatype = mediatype
-        self.mount_point = mount_point
-
-    def __eq__(self, other: Any) -> bool:
-        if not isinstance(other, self.__class__):
-            return NotImplemented
-
-        return all(
-            getattr(self, field) == getattr(other, field)
-            for field in self.__slots__
+        super().__init__(
+            id=id,
+            ns_path=ns_path,
+            name=name,
+            path=path,
+            size=size,
+            mediatype=mediatype,
+            mtime=mtime,
         )
-
-    def __repr__(self) -> str:
-        return f"<MountedFile ns_path={self.ns_path!r} path={self.path!r}>"
+        self.mount_point = mount_point
 
     @property
     def shared(self) -> bool:
         return True
 
-    def is_folder(self) -> bool:
-        """True if file is a folder, False otherwise."""
-        return self.mediatype == mediatypes.FOLDER
-
-    def is_hidden(self) -> bool:
-        """True if file name startswith '.', False othewise."""
-        return self.name.startswith(".")
-
-    def json(self) -> str:
-        """Dump instance to json."""
-        return json_.dumps({
-            "id": str(self.id),
-            "ns_path": self.ns_path,
-            "name": self.name,
-            "path": str(self.path),
-            "size": self.size,
-            "mtime": self.mtime,
-            "mediatype": self.mediatype,
-        })
-
 
 class FullyQualifiedPath(NamedTuple):
+    """
+    A fully qualified path.
+
+    The `ns_path` and `path` always point to the actual location of the file.
+    If the `mount_point` is not None than it means the path is mounted.
+    """
     ns_path: str
     path: Path
     mount_point: MountPoint | None = None
@@ -196,4 +183,4 @@ class FullyQualifiedPath(NamedTuple):
     def is_mount_point(self) -> bool:
         if self.mount_point is None:
             return False
-        return self.mount_point.display_path == self.path
+        return self.mount_point.source.path == self.path

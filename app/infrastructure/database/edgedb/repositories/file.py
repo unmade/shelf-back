@@ -398,26 +398,34 @@ class FileRepository(IFileRepository):
         return [_from_db_v2(str(ns_path), obj) for obj in objs]
 
     async def replace_path_prefix(
-        self, ns_path: AnyPath, prefix: AnyPath, next_prefix: AnyPath
+        self, at: tuple[AnyPath, AnyPath], to: tuple[AnyPath, AnyPath]
     ) -> None:
+        at_ns_path, at_prefix = at
+        to_ns_path, to_prefix = to
+
         query = """
+            WITH
+                namespace := (SELECT Namespace FILTER .path = <str>$at_ns_path),
+                next_namespace := (SELECT Namespace FILTER .path = <str>$to_ns_path),
             UPDATE
                 File
             FILTER
-                str_lower(.path) LIKE str_lower(<str>$prefix) ++ '/%'
+                .namespace = namespace
                 AND
-                .namespace.path = <str>$ns_path
+                .path ILIKE <str>$at_prefix ++ '/%'
             SET {
+                namespace := next_namespace,
                 path := re_replace(
-                    str_lower(<str>$prefix), <str>$next_prefix, str_lower(.path)
-                )
+                    str_lower(<str>$at_prefix), <str>$to_prefix, str_lower(.path)
+                ),
             }
         """
         await self.conn.query(
             query,
-            ns_path=str(ns_path),
-            prefix=str(prefix),
-            next_prefix=str(next_prefix),
+            at_ns_path=str(at_ns_path),
+            at_prefix=str(at_prefix),
+            to_ns_path=str(to_ns_path),
+            to_prefix=str(to_prefix),
         )
 
     async def save(self, file: File) -> File:
@@ -505,19 +513,23 @@ class FileRepository(IFileRepository):
         await self._create_missing_mediatypes(mediatypes)
         await self.conn.query(query, files=data)
 
-    async def update(self, file_update: FileUpdate) -> File:
+    async def update(self, file: File, fields: FileUpdate) -> File:
+        ns_path = fields.pop("ns_path", file.ns_path)
         hints = get_type_hints(FileUpdate)
         statements = [
             f"{key} := {autocast.autocast(hints[key])}${key}"
-            for key in file_update if key != "id"
+            for key in fields
         ]
         query = f"""
+            WITH
+                namespace := (SELECT Namespace FILTER .path = <str>$ns_path),
             SELECT (
                 UPDATE
                     File
                 FILTER
-                    .id = <uuid>$id
+                    .id = <uuid>$file_id
                 SET {{
+                    namespace := namespace,
                     {','.join(statements)}
                 }}
             ) {{
@@ -527,5 +539,7 @@ class FileRepository(IFileRepository):
             }}
             LIMIT 1
         """
-        obj = await self.conn.query_required_single(query, **file_update)
+        obj = await self.conn.query_required_single(
+            query, file_id=file.id, ns_path=ns_path, **fields
+        )
         return _from_db(obj.namespace.path, obj)

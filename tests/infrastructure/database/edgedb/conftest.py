@@ -11,6 +11,7 @@ from app.app.files.domain import (
     Exif,
     File,
     Fingerprint,
+    MountPoint,
     Namespace,
     Path,
     SharedLink,
@@ -65,7 +66,7 @@ if TYPE_CHECKING:
             source_file_id: StrOrUUID,
             target_folder_id: StrOrUUID,
             display_name: str,
-        ):
+        ) -> MountPoint:
             ...
 
     class NamespaceFactory(Protocol):
@@ -208,6 +209,47 @@ def namespace_factory(namespace_repo: INamespaceRepository):
 
 
 @pytest.fixture
+def mount_factory(mount_repo: IMountRepository):
+    """A factory to mount file/folder into another folder."""
+    async def factory(
+        source_file_id: StrOrUUID, target_folder_id: StrOrUUID, display_name: str
+    ):
+        query = """
+            WITH
+                source := (SELECT File FILTER .id = <uuid>$source_file_id),
+                target_folder := (SELECT File FILTER .id = <uuid>$target_folder_id),
+            SELECT (
+                INSERT ShareMountPoint {
+                    display_name := <str>$display_name,
+                    parent := target_folder,
+                    member := (
+                        INSERT ShareMember {
+                            permissions := 0,
+                            user := target_folder.namespace.owner,
+                            share := (
+                                INSERT Share {
+                                    file := source,
+                                }
+                            )
+                        }
+                    )
+                }
+            ) {
+                parent: { namespace: { path }, path }
+            }
+        """
+        obj = await mount_repo.conn.query_required_single(  # type: ignore
+            query,
+            display_name=display_name,
+            source_file_id=source_file_id,
+            target_folder_id=target_folder_id,
+        )
+        display_path = Path(obj.parent.path) / display_name
+        return await mount_repo.get_closest(obj.parent.namespace.path, display_path)
+    return factory
+
+
+@pytest.fixture
 def user_factory(user_repo: IUserRepository):
     """A factory to persist User to the EdgeDB."""
     async def factory(username: str | None = None, password: str | None = None):
@@ -237,15 +279,21 @@ async def account(user: User, account_repo: IAccountRepository):
 
 
 @pytest.fixture
-async def namespace(user: User, namespace_repo: INamespaceRepository):
+async def namespace_a(user_a: User, namespace_factory: NamespaceFactory):
     """A Namespace instance saved to the EdgeDB."""
-    return await namespace_repo.save(
-        Namespace(
-            id=SENTINEL_ID,
-            path=user.username.lower(),
-            owner_id=user.id,
-        )
-    )
+    return await namespace_factory(user_a.username.lower(), owner_id=user_a.id)
+
+
+@pytest.fixture
+async def namespace_b(user_b: User, namespace_factory: NamespaceFactory):
+    """A Namespace instance saved to the EdgeDB."""
+    return await namespace_factory(user_b.username.lower(), owner_id=user_b.id)
+
+
+@pytest.fixture
+async def namespace(namespace_a: Namespace):
+    """A Namespace instance saved to the EdgeDB."""
+    return namespace_a
 
 
 @pytest.fixture
@@ -279,51 +327,21 @@ async def content_metadata(metadata_repo: IContentMetadataRepository, file: File
 
 
 @pytest.fixture
-def mount_factory(mount_repo: IMountRepository):
-    """A factory to mount file/folder into another folder."""
-    async def factory(
-        source_file_id: StrOrUUID, target_folder_id: StrOrUUID, display_name: str
-    ):
-        query = """
-            WITH
-                source := (SELECT File FILTER .id = <uuid>$source_file_id),
-                target_folder := (SELECT File FILTER .id = <uuid>$target_folder_id),
-            INSERT ShareMountPoint {
-                display_name := <str>$display_name,
-                parent := target_folder,
-                member := (
-                    INSERT ShareMember {
-                        permissions := 0,
-                        user := target_folder.namespace.owner,
-                        share := (
-                            INSERT Share {
-                                file := source,
-                            }
-                        )
-                    }
-                )
-            }
-        """
-        await mount_repo.conn.query_required_single(  # type: ignore
-            query,
-            display_name=display_name,
-            source_file_id=source_file_id,
-            target_folder_id=target_folder_id,
-        )
-    return factory
+async def user_a(user_factory: UserFactory):
+    """A User instance saved to the EdgeDB."""
+    return await user_factory()
 
 
 @pytest.fixture
-async def user(user_repo: IUserRepository):
+async def user_b(user_factory: UserFactory):
     """A User instance saved to the EdgeDB."""
-    return await user_repo.save(
-        User(
-            id=SENTINEL_ID,
-            username=fake.unique.user_name(),
-            password=fake.password(),
-            superuser=False,
-        )
-    )
+    return await user_factory()
+
+
+@pytest.fixture
+async def user(user_a: User):
+    """A User instance saved to the EdgeDB."""
+    return user_a
 
 
 @pytest.fixture

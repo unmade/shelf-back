@@ -167,42 +167,40 @@ class FileSystemStorage(IStorage):
     @sync_to_async
     def move(
         self,
-        ns_path: AnyPath,
-        from_path: AnyPath,
-        to_path: AnyPath,
+        at: tuple[AnyPath, AnyPath],
+        to: tuple[AnyPath, AnyPath],
     ) -> None:
-        from_fullpath = self._joinpath(self.location, ns_path, from_path)
-        to_fullpath = self._joinpath(self.location, ns_path, to_path)
+        from_fullpath = self._joinpath(self.location, *at)
+        to_fullpath = self._joinpath(self.location, *to)
         if os.path.isdir(from_fullpath):
             raise File.NotFound() from None
 
         parent = os.path.dirname(to_fullpath)
         if not os.path.exists(parent):
-            self._makedirs(ns_path, os.path.dirname(str(to_path)))
+            to_ns_path, to_path = to
+            self._makedirs(to_ns_path, os.path.dirname(str(to_path)))
 
-        self._move(ns_path, from_path, to_path)
+        self._move(at, to)
 
     @sync_to_async
     def movedir(
         self,
-        ns_path: AnyPath,
-        from_path: AnyPath,
-        to_path: AnyPath,
+        at: tuple[AnyPath, AnyPath],
+        to: tuple[AnyPath, AnyPath],
     ) -> None:
-        from_fullpath = self._joinpath(self.location, ns_path, from_path)
+        from_fullpath = self._joinpath(self.location, *at)
         if not os.path.isdir(from_fullpath):
             return
 
-        self._move(ns_path, from_path, to_path)
+        self._move(at, to)
 
     def _move(
         self,
-        ns_path: AnyPath,
-        from_path: AnyPath,
-        to_path: AnyPath,
+        at: tuple[AnyPath, AnyPath],
+        to: tuple[AnyPath, AnyPath],
     ) -> None:
-        source = self._joinpath(self.location, ns_path, from_path)
-        destination = self._joinpath(self.location, ns_path, to_path)
+        source = self._joinpath(self.location, *at)
+        destination = self._joinpath(self.location, *to)
         try:
             shutil.move(source, destination)
         except FileNotFoundError as exc:

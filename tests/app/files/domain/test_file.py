@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from faker import Faker
 
-from app.app.files.domain import File, Path, mediatypes
+from app.app.files.domain import File, MountedFile, MountPoint, Path, mediatypes
 
 fake = Faker()
 
@@ -23,6 +23,36 @@ def _make_file(
         size=fake.pyint(),
         mtime=fake.pyfloat(positive=True),
         mediatype=mediatype or fake.mime_type(),
+    )
+
+
+def _make_mounted_file(
+    path: str | None = None,
+    mediatype: str | None = None,
+    ns_path: str | None = None,
+) -> MountedFile:
+    ns_path=ns_path or fake.file_path(depth=1)
+    pathname = Path(path or fake.file_path(depth=3))
+
+    return MountedFile(
+        id=str(fake.uuid4()),
+        ns_path=ns_path,
+        name=pathname.name,
+        path=pathname,
+        size=fake.pyint(),
+        mtime=fake.pyfloat(positive=True),
+        mediatype=mediatype or fake.mime_type(),
+        mount_point=MountPoint(
+            source=MountPoint.Source(
+                ns_path=fake.file_path(depth=1),
+                path=Path(fake.file_path(depth=3)),
+            ),
+            folder=MountPoint.ContainingFolder(
+                ns_path=ns_path,
+                path=pathname.parent,
+            ),
+            display_name=pathname.name,
+        )
     )
 
 
@@ -77,3 +107,11 @@ class TestIsFolder:
     def test_file_is_folder(self, mediatype: str | None, folder: bool):
         file = _make_file(mediatype=mediatype)
         assert file.is_folder() is folder
+
+
+class TestShared:
+    def test(self):
+        file = _make_file()
+        assert file.shared is False
+        mounted_file = _make_mounted_file()
+        assert mounted_file.shared is True

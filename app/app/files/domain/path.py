@@ -23,7 +23,7 @@ class Path:
     @classmethod
     def validate(cls, value) -> Self:
         if not isinstance(value, (cls, str, PurePath)):
-            raise TypeError('string, pathlib.PurePath or Path required')
+            raise TypeError("string, pathlib.PurePath or Path required")
         return cls(value)
 
     def __eq__(self, other: Any) -> bool:

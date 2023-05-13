@@ -247,106 +247,116 @@ async def test_makedirs_is_a_noop(s3_storage: S3Storage):
     await s3_storage.makedirs("user", "f.txt")
 
 
-async def test_move(file_factory, s3_storage: S3Storage):
-    await file_factory("user/x.txt")
-    await s3_storage.move("user", "x.txt", "y.txt")
-    assert not await s3_storage.exists("user", "x.txt")
-    assert await s3_storage.exists("user", "y.txt")
+class TestMove:
+    async def test(self, file_factory, s3_storage: S3Storage):
+        # GIVEN
+        await file_factory("user/x.txt")
+        # WHEN
+        await s3_storage.move(at=("user", "x.txt"), to=("user", "y.txt"))
+        # THEN
+        assert not await s3_storage.exists("user", "x.txt")
+        assert await s3_storage.exists("user", "y.txt")
+
+    async def test_when_it_is_a_dir(self, file_factory, s3_storage: S3Storage):
+        await file_factory("user/a/x.txt")
+
+        with pytest.raises(File.NotFound):
+            await s3_storage.move(at=("user", "a"), to=("user", "b"))
+
+    async def test_when_source_does_not_exist(self, s3_storage: S3Storage):
+        with pytest.raises(File.NotFound):
+            await s3_storage.move(at=("user", "x.txt"), to=("user", "y.txt"))
+
+    async def test_when_destination_does_not_exist(
+        self, file_factory, s3_storage: S3Storage
+    ):
+        # GIVEN
+        await file_factory("user/x.txt")
+        # WHEN
+        await s3_storage.move(at=("user", "x.txt"), to=("user", "a/y.txt"))
+        # THEN
+        assert not await s3_storage.exists("user", "x.txt")
+        assert await s3_storage.exists("user", "a/y.txt")
+
+    async def test_when_destination_is_not_a_dir(
+        self, file_factory, s3_storage: S3Storage
+    ):
+        await file_factory("user/x.txt")
+        await file_factory("user/y.txt")
+
+        with pytest.raises(ClientError) as excinfo:
+            await s3_storage.move(at=("user", "x.txt"), to=("user", "y.txt/x.txt"))
+
+        # based on MinIO version the error code will be one of
+        codes = ("AccessDenied", "XMinioParentIsObject")
+        assert excinfo.value.response["Error"]["Code"] in codes
+
+    async def test_when_client_raises_error(self, s3_storage: S3Storage):
+        stubber = Stubber(s3_storage.s3.meta.client)
+        stubber.add_client_error("head_object")
+
+        with stubber, pytest.raises(ClientError):
+                await s3_storage.move(at=("user", "x.txt"), to=("user", "y.txt/x.txt"))
 
 
-async def test_move_but_it_is_a_dir(file_factory, s3_storage: S3Storage):
-    await file_factory("user/a/x.txt")
+class TestMoveDir:
+    async def test(self, file_factory, s3_storage: S3Storage):
+        # GIVEN
+        await file_factory("user/a/f.txt")
+        await file_factory("user/b/f.txt")
+        # WHEN
+        await s3_storage.movedir(at=("user", "a"), to=("user", "b/a"))
+        # THEN
+        assert not await s3_storage.exists("user", "a")
+        assert not await s3_storage.exists("user", "a/f.txt")
+        assert await s3_storage.exists("user", "b/a")
+        assert await s3_storage.exists("user", "b/a/f.txt")
 
-    with pytest.raises(File.NotFound):
-        await s3_storage.move("user", "a", "b")
+    async def test_on_empty_dir(self, file_factory, s3_storage: S3Storage):
+        # GIVEN
+        await file_factory("user/empty_dir/", content=b"")
+        # WHEN
+        await s3_storage.movedir(at=("user", "empty_dir"), to=("user", "a"))
+        # THEN
+        assert not await s3_storage.exists("user", "empty_dir")
+        assert await s3_storage.exists("user", "a")
 
+    async def test_when_it_is_a_file(self, file_factory, s3_storage: S3Storage):
+        # GIVEN
+        await file_factory("user/a/f.txt")
+        # WHEN
+        await s3_storage.movedir(at=("user", "a/f.txt"), to=("user", "b/f.txt"))
+        # THEN
+        assert await s3_storage.exists("user", "a")
+        assert await s3_storage.exists("user", "a/f.txt")
+        assert not await s3_storage.exists("user", "b/f.txt")
 
-async def test_move_but_source_does_not_exist(s3_storage: S3Storage):
-    with pytest.raises(File.NotFound):
-        await s3_storage.move("user", "x.txt", "y.txt")
+    async def test_when_source_does_not_exist(self, s3_storage: S3Storage):
+        await s3_storage.movedir(at=("user", "a"), to=("user", "b"))
 
+    async def test_when_destination_does_not_exist(
+        self, file_factory, s3_storage: S3Storage
+    ):
+        # GIVEN
+        await file_factory("user/a/x.txt")
+        # WHEN
+        await s3_storage.movedir(at=("user", "a"), to=("user", "b/a"))
+        # THEN
+        assert not await s3_storage.exists("user", "a/x.txt")
+        assert await s3_storage.exists("user", "b/a/x.txt")
 
-async def test_move_but_destination_does_not_exist(file_factory, s3_storage: S3Storage):
-    await file_factory("user/x.txt")
-    await s3_storage.move("user", "x.txt", "a/y.txt")
-    assert not await s3_storage.exists("user", "x.txt")
-    assert await s3_storage.exists("user", "a/y.txt")
+    async def test_when_destination_is_not_a_dir(
+        self, file_factory, s3_storage: S3Storage
+    ):
+        await file_factory("user/a/f.txt")
+        await file_factory("user/y.txt")
 
+        with pytest.raises(ClientError) as excinfo:
+            await s3_storage.movedir(at=("user", "a"), to=("user", "y.txt/a"))
 
-async def test_move_but_destination_is_not_a_dir(file_factory, s3_storage: S3Storage):
-    await file_factory("user/x.txt")
-    await file_factory("user/y.txt")
-
-    with pytest.raises(ClientError) as excinfo:
-        await s3_storage.move("user", "x.txt", "y.txt/x.txt")
-
-    # based on MinIO version the error code will be one of
-    codes = ("AccessDenied", "XMinioParentIsObject")
-    assert excinfo.value.response["Error"]["Code"] in codes
-
-
-async def test_move_but_client_raises_error(s3_storage: S3Storage):
-    stubber = Stubber(s3_storage.s3.meta.client)
-    stubber.add_client_error("head_object")
-
-    with stubber, pytest.raises(ClientError):
-            await s3_storage.move("user", "x.txt", "y.txt/x.txt")
-
-
-async def test_movedir(file_factory, s3_storage: S3Storage):
-    await file_factory("user/a/f.txt")
-    await file_factory("user/b/f.txt")
-
-    await s3_storage.movedir("user", "a", "b/a")
-
-    assert not await s3_storage.exists("user", "a")
-    assert not await s3_storage.exists("user", "a/f.txt")
-    assert await s3_storage.exists("user", "b/a")
-    assert await s3_storage.exists("user", "b/a/f.txt")
-
-
-async def test_movedir_on_empty_dir(file_factory, s3_storage: S3Storage):
-    await file_factory("user/empty_dir/", content=b"")
-    await s3_storage.movedir("user", "empty_dir", "a")
-    assert not await s3_storage.exists("user", "empty_dir")
-    assert await s3_storage.exists("user", "a")
-
-
-async def test_movedir_but_it_is_a_file(file_factory, s3_storage: S3Storage):
-    await file_factory("user/a/f.txt")
-
-    await s3_storage.movedir("user", "a/f.txt", "b/f.txt")
-
-    assert await s3_storage.exists("user", "a")
-    assert await s3_storage.exists("user", "a/f.txt")
-    assert not await s3_storage.exists("user", "b/f.txt")
-
-
-async def test_movedir_but_source_does_not_exist(s3_storage: S3Storage):
-    await s3_storage.movedir("user", "a", "b")
-
-
-async def test_movedir_but_destination_does_not_exist(
-    file_factory, s3_storage: S3Storage
-):
-    await file_factory("user/a/x.txt")
-    await s3_storage.movedir("user", "a", "b/a")
-    assert not await s3_storage.exists("user", "a/x.txt")
-    assert await s3_storage.exists("user", "b/a/x.txt")
-
-
-async def test_movedir_but_destination_is_not_a_dir(
-    file_factory, s3_storage: S3Storage
-):
-    await file_factory("user/a/f.txt")
-    await file_factory("user/y.txt")
-
-    with pytest.raises(ClientError) as excinfo:
-        await s3_storage.movedir("user", "a", "y.txt/a")
-
-    # based on MinIO version the error code will be one of
-    codes = ("AccessDenied", "XMinioParentIsObject")
-    assert excinfo.value.response["Error"]["Code"] in codes
+        # based on MinIO version the error code will be one of
+        codes = ("AccessDenied", "XMinioParentIsObject")
+        assert excinfo.value.response["Error"]["Code"] in codes
 
 
 async def test_save(s3_bucket: str, s3_resource, s3_storage: S3Storage):
