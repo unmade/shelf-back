@@ -3,7 +3,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol
 
 from app.app.files.domain import FullyQualifiedPath, MountPoint, Path
-from app.app.files.repositories.mount import IMountRepository
+from app.app.files.repositories import IMountRepository
+from app.app.files.repositories.mount import MountPointUpdate
 
 if TYPE_CHECKING:
     from app.app.files.domain import AnyPath
@@ -30,9 +31,21 @@ class MountService:
         except MountPoint.NotFound:
             return None
 
+    async def move(self, ns_path: AnyPath, at_path: AnyPath, to_path: AnyPath):
+        at_path = Path(at_path)
+        to_path = Path(to_path)
+        mount_point = await self.db.mount.get_closest(ns_path, at_path)
+        return await self.db.mount.update(
+            mount_point,
+            fields=MountPointUpdate(
+                folder=to_path.parent,
+                display_name=to_path.name,
+            )
+        )
+
     async def resolve_path(self, ns_path: AnyPath, path: AnyPath) -> FullyQualifiedPath:
         """
-        Returns fully-qualified path if the path is a mount point or inside mount point,
+        Returns fully-qualified path if path is a mount point or inside mount point,
         otherwise returns path unchanged.
         """
         try:

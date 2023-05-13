@@ -26,8 +26,9 @@ from app.toolkit import security
 
 if TYPE_CHECKING:
     from typing import Protocol
+    from uuid import UUID
 
-    from app.app.files.domain import File, Namespace
+    from app.app.files.domain import AnyPath, File, Namespace
     from app.app.infrastructure import IStorage
     from app.app.users.domain import User
     from app.infrastructure.database.edgedb import EdgeDBDatabase
@@ -47,6 +48,14 @@ if TYPE_CHECKING:
 
     class FolderFactory(Protocol):
         async def __call__(self, ns_path: str, path: str) -> File: ...
+
+    class NamespaceFactory(Protocol):
+        async def __call__(self, path: AnyPath, owner_id: UUID) -> Namespace:
+            ...
+
+    class UserFactory(Protocol):
+        async def __call__(self, username: str, password: str = "root") -> User: ...
+
 
 fake = Faker()
 
@@ -136,18 +145,28 @@ def folder_factory(filecore: FileCoreService) -> FolderFactory:
 
 
 @pytest.fixture
-async def user(_hashed_password: str, user_service: UserService) -> User:
-    """A user instance."""
-    # mock password hashing to speed up test setup
-    target = "app.toolkit.security.make_password"
-    with mock.patch(target, return_value=_hashed_password):
-        return await user_service.create("admin", "root")
+def namespace_factory(namespace_service: NamespaceService) -> NamespaceFactory:
+    """A factory to create a Namespace instance saved to the DB."""
+    async def factory(path: AnyPath, owner_id: UUID) -> Namespace:
+        return await namespace_service.create(path, owner_id)
+    return factory
 
 
 @pytest.fixture
-async def namespace(user: User, namespace_service: NamespaceService):
+def user_factory(user_service: UserService, _hashed_password: str) -> UserFactory:
+    """A factory to create a User instance saved to the DB."""
+    async def factory(username: str, password: str = "root") -> User:
+        # mock password hashing to speed up test setup
+        target = "app.app.users.services.user.security.make_password"
+        with mock.patch(target, return_value=_hashed_password):
+            return await user_service.create(username, password)
+    return factory
+
+
+@pytest.fixture
+async def namespace(namespace_factory: NamespaceFactory, user: User):
     """A namespace owned by `user` fixture."""
-    return await namespace_service.create(user.username, owner_id=user.id)
+    return await namespace_factory(user.username, owner_id=user.id)
 
 
 @pytest.fixture
@@ -160,3 +179,9 @@ async def file(namespace: Namespace, file_factory: FileFactory):
 async def folder(namespace: Namespace, folder_factory: FolderFactory):
     """A folder stored in the `namespace` fixture"""
     return await folder_factory(namespace.path, "folder")
+
+
+@pytest.fixture
+async def user(user_factory: UserFactory) -> User:
+    """A user instance."""
+    return await user_factory("admin")

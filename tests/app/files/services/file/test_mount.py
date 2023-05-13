@@ -8,6 +8,7 @@ import pytest
 from app.app.files.domain import MountPoint, Path
 from app.app.files.domain.file import FullyQualifiedPath
 from app.app.files.repositories import IMountRepository
+from app.app.files.repositories.mount import MountPointUpdate
 from app.app.files.services.file.mount import MountService
 
 pytestmark = [pytest.mark.asyncio]
@@ -63,6 +64,26 @@ class TestGetClosesBySource:
             target_ns_path="admin"
         )
         assert result is None
+
+
+class TestMove:
+    async def test(self, mount_service: MountService):
+        # GIVEN
+        ns_path, at_path, to_path = "admin", "shared", "public"
+        db = cast(mock.AsyncMock, mount_service.db)
+        # WHEN
+        result = await mount_service.move(ns_path, at_path, to_path)
+        # THEN
+        assert result == db.mount.update.return_value
+        db.mount.get_closest.assert_awaited_once_with(ns_path, at_path)
+        mp = db.mount.get_closest.return_value
+        db.mount.update.assert_awaited_once_with(
+            mp,
+            fields=MountPointUpdate(
+                folder=".",
+                display_name="public",
+            ),
+        )
 
 
 class TestResolvePath:

@@ -174,25 +174,19 @@ class S3Storage(IStorage):
         return None
 
     @sync_to_async
-    def move(
-        self,
-        ns_path: AnyPath,
-        from_path: AnyPath,
-        to_path: AnyPath
-    ) -> None:
-        from_key = self._joinpath(ns_path, from_path)
-        to_key = self._joinpath(ns_path, to_path)
+    def move(self, at: tuple[AnyPath, AnyPath], to: tuple[AnyPath, AnyPath]) -> None:
+        from_key = self._joinpath(*at)
+        to_key = self._joinpath(*to)
         self._move(from_key, to_key)
 
     @sync_to_async
     def movedir(
         self,
-        ns_path: AnyPath,
-        from_path: AnyPath,
-        to_path: AnyPath
+        at: tuple[AnyPath, AnyPath],
+        to: tuple[AnyPath, AnyPath]
     ) -> None:
-        from_prefix = f"{self._joinpath(ns_path, from_path)}/"
-        to_prefix = f"{self._joinpath(ns_path, to_path)}/"
+        from_prefix = f"{self._joinpath(*at)}/"
+        to_prefix = f"{self._joinpath(*to)}/"
 
         collection = list(self.bucket.objects.filter(Prefix=from_prefix))
         for entry in collection:

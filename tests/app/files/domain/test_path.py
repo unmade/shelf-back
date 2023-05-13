@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from pathlib import PurePath
+from typing import TYPE_CHECKING
 
 import pytest
 
-from app.app.files.domain.path import Path
+from app.app.files.domain import Path
+
+if TYPE_CHECKING:
+    from app.app.files.domain import AnyPath
 
 
 class TestInit:
@@ -15,6 +19,21 @@ class TestInit:
     def test_from_itself(self):
         path = Path(Path("a/b"))
         assert path._path == "a/b"
+
+
+class TestValidate:
+    @pytest.mark.parametrize(["given", "expected"], [
+        ("a/b/c", Path("a/b/c")),
+        (PurePath("a/b/c"), Path("a/b/c")),
+        (Path("a/b/c"), Path("a/b/c")),
+    ])
+    def test(self, given: AnyPath, expected: Path):
+        assert Path.validate(given) == expected
+
+    def test_when_valus_of_wrong_type(self):
+        with pytest.raises(TypeError) as excinfo:
+            assert Path.validate(1)
+        assert str(excinfo.value) == "string, pathlib.PurePath or Path required"
 
 
 class TestComparison:

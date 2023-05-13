@@ -284,6 +284,282 @@ class TestListFolder:
 
 
 @pytest.mark.asyncio
+class TestMove:
+    async def test_moving_regular_files(self, file_service: FileService):
+        # GIVEN
+        at_fq_path = FullyQualifiedPath(ns_path="admin", path=Path("f.txt"))
+        to_fq_path = FullyQualifiedPath(ns_path="admin", path=Path("f (1).txt"))
+        filecore = cast(mock.AsyncMock, file_service.filecore)
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.resolve_path.side_effect = [at_fq_path, to_fq_path]
+        # WHEN
+        file = await file_service.move("admin", "f.txt", "f (1).txt")
+        # THEN
+        assert file == filecore.move.return_value
+        mount_service.resolve_path.assert_has_awaits([
+            mock.call(at_fq_path.ns_path, at_fq_path.path),
+            mock.call(to_fq_path.ns_path, to_fq_path.path),
+        ])
+        mount_service.move.assert_not_awaited()
+        filecore.move.assert_awaited_once_with(
+            at=("admin", "f.txt"),
+            to=("admin", "f (1).txt"),
+        )
+
+    async def test_renaming_a_mount_point(self, file_service: FileService):
+        # GIVEN
+        at_fq_path = FullyQualifiedPath(
+            ns_path="user",
+            path=Path("Folder/SharedFolder"),
+            mount_point=MountPoint(
+                source=MountPoint.Source(
+                    ns_path="user",
+                    path=Path("Folder/SharedFolder"),
+                ),
+                folder=MountPoint.ContainingFolder(
+                    ns_path="admin",
+                    path=Path("Sharing"),
+                ),
+                display_name="TeamFolder",
+            ),
+        )
+        to_fq_path = FullyQualifiedPath(
+            ns_path="user",
+            path=Path("Folder/SharedFolder"),
+            mount_point=MountPoint(
+                source=MountPoint.Source(
+                    ns_path="user",
+                    path=Path("Folder/SharedFolder"),
+                ),
+                folder=MountPoint.ContainingFolder(
+                    ns_path="admin",
+                    path=Path("Sharing"),
+                ),
+                display_name="TeamFolder",
+            ),
+        )
+        filecore = cast(mock.AsyncMock, file_service.filecore)
+        filecore.exists_at_path.return_value = False
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.resolve_path.side_effect = [at_fq_path, to_fq_path]
+        # WHEN
+        file = await file_service.move(
+            "admin", "Sharing/TeamFolder", "Sharing/PublicFolder"
+        )
+        # THEN
+        assert file == _resolve_file(
+            filecore.get_by_path.return_value,
+            mount_service.move.return_value,
+        )
+        mount_service.resolve_path.assert_has_awaits([
+            mock.call("admin", "Sharing/TeamFolder"),
+            mock.call("admin", "Sharing/PublicFolder"),
+        ])
+        filecore.exists_at_path.assert_awaited_once_with(
+            to_fq_path.ns_path, to_fq_path.path
+        )
+        mount_service.move.assert_awaited_once_with(
+            "admin", "Sharing/TeamFolder", "Sharing/PublicFolder"
+        )
+        filecore.move.assert_not_awaited()
+
+    async def test_moving_a_mount_point(self, file_service: FileService):
+        # GIVEN
+        at_fq_path = FullyQualifiedPath(
+            ns_path="user",
+            path=Path("Folder/SharedFolder"),
+            mount_point=MountPoint(
+                source=MountPoint.Source(
+                    ns_path="user",
+                    path=Path("Folder/SharedFolder"),
+                ),
+                folder=MountPoint.ContainingFolder(
+                    ns_path="admin",
+                    path=Path("Sharing"),
+                ),
+                display_name="TeamFolder",
+            ),
+        )
+        to_fq_path = FullyQualifiedPath(
+            ns_path="admin",
+            path=Path("Public/TeamFolder"),
+        )
+        filecore = cast(mock.AsyncMock, file_service.filecore)
+        filecore.exists_at_path.return_value = False
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.resolve_path.side_effect = [at_fq_path, to_fq_path]
+        # WHEN
+        file = await file_service.move(
+            "admin", "Sharing/TeamFolder", "Public/TeamFolder"
+        )
+        # THEN
+        assert file == _resolve_file(
+            filecore.get_by_path.return_value,
+            mount_service.move.return_value,
+        )
+        filecore.exists_at_path.assert_awaited_once_with(
+            to_fq_path.ns_path, to_fq_path.path
+        )
+        mount_service.resolve_path.assert_has_awaits([
+            mock.call("admin", "Sharing/TeamFolder"),
+            mock.call("admin", "Public/TeamFolder"),
+        ])
+        mount_service.move.assert_awaited_once_with(
+            "admin", "Sharing/TeamFolder", "Public/TeamFolder"
+        )
+        mp = mount_service.move.return_value
+        filecore.get_by_path.assert_awaited_once_with(mp.source.ns_path, mp.source.path)
+        filecore.move.assert_not_awaited()
+
+    async def test_renaming_a_mount_point_when_file_with_same_name_exists(
+        self, file_service: FileService
+    ):
+        # GIVEN
+        at_fq_path = FullyQualifiedPath(
+            ns_path="user",
+            path=Path("Folder/SharedFolder"),
+            mount_point=MountPoint(
+                source=MountPoint.Source(
+                    ns_path="user",
+                    path=Path("Folder/SharedFolder"),
+                ),
+                folder=MountPoint.ContainingFolder(
+                    ns_path="admin",
+                    path=Path("Sharing"),
+                ),
+                display_name="TeamFolder",
+            ),
+        )
+        to_fq_path = FullyQualifiedPath(
+            ns_path="user",
+            path=Path("Folder/SharedFolder"),
+            mount_point=MountPoint(
+                source=MountPoint.Source(
+                    ns_path="user",
+                    path=Path("Folder/SharedFolder"),
+                ),
+                folder=MountPoint.ContainingFolder(
+                    ns_path="admin",
+                    path=Path("Sharing"),
+                ),
+                display_name="TeamFolder",
+            ),
+        )
+        filecore = cast(mock.AsyncMock, file_service.filecore)
+        filecore.exists_at_path.return_value = True
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.resolve_path.side_effect = [at_fq_path, to_fq_path]
+        # WHEN
+        with pytest.raises(File.AlreadyExists):
+            await file_service.move(
+                "admin", "Sharing/TeamFolder", "Sharing/PublicFolder"
+            )
+        # THEN
+        mount_service.resolve_path.assert_has_awaits([
+            mock.call("admin", "Sharing/TeamFolder"),
+            mock.call("admin", "Sharing/PublicFolder"),
+        ])
+        filecore.exists_at_path.assert_awaited_once_with(
+            to_fq_path.ns_path, to_fq_path.path
+        )
+        mount_service.move.assert_not_awaited()
+        filecore.move.assert_not_awaited()
+
+    async def test_moving_a_file_to_a_mount_point(self, file_service: FileService):
+        # GIVEN
+        at_fq_path = FullyQualifiedPath(
+            ns_path="admin",
+            path=Path("f.txt"),
+        )
+        to_fq_path = FullyQualifiedPath(
+            ns_path="user",
+            path=Path("Folder/SharedFolder/f.txt"),
+            mount_point=MountPoint(
+                source=MountPoint.Source(
+                    ns_path="user",
+                    path=Path("Folder/SharedFolder"),
+                ),
+                folder=MountPoint.ContainingFolder(
+                    ns_path="admin",
+                    path=Path("Sharing"),
+                ),
+                display_name="TeamFolder",
+            ),
+        )
+        filecore = cast(mock.AsyncMock, file_service.filecore)
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.resolve_path.side_effect = [at_fq_path, to_fq_path]
+        # WHEN
+        file = await file_service.move(
+            "admin", "f.txt", "Sharing/TeamFolder/f.txt"
+        )
+        # THEN
+        assert file == _resolve_file(
+            filecore.move.return_value,
+            to_fq_path.mount_point,
+        )
+        mount_service.resolve_path.assert_has_awaits([
+            mock.call("admin", "f.txt"),
+            mock.call("admin", "Sharing/TeamFolder/f.txt"),
+        ])
+        mount_service.move.assert_not_awaited()
+        filecore.move.assert_awaited_once_with(
+            at=("admin", "f.txt"),
+            to=("user", "Folder/SharedFolder/f.txt"),
+        )
+
+    async def test_when_moving_between_mount_points(self, file_service: FileService):
+        # GIVEN
+        at_fq_path = FullyQualifiedPath(
+            ns_path="user",
+            path=Path("Folder/SharedFolder"),
+            mount_point=MountPoint(
+                source=MountPoint.Source(
+                    ns_path="user",
+                    path=Path("Folder/SharedFolder"),
+                ),
+                folder=MountPoint.ContainingFolder(
+                    ns_path="admin",
+                    path=Path("Sharing"),
+                ),
+                display_name="TeamFolder",
+            ),
+        )
+        to_fq_path = FullyQualifiedPath(
+            ns_path="admin",
+            path=Path("Folder/SharedFolder"),
+            mount_point=MountPoint(
+                source=MountPoint.Source(
+                    ns_path="admin",
+                    path=Path("Folder/SharedFolder"),
+                ),
+                folder=MountPoint.ContainingFolder(
+                    ns_path="admin",
+                    path=Path("Sharing"),
+                ),
+                display_name="TeamFolder",
+            ),
+        )
+        filecore = cast(mock.AsyncMock, file_service.filecore)
+        filecore.exists_at_path.return_value = True
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.resolve_path.side_effect = [at_fq_path, to_fq_path]
+        # WHEN
+        with pytest.raises(File.MalformedPath) as excinfo:
+            await file_service.move(
+                "admin", "Sharing/TeamFolder", "Sharing/PublicFolder"
+            )
+        # THEN
+        assert str(excinfo.value) == "Can't move between different mount points."
+        mount_service.resolve_path.assert_has_awaits([
+            mock.call("admin", "Sharing/TeamFolder"),
+            mock.call("admin", "Sharing/PublicFolder"),
+        ])
+        mount_service.move.assert_not_awaited()
+        filecore.move.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 class TestThumbnail:
     @mock.patch("app.app.files.services.file.file.thumbnails.thumbnail")
     async def test(

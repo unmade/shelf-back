@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import edgedb
 
 from app.app.files.domain import MountPoint, Path
-from app.app.files.repositories.mount import IMountRepository
+from app.app.files.repositories.mount import IMountRepository, MountPointUpdate
 
 if TYPE_CHECKING:
     from app.app.files.domain import AnyPath
@@ -147,4 +147,70 @@ class MountRepository(IMountRepository):
         except edgedb.NoDataError as exc:
             raise MountPoint.NotFound() from exc
 
-        return _from_db(ns_path, obj)
+        mount_point = _from_db(ns_path, obj)
+        if not Path(path).is_relative_to(mount_point.display_path):
+            raise MountPoint.NotFound()
+        return mount_point
+
+    async def update(self, mount_point: MountPoint, fields: MountPointUpdate):
+        query = """
+            WITH
+                namespace := (
+                    SELECT
+                        Namespace
+                    FILTER
+                        .path = <str>$ns_path
+                ),
+                parent := (
+                    SELECT
+                        File
+                    FILTER
+                        .namespace = namespace
+                        AND .path = <str>$parent
+                ),
+                next_parent := (
+                    SELECT
+                        File
+                    FILTER
+                        .namespace = namespace
+                        AND .path = <str>$next_parent
+                )
+            SELECT (
+                UPDATE
+                    ShareMountPoint
+                FILTER
+                    .parent = parent
+                    AND .display_name = <str>$display_name
+                SET {
+                    parent := next_parent,
+                    display_name := <str>$next_display_name,
+                }
+            ) {
+                display_name,
+                parent: {
+                    path
+                },
+                member: {
+                    share: {
+                        file: {
+                            path,
+                            namespace: {
+                                path
+                            },
+                        },
+                    },
+                },
+            }
+            LIMIT 1
+        """
+
+        obj = await self.conn.query_required_single(
+            query,
+            ns_path=str(mount_point.folder.ns_path),
+            parent=str(mount_point.folder.path),
+            display_name=mount_point.display_name,
+            next_parent=str(fields["folder"]),
+            next_display_name=fields["display_name"],
+        )
+
+        return _from_db(mount_point.folder.ns_path, obj)

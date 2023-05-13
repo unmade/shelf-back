@@ -248,85 +248,89 @@ async def test_makedirs_but_parent_is_a_directory(
         await fs_storage.makedirs("user", "x.txt/y.txt")
 
 
-async def test_move(file_factory, fs_storage: FileSystemStorage):
-    await file_factory("user/x.txt")
-    await fs_storage.move("user", "x.txt", "y.txt")
-    assert not await fs_storage.exists("user", "x.txt")
-    assert await fs_storage.exists("user", "y.txt")
+class TestMove:
+    async def test(self, file_factory, fs_storage: FileSystemStorage):
+        # GIVEN
+        await file_factory("user/x.txt")
+        # WHEN
+        await fs_storage.move(at=("user", "x.txt"), to=("user", "y.txt"))
+        # THEN
+        assert not await fs_storage.exists("user", "x.txt")
+        assert await fs_storage.exists("user", "y.txt")
+
+    async def test_when_it_is_a_dir(self, file_factory, fs_storage: FileSystemStorage):
+        await file_factory("user/a/x.txt")
+        with pytest.raises(File.NotFound):
+            await fs_storage.move(at=("user", "a"), to=("user", "b"))
+
+    async def test_when_source_does_not_exist(self, fs_storage: FileSystemStorage):
+        with pytest.raises(File.NotFound):
+            await fs_storage.move(at=("user", "x.txt"), to=("user", "y.txt"))
+
+    async def test_when_destination_does_not_exist(
+        self, file_factory, fs_storage: FileSystemStorage
+    ):
+        # GIVEN
+        await file_factory("user/x.txt")
+        # WHEN
+        await fs_storage.move(at=("user", "x.txt"), to=("user", "a/y.txt"))
+        # THEN
+        assert not await fs_storage.exists("user", "x.txt")
+        assert await fs_storage.exists("user", "a/y.txt")
+
+    async def test_when_destination_is_not_a_dir(
+        self, file_factory, fs_storage: FileSystemStorage
+    ):
+        await file_factory("user/x.txt")
+        await file_factory("user/y.txt")
+        with pytest.raises(File.NotADirectory):
+            await fs_storage.move(at=("user", "x.txt"), to=("user", "y.txt/x.txt"))
 
 
-async def test_move_but_it_is_a_dir(file_factory, fs_storage: FileSystemStorage):
-    await file_factory("user/a/x.txt")
-    with pytest.raises(File.NotFound):
-        await fs_storage.move("user", "a", "b")
+class TestMoveDir:
+    async def test(self, file_factory, fs_storage: FileSystemStorage):
+        # GIVEN
+        await file_factory("user/a/f.txt")
+        await file_factory("user/b/f.txt")
+        # WHEN
+        await fs_storage.movedir(at=("user", "a"), to=("user", "b/a"))
+        # THEN
+        assert not await fs_storage.exists("user", "a")
+        assert not await fs_storage.exists("user", "a/f.txt")
+        assert await fs_storage.exists("user", "b/a")
+        assert await fs_storage.exists("user", "b/a/f.txt")
 
+    async def test_when_it_is_a_file(self, file_factory, fs_storage: FileSystemStorage):
+        # GIVEN
+        await file_factory("user/a/f.txt")
+        # WHEN
+        await fs_storage.movedir(at=("user", "a/f.txt"), to=("user", "b/f.txt"))
+        # THEN
+        assert await fs_storage.exists("user", "a")
+        assert await fs_storage.exists("user", "a/f.txt")
+        assert not await fs_storage.exists("user", "b/f.txt")
 
-async def test_move_but_source_does_not_exist(fs_storage: FileSystemStorage):
-    with pytest.raises(File.NotFound):
-        await fs_storage.move("user", "x.txt", "y.txt")
+    async def test_when_source_does_not_exist(self, fs_storage: FileSystemStorage):
+        await fs_storage.movedir(at=("user", "a"), to=("user", "b"))
 
+    async def test_when_destination_does_not_exist(
+        self, file_factory, fs_storage: FileSystemStorage
+    ):
+        # GIVEN
+        await file_factory("user/a/x.txt")
+        # WHEN
+        await fs_storage.movedir(at=("user", "a"), to=("user", "b/a"))
+        # THEN
+        assert not await fs_storage.exists("user", "a/x.txt")
+        assert await fs_storage.exists("user", "b/a/x.txt")
 
-async def test_move_but_destination_does_not_exist(
-    file_factory, fs_storage: FileSystemStorage
-):
-    await file_factory("user/x.txt")
-    await fs_storage.move("user", "x.txt", "a/y.txt")
-    assert not await fs_storage.exists("user", "x.txt")
-    assert await fs_storage.exists("user", "a/y.txt")
-
-
-async def test_move_but_destination_is_not_a_dir(
-    file_factory, fs_storage: FileSystemStorage
-):
-    await file_factory("user/x.txt")
-    await file_factory("user/y.txt")
-    with pytest.raises(File.NotADirectory):
-        await fs_storage.move("user", "x.txt", "y.txt/x.txt")
-
-
-async def test_movedir(file_factory, fs_storage: FileSystemStorage):
-    await file_factory("user/a/f.txt")
-    await file_factory("user/b/f.txt")
-
-    await fs_storage.movedir("user", "a", "b/a")
-
-    assert not await fs_storage.exists("user", "a")
-    assert not await fs_storage.exists("user", "a/f.txt")
-    assert await fs_storage.exists("user", "b/a")
-    assert await fs_storage.exists("user", "b/a/f.txt")
-
-
-async def test_movedir_but_it_is_a_file(file_factory, fs_storage: FileSystemStorage):
-    await file_factory("user/a/f.txt")
-
-    await fs_storage.movedir("user", "a/f.txt", "b/f.txt")
-
-    assert await fs_storage.exists("user", "a")
-    assert await fs_storage.exists("user", "a/f.txt")
-    assert not await fs_storage.exists("user", "b/f.txt")
-
-
-async def test_movedir_but_source_does_not_exist(fs_storage: FileSystemStorage):
-    await fs_storage.movedir("user", "a", "b")
-
-
-async def test_movedir_but_destination_does_not_exist(
-    file_factory, fs_storage: FileSystemStorage
-):
-    await file_factory("user/a/x.txt")
-    await fs_storage.movedir("user", "a", "b/a")
-    assert not await fs_storage.exists("user", "a/x.txt")
-    assert await fs_storage.exists("user", "b/a/x.txt")
-
-
-async def test_movedir_but_destination_is_not_a_dir(
-    file_factory, fs_storage: FileSystemStorage
-):
-    await file_factory("user/a/f.txt")
-    await file_factory("user/y.txt")
-
-    with pytest.raises(File.NotADirectory):
-        await fs_storage.movedir("user", "a", "y.txt/a")
+    async def test_when_destination_is_not_a_dir(
+        self, file_factory, fs_storage: FileSystemStorage
+    ):
+        await file_factory("user/a/f.txt")
+        await file_factory("user/y.txt")
+        with pytest.raises(File.NotADirectory):
+            await fs_storage.movedir(at=("user", "a"), to=("user", "y.txt/a"))
 
 
 async def test_save(fs_storage: FileSystemStorage):

@@ -376,11 +376,39 @@ class TestReplacePathPrefix:
     async def test(
         self, file_repo: FileRepository, file_factory: FileFactory, namespace: Namespace
     ):
+        # GIVEN
         ns_path = namespace.path
         await file_factory(ns_path, "a/b/c/f.txt")
         await file_factory(ns_path, "a/b/c/d/f.txt")
-        await file_repo.replace_path_prefix(ns_path, "a/b/c", "d")
+        # WHEN
+        await file_repo.replace_path_prefix(at=(ns_path, "a/b/c"), to=(ns_path, "d"))
+        # THEN
         results = await file_repo.get_by_path_batch(ns_path, ["d/f.txt", "d/d/f.txt"])
+        assert len(results) == 2
+        assert results[0].path == "d/d/f.txt"
+        assert results[1].path == "d/f.txt"
+
+    @pytest.mark.database(transaction=True)
+    async def test_changing_prefix_with_namesace(
+        self,
+        file_repo: FileRepository,
+        file_factory: FileFactory,
+        namespace_a: Namespace,
+        namespace_b: Namespace,
+    ):
+        # GIVEN
+        await file_factory(namespace_a.path, "a/b/f.txt")
+        await file_factory(namespace_a.path, "a/b/c/f.txt")
+        await file_factory(namespace_a.path, "a/b/c/d/f.txt")
+        # WHEN
+        await file_repo.replace_path_prefix(
+            at=(namespace_a.path, "a/b/c"),
+            to=(namespace_b.path, "d"),
+        )
+        # THEN
+        assert await file_repo.exists_at_path(namespace_a.path, "a/b/f.txt")
+        paths = ["d/f.txt", "d/d/f.txt"]
+        results = await file_repo.get_by_path_batch(namespace_b.path, paths)
         assert len(results) == 2
         assert results[0].path == "d/d/f.txt"
         assert results[1].path == "d/f.txt"
@@ -388,19 +416,25 @@ class TestReplacePathPrefix:
     async def test_case_insensitiveness(
         self, file_repo: FileRepository, file_factory: FileFactory, namespace: Namespace
     ):
+        # GIVEN
         ns_path = namespace.path
         await file_factory(ns_path, "A/b/C/f.txt")
         await file_factory(ns_path, "a/B/c/d/f.txt")
-        await file_repo.replace_path_prefix(ns_path, "a/b/C", "d")
+        # WHEN
+        await file_repo.replace_path_prefix(at=(ns_path, "a/b/C"), to=(ns_path, "d"))
+        # THEN
         results = await file_repo.get_by_path_batch(ns_path, ["d/f.txt", "d/d/f.txt"])
         assert len(results) == 2
 
     async def test_replacing_only_the_first_occurence(
         self, file_repo: FileRepository, file_factory: FileFactory, namespace: Namespace
     ):
+        # GIVEN
         ns_path = namespace.path
         await file_factory(ns_path, "a/b/a/b/f.txt")
-        await file_repo.replace_path_prefix(ns_path, "a/b", "c")
+        # WHEN
+        await file_repo.replace_path_prefix(at=(ns_path, "a/b"), to=(ns_path, "c"))
+        # THEN
         file = await file_repo.get_by_path(ns_path, "c/a/b/f.txt")
         assert file.path == "c/a/b/f.txt"
 
@@ -490,11 +524,10 @@ class TestSaveBatch:
 class TestUpdate:
     async def test(self, file_repo: FileRepository, file: File):
         file_update = FileUpdate(
-            id=file.id,
             name=f".{file.name}",
             path=f".{file.path}",
         )
-        updated_file = await file_repo.update(file_update)
+        updated_file = await file_repo.update(file, file_update)
         assert updated_file.name == f".{file.name}"
         assert updated_file.path == f".{file.path}"
         file_in_db = await _get_by_id(file.id)

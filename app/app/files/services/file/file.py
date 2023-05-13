@@ -90,6 +90,32 @@ class FileService:
         files = await self.filecore.list_folder(fq_path.ns_path, fq_path.path)
         return [_resolve_file(file, fq_path.mount_point) for file in files]
 
+    async def move(
+        self, ns_path: AnyPath, at_path: AnyPath, to_path: AnyPath
+    ) -> AnyFile:
+        at_fq_path = await self.mount_service.resolve_path(ns_path, at_path)
+        to_fq_path = await self.mount_service.resolve_path(ns_path, to_path)
+
+        if at_fq_path.mount_point and to_fq_path.mount_point:
+            if at_fq_path.mount_point != to_fq_path.mount_point:
+                raise File.MalformedPath("Can't move between different mount points.")
+
+        # move mount point
+        moved = at_fq_path.is_mount_point() and to_fq_path.is_mount_point()
+        renamed = at_fq_path.is_mount_point() and to_fq_path.mount_point is None
+        if moved or renamed:
+            if await self.filecore.exists_at_path(to_fq_path.ns_path, to_fq_path.path):
+                raise File.AlreadyExists()
+            mp = await self.mount_service.move(ns_path, at_path, to_path)
+            file = await self.filecore.get_by_path(mp.source.ns_path, mp.source.path)
+            return _resolve_file(file, mp)
+
+        file = await self.filecore.move(
+            at=(at_fq_path.ns_path, at_fq_path.path),
+            to=(to_fq_path.ns_path, to_fq_path.path),
+        )
+        return _resolve_file(file, to_fq_path.mount_point)
+
     @disk_cache(key="{file_id}:{size}", ttl=_make_thumbnail_ttl)
     async def thumbnail(
         self, ns_path: str, file_id: str, *, size: int
