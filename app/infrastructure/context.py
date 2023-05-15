@@ -8,13 +8,12 @@ from app.app.auth.services import TokenService
 from app.app.auth.usecases import AuthUseCase
 from app.app.files.services import (
     DuplicateFinderService,
-    FileCoreService,
     FileService,
     MetadataService,
     NamespaceService,
     SharingService,
 )
-from app.app.files.services.file.mount import MountService
+from app.app.files.services.file import FileCoreService, MountService
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
 from app.app.users.services import BookmarkService, UserService
 from app.app.users.usecases import UserUseCase
@@ -148,19 +147,17 @@ class UseCases:
             audit_trail=services.audit_trail,
             dupefinder=services.dupefinder,
             file=services.file,
-            filecore=services.filecore,
             metadata=services.metadata,
             namespace=services.namespace,
             user=services.user,
         )
         self.sharing = SharingUseCase(
             file_service=services.file,
-            filecore=services.filecore,
             sharing=services.sharing,
         )
         self.user = UserUseCase(
             bookmark_service=services.bookmark,
-            filecore=services.filecore,
+            file_service=services.file,
             namespace_service=services.namespace,
             user_service=services.user,
         )

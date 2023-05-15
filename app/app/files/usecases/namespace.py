@@ -15,7 +15,6 @@ if TYPE_CHECKING:
     from app.app.files.domain import AnyPath, ContentMetadata
     from app.app.files.services import (
         DuplicateFinderService,
-        FileCoreService,
         FileService,
         MetadataService,
         NamespaceService,
@@ -28,7 +27,7 @@ __all__ = ["NamespaceUseCase"]
 
 class NamespaceUseCase:
     __slots__ = [
-        "audit_trail", "dupefinder", "file", "filecore", "metadata", "namespace", "user"
+        "audit_trail", "dupefinder", "file", "metadata", "namespace", "user"
     ]
 
     def __init__(
@@ -36,7 +35,6 @@ class NamespaceUseCase:
         audit_trail: AuditTrailService,
         dupefinder: DuplicateFinderService,
         file: FileService,
-        filecore: FileCoreService,
         metadata: MetadataService,
         namespace: NamespaceService,
         user: UserService,
@@ -44,7 +42,6 @@ class NamespaceUseCase:
         self.audit_trail = audit_trail
         self.dupefinder = dupefinder
         self.file = file
-        self.filecore = filecore
         self.metadata = metadata
         self.namespace = namespace
         self.user = user
@@ -176,7 +173,7 @@ class NamespaceUseCase:
 
         files = {
             file.id: file
-            for file in await self.filecore.get_by_id_batch(ns_path, ids=ids)
+            for file in await self.file.filecore.get_by_id_batch(ns_path, ids=ids)
         }
 
         return [
@@ -225,7 +222,7 @@ class NamespaceUseCase:
         """
         return cast(
             tuple[AnyFile, bytes],
-            await self.file.thumbnail(ns_path, file_id, size=size)
+            await self.file.thumbnail(file_id, size=size, ns_path=ns_path)
         )
 
     async def get_item_at_path(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:
@@ -301,7 +298,7 @@ class NamespaceUseCase:
         """
         next_path = Path("Trash") / Path(path).name
 
-        if await self.filecore.exists_at_path(ns_path, next_path):
+        if await self.file.exists_at_path(ns_path, next_path):
             timestamp = f"{timezone.now():%H%M%S%f}"
             next_path = next_path.with_stem(f"{next_path.stem} {timestamp}")
 
@@ -326,7 +323,7 @@ class NamespaceUseCase:
         """
         # ensure namespace exists
         await self.namespace.get_by_path(str(ns_path))
-        await self.filecore.reindex(ns_path, ".")
+        await self.file.reindex(ns_path, ".")
 
     async def reindex_contents(self, ns_path: AnyPath) -> None:
         """
@@ -339,7 +336,7 @@ class NamespaceUseCase:
         ns_path = str(ns_path)
         batch_size = 500
         types = tuple(dhash.SUPPORTED_TYPES | metadata_readers.SUPPORTED_TYPES)
-        batches = self.filecore.iter_by_mediatypes(
+        batches = self.file.filecore.iter_by_mediatypes(
             ns_path, mediatypes=types, batch_size=batch_size
         )
 
@@ -357,6 +354,6 @@ class NamespaceUseCase:
                 ))
 
     async def _reindex_content(self, file: File, trackers) -> None:
-        _, content_reader = await self.filecore.download(file.id)
+        _, content_reader = await self.file.filecore.download(file.id)
         for tracker in trackers:
             await tracker.add(file.id, await content_reader.stream())

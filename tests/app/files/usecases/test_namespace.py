@@ -213,28 +213,28 @@ class TestFindDuplicates:
         ]
         dupefinder = cast(mock.MagicMock, ns_use_case.dupefinder)
         dupefinder.find_in_folder.return_value = intersection
-        filecore = cast(mock.MagicMock, ns_use_case.filecore)
-        filecore.get_by_id_batch.return_value = files
+        file_service = cast(mock.MagicMock, ns_use_case.file)
+        file_service.filecore.get_by_id_batch.return_value = files
         # WHEN
         duplicates = await ns_use_case.find_duplicates(ns_path, ".")
         # THEN
         assert duplicates == [[files[0], files[2]], [files[1], files[3]]]
         dupefinder.find_in_folder.assert_awaited_once_with(ns_path, ".", 5)
-        filecore.get_by_id_batch.assert_awaited_once()
+        file_service.filecore.get_by_id_batch.assert_awaited_once()
 
     async def test_when_no_duplicates(self, ns_use_case: NamespaceUseCase):
         # GIVEN
         ns_path = "admin"
         dupefinder = cast(mock.MagicMock, ns_use_case.dupefinder)
         dupefinder.find_in_folder.return_value = []
-        filecore = cast(mock.MagicMock, ns_use_case.filecore)
-        filecore.get_by_id_batch.return_value = []
+        file_service = cast(mock.MagicMock, ns_use_case.file)
+        file_service.filecore.get_by_id_batch.return_value = []
         # WHEN
         duplicates = await ns_use_case.find_duplicates(ns_path, ".")
         # THEN
         assert duplicates == []
         dupefinder.find_in_folder.assert_awaited_once_with(ns_path, ".", 5)
-        filecore.get_by_id_batch.assert_awaited_once()
+        file_service.filecore.get_by_id_batch.assert_awaited_once()
 
 
 class TestGetFileMetadata:
@@ -263,7 +263,9 @@ class TestGetFileThumbnail:
         result = await ns_use_case.get_file_thumbnail(ns_path, file.id, size=32)
         # THEN
         assert result == file_service.thumbnail.return_value
-        file_service.thumbnail.assert_awaited_once_with(ns_path, file.id, size=32)
+        file_service.thumbnail.assert_awaited_once_with(
+            file.id, size=32, ns_path=ns_path
+        )
 
 
 class TestGetItemAtPath:
@@ -333,14 +335,13 @@ class TestMoveItemToTrash:
         # GIVEN
         ns_path, path, next_path = "admin", "f.txt", Path("Trash/f.txt")
         audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
-        filecore = cast(mock.MagicMock, ns_use_case.filecore)
-        filecore.exists_at_path.return_value = False
         file_service = cast(mock.MagicMock, ns_use_case.file)
+        file_service.exists_at_path.return_value = False
         # WHEN
         result = await ns_use_case.move_item_to_trash(ns_path, path)
         # THEN
         assert result == file_service.move.return_value
-        filecore.exists_at_path.assert_awaited_once_with(ns_path, next_path)
+        file_service.exists_at_path.assert_awaited_once_with(ns_path, next_path)
         file_service.move.assert_awaited_once_with(ns_path, path, next_path)
         audit_trail.file_trashed.assert_called_once_with(result)
 
@@ -351,14 +352,13 @@ class TestMoveItemToTrash:
         # GIVEN
         ns_path, path = "admin", "f.txt"
         next_path = Path("Trash/f 193700000000.txt")
-        filecore = cast(mock.MagicMock, ns_use_case.filecore)
-        filecore.exists_at_path.return_value = True
         file_service = cast(mock.MagicMock, ns_use_case.file)
+        file_service.exists_at_path.return_value = True
         # WHEN
         await ns_use_case.move_item_to_trash(ns_path, path)
         # THEN
         tz_now.assert_called_once_with()
-        filecore.exists_at_path.assert_awaited_once_with(
+        file_service.exists_at_path.assert_awaited_once_with(
             ns_path, Path("Trash/f.txt")
         )
         file_service.move.assert_awaited_once_with(ns_path, path, next_path)
@@ -368,12 +368,12 @@ class TestReindex:
     async def test(self, ns_use_case: NamespaceUseCase):
         # GIVEN
         ns_service = cast(mock.MagicMock, ns_use_case.namespace)
-        filecore = cast(mock.MagicMock, ns_use_case.filecore)
+        file_service = cast(mock.MagicMock, ns_use_case.file)
         # WHEN
         await ns_use_case.reindex("admin")
         # THEN
         ns_service.get_by_path.assert_awaited_once_with("admin")
-        filecore.reindex.assert_awaited_once_with("admin", ".")
+        file_service.reindex.assert_awaited_once_with("admin", ".")
 
 
 class TestReindexContents:
@@ -387,7 +387,8 @@ class TestReindexContents:
             yield [jpg_1]
             yield [jpg_2]
 
-        filecore = cast(mock.MagicMock, ns_use_case.filecore)
+        file_service = cast(mock.MagicMock, ns_use_case.file)
+        filecore = file_service.filecore
         filecore.iter_by_mediatypes.return_value = iter_by_mediatypes_result()
         filecore.download.side_effect = [
             (jpg_1, ContentReader.from_iter(image_content, zipped=False)),

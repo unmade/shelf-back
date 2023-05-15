@@ -31,12 +31,6 @@ if TYPE_CHECKING:
 __all__ = ["FileCoreService"]
 
 
-def _make_thumbnail_ttl(*args, size: int, **kwargs) -> str:
-    if size < 128:
-        return "7d"
-    return "24h"
-
-
 class FileCoreService:
     """A service with primitives for storing and retrieving files."""
 

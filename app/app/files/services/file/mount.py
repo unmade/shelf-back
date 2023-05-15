@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, NamedTuple, Protocol
 
-from app.app.files.domain import FullyQualifiedPath, MountPoint, Path
+from app.app.files.domain import MountPoint, Path
 from app.app.files.repositories import IMountRepository
 from app.app.files.repositories.mount import MountPointUpdate
 
@@ -11,6 +11,28 @@ if TYPE_CHECKING:
 
     class IServiceDatabase(Protocol):
         mount: IMountRepository
+
+__all__ = [
+    "FullyQualifiedPath",
+    "MountService",
+]
+
+
+class FullyQualifiedPath(NamedTuple):
+    """
+    A fully qualified path.
+
+    The `ns_path` and `path` always point to the actual location of the file.
+    If the `mount_point` is not None then it means the path is mounted.
+    """
+    ns_path: str
+    path: Path
+    mount_point: MountPoint | None = None
+
+    def is_mount_point(self) -> bool:
+        if self.mount_point is None:
+            return False
+        return self.mount_point.source.path == self.path
 
 
 class MountService:

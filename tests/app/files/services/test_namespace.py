@@ -18,7 +18,8 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 @pytest.fixture
 def ns_service():
     from app.app.files.repositories import INamespaceRepository
-    from app.app.files.services import FileCoreService, NamespaceService
+    from app.app.files.services import NamespaceService
+    from app.app.files.services.file import FileCoreService
 
     database = mock.MagicMock(namespace=mock.MagicMock(INamespaceRepository))
     filecore = mock.MagicMock(FileCoreService)

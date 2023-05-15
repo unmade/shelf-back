@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-from typing import TYPE_CHECKING, Any, NamedTuple
+from typing import TYPE_CHECKING, Any
 
 from app.app.files.domain import mediatypes
 from app.toolkit import json_, timezone
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
     from .path import AnyPath
 
-__all__ = ["File", "MountedFile", "FullyQualifiedPath"]
+__all__ = ["File", "MountedFile"]
 
 
 def mtime_factory() -> float:
@@ -105,7 +105,7 @@ class _BaseFile:
     @property
     @abc.abstractmethod
     def shared(self) -> bool:
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     def is_folder(self) -> bool:
         """True if file is a folder, False otherwise."""
@@ -167,20 +167,3 @@ class MountedFile(_BaseFile):
     @property
     def shared(self) -> bool:
         return True
-
-
-class FullyQualifiedPath(NamedTuple):
-    """
-    A fully qualified path.
-
-    The `ns_path` and `path` always point to the actual location of the file.
-    If the `mount_point` is not None than it means the path is mounted.
-    """
-    ns_path: str
-    path: Path
-    mount_point: MountPoint | None = None
-
-    def is_mount_point(self) -> bool:
-        if self.mount_point is None:
-            return False
-        return self.mount_point.source.path == self.path

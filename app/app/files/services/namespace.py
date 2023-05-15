@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from app.app.files.repositories import INamespaceRepository
     from app.typedefs import StrOrUUID
 
-    from .filecore import FileCoreService
+    from .file import FileCoreService
 
     class IServiceDatabase(IDatabase, Protocol):
         namespace: INamespaceRepository

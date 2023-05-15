@@ -7,12 +7,12 @@ import pytest
 from app.app.audit.services import AuditTrailService
 from app.app.files.services import (
     DuplicateFinderService,
-    FileCoreService,
     FileService,
     MetadataService,
     NamespaceService,
     SharingService,
 )
+from app.app.files.services.file import FileCoreService
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
 from app.app.users.services import UserService
 
@@ -23,8 +23,7 @@ def ns_use_case():
     return NamespaceUseCase(
         audit_trail=mock.MagicMock(spec=AuditTrailService),
         dupefinder=mock.MagicMock(spec=DuplicateFinderService),
-        file=mock.MagicMock(spec=FileService),
-        filecore=mock.MagicMock(spec=FileCoreService),
+        file=mock.MagicMock(spec=FileService, filecore=mock.MagicMock(FileCoreService)),
         metadata=mock.MagicMock(spec=MetadataService),
         namespace=mock.MagicMock(spec=NamespaceService),
         user=mock.MagicMock(spec=UserService),
@@ -35,7 +34,9 @@ def ns_use_case():
 def sharing_use_case():
     """A mocked SharingManager instance."""
     return SharingUseCase(
-        file_service=mock.MagicMock(spec=FileService),
-        filecore=mock.MagicMock(spec=FileCoreService),
+        file_service=mock.MagicMock(
+            FileService,
+            filecore=mock.MagicMock(FileCoreService),
+        ),
         sharing=mock.MagicMock(spec=SharingService),
     )
