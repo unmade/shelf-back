@@ -482,13 +482,13 @@ class TestGetBatch:
             _make_file(namespace.path, f"{idx}.txt")
             for idx in range(2)
         ]
-        ns_use_case.filecore.get_by_id_batch = mock.AsyncMock(return_value=files)
+        ns_use_case.file.filecore.get_by_id_batch = mock.AsyncMock(return_value=files)
         payload = {"ids": [file.id for file in files]}
         # WHEN
         client.mock_namespace(namespace)
         response = await client.post("/files/get_batch", json=payload)
         # THEN
-        ns_use_case.filecore.get_by_id_batch.assert_awaited_once_with(
+        ns_use_case.file.filecore.get_by_id_batch.assert_awaited_once_with(
             namespace.path, [uuid.UUID(id) for id in payload["ids"]]
         )
         assert response.json()["count"] == 2

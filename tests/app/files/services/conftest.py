@@ -14,13 +14,12 @@ from app.app.files.repositories import (
 )
 from app.app.files.services import (
     DuplicateFinderService,
-    FileCoreService,
     FileService,
     MetadataService,
     NamespaceService,
     SharingService,
 )
-from app.app.files.services.file.mount import MountService
+from app.app.files.services.file import FileCoreService, MountService
 from app.app.users.services import BookmarkService, UserService
 from app.toolkit import security
 
@@ -41,7 +40,7 @@ if TYPE_CHECKING:
         async def __call__(
             self,
             ns_path: str,
-            path: str | None = None,
+            path: str,
             content: IO[bytes] | None = None,
         ) -> File:
             ...
@@ -127,11 +126,9 @@ def bookmark_factory(edgedb_database: EdgeDBDatabase):
 def file_factory(filecore: FileCoreService) -> FileFactory:
     """A factory to create a File instance saved to the DB and storage."""
     async def factory(
-        ns_path: str, path: str | None = None, content: IO[bytes] | None = None
+        ns_path: str, path: str, content: IO[bytes] | None = None
     ):
         content = content or BytesIO(b"Dummy file")
-        if path is None:
-            path = fake.unique.file_name(category="text", extension="txt")
         return await filecore.create_file(ns_path, path, content)
     return factory
 

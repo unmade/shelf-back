@@ -34,7 +34,9 @@ class TestAddBookmark:
         # THEN
         assert response.json() is None
         assert response.status_code == 200
-        user_use_case.add_bookmark.assert_awaited_once_with(user_id, file_id)
+        user_use_case.add_bookmark.assert_awaited_once_with(
+            user_id=user_id, file_id=file_id, ns_path=namespace.path
+        )
 
     async def test_when_namespace_does_not_have_file(
         self, client: TestClient, user_use_case: MagicMock, namespace: Namespace,
@@ -49,7 +51,9 @@ class TestAddBookmark:
         # THEN
         assert response.json() == FileNotFound().as_dict()
         assert response.status_code == 404
-        user_use_case.add_bookmark.assert_awaited_once_with(user_id, file_id)
+        user_use_case.add_bookmark.assert_awaited_once_with(
+            user_id=user_id, file_id=file_id, ns_path=namespace.path
+        )
 
 
 class TestListBookmarks:

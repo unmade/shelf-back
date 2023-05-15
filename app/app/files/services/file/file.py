@@ -9,8 +9,7 @@ from . import thumbnails
 
 if TYPE_CHECKING:
     from app.app.files.domain import AnyFile, AnyPath
-    from app.app.files.services import FileCoreService
-    from app.app.files.services.file.mount import MountService
+    from app.app.files.services.file import FileCoreService, MountService
     from app.app.infrastructure.storage import ContentReader
 
 
@@ -80,10 +79,25 @@ class FileService:
         fq_path = await self.mount_service.resolve_path(ns_path, path)
         await self.filecore.empty_folder(fq_path.ns_path, fq_path.path)
 
+    async def exists_at_path(self, ns_path: AnyPath, path: AnyPath) -> bool:
+        fq_path = await self.mount_service.resolve_path(ns_path, path)
+        return await self.filecore.exists_at_path(fq_path.ns_path, fq_path.path)
+
     async def get_at_path(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:
         fq_path = await self.mount_service.resolve_path(ns_path, path)
         file = await self.filecore.get_by_path(fq_path.ns_path, fq_path.path)
         return _resolve_file(file, fq_path.mount_point)
+
+    async def get_by_id(self, ns_path: AnyPath, file_id: str) -> AnyFile:
+        file = await self.filecore.get_by_id(file_id)
+        mount_point = None
+        if file.ns_path != ns_path:
+            mount_point = await self.mount_service.get_closest_by_source(
+                file.ns_path, file.path, target_ns_path=str(ns_path)
+            )
+            if mount_point is None:
+                raise File.NotFound()
+        return _resolve_file(file, mount_point)
 
     async def list_folder(self, ns_path: AnyPath, path: AnyPath) -> list[AnyFile]:
         fq_path = await self.mount_service.resolve_path(ns_path, path)
@@ -116,9 +130,12 @@ class FileService:
         )
         return _resolve_file(file, to_fq_path.mount_point)
 
+    async def reindex(self, ns_path: AnyPath, path: AnyPath) -> None:
+        await self.filecore.reindex(ns_path, path)
+
     @disk_cache(key="{file_id}:{size}", ttl=_make_thumbnail_ttl)
     async def thumbnail(
-        self, ns_path: str, file_id: str, *, size: int
+        self, file_id: str, *, size: int, ns_path: str | None = None
     ) -> tuple[AnyFile, bytes]:
         """
         Generate in-memory thumbnail with preserved aspect ratio.
@@ -138,7 +155,7 @@ class FileService:
         """
         file, content_reader = await self.filecore.download(file_id)
         mount_point = None
-        if file.ns_path != ns_path:
+        if ns_path and file.ns_path != ns_path:
             mount_point = await self.mount_service.get_closest_by_source(
                 file.ns_path, file.path, target_ns_path=ns_path
             )

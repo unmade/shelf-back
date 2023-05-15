@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, AsyncIterator
+from typing import Annotated, AsyncIterator, TypeAlias
 
 from fastapi import Depends, Request
 from fastapi.security import OAuth2PasswordBearer
@@ -76,8 +76,10 @@ async def namespace(
     return await usecases.namespace.namespace.get_by_owner_id(user.id)
 
 
-CurrentUserDeps = Annotated[CurrentUser, Depends(current_user)]
-CurrentUserContextDeps = Annotated[CurrentUserContext, Depends(current_user_ctx)]
-NamespaceDeps = Annotated[Namespace, Depends(namespace)]
-UseCasesDeps = Annotated[UseCases, Depends(usecases)]
-WorkerDeps = Annotated[IWorker, Depends(worker)]
+CurrentUserDeps: TypeAlias = Annotated[CurrentUser, Depends(current_user)]
+CurrentUserContextDeps: TypeAlias = Annotated[
+    CurrentUserContext, Depends(current_user_ctx)
+]
+NamespaceDeps: TypeAlias = Annotated[Namespace, Depends(namespace)]
+UseCasesDeps: TypeAlias = Annotated[UseCases, Depends(usecases)]
+WorkerDeps: TypeAlias = Annotated[IWorker, Depends(worker)]

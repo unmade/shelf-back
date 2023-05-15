@@ -7,8 +7,9 @@ from unittest import mock
 
 import pytest
 
-from app.app.files.domain import File, FullyQualifiedPath, MountedFile, MountPoint, Path
+from app.app.files.domain import File, MountedFile, MountPoint, Path
 from app.app.files.services.file.file import _make_thumbnail_ttl, _resolve_file
+from app.app.files.services.file.mount import FullyQualifiedPath
 from app.app.infrastructure.storage import ContentReader
 from app.cache import disk_cache
 
@@ -252,6 +253,69 @@ class TestEmptyFolder:
 
 
 @pytest.mark.asyncio
+class TestExistsAtPath:
+    async def test(self, file_service: FileService):
+        # GIVEN
+        ns_path, path = "admin", "folder"
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        # WHEN
+        await file_service.exists_at_path(ns_path, path)
+        # THEN
+        mount_service.resolve_path.assert_awaited_once_with(ns_path, path)
+        fq_path = mount_service.resolve_path.return_value
+        filecore.exists_at_path.assert_called_once_with(fq_path.ns_path, fq_path.path)
+
+
+@pytest.mark.asyncio
+class TestGetByID:
+    async def test(self, file_service: FileService):
+        # GIVEN
+        file = _make_file("admin", "f.txt")
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        filecore.get_by_id.return_value = file
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        # WHEN
+        result = await file_service.get_by_id(file.ns_path, file.id)
+        # THEN
+        assert result == _resolve_file(file, None)
+        filecore.get_by_id.assert_awaited_once_with(file.id)
+        mount_service.get_closest_by_source.assert_not_called()
+
+    async def test_getting_mounted_file(self, file_service: FileService):
+        # GIVEN
+        file = _make_file("admin", "f.txt")
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        filecore.get_by_id.return_value = file
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        # WHEN
+        result = await file_service.get_by_id("user", file.id)
+        # THEN
+        mount_point = mount_service.get_closest_by_source.return_value
+        assert result == _resolve_file(file, mount_point)
+        filecore.get_by_id.assert_awaited_once_with(file.id)
+        mount_service.get_closest_by_source.assert_awaited_once_with(
+            file.ns_path, file.path, target_ns_path="user"
+        )
+
+    async def test_getting_file_in_other_namespace(self, file_service: FileService):
+        # GIVEN
+        file = _make_file("admin", "f.txt")
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        filecore.get_by_id.return_value = file
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.get_closest_by_source.return_value = None
+        # WHEN
+        with pytest.raises(File.NotFound):
+            await file_service.get_by_id("user", file.id)
+        # THEN
+        filecore.get_by_id.assert_called_once_with(file.id)
+        mount_service.get_closest_by_source.assert_awaited_once_with(
+            file.ns_path, file.path, target_ns_path="user"
+        )
+
+
+@pytest.mark.asyncio
 class TestGetAtPath:
     async def test(self, file_service: FileService):
         # GIVEN
@@ -272,11 +336,11 @@ class TestGetAtPath:
 class TestListFolder:
     async def test(self, file_service: FileService):
         # GIVEN
-        ns_path, path = "admin", "f.txt"
+        ns_path, path = "admin", "folder"
         filecore = cast(mock.AsyncMock, file_service.filecore)
         mount_service = cast(mock.AsyncMock, file_service.mount_service)
         # WHEN
-        await file_service.list_folder("admin", "f.txt")
+        await file_service.list_folder("admin", "folder")
         # THEN
         mount_service.resolve_path.assert_awaited_once_with(ns_path, path)
         fq_path = mount_service.resolve_path.return_value
@@ -560,6 +624,20 @@ class TestMove:
 
 
 @pytest.mark.asyncio
+class TestReindex:
+    async def test(self, file_service: FileService):
+        # GIVEN
+        ns_path, path = "admin", "folder"
+        filecore = cast(mock.AsyncMock, file_service.filecore)
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        # WHEN
+        await file_service.reindex("admin", "folder")
+        # THEN
+        mount_service.resolve_path.assert_not_called()
+        filecore.reindex.assert_awaited_once_with(ns_path, path)
+
+
+@pytest.mark.asyncio
 class TestThumbnail:
     @mock.patch("app.app.files.services.file.file.thumbnails.thumbnail")
     async def test(
@@ -578,7 +656,7 @@ class TestThumbnail:
         mount_service = cast(mock.AsyncMock, file_service.mount_service)
         thumbnail_mock.return_value = b"dummy-image-content"
         # WHEN
-        result = await file_service.thumbnail(file.ns_path, file.id, size=64)
+        result = await file_service.thumbnail(file.id, size=64, ns_path=file.ns_path)
         # THEN
         assert result == (file, thumbnail_mock.return_value)
         filecore.download.assert_awaited_once_with(file.id)
@@ -604,7 +682,7 @@ class TestThumbnail:
         mount_service.get_closest_by_source.return_value = file.mount_point
         thumbnail_mock.return_value = b"dummy-image-content"
         # WHEN
-        result = await file_service.thumbnail(file.ns_path, file.id, size=64)
+        result = await file_service.thumbnail(file.id, size=64, ns_path=file.ns_path)
         # THEN
         expected_file = _resolve_file(source, file.mount_point)
         assert result == (expected_file, thumbnail_mock.return_value)
@@ -633,7 +711,7 @@ class TestThumbnail:
         thumbnail_mock.return_value = b"dummy-image-content"
         # WHEN
         with pytest.raises(File.NotFound):
-            await file_service.thumbnail("admin", file.id, size=64)
+            await file_service.thumbnail(file.id, size=64, ns_path="admin")
         # THEN
         filecore.download.assert_awaited_once_with(file.id)
         mount_service.get_closest_by_source.assert_awaited_once_with(
@@ -649,7 +727,8 @@ class TestThumbnail:
         image_content: IO[bytes],
     ):
         # GIVEN
-        file = _make_file("admin", "im.jpeg")
+        ns_path = "admin"
+        file = _make_file(ns_path, "im.jpeg")
         filecore = cast(mock.AsyncMock, file_service.filecore)
         filecore.download.return_value = (
             file,
@@ -658,11 +737,11 @@ class TestThumbnail:
         thumbnail_mock.return_value = b"dummy-image-content"
         with disk_cache.detect as detector:
             # WHEN hits for the first time
-            result1 = await file_service.thumbnail(file.ns_path, file.id, size=64)
+            result1 = await file_service.thumbnail(file.id, size=64, ns_path=ns_path)
             # THEN cache miss
             assert detector.calls == {}
             # WHEN hits for the second time
-            result2 = await file_service.thumbnail(file.ns_path, file.id, size=64)
+            result2 = await file_service.thumbnail(file.id, size=64, ns_path=ns_path)
             # THEN cache hit
             call = [{'ttl': 604800, 'name': 'simple', 'template': '{file_id}:{size}'}]
             assert list(detector.calls.values()) == [call]

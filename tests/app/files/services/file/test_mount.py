@@ -6,10 +6,10 @@ from unittest import mock
 import pytest
 
 from app.app.files.domain import MountPoint, Path
-from app.app.files.domain.file import FullyQualifiedPath
 from app.app.files.repositories import IMountRepository
 from app.app.files.repositories.mount import MountPointUpdate
-from app.app.files.services.file.mount import MountService
+from app.app.files.services.file import MountService
+from app.app.files.services.file.mount import FullyQualifiedPath
 
 pytestmark = [pytest.mark.asyncio]
 

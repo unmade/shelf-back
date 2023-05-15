@@ -13,7 +13,7 @@ from app.toolkit import taskgroups
 
 if TYPE_CHECKING:
     from app.app.files.domain import AnyPath, Namespace
-    from app.app.files.services import FileCoreService
+    from app.app.files.services.file import FileCoreService
 
     from ..conftest import (
         BookmarkFactory,

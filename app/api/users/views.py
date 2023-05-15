@@ -19,7 +19,11 @@ async def add_bookmark(
 ) -> None:
     """Adds a file to user bookmarks."""
     try:
-        await usecases.user.add_bookmark(namespace.owner_id, str(payload.id))
+        await usecases.user.add_bookmark(
+            user_id=namespace.owner_id,
+            file_id=str(payload.id),
+            ns_path=namespace.path,
+        )
     except File.NotFound as exc:
         raise exceptions.FileNotFound() from exc
 

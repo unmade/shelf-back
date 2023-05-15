@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TypeAlias
 
 from .content_metadata import ContentMetadata, Exif
-from .file import File, FullyQualifiedPath, MountedFile
+from .file import File, MountedFile
 from .fingerprint import Fingerprint
 from .mount import MountPoint
 from .namespace import Namespace
@@ -16,7 +16,6 @@ __all__ = [
     "File",
     "MountedFile",
     "Fingerprint",
-    "FullyQualifiedPath",
     "MountPoint",
     "Namespace",
     "AnyPath",
