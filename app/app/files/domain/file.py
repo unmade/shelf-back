@@ -102,9 +102,9 @@ class _BaseFile:
         cls_name = self.__class__.__name__
         return f"<{cls_name} ns_path={self.ns_path!r} path={self.path!r}>"
 
-    @property
     @abc.abstractmethod
-    def shared(self) -> bool:
+    def is_mount_point(self) -> bool:
+        """True if file is a mount point, False otherwise."""
         raise NotImplementedError()  # pragma: no cover
 
     def is_folder(self) -> bool:
@@ -131,8 +131,7 @@ class _BaseFile:
 class File(_BaseFile):
     """Regular file with a path pointing to the actual location of the file."""
 
-    @property
-    def shared(self) -> bool:
+    def is_mount_point(self) -> bool:
         return False
 
 
@@ -151,7 +150,7 @@ class MountedFile(_BaseFile):
         size: int,
         mediatype: str,
         mtime: float | None = None,
-        mount_point: MountPoint = None,
+        mount_point: MountPoint,
     ) -> None:
         super().__init__(
             id=id,
@@ -164,6 +163,5 @@ class MountedFile(_BaseFile):
         )
         self.mount_point = mount_point
 
-    @property
-    def shared(self) -> bool:
-        return True
+    def is_mount_point(self) -> bool:
+        return self.mount_point.display_path == self.path

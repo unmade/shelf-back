@@ -101,6 +101,7 @@ class TestResolveFile:
         # WHEN
         result = _resolve_file(file, fq_path.mount_point)
         # THEN
+        assert fq_path.mount_point is not None
         assert result == MountedFile(
             id=file.id,
             name="TeamFolder",
@@ -138,6 +139,7 @@ class TestResolveFile:
         # WHEN
         result = _resolve_file(file, fq_path.mount_point)
         # THEN
+        assert fq_path.mount_point is not None
         assert result == MountedFile(
             id=file.id,
             name="f.txt",
