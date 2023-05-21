@@ -53,15 +53,10 @@ class NamespaceUseCase:
         Saves a file to a storage and to a database. Additionally calculates and saves
         dhash and fingerprint for supported mediatypes.
 
-        Any missing parents are also created.
+        Any missing parents are created.
 
         If file name is already taken, then file will be saved under a new name.
         For example - if path 'f.txt' is taken, then new path will be 'f (1).txt'.
-
-        Args:
-            ns_path (AnyPath): Namespace path where a file should be saved.
-            path (AnyPath): Path where a file will be saved.
-            content (IO): Actual file content.
 
         Raises:
             Account.StorageQuotaExceeded: If storage quota exceeded.
@@ -99,16 +94,9 @@ class NamespaceUseCase:
         """
         Creates a folder with any missing parents in a namespace with a `ns_path`.
 
-        Args:
-            ns_path (Namespace): Namespace path where a folder should be created.
-            path (AnyPath): Path to a folder to create.
-
         Raises:
             File.AlreadyExists: If folder with this path already exists.
             File.NotADirectory: If one of the path parents is not a directory.
-
-        Returns:
-            AnyFile: Created folder.
         """
         assert Path(path) not in {Path("."), Path("Trash")}
         folder = await self.file.create_folder(ns_path, path)
@@ -120,15 +108,8 @@ class NamespaceUseCase:
         Permanently deletes a file or a folder. If path is a folder deletes a folder
         with all of its contents.
 
-        Args:
-            ns_path (AnyPath): Namespace path where file/folder should be deleted.
-            path (AnyPath): Path to a file/folder to delete.
-
         Raises:
-            File.NotFound: If a file/folder with a given path does not exists.
-
-        Returns:
-            AnyFile: Deleted file.
+            File.NotFound: If a file/folder with a given path does not exist.
         """
         assert Path(path) not in {Path("."), Path("Trash")}, (
             "Can't delete Home or Trash folder."
@@ -138,15 +119,16 @@ class NamespaceUseCase:
     async def download(
         self, ns_path: AnyPath, path: AnyPath
     ) -> tuple[AnyFile, ContentReader]:
+        """
+        Downloads a file or a folder at a given path.
+
+        Raises:
+            File.NotFound: If a file/folder with a given path does not exist.
+        """
         return await self.file.download(ns_path, path)
 
     async def empty_trash(self, ns_path: AnyPath) -> None:
-        """
-        Deletes all files and folders in the Trash folder in a target Namespace.
-
-        Args:
-            ns_path (AnyPath): Namespace path where to empty the Trash folder.
-        """
+        """Deletes all files and folders in the Trash folder in a target namespace."""
         await self.file.empty_folder(ns_path, "trash")
         taskgroups.schedule(self.audit_trail.trash_emptied())
 
@@ -156,14 +138,8 @@ class NamespaceUseCase:
         """
         Finds all duplicate fingerprints in a folder, including sub-folders.
 
-        Args:
-            ns_path (AnyPath): Target namespace path.
-            path (AnyPath): Folder path where to search for fingerprints.
-            max_distance (int, optional): The maximum distance at which two fingerprints
-                are considered the same. Defaults to 5.
-
-        Returns:
-            list[list[File]]: List of lists of duplicate fingerprints.
+        The `max_distance` arg is maximum distance at which two fingerprints
+        are considered the same. Defaults to 5.
         """
         groups = await self.dupefinder.find_in_folder(ns_path, path, max_distance)
         ids = itertools.chain.from_iterable(
@@ -187,16 +163,9 @@ class NamespaceUseCase:
         """
         Returns a file content metadata.
 
-        Args:
-            ns_path (AnyPath): Namespace path where file located.
-            path (AnyPath): File path
-
         Raises:
             File.NotFound: If file with target ID does not exist.
             ContentMetadata.NotFound: If file metadata does not exist.
-
-        Returns:
-            ContentMetadata: A file content metadata
         """
         file = await self.file.get_at_path(ns_path, path)
         return await self.metadata.get_by_file_id(file.id)
@@ -207,18 +176,10 @@ class NamespaceUseCase:
         """
         Generates in-memory thumbnail with preserved aspect ratio.
 
-        Args:
-            ns_path (ns_path): Namespace where a file is located.
-            file_id (StrOrUUID): Target file ID.
-            size (int): Thumbnail dimension.
-
         Raises:
             File.NotFound: If file with target ID does not exist.
             File.IsADirectory: If file is a directory.
             ThumbnailUnavailable: If file is not an image.
-
-        Returns:
-            tuple[AnyFile, bytes]: Tuple of file and thumbnail content.
         """
         return cast(
             tuple[AnyFile, bytes],
@@ -226,6 +187,12 @@ class NamespaceUseCase:
         )
 
     async def get_item_at_path(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:
+        """
+        Returns a file at a given path.
+
+        Raises:
+            File.NotFound: If file does not exist at a given path.
+        """
         return await self.file.get_at_path(ns_path, path)
 
     async def list_folder(self, ns_path: AnyPath, path: AnyPath) -> list[AnyFile]:
@@ -233,18 +200,11 @@ class NamespaceUseCase:
         Lists all files in the folder at a given path.
 
         Use "." to list all files and folders in the home folder. Note, that Trash
-        folder will not be present in the response.
-
-        Args:
-            ns_path (AnyPath): Namespace path where a folder located.
-            path (AnyPath): Path to a folder in the target namespace.
+        folder is never present in the response.
 
         Raises:
-            File.NotFound: If folder at this path does not exists.
+            File.NotFound: If folder at this path does not exist.
             File.NotADirectory: If path points to a file.
-
-        Returns:
-            List[AnyFile]: List of all files/folders in a folder with a target path.
         """
         files = await self.file.list_folder(ns_path, path)
         if path == ".":
@@ -259,19 +219,12 @@ class NamespaceUseCase:
         Moves a file or a folder to a different location in the target Namespace.
         If the source path is a folder all its contents will be moved.
 
-        Args:
-            ns_path (AnyPath): Namespace path where file/folder should be moved
-            path (AnyPath): Path to be moved.
-            next_path (AnyPath): Path that is the destination.
-
         Raises:
-            File.NotFound: If source path does not exists.
             File.AlreadyExists: If some file already in the destination path.
+            File.MalformedPath: If `path` or `next_path` is invalid.
             File.MissingParent: If 'next_path' parent does not exists.
+            File.NotFound: If source path does not exists.
             File.NotADirectory: If one of the 'next_path' parents is not a folder.
-
-        Returns:
-            AnyFile: Moved file/folder.
         """
         assert Path(path) not in {Path("."), Path("Trash")}, (
             "Can't move Home or Trash folder."
@@ -286,15 +239,8 @@ class NamespaceUseCase:
         If path is a folder all its contents will be moved.
         If file with the same name already in the Trash, then path will be renamed.
 
-        Args:
-            namespace (Namespace): Namespace where path located.
-            path (AnyPath): Path to a file or folder to be moved to the Trash folder.
-
         Raises:
             File.NotFound: If source path does not exists.
-
-        Returns:
-            AnyFile: Moved file.
         """
         next_path = Path("Trash") / Path(path).name
 
@@ -314,12 +260,9 @@ class NamespaceUseCase:
         storage and removes files that are present in the database, but missing in the
         storage.
 
-        Args:
-            ns_path (AnyPath): Namespace path to reindex.
-
         Raises:
-            Namespace.NotFound: If namespace does not exist.
             File.NotADirectory: If given path does not exist.
+            Namespace.NotFound: If namespace does not exist.
         """
         # ensure namespace exists
         await self.namespace.get_by_path(str(ns_path))
@@ -329,9 +272,6 @@ class NamespaceUseCase:
         """
         Restores additional information about files, such as fingerprint and content
         metadata.
-
-        Args:
-            ns_path (AnyPath): Namespace path to reindex.
         """
         ns_path = str(ns_path)
         batch_size = 500
