@@ -20,6 +20,7 @@ def _make_thumbnail_ttl(*args, size: int, **kwargs) -> str:
 
 
 def _resolve_file(file: AnyFile, mount_point: MountPoint | None) -> AnyFile:
+    """Resolves a file to regular or mounted file based on a provided mount point."""
     if mount_point is None:
         return file
 
@@ -42,6 +43,14 @@ def _resolve_file(file: AnyFile, mount_point: MountPoint | None) -> AnyFile:
 
 
 class FileService:
+    """
+    A service to manipulate regular and mounted files.
+
+    The service operates with a real file path as well as mounted ones. If path is a
+    mounted path (points to a mount point or inside mount point), then it is resolved
+    relative to a target namespace.
+    """
+
     __slots__ = ["filecore", "mount_service"]
 
     def __init__(self, filecore: FileCoreService, mount_service: MountService):
@@ -51,16 +60,38 @@ class FileService:
     async def create_file(
         self, ns_path: AnyPath, path: AnyPath, content: IO[bytes]
     ) -> AnyFile:
+        """
+        Creates a new file with any missing parents. If file name is taken, then file
+        automatically renamed to a next available name.
+
+        Raises:
+            File.AlreadyExists: If a file in a target path already exists.
+            File.NotADirectory: If one of the path parents is not a folder.
+        """
         fq_path = await self.mount_service.resolve_path(ns_path, path)
         file = await self.filecore.create_file(fq_path.ns_path, fq_path.path, content)
         return _resolve_file(file, fq_path.mount_point)
 
     async def create_folder(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:
+        """
+        Creates a folder with any missing parents in a namespace with a `ns_path`.
+
+        Raises:
+            File.AlreadyExists: If folder with this path already exists.
+            File.NotADirectory: If one of the path parents is not a directory.
+        """
         fq_path = await self.mount_service.resolve_path(ns_path, path)
         file = await self.filecore.create_folder(fq_path.ns_path, fq_path.path)
         return _resolve_file(file, fq_path.mount_point)
 
     async def delete(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:
+        """
+        Permanently deletes a file. If path is a folder deletes a folder with all of its
+        contents.
+
+        Raises:
+            File.NotFound: If a file/folder with a given path does not exists.
+        """
         fq_path = await self.mount_service.resolve_path(ns_path, path)
         if fq_path.is_mount_point():
             raise File.NotFound()
@@ -70,25 +101,45 @@ class FileService:
     async def download(
         self, ns_path: AnyPath, path: AnyPath
     ) -> tuple[AnyFile, ContentReader]:
+        """
+        Downloads a file or a folder at a given path.
+
+        Raises:
+            File.NotFound: If a file at a target path does not exists.
+        """
         fq_path = await self.mount_service.resolve_path(ns_path, path)
         file = await self.filecore.get_by_path(fq_path.ns_path, fq_path.path)
         _, content = await self.filecore.download(file.id)
         return _resolve_file(file, fq_path.mount_point), content
 
     async def empty_folder(self, ns_path: AnyPath, path: AnyPath) -> None:
+        """
+        Delete all files and folder at a given folder.
+
+        Raises:
+            File.NotFound: If a file at a target path does not exists.
+        """
         fq_path = await self.mount_service.resolve_path(ns_path, path)
         await self.filecore.empty_folder(fq_path.ns_path, fq_path.path)
 
     async def exists_at_path(self, ns_path: AnyPath, path: AnyPath) -> bool:
+        """Returns True if file exists at a given path, False otherwise"""
         fq_path = await self.mount_service.resolve_path(ns_path, path)
         return await self.filecore.exists_at_path(fq_path.ns_path, fq_path.path)
 
     async def get_at_path(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:
+        """Return a file at a target path."""
         fq_path = await self.mount_service.resolve_path(ns_path, path)
         file = await self.filecore.get_by_path(fq_path.ns_path, fq_path.path)
         return _resolve_file(file, fq_path.mount_point)
 
     async def get_by_id(self, ns_path: AnyPath, file_id: str) -> AnyFile:
+        """
+        Return a file by ID.
+
+        Raises:
+            File.NotFound: If file with a given ID does not exists.
+        """
         file = await self.filecore.get_by_id(file_id)
         mount_point = None
         if file.ns_path != ns_path:
@@ -100,6 +151,14 @@ class FileService:
         return _resolve_file(file, mount_point)
 
     async def list_folder(self, ns_path: AnyPath, path: AnyPath) -> list[AnyFile]:
+        """
+        Lists all files in the folder at a given path. Use "." to list top-level files
+        and folders.
+
+        Raises:
+            File.NotFound: If folder at this path does not exists.
+            File.NotADirectory: If path points to a file.
+        """
         fq_path = await self.mount_service.resolve_path(ns_path, path)
         files = await self.filecore.list_folder(fq_path.ns_path, fq_path.path)
         return [_resolve_file(file, fq_path.mount_point) for file in files]
@@ -107,6 +166,20 @@ class FileService:
     async def move(
         self, ns_path: AnyPath, at_path: AnyPath, to_path: AnyPath
     ) -> AnyFile:
+        """
+        Moves a file or a folder to a different location in the target Namespace.
+        If the source path is a folder all its contents will be moved.
+
+        If a file is moved to the mounted folder then it is actually transferred to
+        other namespace - the actual namespace of a mount point.
+
+        Raises:
+            File.AlreadyExists: If some file already in the destination path.
+            File.MalformedPath: If `at_path` or `to_path` is invalid.
+            File.MissingParent: If 'next_path' parent does not exists.
+            File.NotFound: If source path does not exists.
+            File.NotADirectory: If one of the 'next_path' parents is not a folder.
+        """
         at_fq_path = await self.mount_service.resolve_path(ns_path, at_path)
         to_fq_path = await self.mount_service.resolve_path(ns_path, to_path)
 
@@ -131,6 +204,14 @@ class FileService:
         return _resolve_file(file, to_fq_path.mount_point)
 
     async def reindex(self, ns_path: AnyPath, path: AnyPath) -> None:
+        """
+        Creates files that are missing in the database, but present in the storage and
+        removes files that are present in the database, but missing in the storage
+        at a given path.
+
+        Raises:
+            File.NotADirectory: If given path does not exist.
+        """
         await self.filecore.reindex(ns_path, path)
 
     @disk_cache(key="{file_id}:{size}", ttl=_make_thumbnail_ttl)
@@ -140,18 +221,13 @@ class FileService:
         """
         Generate in-memory thumbnail with preserved aspect ratio.
 
-        Args:
-            ns_path (str): Target namespace path.
-            file_id (StrOrUUID): Target file ID.
-            size (int): Thumbnail dimension.
+        If an optional `ns_path` argument is provided, then file ID must exist in that
+        namespace.
 
         Raises:
             File.NotFound: If file with this path does not exists.
             File.IsADirectory: If file is a directory.
             ThumbnailUnavailable: If file is not an image.
-
-        Returns:
-            tuple[AnyFile, bytes]: Tuple of file and thumbnail content.
         """
         file, content_reader = await self.filecore.download(file_id)
         mount_point = None

@@ -32,7 +32,11 @@ __all__ = ["FileCoreService"]
 
 
 class FileCoreService:
-    """A service with primitives for storing and retrieving files."""
+    """
+    A service with file manipulation primitives.
+
+    That service operates only with a real file path.
+    """
 
     __slots__ = ["db", "storage"]
 
@@ -43,6 +47,17 @@ class FileCoreService:
     async def create_file(
         self, ns_path: AnyPath, path: AnyPath, content: IO[bytes]
     ) -> File:
+        """
+        Saves a file to a storage and to a database. Any missing parents automatically
+        created.
+
+        If file name is already taken, then file will be saved under a new name.
+        For example - if path 'f.txt' is taken, then new path will be 'f (1).txt'.
+
+        Raises:
+            File.AlreadyExists: If a file in a target path already exists.
+            File.NotADirectory: If one of the path parents is not a folder.
+        """
         path = Path(path)
         try:
             parent = await self.db.file.get_by_path(ns_path, path.parent)
@@ -74,17 +89,11 @@ class FileCoreService:
 
     async def create_folder(self, ns_path: AnyPath, path: AnyPath) -> File:
         """
-        Creates a folder with any missing parents in a namespace with a `ns_path`.
-
-        Args:
-            ns_path (Namespace): Namespace path where a folder should be created.
-            path (AnyPath): Path to a folder to create.
+        Creates a folder with any missing parents in a given namespace.
 
         Raises:
+            File.AlreadyExists: If folder with this path already exists.
             File.NotADirectory: If one of the path parents is not a directory.
-
-        Returns:
-            File: Created folder.
         """
         path = Path(path)
 
@@ -122,15 +131,8 @@ class FileCoreService:
         Permanently deletes a file. If path is a folder deletes a folder with all of its
         contents.
 
-        Args:
-            ns_path (AnyPath): Namespace path where file/folder should be deleted.
-            path (AnyPath): Path to a file/folder to delete.
-
         Raises:
             File.NotFound: If a file/folder with a given path does not exists.
-
-        Returns:
-            File: Deleted file.
         """
         async for _ in self.db.atomic():
             file = await self.db.file.delete(ns_path, path)
@@ -146,6 +148,12 @@ class FileCoreService:
         return file
 
     async def download(self, file_id: StrOrUUID) -> tuple[File, ContentReader]:
+        """
+        Downloads a file or a folder at a given path.
+
+        Raises:
+            File.NotFound: If a file at a target path does not exists.
+        """
         file = await self.get_by_id(str(file_id))
         if file.is_folder():
             download_func = self.storage.downloaddir
@@ -154,6 +162,12 @@ class FileCoreService:
         return file, await download_func(file.ns_path, file.path)
 
     async def empty_folder(self, ns_path: AnyPath, path: AnyPath) -> None:
+        """
+        Delete all files and folder at a given folder.
+
+        Raises:
+            File.NotFound: If a file at a target path does not exists.
+        """
         file = await self.db.file.get_by_path(ns_path, path)
         if file.size == 0:
             return
@@ -165,9 +179,11 @@ class FileCoreService:
         await self.storage.emptydir(ns_path, path)
 
     async def exists_with_id(self, ns_path: AnyPath, file_id: StrOrUUID) -> bool:
+        """Returns True if file exists with a given ID, False otherwise"""
         return await self.db.file.exists_with_id(ns_path, file_id)
 
     async def exists_at_path(self, ns_path: AnyPath, path: AnyPath) -> bool:
+        """Returns True if file exists at a given path, False otherwise"""
         return await self.db.file.exists_at_path(ns_path, path)
 
     async def get_available_path(self, ns_path: AnyPath, path: AnyPath) -> Path:
@@ -177,13 +193,6 @@ class FileCoreService:
 
         For example, if path 'a/f.tar.gz' exists, then the next path will be as follows
         'a/f (1).tar.gz'.
-
-        Args:
-            ns_path (AnyPath): Namespace path where to look for a path.
-            path (AnyPath): Target path.
-
-        Returns:
-            Path: an available file path
         """
         path = Path(path)
         if not await self.db.file.exists_at_path(ns_path, path):
@@ -197,45 +206,23 @@ class FileCoreService:
         """
         Return a file by ID.
 
-        Args:
-            file_id (StrOrUUID): File ID.
-
         Raises:
             File.NotFound: If file with a given ID does not exists.
-
-        Returns:
-            File: File with a target ID.
         """
         return await self.db.file.get_by_id(file_id)
 
     async def get_by_id_batch(
         self, ns_path: AnyPath, ids: Iterable[StrOrUUID]
     ) -> list[File]:
-        """
-        Returns all files with target IDs.
-
-        Args:
-            ns_path (AnyPath): Namespace where files are located.
-            ids (Iterable[StrOrUUID]): Iterable of paths to look for.
-
-        Returns:
-            List[File]: Files with target IDs.
-        """
+        """Returns all files with target IDs."""
         return await self.db.file.get_by_id_batch(ns_path, ids)
 
     async def get_by_path(self, ns_path: AnyPath, path: AnyPath) -> File:
         """
         Return a file at a target path.
 
-        Args:
-            ns_path (AnyPath): Namespace path where a file is located.
-            path (AnyPath): Path to a file.
-
         Raises:
             File.NotFound: If a file with a target path does not exists.
-
-        Returns:
-            File: File with at a target path.
         """
         return await self.db.file.get_by_path(ns_path, path)
 
@@ -246,21 +233,7 @@ class FileCoreService:
         *,
         batch_size: int = 25,
     ) -> AsyncIterator[list[File]]:
-        """
-        Iterates through all files of a given mediatypes in batches.
-
-        Args:
-            ns_path (AnyPath): Target namespace where files should be listed.
-            mediatypes (Iterable[str]): List of mediatypes that files should match.
-            batch_size (int, optional): Batch size. Defaults to 25.
-
-        Returns:
-            AsyncIterator[list[File]]: None.
-
-        Yields:
-            Iterator[AsyncIterator[list[File]]]: Batch with files with a given
-                mediatypes.
-        """
+        """Iterates through all files of a given mediatypes in batches."""
         limit = batch_size
         offset = -limit
 
@@ -275,20 +248,12 @@ class FileCoreService:
 
     async def list_folder(self, ns_path: AnyPath, path: AnyPath) -> list[AnyFile]:
         """
-        Lists all files in the folder at a given path.
-
-        Use "." to list top-level files and folders.
-
-        Args:
-            ns_path (AnyPath): Namespace path where a folder located.
-            path (AnyPath): Path to a folder in the target namespace.
+        Lists all files in the folder at a given path. Use "." to list top-level files
+        and folders.
 
         Raises:
             File.NotFound: If folder at this path does not exists.
             File.NotADirectory: If path points to a file.
-
-        Returns:
-            List[File]: List of all files/folders in a folder with a target path.
         """
         folder = await self.get_by_path(ns_path, path)
         if not folder.is_folder():
@@ -301,25 +266,15 @@ class FileCoreService:
         self, at: tuple[AnyPath, AnyPath], to: tuple[AnyPath, AnyPath]
     ) -> File:
         """
-        Moves a file or a folder to a different location in the target Namespace.
+        Moves a file or a folder to a different location in the target namespace.
         If the source path is a folder all its contents will be moved.
 
-        If the file is moved tothe mounted folder that it actually being transferred to
-        other namespace (the one that mounted folder belongs).
-
-        Args:
-            ns_path (AnyPath): Namespace path where file/folder should be moved
-            at_path (AnyPath): Path to be moved.
-            to_path (AnyPath): Path that is the destination.
-
         Raises:
-            File.NotFound: If source path does not exists.
             File.AlreadyExists: If some file already in the destination path.
+            File.MalformedPath: If `at` or `to` path is invalid.
             File.MissingParent: If 'next_path' parent does not exists.
+            File.NotFound: If source path does not exists.
             File.NotADirectory: If one of the 'next_path' parents is not a folder.
-
-        Returns:
-            File: Moved file/folder.
         """
         at_ns_path, at_path = at[0], Path(at[1])
         to_ns_path, to_path = to[0], Path(to[1])
@@ -389,10 +344,6 @@ class FileCoreService:
         at a given path.
 
         The method doesn't guarantee to accurately re-calculate path parents sizes.
-
-        Args:
-            ns_path (AnyPath): Namespace path where files will be reindexed.
-            path (AnyPath): Path to a folder that should be reindexed.
 
         Raises:
             File.NotADirectory: If given path does not exist.
