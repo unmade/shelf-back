@@ -9,9 +9,9 @@ fake = Faker()
 
 
 def _make_file(
+    ns_path: str | None = None,
     path: str | None = None,
     mediatype: str | None = None,
-    ns_path: str | None = None,
 ) -> File:
     pathname = path or fake.file_path(depth=3)
 
@@ -27,11 +27,11 @@ def _make_file(
 
 
 def _make_mounted_file(
+    ns_path: str | None = None,
     path: str | None = None,
     mediatype: str | None = None,
-    ns_path: str | None = None,
 ) -> MountedFile:
-    ns_path=ns_path or fake.file_path(depth=1)
+    ns_path = ns_path or fake.file_path(depth=1)
     pathname = Path(path or fake.file_path(depth=3))
 
     return MountedFile(
@@ -109,9 +109,11 @@ class TestIsFolder:
         assert file.is_folder() is folder
 
 
-class TestShared:
-    def test(self):
+class TestIsMountPoint:
+    def test_regular_file(self):
         file = _make_file()
-        assert file.shared is False
+        assert file.is_mount_point() is False
+
+    def test_mounted_file(self):
         mounted_file = _make_mounted_file()
-        assert mounted_file.shared is True
+        assert mounted_file.is_mount_point() is True

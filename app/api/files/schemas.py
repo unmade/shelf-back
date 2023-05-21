@@ -62,6 +62,7 @@ class FileSchema(BaseModel):
     size: int
     mtime: float
     mediatype: str
+    mount_point: bool
     hidden: bool = False
     thumbnail_url: str | None
 
@@ -74,8 +75,8 @@ class FileSchema(BaseModel):
             size=file.size,
             mtime=file.mtime,
             mediatype=file.mediatype,
-            shared=file.shared,
             hidden=file.is_hidden(),
+            mount_point=file.is_mount_point(),
             thumbnail_url=cls._make_thumbnail_url(request, file),
         )
 
