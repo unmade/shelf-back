@@ -25,10 +25,10 @@ if TYPE_CHECKING:
 __all__ = ["FileRepository"]
 
 
-def _from_db(ns_path: str, obj) -> File:
+def _from_db(ns_path: str | None, obj) -> File:
     return File(
         id=obj.id,
-        ns_path=ns_path,
+        ns_path=ns_path or obj.namespace.path,
         name=obj.name,
         path=obj.path,
         size=obj.size,
@@ -210,26 +210,29 @@ class FileRepository(IFileRepository):
             raise File.NotFound() from exc
         return _from_db(obj.namespace.path, obj)
 
-    async def get_by_id_batch(
-        self, ns_path: AnyPath, ids: Iterable[StrOrUUID]
-    ) -> list[File]:
+    async def get_by_id_batch(self, ids: Iterable[StrOrUUID]) -> list[File]:
         query = """
             SELECT
                 File {
-                    id, name, path, size, mtime, mediatype: { name },
+                    id,
+                    name,
+                    path,
+                    size,
+                    mtime,
+                    mediatype: {
+                        name,
+                    },
+                    namespace: {
+                        path,
+                    },
                 }
             FILTER
                 .id IN {array_unpack(<array<uuid>>$ids)}
-                AND
-                .namespace.path = <str>$namespace
             ORDER BY
                 str_lower(.path) ASC
         """
-        objs = await self.conn.query(
-            query, namespace=str(ns_path), ids=list(ids),
-        )
-
-        return [_from_db(str(ns_path), obj) for obj in objs]
+        objs = await self.conn.query(query, ids=list(ids))
+        return [_from_db(None, obj) for obj in objs]
 
     async def get_by_path(self, ns_path: AnyPath, path: AnyPath) -> File:
         query = """

@@ -211,11 +211,9 @@ class FileCoreService:
         """
         return await self.db.file.get_by_id(file_id)
 
-    async def get_by_id_batch(
-        self, ns_path: AnyPath, ids: Iterable[StrOrUUID]
-    ) -> list[File]:
+    async def get_by_id_batch(self, ids: Iterable[StrOrUUID]) -> list[File]:
         """Returns all files with target IDs."""
-        return await self.db.file.get_by_id_batch(ns_path, ids)
+        return await self.db.file.get_by_id_batch(ids)
 
     async def get_by_path(self, ns_path: AnyPath, path: AnyPath) -> File:
         """

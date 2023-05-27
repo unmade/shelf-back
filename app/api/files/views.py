@@ -225,8 +225,7 @@ async def get_batch(
     usecases: UseCasesDeps,
 ):
     """Return all files with specified IDs."""
-    ns_path = namespace.path
-    files = await usecases.namespace.file.filecore.get_by_id_batch(ns_path, payload.ids)
+    files = await usecases.namespace.file.filecore.get_by_id_batch(payload.ids)
 
     # by returning response class directly we avoid pydantic checks
     # that way we speed up on a large volume of data

@@ -149,7 +149,7 @@ class NamespaceUseCase:
 
         files = {
             file.id: file
-            for file in await self.file.filecore.get_by_id_batch(ns_path, ids=ids)
+            for file in await self.file.filecore.get_by_id_batch(ids=ids)
         }
 
         return [

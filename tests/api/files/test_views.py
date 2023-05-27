@@ -489,7 +489,7 @@ class TestGetBatch:
         response = await client.post("/files/get_batch", json=payload)
         # THEN
         ns_use_case.file.filecore.get_by_id_batch.assert_awaited_once_with(
-            namespace.path, [uuid.UUID(id) for id in payload["ids"]]
+            [uuid.UUID(id) for id in payload["ids"]]
         )
         assert response.json()["count"] == 2
         assert len(response.json()["items"]) == 2
