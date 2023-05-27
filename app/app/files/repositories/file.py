@@ -99,14 +99,11 @@ class IFileRepository(Protocol):
             File: File with a target ID.
         """
 
-    async def get_by_id_batch(
-        self, ns_path: AnyPath, ids: Iterable[StrOrUUID]
-    ) -> list[File]:
+    async def get_by_id_batch(self, ids: Iterable[StrOrUUID]) -> list[File]:
         """
         Returns all files with target IDs.
 
         Args:
-            ns_path (AnyPath): Namespace where files are located.
             ids (Iterable[StrOrUUID]): Iterable of paths to look for.
 
         Returns:

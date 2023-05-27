@@ -176,14 +176,14 @@ class TestGetByIdBatch:
     ):
         files = [await file_factory(namespace.path, path=f"{i}.txt") for i in range(3)]
         ids = [file.id for file in files]
-        result = await file_repo.get_by_id_batch(namespace.path, ids)
+        result = await file_repo.get_by_id_batch(ids)
         assert result == sorted(files, key=operator.attrgetter("path"))
 
     async def test_when_some_file_does_not_exist(
         self, file_repo: FileRepository, file: File,
     ):
         ids = [file.id, str(uuid.uuid4())]
-        result = await file_repo.get_by_id_batch(file.ns_path, ids)
+        result = await file_repo.get_by_id_batch(ids)
         assert result == [file]
 
 

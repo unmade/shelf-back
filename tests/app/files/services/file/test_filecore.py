@@ -421,13 +421,13 @@ class TestGetById:
 class TestGetByIDBatch:
     async def test(self, filecore: FileCoreService):
         # GIVEN
-        ns_path, ids = "admin", [str(uuid.uuid4()), str(uuid.uuid4())]
+        ids = [str(uuid.uuid4()), str(uuid.uuid4())]
         # WHEN
         with mock.patch.object(filecore, "db", autospec=filecore.db) as db:
-            result = await filecore.get_by_id_batch(ns_path, ids=ids)
+            result = await filecore.get_by_id_batch(ids=ids)
         # THEN
         assert result == db.file.get_by_id_batch.return_value
-        db.file.get_by_id_batch.assert_awaited_once_with(ns_path, ids)
+        db.file.get_by_id_batch.assert_awaited_once_with(ids)
 
 
 class TestGetByPath:
