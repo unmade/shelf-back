@@ -54,12 +54,12 @@ class MountRepository(IMountRepository):
                     FILTER
                         .path = <str>$source_ns_path
                 ),
-                sources := (
+                shares := (
                     SELECT
-                        File
+                        Share
                     FILTER
-                        .namespace = source_ns
-                        and .path IN {array_unpack(<array<str>>$paths)}
+                        .file.namespace = source_ns
+                        AND .file.path IN {array_unpack(<array<str>>$paths)}
                 ),
             SELECT
                 ShareMountPoint {
@@ -79,8 +79,8 @@ class MountRepository(IMountRepository):
                     },
                 }
             FILTER
-                .member.share.file IN sources
-                and .parent.namespace = target_ns
+                .member.share IN shares
+                AND .parent.namespace = target_ns
             ORDER BY
                 .member.share.file.path DESC
             LIMIT 1
@@ -94,7 +94,7 @@ class MountRepository(IMountRepository):
                 query,
                 source_ns_path=str(source_ns_path),
                 target_ns_path=target_ns_path,
-                paths=[str(path)] + [str(p) for p in parents],
+                paths=[str(path)] + [str(p) for p in parents if p != "."],
             )
         except edgedb.NoDataError as exc:
             raise MountPoint.NotFound() from exc
@@ -142,7 +142,7 @@ class MountRepository(IMountRepository):
                 query,
                 ns_path=str(ns_path),
                 parents=[str(p) for p in parents],
-                names=[path.name] + [p.name for p in parents],
+                names=[path.name] + [p.name for p in parents if p != "."],
             )
         except edgedb.NoDataError as exc:
             raise MountPoint.NotFound() from exc
@@ -151,6 +151,40 @@ class MountRepository(IMountRepository):
         if not Path(path).is_relative_to(mount_point.display_path):
             raise MountPoint.NotFound()
         return mount_point
+
+    async def list_all(self, ns_path: AnyPath) -> list[MountPoint]:
+        query = """
+            with
+                target_ns := (
+                    SELECT
+                        Namespace
+                    FILTER
+                        .path = <str>$ns_path
+                ),
+            SELECT
+                ShareMountPoint {
+                    display_name,
+                    parent: {
+                        path
+                    },
+                    member: {
+                        share: {
+                            file: {
+                                path,
+                                namespace: {
+                                    path
+                                },
+                            },
+                        },
+                    },
+                }
+            FILTER
+                .parent.namespace = target_ns
+        """
+
+        objs = await self.conn.query(query, ns_path=ns_path)
+
+        return [_from_db(ns_path, obj) for obj in objs]
 
     async def update(self, mount_point: MountPoint, fields: MountPointUpdate):
         query = """
@@ -214,3 +248,8 @@ class MountRepository(IMountRepository):
         )
 
         return _from_db(mount_point.folder.ns_path, obj)
+
+
+
+# Memes/1.jpg            -> SharedFolder/Public Folder/1.jpg
+# Memes/download.png

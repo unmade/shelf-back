@@ -8,9 +8,12 @@ from app.cache import disk_cache
 from . import thumbnails
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from app.app.files.domain import AnyFile, AnyPath
     from app.app.files.services.file import FileCoreService, MountService
     from app.app.infrastructure.storage import ContentReader
+    from app.typedefs import StrOrUUID
 
 
 def _make_thumbnail_ttl(*args, size: int, **kwargs) -> str:
@@ -149,6 +152,33 @@ class FileService:
             if mount_point is None:
                 raise File.NotFound()
         return _resolve_file(file, mount_point)
+
+    async def get_by_id_batch(
+        self, ns_path: AnyPath, ids: Iterable[StrOrUUID]
+    ) -> list[AnyFile]:
+        """
+        Returns files by ID in the target namespace, including shared files and files
+        within shared folders.
+        """
+        files = await self.filecore.get_by_id_batch(ids)
+
+        fq_paths_map = await self.mount_service.reverse_path_batch(
+            ns_path,
+            sources=[
+                (file.ns_path, file.path)
+                for file in files
+                if file.ns_path != ns_path
+            ],
+        )
+        mps_map = {
+            source: fq_path.mount_point
+            for source, fq_path in fq_paths_map.items()
+        }
+
+        return [
+            _resolve_file(file, mps_map.get((file.ns_path, file.path)))
+            for file in files
+        ]
 
     async def list_folder(self, ns_path: AnyPath, path: AnyPath) -> list[AnyFile]:
         """

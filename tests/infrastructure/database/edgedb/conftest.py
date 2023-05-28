@@ -209,7 +209,7 @@ def namespace_factory(namespace_repo: INamespaceRepository):
 
 
 @pytest.fixture
-def mount_factory(mount_repo: IMountRepository):
+def mount_factory(mount_repo: IMountRepository) -> MountFactory:
     """A factory to mount file/folder into another folder."""
     async def factory(
         source_file_id: StrOrUUID, target_folder_id: StrOrUUID, display_name: str

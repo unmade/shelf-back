@@ -41,6 +41,7 @@ def _make_mounted_file(source_file: File, ns_path: str, path: AnyPath) -> Mounte
             name=path.name,
             path=path,
             size=10,
+            mtime=source_file.mtime,
             mediatype="plain/text",
             mount_point=MountPoint(
                 source=MountPoint.Source(
@@ -54,6 +55,20 @@ def _make_mounted_file(source_file: File, ns_path: str, path: AnyPath) -> Mounte
                 display_name=path.name,
             ),
         )
+
+
+def _make_mount_point(source: File, mount_to: File, name: str | None = None):
+    return MountPoint(
+        source=MountPoint.Source(
+            ns_path=source.ns_path,
+            path=source.path,
+        ),
+        folder=MountPoint.ContainingFolder(
+            ns_path=mount_to.ns_path,
+            path=mount_to.path,
+        ),
+        display_name=name or source.path.name,
+    )
 
 
 class TestResolveFile:
@@ -316,6 +331,84 @@ class TestGetByID:
             file.ns_path, file.path, target_ns_path="user"
         )
 
+
+@pytest.mark.asyncio
+class TestGetByIDBatch:
+    async def test(self, file_service: FileService):
+        # GIVEN
+        files = [_make_file("admin", "f.txt"), _make_file("admin", "f (1).txt")]
+        file_ids = [file.id for file in files]
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        filecore.get_by_id_batch.return_value = files
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.reverse_path_batch.return_value = {}
+        # WHEN
+        result = await file_service.get_by_id_batch("admin", ids=file_ids)
+        # THEN
+        assert result == files
+        filecore.get_by_id_batch.assert_awaited_once_with(file_ids)
+        mount_service.reverse_path_batch.assert_awaited_once_with("admin", sources=[])
+
+    async def test_getting_mounted_files(self, file_service: FileService):
+        # GIVEN
+        files = [_make_file("admin", "f.txt"), _make_file("admin", "f (1).txt")]
+
+        # two mounted files from two different namespaces:
+        #   - "user 1:Folder" mounted under name "User 1" in the "admin" namespace
+        #   - "user 2:im.jpeg" mounted in the "User 2" folder in the "admin" namespace
+        mount_points = [
+            _make_mount_point(
+                source=_make_file("user 1", "Folder"),
+                mount_to=_make_file("admin", "."),
+                name="User 1",
+            ),
+            _make_mount_point(
+                source=_make_file("user 2", "im.jpeg"),
+                mount_to=_make_file("admin", "User 2"),
+            ),
+        ]
+        shared_files = [
+            _make_file("user 1", "Folder/user.txt"),
+            _make_file("user 2", "im.jpeg"),
+        ]
+
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        filecore.get_by_id_batch.return_value = files + shared_files
+
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.reverse_path_batch.return_value = {
+            (shared_files[0].ns_path, shared_files[0].path): FullyQualifiedPath(
+                ns_path=shared_files[0].ns_path,
+                path=shared_files[0].path,
+                mount_point=mount_points[0],
+            ),
+            (shared_files[1].ns_path, shared_files[1].path): FullyQualifiedPath(
+                ns_path=shared_files[1].ns_path,
+                path=shared_files[1].path,
+                mount_point=mount_points[1],
+            ),
+        }
+
+        file_ids = [file.id for file in files] + [file.id for file in shared_files]
+
+        # WHEN
+        result = await file_service.get_by_id_batch("admin", ids=file_ids)
+
+        # THEN
+        assert result == [
+            files[0],
+            files[1],
+            _resolve_file(shared_files[0], mount_points[0]),
+            _resolve_file(shared_files[1], mount_points[1]),
+        ]
+        filecore.get_by_id_batch.assert_awaited_once_with(file_ids)
+        mount_service.reverse_path_batch.assert_awaited_once_with(
+            "admin",
+            sources=[
+                ("user 1", Path("Folder/user.txt")),
+                ("user 2", Path("im.jpeg")),
+            ]
+        )
 
 @pytest.mark.asyncio
 class TestGetAtPath:
