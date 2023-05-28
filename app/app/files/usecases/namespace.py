@@ -295,5 +295,6 @@ class NamespaceUseCase:
 
     async def _reindex_content(self, file: File, trackers) -> None:
         _, content_reader = await self.file.filecore.download(file.id)
+        content = await content_reader.stream()
         for tracker in trackers:
-            await tracker.add(file.id, await content_reader.stream())
+            await tracker.add(file.id, content)
