@@ -214,13 +214,13 @@ class TestFindDuplicates:
         dupefinder = cast(mock.MagicMock, ns_use_case.dupefinder)
         dupefinder.find_in_folder.return_value = intersection
         file_service = cast(mock.MagicMock, ns_use_case.file)
-        file_service.filecore.get_by_id_batch.return_value = files
+        file_service.get_by_id_batch.return_value = files
         # WHEN
         duplicates = await ns_use_case.find_duplicates(ns_path, ".")
         # THEN
         assert duplicates == [[files[0], files[2]], [files[1], files[3]]]
         dupefinder.find_in_folder.assert_awaited_once_with(ns_path, ".", 5)
-        file_service.filecore.get_by_id_batch.assert_awaited_once()
+        file_service.get_by_id_batch.assert_awaited_once()
 
     async def test_when_no_duplicates(self, ns_use_case: NamespaceUseCase):
         # GIVEN
@@ -228,13 +228,13 @@ class TestFindDuplicates:
         dupefinder = cast(mock.MagicMock, ns_use_case.dupefinder)
         dupefinder.find_in_folder.return_value = []
         file_service = cast(mock.MagicMock, ns_use_case.file)
-        file_service.filecore.get_by_id_batch.return_value = []
+        file_service.get_by_id_batch.return_value = []
         # WHEN
         duplicates = await ns_use_case.find_duplicates(ns_path, ".")
         # THEN
         assert duplicates == []
         dupefinder.find_in_folder.assert_awaited_once_with(ns_path, ".", 5)
-        file_service.filecore.get_by_id_batch.assert_awaited_once()
+        file_service.get_by_id_batch.assert_awaited_once()
 
 
 class TestGetFileMetadata:

@@ -131,6 +131,70 @@ class TestGetClosestBySource:
             )
 
 
+class TestListAll:
+    async def test(
+        self,
+        mount_repo: MountRepository,
+        folder_factory: FolderFactory,
+        mount_factory: MountFactory,
+        namespace_a: Namespace,
+        namespace_b: Namespace,
+    ):
+        # GIVEN
+        home = await folder_factory(namespace_a.path, ".")
+        folder = await folder_factory(namespace_a.path, "Folder")
+        shared_folder_1 = await folder_factory(namespace_b.path, "Shared Folder 1")
+        shared_folder_2 = await folder_factory(namespace_b.path, "Shared Folder 2")
+        await mount_factory(shared_folder_1.id, home.id, "Team Folder 1")
+        await mount_factory(shared_folder_2.id, folder.id, "Team Folder 2")
+
+        # WHEN
+        mount_points = await mount_repo.list_all(namespace_a.path)
+
+        # THEN
+        assert mount_points == [
+            MountPoint(
+                source=MountPoint.Source(
+                    ns_path=shared_folder_1.ns_path,
+                    path=shared_folder_1.path,
+                ),
+                folder=MountPoint.ContainingFolder(
+                    ns_path=home.ns_path,
+                    path=home.path,
+                ),
+                display_name="Team Folder 1",
+            ),
+            MountPoint(
+                source=MountPoint.Source(
+                    ns_path=shared_folder_2.ns_path,
+                    path=shared_folder_2.path,
+                ),
+                folder=MountPoint.ContainingFolder(
+                    ns_path=folder.ns_path,
+                    path=folder.path,
+                ),
+                display_name="Team Folder 2",
+            ),
+        ]
+
+    async def test_when_no_mount_points_in_the_namespace(
+        self,
+        mount_repo: MountRepository,
+        folder_factory: FolderFactory,
+        mount_factory: MountFactory,
+        namespace_a: Namespace,
+        namespace_b: Namespace,
+    ):
+        # GIVEN
+        folder = await folder_factory(namespace_a.path, "Folder")
+        shared_folder = await folder_factory(namespace_b.path, "Shared Folder")
+        await mount_factory(shared_folder.id, folder.id, "Team Folder")
+        # WHEN
+        mount_points = await mount_repo.list_all(namespace_b.path)
+        # THEN
+        assert mount_points == []
+
+
 class TestUpdate:
     async def test_updating_display_name(
         self,

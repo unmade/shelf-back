@@ -7,6 +7,8 @@ from app.app.files.repositories import IMountRepository
 from app.app.files.repositories.mount import MountPointUpdate
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from app.app.files.domain import AnyPath
 
     class IServiceDatabase(Protocol):
@@ -20,10 +22,35 @@ __all__ = [
 
 class FullyQualifiedPath(NamedTuple):
     """
-    A fully qualified path.
+    A fully-qualified path.
 
-    The `ns_path` and `path` always point to the actual location of the file.
-    If the `mount_point` is not None then it means the path is mounted.
+    The `ns_path` and `path` always point to the actual file location. The optional
+    `mount point` field specifies whether the file is mounted.
+
+    Examples:
+        a FQ path to the "folder/f.txt" in the "admin" namespace:
+
+        >>> FullyQualifiedPath("admin", "folder/f.txt")
+
+        Let's say the "folder" mounted under name "SharedFolder" in the "user"
+        namespace. In that case the path "SharedFolder/f.txt" in the "user" namespace
+        can be represented as the following FQ path:
+
+        >>> FullyQualifiedPath(
+        >>>    "admin",
+        >>>    "folder/f.txt",
+        >>>    mount_point=MountPoint(
+        >>>        source=MountPoint.Source(
+        >>>            ns_path="admin",
+        >>>            path="folder",
+        >>>        ),
+        >>>        folder=MountPoint.ContainingFolder(
+        >>>            ns_path="user",
+        >>>            path=".",
+        >>>        ),
+        >>>        display_name="SharedFolder",
+        >>>    ),
+        >>>)
     """
     ns_path: str
     path: Path
@@ -53,6 +80,7 @@ class MountService:
         except MountPoint.NotFound:
             return None
 
+
     async def move(self, ns_path: AnyPath, at_path: AnyPath, to_path: AnyPath):
         at_path = Path(at_path)
         to_path = Path(to_path)
@@ -66,10 +94,7 @@ class MountService:
         )
 
     async def resolve_path(self, ns_path: AnyPath, path: AnyPath) -> FullyQualifiedPath:
-        """
-        Returns fully-qualified path if path is a mount point or inside mount point,
-        otherwise returns path unchanged.
-        """
+        """Resolves path in the target namespace to a fully-qualified path."""
         try:
             mount = await self.db.mount.get_closest(ns_path, path)
         except MountPoint.NotFound:
@@ -81,3 +106,34 @@ class MountService:
             path=mount.source.path / relpath,
             mount_point=mount,
         )
+
+    async def reverse_path_batch(
+        self, ns_path: AnyPath, sources: Sequence[tuple[AnyPath, AnyPath]]
+    ) -> dict[tuple[AnyPath, AnyPath], FullyQualifiedPath]:
+        """
+        Given an iterable of tuples, where the first element is a namespace and the
+        second elemnt is a path returns a fully-qualified path within a `ns_path`
+        for each item in the list.
+        """
+        if not sources:
+            return {}
+
+        # fetching all mount points is faster than filtering by possible source paths
+        # on the database level
+        mount_points = await self.db.mount.list_all(ns_path)
+        mps_by_ns: dict[str, list[MountPoint]] = {}
+        for mp in mount_points:
+            mps_by_ns.setdefault(mp.source.ns_path, []).append(mp)
+
+        result: dict[tuple[AnyPath, AnyPath], FullyQualifiedPath] = {}
+        for ns_path, path in sources:
+            mps = mps_by_ns.get(str(ns_path), [])
+            for mp in mps:
+                if Path(path).is_relative_to(mp.source.path):
+                    result[ns_path, path] = FullyQualifiedPath(
+                        ns_path=str(ns_path),
+                        path=Path(path),
+                        mount_point=mp,
+                    )
+
+        return result

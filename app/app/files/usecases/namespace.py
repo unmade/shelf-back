@@ -134,7 +134,7 @@ class NamespaceUseCase:
 
     async def find_duplicates(
         self, ns_path: AnyPath, path: AnyPath, max_distance: int = 5
-    ) -> list[list[File]]:
+    ) -> list[list[AnyFile]]:
         """
         Finds all duplicate fingerprints in a folder, including sub-folders.
 
@@ -149,7 +149,7 @@ class NamespaceUseCase:
 
         files = {
             file.id: file
-            for file in await self.file.filecore.get_by_id_batch(ids=ids)
+            for file in await self.file.get_by_id_batch(ns_path, ids=ids)
         }
 
         return [
