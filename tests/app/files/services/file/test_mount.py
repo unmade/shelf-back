@@ -51,7 +51,50 @@ def mount_service():
     return MountService(database=database)
 
 
-class TestGetClosesBySource:
+class TestCreate:
+    async def test(self, mount_service: MountService):
+        # GIVEN
+        mount_point = _make_mount_point(
+            source=_make_file("admin", "f.txt"),
+            mount_to=_make_file("user", "folder"),
+            name="y.txt",
+        )
+        source, at_folder = mount_point.source, mount_point.folder
+        db = cast(mock.AsyncMock, mount_service.db)
+        # WHEN
+        result = await mount_service.create(
+            source=(source.ns_path, source.path),
+            at_folder=(at_folder.ns_path, at_folder.path),
+            name="y.txt",
+        )
+        # THEN
+        assert result == db.mount.save.return_value
+        db.mount.save.assert_awaited_once_with(mount_point)
+
+    async def test_when_mounting_within_the_same_namespace(
+        self, mount_service: MountService
+    ):
+        # GIVEN
+        mount_point = _make_mount_point(
+            source=_make_file("admin", "f.txt"),
+            mount_to=_make_file("admin", "folder"),
+            name="y.txt",
+        )
+        source, at_folder = mount_point.source, mount_point.folder
+        db = cast(mock.AsyncMock, mount_service.db)
+        # WHEN
+        with pytest.raises(AssertionError) as excinfo:
+            await mount_service.create(
+                source=(source.ns_path, source.path),
+                at_folder=(at_folder.ns_path, at_folder.path),
+                name="y.txt",
+            )
+        # THEN
+        assert str(excinfo.value) == "Can't mount within the same namespace."
+        db.mount.save.assert_not_called()
+
+
+class TestGetClosestBySource:
     async def test(self, mount_service: MountService):
         # GIVEN
         shared_folder = _make_file("user", "SharedFolder")

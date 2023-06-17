@@ -47,6 +47,9 @@ class IMountRepository(Protocol):
     async def list_all(self, ns_path: AnyPath) -> list[MountPoint]:
         """Returns all mount points in the target namespace."""
 
+    async def save(self, entity: MountPoint) -> MountPoint:
+        """Saves mount point to the database."""
+
     async def update(
         self, mount_point: MountPoint, fields: MountPointUpdate
     ) -> MountPoint:

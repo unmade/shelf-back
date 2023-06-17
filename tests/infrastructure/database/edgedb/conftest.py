@@ -10,6 +10,7 @@ from app.app.files.domain import (
     ContentMetadata,
     Exif,
     File,
+    FileMember,
     Fingerprint,
     MountPoint,
     Namespace,
@@ -17,6 +18,7 @@ from app.app.files.domain import (
     SharedLink,
     mediatypes,
 )
+from app.app.files.repositories import IFileMemberRepository
 from app.app.infrastructure.database import SENTINEL_ID
 from app.app.users.domain import (
     Account,
@@ -26,6 +28,7 @@ from app.app.users.domain.bookmark import Bookmark
 
 if TYPE_CHECKING:
     from typing import Protocol
+    from uuid import UUID
 
     from app.app.files.domain import AnyPath
     from app.app.files.repositories import (
@@ -52,6 +55,9 @@ if TYPE_CHECKING:
             mediatype: str = "plain/text",
         ) -> File:
             ...
+
+    class FileMemberFactory(Protocol):
+        async def __call__(self, file_id: str, user_id: UUID) -> FileMember: ...
 
     class FingerprintFactory(Protocol):
         async def __call__(self, file_id: str, value: int) -> Fingerprint: ...
@@ -108,6 +114,12 @@ def bookmark_repo(edgedb_database: EdgeDBDatabase):
 def file_repo(edgedb_database: EdgeDBDatabase):
     """An EdgeDB instance of IFileRepository"""
     return edgedb_database.file
+
+
+@pytest.fixture
+def file_member_repo(edgedb_database: EdgeDBDatabase):
+    """An EdgeDB instance of IFileMemberRepository"""
+    return edgedb_database.file_member
 
 
 @pytest.fixture
@@ -168,6 +180,21 @@ def file_factory(file_repo: IFileRepository) -> FileFactory:
 
 
 @pytest.fixture
+def file_member_factory(file_member_repo: IFileMemberRepository) -> FileMemberFactory:
+    async def factory(file_id: str, user_id: UUID) -> FileMember:
+        return await file_member_repo.save(
+            FileMember(
+                file_id=file_id,
+                user=FileMember.User(
+                    id=user_id,
+                    username="",
+                ),
+            )
+        )
+    return factory
+
+
+@pytest.fixture
 def fingerprint_factory(fingerprint_repo: IFingerprintRepository) -> FingerprintFactory:
     async def factory(file_id: str, value: int):
         return await fingerprint_repo.save(
@@ -219,18 +246,14 @@ def mount_factory(mount_repo: IMountRepository) -> MountFactory:
                 source := (SELECT File FILTER .id = <uuid>$source_file_id),
                 target_folder := (SELECT File FILTER .id = <uuid>$target_folder_id),
             SELECT (
-                INSERT ShareMountPoint {
+                INSERT FileMemberMountPoint {
                     display_name := <str>$display_name,
                     parent := target_folder,
                     member := (
-                        INSERT ShareMember {
+                        INSERT FileMember {
                             permissions := 0,
                             user := target_folder.namespace.owner,
-                            share := (
-                                INSERT Share {
-                                    file := source,
-                                }
-                            )
+                            file := source,
                         }
                     )
                 }
@@ -279,6 +302,12 @@ async def account(user: User, account_repo: IAccountRepository):
 
 
 @pytest.fixture
+async def file(namespace: Namespace, file_factory: FileFactory):
+    """A File instance saved to the EdgeDB."""
+    return await file_factory(namespace.path)
+
+
+@pytest.fixture
 async def namespace_a(user_a: User, namespace_factory: NamespaceFactory):
     """A Namespace instance saved to the EdgeDB."""
     return await namespace_factory(user_a.username.lower(), owner_id=user_a.id)
@@ -296,10 +325,6 @@ async def namespace(namespace_a: Namespace):
     return namespace_a
 
 
-@pytest.fixture
-async def file(namespace: Namespace, file_factory: FileFactory):
-    """A File instance saved to the EdgeDB."""
-    return await file_factory(namespace.path)
 
 
 @pytest.fixture

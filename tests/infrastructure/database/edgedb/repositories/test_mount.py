@@ -9,8 +9,10 @@ from app.app.files.repositories.mount import MountPointUpdate
 
 if TYPE_CHECKING:
     from app.app.files.domain import Namespace
+    from app.app.users.domain import User
     from app.infrastructure.database.edgedb.repositories import MountRepository
     from tests.infrastructure.database.edgedb.conftest import (
+        FileMemberFactory,
         FolderFactory,
         MountFactory,
     )
@@ -25,7 +27,7 @@ class TestGetClosest:
         folder_factory: FolderFactory,
         mount_factory: MountFactory,
         namespace_a: Namespace,
-        namespace_b
+        namespace_b: Namespace,
     ):
         # GIVEN
         folder = await folder_factory(namespace_a.path, "Folder")
@@ -193,6 +195,37 @@ class TestListAll:
         mount_points = await mount_repo.list_all(namespace_b.path)
         # THEN
         assert mount_points == []
+
+
+class TestSave:
+    async def test(
+        self,
+        mount_repo: MountRepository,
+        folder_factory: FolderFactory,
+        file_member_factory: FileMemberFactory,
+        namespace_a: Namespace,
+        namespace_b: Namespace,
+        user_a: User,
+    ):
+        # GIVEN
+        folder = await folder_factory(namespace_a.path, "Folder")
+        shared_folder = await folder_factory(namespace_b.path, "Shared Folder")
+        await file_member_factory(shared_folder.id, user_a.id)
+        mount_point = MountPoint(
+            source=MountPoint.Source(
+                ns_path=shared_folder.ns_path,
+                path=shared_folder.path,
+            ),
+            folder=MountPoint.ContainingFolder(
+                ns_path=folder.ns_path,
+                path=folder.path,
+            ),
+            display_name="Public Folder",
+        )
+        # WHEN
+        result = await mount_repo.save(mount_point)
+        # THEN
+        assert result is mount_point
 
 
 class TestUpdate:

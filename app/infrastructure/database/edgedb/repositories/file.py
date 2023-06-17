@@ -361,10 +361,10 @@ class FileRepository(IFileRepository):
                     ),
                     (
                         SELECT
-                            ShareMountPoint
+                            FileMemberMountPoint
                         FILTER
                             .parent = parent
-                    ).member.share.file
+                    ).member.file
                 },
                 SELECT files {
                     id,
@@ -376,12 +376,12 @@ class FileRepository(IFileRepository):
                     namespace := .namespace { path },
                     mount_point := (
                         SELECT
-                            ShareMountPoint {
+                            FileMemberMountPoint {
                                 display_name,
                                 parent: { path },
                             }
                         FILTER
-                            .member.share.file.id = files.id
+                            .member.file.id = files.id
                             and .parent = parent
                         LIMIT 1
                     ),

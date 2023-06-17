@@ -48,6 +48,29 @@ module default {
         constraint exclusive on ((.path, .namespace));
     }
 
+    type FileMember {
+        required property permissions -> int16;
+        required link file -> File {
+            on target delete DELETE SOURCE;
+        };
+        required link user -> User {
+            on target delete DELETE SOURCE;
+        };
+
+        constraint exclusive on ((.file, .user));
+    }
+
+    type FileMemberMountPoint {
+        required property display_name -> str;
+        required link member -> FileMember {
+            constraint exclusive;
+            on target delete DELETE SOURCE;
+        };
+        required link parent -> File {
+            on target delete DELETE SOURCE;
+        };
+    }
+
     type FileMetadata {
         required property data -> json;
 
@@ -85,32 +108,6 @@ module default {
             constraint exclusive;
         };
         required link owner -> User {
-            on target delete DELETE SOURCE;
-        };
-    }
-
-    type Share {
-        required link file -> File {
-            constraint exclusive;
-            on target delete DELETE SOURCE;
-        };
-        multi link members := .<share[is ShareMember];
-    }
-
-    type ShareMember {
-        required link share -> Share;
-        required property permissions -> int16;
-        required multi link user -> User {
-            on target delete DELETE SOURCE;
-        };
-    }
-
-    type ShareMountPoint {
-        required property display_name -> str;
-        required link member -> ShareMember {
-            constraint exclusive;
-        };
-        required link parent -> File {
             on target delete DELETE SOURCE;
         };
     }

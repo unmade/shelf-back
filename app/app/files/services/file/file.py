@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import IO, TYPE_CHECKING
 
-from app.app.files.domain import File, MountedFile, MountPoint
+from app.app.files.domain import File, MountedFile, MountPoint, Path
 from app.cache import disk_cache
 
 from . import thumbnails
@@ -93,7 +93,7 @@ class FileService:
         contents.
 
         Raises:
-            File.NotFound: If a file/folder with a given path does not exists.
+            File.NotFound: If a file/folder with a given path does not exist.
         """
         fq_path = await self.mount_service.resolve_path(ns_path, path)
         if fq_path.is_mount_point():
@@ -108,7 +108,7 @@ class FileService:
         Downloads a file or a folder at a given path.
 
         Raises:
-            File.NotFound: If a file at a target path does not exists.
+            File.NotFound: If a file at a target path does not exist.
         """
         fq_path = await self.mount_service.resolve_path(ns_path, path)
         file = await self.filecore.get_by_path(fq_path.ns_path, fq_path.path)
@@ -120,7 +120,7 @@ class FileService:
         Delete all files and folder at a given folder.
 
         Raises:
-            File.NotFound: If a file at a target path does not exists.
+            File.NotFound: If a file at a target path does not exist.
         """
         fq_path = await self.mount_service.resolve_path(ns_path, path)
         await self.filecore.empty_folder(fq_path.ns_path, fq_path.path)
@@ -131,17 +131,22 @@ class FileService:
         return await self.filecore.exists_at_path(fq_path.ns_path, fq_path.path)
 
     async def get_at_path(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:
-        """Return a file at a target path."""
+        """
+        Returns a file at a given path.
+
+        Raises:
+            File.NotFound: If file with at a given path does not exist.
+        """
         fq_path = await self.mount_service.resolve_path(ns_path, path)
         file = await self.filecore.get_by_path(fq_path.ns_path, fq_path.path)
         return _resolve_file(file, fq_path.mount_point)
 
     async def get_by_id(self, ns_path: AnyPath, file_id: str) -> AnyFile:
         """
-        Return a file by ID.
+        Returns a file by ID.
 
         Raises:
-            File.NotFound: If file with a given ID does not exists.
+            File.NotFound: If file with a given ID does not exist.
         """
         file = await self.filecore.get_by_id(file_id)
         mount_point = None
@@ -192,6 +197,44 @@ class FileService:
         fq_path = await self.mount_service.resolve_path(ns_path, path)
         files = await self.filecore.list_folder(fq_path.ns_path, fq_path.path)
         return [_resolve_file(file, fq_path.mount_point) for file in files]
+
+    async def mount(self, file_id: str, at_folder: tuple[str, AnyPath]) -> None:
+        """
+        Mounts a file with a given ID to a target folder. The folder must be in a
+        different namespace than a file.
+
+        Raises:
+            File.AlreadyExists: If the file name already taken in the target folder.
+            File.IsMounted: If the target folder is a mounted one.
+            File.MalformedPath: If file and target folder are in the same namespace.
+            File.MissingParent: If folder does not exists.
+        """
+        ns_path, path = at_folder
+
+        fq_path = await self.mount_service.resolve_path(ns_path, path)
+        if fq_path.mount_point is not None:
+            raise File.IsMounted()
+
+        if not await self.filecore.exists_at_path(fq_path.ns_path, fq_path.path):
+            raise File.MissingParent()
+
+        file = await self.filecore.get_by_id(file_id)
+        if file.ns_path == ns_path:
+            raise File.MalformedPath()
+
+        mount_path = Path(path) / file.name
+        fq_path = await self.mount_service.resolve_path(ns_path, mount_path)
+        if fq_path.mount_point is not None:
+            raise File.AlreadyExists()
+
+        if await self.filecore.exists_at_path(ns_path, mount_path):
+            raise File.AlreadyExists()
+
+        await self.mount_service.create(
+            source=(file.ns_path, file.path),
+            at_folder=(ns_path, path),
+            name=file.path.name,
+        )
 
     async def move(
         self, ns_path: AnyPath, at_path: AnyPath, to_path: AnyPath

@@ -2,6 +2,7 @@ from .account import AccountRepository
 from .audit import AuditTrailRepository
 from .bookmark import BookmarkRepository
 from .file import FileRepository
+from .file_member import FileMemberRepository
 from .fingerprint import FingerprintRepository
 from .metadata import ContentMetadataRepository
 from .mount import MountRepository
@@ -15,6 +16,7 @@ __all__ = [
     "BookmarkRepository",
     "ContentMetadataRepository",
     "FileRepository",
+    "FileMemberRepository",
     "FingerprintRepository",
     "MountRepository",
     "NamespaceRepository",

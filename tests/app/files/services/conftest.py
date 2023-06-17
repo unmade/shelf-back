@@ -9,11 +9,13 @@ from faker import Faker
 
 from app.app.files.repositories import (
     IContentMetadataRepository,
+    IFileMemberRepository,
     IFingerprintRepository,
     ISharedLinkRepository,
 )
 from app.app.files.services import (
     DuplicateFinderService,
+    FileMemberService,
     FileService,
     MetadataService,
     NamespaceService,
@@ -78,6 +80,13 @@ def file_service():
     filecore = mock.MagicMock(FileCoreService)
     mount_service = mock.MagicMock(MountService)
     return FileService(filecore=filecore, mount_service=mount_service)
+
+
+@pytest.fixture
+def file_member_service():
+    """A file member service instance."""
+    database = mock.MagicMock(file_member=mock.AsyncMock(IFileMemberRepository))
+    return FileMemberService(database=database)
 
 
 @pytest.fixture

@@ -7,9 +7,11 @@ from unittest import mock
 
 import pytest
 
+from app.api.exceptions import UserNotFound
 from app.api.files.exceptions import PathNotFound
-from app.api.sharing.exceptions import SharedLinkNotFound
-from app.app.files.domain import File, Path, SharedLink
+from app.api.sharing.exceptions import FileMemberAlreadyExists, SharedLinkNotFound
+from app.app.files.domain import File, FileMember, Path, SharedLink
+from app.app.users.domain import User
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
@@ -31,12 +33,112 @@ def _make_file(ns_path: str, path: AnyPath) -> File:
     )
 
 
+def _make_file_member(file: File, user: User) -> FileMember:
+    return FileMember(
+        file_id=file.id,
+        user=FileMember.User(
+            id=user.id,
+            username=user.username,
+        ),
+    )
+
+
 def _make_sharing_link() -> SharedLink:
     return SharedLink(
         id=uuid.uuid4(),
         file_id=str(uuid.uuid4()),
         token=uuid.uuid4().hex,
     )
+
+
+def _make_user(username: str) -> User:
+    return User(
+        id=uuid.uuid4(),
+        username=username,
+        password="root",
+    )
+
+
+class TestAddMember:
+    url = "/sharing/add_member"
+
+    async def test(
+        self,
+        client: TestClient,
+        namespace: Namespace,
+        sharing_use_case: MagicMock,
+    ):
+        # GIVEN
+        file, user = _make_file(namespace.path, "f.txt"), _make_user("user")
+        file_member = _make_file_member(file, user)
+        sharing_use_case.add_member.return_value = file_member
+        payload = {"file_id": file.id, "username": user.username}
+        # WHEN
+        client.mock_namespace(namespace)
+        response = await client.post(self.url, json=payload)
+        # THEN
+        assert response.json() == {"id": str(user.id), "display_name": user.username}
+        assert response.status_code == 200
+        sharing_use_case.add_member.assert_awaited_once_with(
+            namespace.path, file.id, user.username
+        )
+
+    async def test_when_file_does_not_exist(
+        self,
+        client: TestClient,
+        namespace: Namespace,
+        sharing_use_case: MagicMock,
+    ):
+        # GIVEN
+        ns_path = str(namespace.path)
+        file_id, username = str(uuid.uuid4()), "user"
+        sharing_use_case.add_member.side_effect = File.NotFound()
+        payload = {"file_id": file_id, "username": username}
+        # WHEN
+        client.mock_namespace(namespace)
+        response = await client.post(self.url, json=payload)
+        # THEN
+        assert response.json() == PathNotFound(path=file_id).as_dict()
+        assert response.status_code == 404
+        sharing_use_case.add_member.assert_awaited_once_with(ns_path, file_id, username)
+
+    async def test_when_file_member_already_exists(
+        self,
+        client: TestClient,
+        namespace: Namespace,
+        sharing_use_case: MagicMock,
+    ):
+        # GIVEN
+        ns_path = str(namespace.path)
+        file_id, username = str(uuid.uuid4()), "user"
+        sharing_use_case.add_member.side_effect = FileMember.AlreadyExists()
+        payload = {"file_id": file_id, "username": username}
+        # WHEN
+        client.mock_namespace(namespace)
+        response = await client.post(self.url, json=payload)
+        # THEN
+        assert response.json() == FileMemberAlreadyExists().as_dict()
+        assert response.status_code == 400
+        sharing_use_case.add_member.assert_awaited_once_with(ns_path, file_id, username)
+
+    async def test_when_user_does_not_exist(
+        self,
+        client: TestClient,
+        namespace: Namespace,
+        sharing_use_case: MagicMock,
+    ):
+        # GIVEN
+        ns_path = str(namespace.path)
+        file_id, username = str(uuid.uuid4()), "user"
+        sharing_use_case.add_member.side_effect = User.NotFound()
+        payload = {"file_id": file_id, "username": username}
+        # WHEN
+        client.mock_namespace(namespace)
+        response = await client.post(self.url, json=payload)
+        # THEN
+        assert response.json() == UserNotFound().as_dict()
+        assert response.status_code == 404
+        sharing_use_case.add_member.assert_awaited_once_with(ns_path, file_id, username)
 
 
 class TestCreateSharedLink:

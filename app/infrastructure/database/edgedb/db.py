@@ -10,6 +10,7 @@ from edgedb.asyncio_client import AsyncIOIteration
 from app.app.audit.repositories import IAuditTrailRepository
 from app.app.files.repositories import (
     IContentMetadataRepository,
+    IFileMemberRepository,
     IFileRepository,
     IFingerprintRepository,
     IMountRepository,
@@ -29,6 +30,7 @@ from .repositories import (
     AuditTrailRepository,
     BookmarkRepository,
     ContentMetadataRepository,
+    FileMemberRepository,
     FileRepository,
     FingerprintRepository,
     MountRepository,
@@ -48,6 +50,7 @@ class EdgeDBDatabase(IDatabase):
     audit_trail: IAuditTrailRepository
     bookmark: IBookmarkRepository
     file: IFileRepository
+    file_member: IFileMemberRepository
     fingerprint: IFingerprintRepository
     metadata: IContentMetadataRepository
     mount: IMountRepository
@@ -69,6 +72,7 @@ class EdgeDBDatabase(IDatabase):
         self.audit_trail = AuditTrailRepository(db_context=db_context)
         self.bookmark = BookmarkRepository(db_context=db_context)
         self.file = FileRepository(db_context=db_context)
+        self.file_member = FileMemberRepository(db_context=db_context)
         self.fingerprint = FingerprintRepository(db_context=db_context)
         self.metadata = ContentMetadataRepository(db_context=db_context)
         self.mount = MountRepository(db_context=db_context)

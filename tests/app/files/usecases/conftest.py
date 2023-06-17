@@ -7,6 +7,7 @@ import pytest
 from app.app.audit.services import AuditTrailService
 from app.app.files.services import (
     DuplicateFinderService,
+    FileMemberService,
     FileService,
     MetadataService,
     NamespaceService,
@@ -38,5 +39,7 @@ def sharing_use_case():
             FileService,
             filecore=mock.MagicMock(FileCoreService),
         ),
+        file_member=mock.MagicMock(spec=FileMemberService),
         sharing=mock.MagicMock(spec=SharingService),
+        user=mock.MagicMock(spec=UserService)
     )

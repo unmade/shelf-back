@@ -14,6 +14,7 @@ from app.app.files.services import (
     SharingService,
 )
 from app.app.files.services.file import FileCoreService, MountService
+from app.app.files.services.file_member import FileMemberService
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
 from app.app.users.services import BookmarkService, UserService
 from app.app.users.usecases import UserUseCase
@@ -110,6 +111,7 @@ class Services:
         "dupefinder",
         "file",
         "filecore",
+        "file_member",
         "metadata",
         "namespace",
         "sharing",
@@ -125,6 +127,7 @@ class Services:
             filecore=self.filecore,
             mount_service=MountService(database=database),
         )
+        self.file_member = FileMemberService(database=database)
         self.dupefinder = DuplicateFinderService(database=database)
         self.metadata = MetadataService(database=database)
         self.namespace = NamespaceService(database=database, filecore=self.filecore)
@@ -153,7 +156,9 @@ class UseCases:
         )
         self.sharing = SharingUseCase(
             file_service=services.file,
+            file_member=services.file_member,
             sharing=services.sharing,
+            user=services.user,
         )
         self.user = UserUseCase(
             bookmark_service=services.bookmark,

@@ -41,6 +41,10 @@ class IsADirectory(FileError):
     pass
 
 
+class IsMounted(FileError):
+    pass
+
+
 class MalformedPath(FileError):
     pass
 
@@ -65,6 +69,7 @@ class _BaseFile:
     NotFound = FileNotFound
     TooLarge = FileTooLarge
     IsADirectory = IsADirectory
+    IsMounted = IsMounted
     MalformedPath = MalformedPath
     MissingParent = MissingParent
     NotADirectory = NotADirectory
