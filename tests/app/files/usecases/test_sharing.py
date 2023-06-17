@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from typing import TYPE_CHECKING, cast
 from unittest import mock
 
@@ -9,6 +10,25 @@ if TYPE_CHECKING:
     from app.app.files.usecases import SharingUseCase
 
 pytestmark = [pytest.mark.asyncio]
+
+
+class TestAddMember:
+    async def test(self, sharing_use_case: SharingUseCase):
+        # GIVEN
+        ns_path, file_id, username = "admin", str(uuid.uuid4()), "user"
+        user_service = cast(mock.MagicMock, sharing_use_case.user)
+        file_service = cast(mock.MagicMock, sharing_use_case.file)
+        file_member_service = cast(mock.MagicMock, sharing_use_case.file_member)
+        # WHEN
+        member = await sharing_use_case.add_member(ns_path, file_id, username)
+        # THEN
+        assert member == file_member_service.add.return_value
+        user_service.get_by_username.assert_awaited_once_with(username)
+        user = user_service.get_by_username.return_value
+        file_member_service.add.assert_awaited_once_with(file_id, user.id)
+        file_service.mount.assert_awaited_once_with(
+            file_id, at_folder=(user.username, ".")
+        )
 
 
 class TestCreateLink:

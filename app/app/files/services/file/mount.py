@@ -68,6 +68,29 @@ class MountService:
     def __init__(self, database: IServiceDatabase) -> None:
         self.db = database
 
+    async def create(
+        self,
+        source: tuple[str, AnyPath],
+        at_folder: tuple[str, AnyPath],
+        name: str,
+    ) -> MountPoint:
+        """Creates a mount point at a target folder pointing to a source file."""
+        assert source[0] != at_folder[0], "Can't mount within the same namespace."
+
+        return await self.db.mount.save(
+            MountPoint(
+                source=MountPoint.Source(
+                    ns_path=source[0],
+                    path=Path(source[1]),
+                ),
+                folder=MountPoint.ContainingFolder(
+                    ns_path=at_folder[0],
+                    path=Path(at_folder[1]),
+                ),
+                display_name=name,
+            ),
+        )
+
     async def get_closest_by_source(
         self, source_ns_path: str, source_path: AnyPath, target_ns_path: str
     ) -> MountPoint | None:

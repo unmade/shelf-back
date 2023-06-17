@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Self
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -9,7 +10,19 @@ from app.app.files.services.file import thumbnails
 if TYPE_CHECKING:
     from fastapi import Request
 
-    from app.app.files.domain import File
+    from app.app.files.domain import File, FileMember
+
+
+class FileMemberSchema(BaseModel):
+    id: UUID
+    display_name: str
+
+    @classmethod
+    def from_entity(cls, entity: FileMember) -> Self:
+        return cls(
+            id=entity.user.id,
+            display_name=entity.display_name,
+        )
 
 
 class SharedLinkFileSchema(BaseModel):
@@ -40,6 +53,11 @@ class SharedLinkFileSchema(BaseModel):
         return None
 
 
+class AddFileMemberRequest(BaseModel):
+    file_id: UUID
+    username: str
+
+
 class CreateSharedLinkResponse(BaseModel):
     token: str
 
@@ -60,6 +78,14 @@ class GetSharedLinkDownloadUrlResponse(BaseModel):
 class GetSharedLinkFileRequest(BaseModel):
     token: str
     filename: str
+
+
+class ListFileMembersRequest(BaseModel):
+    id: UUID
+
+
+class ListFileMembersResponse(BaseModel):
+    members: list[FileMemberSchema]
 
 
 class RevokeSharedLinkRequest(BaseModel):

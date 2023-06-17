@@ -112,7 +112,7 @@ class UserService:
             username (str): User username.
 
         Raises:
-            User.NotFound: If User with a target username does not exists.
+            User.NotFound: If User with a target username does not exist.
 
         Returns:
             User: a User instance.

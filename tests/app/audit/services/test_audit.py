@@ -31,7 +31,7 @@ def _make_user(username: str):
 
 
 
-def _make_file(ns_path: str, path: AnyPath):
+def _make_file(ns_path: str, path: AnyPath) -> File:
     return File(
         id=uuid.uuid4(),
         ns_path=ns_path,

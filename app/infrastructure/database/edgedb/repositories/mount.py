@@ -15,7 +15,7 @@ __all__ = ["MountRepository"]
 
 
 def _from_db(ns_path, obj) -> MountPoint:
-    shared_file = obj.member.share.file
+    shared_file = obj.member.file
     return MountPoint(
         display_name=obj.display_name,
         source=MountPoint.Source(
@@ -54,35 +54,33 @@ class MountRepository(IMountRepository):
                     FILTER
                         .path = <str>$source_ns_path
                 ),
-                shares := (
+                files := (
                     SELECT
-                        Share
+                        File
                     FILTER
-                        .file.namespace = source_ns
-                        AND .file.path IN {array_unpack(<array<str>>$paths)}
+                        .namespace = source_ns
+                        AND .path IN {array_unpack(<array<str>>$paths)}
                 ),
             SELECT
-                ShareMountPoint {
+                FileMemberMountPoint {
                     display_name,
                     parent: {
                         path
                     },
                     member: {
-                        share: {
-                            file: {
-                                path,
-                                namespace: {
-                                    path
-                                },
+                        file: {
+                            path,
+                            namespace: {
+                                path
                             },
                         },
                     },
                 }
             FILTER
-                .member.share IN shares
+                .member.file IN files
                 AND .parent.namespace = target_ns
             ORDER BY
-                .member.share.file.path DESC
+                .member.file.path DESC
             LIMIT 1
         """
 
@@ -107,7 +105,7 @@ class MountRepository(IMountRepository):
                 namespace := (SELECT Namespace FILTER .path = <str>$ns_path),
             SELECT (
                 SELECT
-                    ShareMountPoint
+                    FileMemberMountPoint
                 FILTER
                     .parent.path IN {array_unpack(<array<str>>$parents)}
                     AND .parent.namespace = namespace
@@ -117,12 +115,10 @@ class MountRepository(IMountRepository):
                     path
                 },
                 member: {
-                    share: {
-                        file: {
-                            path,
-                            namespace: {
-                                path
-                            },
+                    file: {
+                        path,
+                        namespace: {
+                            path
                         },
                     },
                 },
@@ -162,18 +158,16 @@ class MountRepository(IMountRepository):
                         .path = <str>$ns_path
                 ),
             SELECT
-                ShareMountPoint {
+                FileMemberMountPoint {
                     display_name,
                     parent: {
                         path
                     },
                     member: {
-                        share: {
-                            file: {
-                                path,
-                                namespace: {
-                                    path
-                                },
+                        file: {
+                            path,
+                            namespace: {
+                                path
                             },
                         },
                     },
@@ -185,6 +179,60 @@ class MountRepository(IMountRepository):
         objs = await self.conn.query(query, ns_path=ns_path)
 
         return [_from_db(ns_path, obj) for obj in objs]
+
+    async def save(self, entity: MountPoint) -> MountPoint:
+        query = """
+            WITH
+                source_namespace := (
+                    SELECT
+                        Namespace
+                    FILTER
+                        .path = <str>$source_ns_path
+                ),
+                file := (
+                    SELECT
+                        File
+                    FILTER
+                        .namespace = source_namespace
+                        AND
+                        .path = <str>$source_path
+                ),
+                target_namespace := (
+                    SELECT
+                        Namespace
+                    FILTER
+                        .path = <str>$parent_ns_path
+                ),
+                member := (
+                    SELECT
+                        FileMember
+                    FILTER
+                        .file = file AND .user = target_namespace.owner
+                ),
+                parent := (
+                    SELECT
+                        File
+                    FILTER
+                        .namespace = target_namespace
+                        AND
+                        .path = <str>$parent_path
+                ),
+            INSERT FileMemberMountPoint {
+                display_name := <str>$display_name,
+                parent := parent,
+                member := member,
+            }
+        """
+
+        await self.conn.query_required_single(
+            query,
+            source_ns_path=entity.source.ns_path,
+            source_path=str(entity.source.path),
+            parent_ns_path=entity.folder.ns_path,
+            parent_path=str(entity.folder.path),
+            display_name=entity.display_name,
+        )
+        return entity
 
     async def update(self, mount_point: MountPoint, fields: MountPointUpdate):
         query = """
@@ -211,7 +259,7 @@ class MountRepository(IMountRepository):
                 )
             SELECT (
                 UPDATE
-                    ShareMountPoint
+                    FileMemberMountPoint
                 FILTER
                     .parent = parent
                     AND .display_name = <str>$display_name
@@ -225,12 +273,10 @@ class MountRepository(IMountRepository):
                     path
                 },
                 member: {
-                    share: {
-                        file: {
-                            path,
-                            namespace: {
-                                path
-                            },
+                    file: {
+                        path,
+                        namespace: {
+                            path
                         },
                     },
                 },
@@ -248,8 +294,3 @@ class MountRepository(IMountRepository):
         )
 
         return _from_db(mount_point.folder.ns_path, obj)
-
-
-
-# Memes/1.jpg            -> SharedFolder/Public Folder/1.jpg
-# Memes/download.png
