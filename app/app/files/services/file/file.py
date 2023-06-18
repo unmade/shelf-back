@@ -4,6 +4,7 @@ from typing import IO, TYPE_CHECKING
 
 from app.app.files.domain import File, MountedFile, MountPoint, Path
 from app.cache import disk_cache
+from app.toolkit import taskgroups
 
 from . import thumbnails
 
@@ -141,6 +142,24 @@ class FileService:
         file = await self.filecore.get_by_path(fq_path.ns_path, fq_path.path)
         return _resolve_file(file, fq_path.mount_point)
 
+    async def get_available_path(self, ns_path: AnyPath, path: AnyPath) -> Path:
+        """
+        Returns a modified path if the current one is already taken either by a
+        mount point or by a regular path, otherwise returns mounted path unchanged.
+
+        For example, if path 'a/f.tar.gz' exists, then the next path will be as follows
+        'a/f (1).tar.gz'.
+        """
+        paths: list[Path] = await taskgroups.gather(
+            self.filecore.get_available_path(ns_path, path),
+            self.mount_service.get_available_path(ns_path, path),
+        )
+        if paths[0] == path:
+            return paths[1]
+        if paths[1] == path:
+            return paths[0]
+        return max(paths)
+
     async def get_by_id(self, ns_path: AnyPath, file_id: str) -> AnyFile:
         """
         Returns a file by ID.
@@ -204,7 +223,6 @@ class FileService:
         different namespace than a file.
 
         Raises:
-            File.AlreadyExists: If the file name already taken in the target folder.
             File.IsMounted: If the target folder is a mounted one.
             File.MalformedPath: If file and target folder are in the same namespace.
             File.MissingParent: If folder does not exists.
@@ -222,18 +240,11 @@ class FileService:
         if file.ns_path == ns_path:
             raise File.MalformedPath()
 
-        mount_path = Path(path) / file.name
-        fq_path = await self.mount_service.resolve_path(ns_path, mount_path)
-        if fq_path.mount_point is not None:
-            raise File.AlreadyExists()
-
-        if await self.filecore.exists_at_path(ns_path, mount_path):
-            raise File.AlreadyExists()
-
+        mount_path = await self.get_available_path(ns_path, Path(path) / file.name)
         await self.mount_service.create(
             source=(file.ns_path, file.path),
             at_folder=(ns_path, path),
-            name=file.path.name,
+            name=mount_path.name,
         )
 
     async def move(

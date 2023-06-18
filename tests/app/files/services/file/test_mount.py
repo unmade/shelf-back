@@ -131,6 +131,47 @@ class TestGetClosestBySource:
         assert result is None
 
 
+class TestGetAvailablePath:
+    async def test(self, mount_service: MountService):
+        # GIVEN
+        ns_path, path = "admin", "Share/Team Folder/f.txt"
+        db = cast(mock.AsyncMock, mount_service.db)
+        db.mount.count_by_name_pattern.return_value = 2
+        # WHEN
+        result = await mount_service.get_available_path(ns_path, path)
+        # THEN
+        assert result == "Share/Team Folder/f (2).txt"
+        db.mount.count_by_name_pattern.assert_called_once_with(
+            ns_path, "Share/Team Folder", "^f(\\s\\(\\d+\\))?\\.txt$"
+        )
+
+    async def test_returning_path_as_is(self, mount_service: MountService):
+        # GIVEN
+        ns_path, path = "admin", "Share/Team Folder/f.txt"
+        db = cast(mock.AsyncMock, mount_service.db)
+        db.mount.count_by_name_pattern.return_value = 0
+        # WHEN
+        result = await mount_service.get_available_path(ns_path, path)
+        # THEN
+        assert result == path
+        db.mount.count_by_name_pattern.assert_called_once_with(
+            ns_path, "Share/Team Folder", "^f(\\s\\(\\d+\\))?\\.txt$"
+        )
+
+    async def test_name_is_escaped(self, mount_service: MountService):
+        # GIVEN
+        ns_path, path = "admin", "Share/f*\\s(1).txt"
+        db = cast(mock.AsyncMock, mount_service.db)
+        db.mount.count_by_name_pattern.return_value = 1
+        # WHEN
+        result = await mount_service.get_available_path(ns_path, path)
+        # THEN
+        assert result == "Share/f*\\s(1) (1).txt"
+        db.mount.count_by_name_pattern.assert_called_once_with(
+            ns_path, "Share", "^f\\*\\\\s\\(1\\)(\\s\\(\\d+\\))?\\.txt$"
+        )
+
+
 class TestMove:
     async def test(self, mount_service: MountService):
         # GIVEN

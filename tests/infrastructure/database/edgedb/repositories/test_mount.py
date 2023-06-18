@@ -20,6 +20,48 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
 
+class TestCountByPattern:
+    async def test(
+        self,
+        mount_repo: MountRepository,
+        folder_factory: FolderFactory,
+        mount_factory: MountFactory,
+        namespace_a: Namespace,
+        namespace_b: Namespace,
+    ):
+        # GIVEN
+        folder = await folder_factory(namespace_a.path, "Folder")
+
+        shared_folder = await folder_factory(namespace_b.path)
+        await mount_factory(shared_folder.id, folder.id, "Team Folder")
+
+        max_folders = 3
+        for idx in range(max_folders):
+            shared_folder = await folder_factory(namespace_b.path)
+            await mount_factory(shared_folder.id, folder.id, f"Team Folder ({idx})")
+
+        # WHEN
+        count = await mount_repo.count_by_name_pattern(
+            namespace_a.path,
+            folder.path,
+            pattern="^Team Folder(\\s\\(\\d+\\))?$"
+        )
+
+        # THEN
+        assert count == max_folders + 1
+
+    async def test_when_no_match_exists(
+        self, mount_repo: MountRepository, namespace: Namespace
+    ):
+        ns_path = namespace.path
+        count = await mount_repo.count_by_name_pattern(
+            ns_path,
+            "Team Folder",
+            "f\\s\\(\\d+\\).txt",
+        )
+        assert count == 0
+
+
 class TestGetClosest:
     async def test(
         self,

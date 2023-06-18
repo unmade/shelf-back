@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, NamedTuple, Protocol
 
 from app.app.files.domain import MountPoint, Path
@@ -91,6 +92,22 @@ class MountService:
             ),
         )
 
+    async def get_available_path(self, ns_path: AnyPath, path: AnyPath) -> Path:
+        """
+        Returns a mounted path with modified name if the current one is already taken,
+        otherwise returns mounted path unchanged.
+
+        For example, if path 'a/f.tar.gz' exists, then the next path will be as follows
+        'a/f (1).tar.gz'.
+        """
+        path = Path(path)
+        name = Path(path.name)
+        pattern = f"^{re.escape(name.stem)}(\\s\\(\\d+\\))?{re.escape(name.suffix)}$"
+        count = await self.db.mount.count_by_name_pattern(ns_path, path.parent, pattern)
+        if count == 0:
+            return path
+        return path.parent / name.with_stem(f"{name.stem} ({count})")
+
     async def get_closest_by_source(
         self, source_ns_path: str, source_path: AnyPath, target_ns_path: str
     ) -> MountPoint | None:
@@ -103,8 +120,9 @@ class MountService:
         except MountPoint.NotFound:
             return None
 
-
-    async def move(self, ns_path: AnyPath, at_path: AnyPath, to_path: AnyPath):
+    async def move(
+        self, ns_path: AnyPath, at_path: AnyPath, to_path: AnyPath
+    ) -> MountPoint:
         at_path = Path(at_path)
         to_path = Path(to_path)
         mount_point = await self.db.mount.get_closest(ns_path, at_path)
@@ -135,7 +153,7 @@ class MountService:
     ) -> dict[tuple[AnyPath, AnyPath], FullyQualifiedPath]:
         """
         Given an iterable of tuples, where the first element is a namespace and the
-        second elemnt is a path returns a fully-qualified path within a `ns_path`
+        second element is a path returns a fully-qualified path within a `ns_path`
         for each item in the list.
         """
         if not sources:

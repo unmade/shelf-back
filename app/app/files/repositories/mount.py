@@ -14,6 +14,11 @@ class MountPointUpdate(TypedDict):
 
 
 class IMountRepository(Protocol):
+    async def count_by_name_pattern(
+        self, ns_path: AnyPath, path: AnyPath, pattern: str
+    ) -> int:
+        """Counts the number of mounted paths with name matching the pattern."""
+
     async def get_closest(self, ns_path: AnyPath, path: AnyPath) -> MountPoint:
         """
         Returns closest mount for a path in a given namespace.
