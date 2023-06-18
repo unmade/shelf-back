@@ -37,6 +37,34 @@ class MountRepository(IMountRepository):
     def conn(self) -> EdgeDBAnyConn:
         return self.db_context.get()
 
+    async def count_by_name_pattern(
+        self, ns_path: AnyPath, path: AnyPath, pattern: str
+    ) -> int:
+        query = """
+            WITH
+                namespace := (SELECT Namespace FILTER .path = <str>$ns_path),
+                file := (
+                    SELECT
+                        File
+                    FILTER
+                        .path = <str>$path
+                        AND
+                        namespace = namespace
+                    )
+            SELECT count(
+                FileMemberMountPoint
+                FILTER
+                    re_test(str_lower(<str>$pattern), str_lower(.display_name))
+                    AND
+                    .parent = file
+            )
+        """
+        return int(
+            await self.conn.query_required_single(
+                query, ns_path=str(ns_path), path=str(path), pattern=pattern
+            )
+        )
+
     async def get_closest_by_source(
         self, source_ns_path: AnyPath, source_path: AnyPath, target_ns_path: AnyPath
     ) -> MountPoint:

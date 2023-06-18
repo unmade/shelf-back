@@ -198,7 +198,7 @@ class FileCoreService:
         if not await self.db.file.exists_at_path(ns_path, path):
             return path
 
-        pattern = f"{path.stem} \\([[:digit:]]+\\){path.suffix}"
+        pattern = f"{path.stem} \\([[:digit:]]+\\){path.suffix}$"
         count = await self.db.file.count_by_path_pattern(ns_path, pattern)
         return path.with_stem(f"{path.stem} ({count + 1})")
 

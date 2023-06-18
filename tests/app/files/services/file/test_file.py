@@ -266,7 +266,7 @@ class TestEmptyFolder:
         # THEN
         mount_service.resolve_path.assert_awaited_once_with(ns_path, path)
         fq_path = mount_service.resolve_path.return_value
-        filecore.empty_folder.assert_called_once_with(fq_path.ns_path, fq_path.path)
+        filecore.empty_folder.assert_awaited_once_with(fq_path.ns_path, fq_path.path)
 
 
 @pytest.mark.asyncio
@@ -281,7 +281,66 @@ class TestExistsAtPath:
         # THEN
         mount_service.resolve_path.assert_awaited_once_with(ns_path, path)
         fq_path = mount_service.resolve_path.return_value
-        filecore.exists_at_path.assert_called_once_with(fq_path.ns_path, fq_path.path)
+        filecore.exists_at_path.assert_awaited_once_with(fq_path.ns_path, fq_path.path)
+
+
+@pytest.mark.asyncio
+class TestGetAvailablePath:
+    async def test_when_path_is_not_taken(self, file_service: FileService):
+        # GIVEN
+        ns_path, path = "admin", "f.txt"
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        filecore.get_available_path.return_value = path
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.get_available_path.return_value = path
+        # WHEN
+        result = await file_service.get_available_path(ns_path, path)
+        # THEN
+        assert result == path
+        filecore.get_available_path.assert_awaited_once_with(ns_path, path)
+        mount_service.get_available_path.assert_awaited_once_with(ns_path, path)
+
+    async def test_when_path_is_taken_by_other_path(self, file_service: FileService):
+        # GIVEN
+        ns_path, path = "admin", "f.txt"
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        filecore.get_available_path.return_value = "f (1).txt"
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.get_available_path.return_value = path
+        # WHEN
+        result = await file_service.get_available_path(ns_path, path)
+        # THEN
+        assert result == "f (1).txt"
+        filecore.get_available_path.assert_awaited_once_with(ns_path, path)
+        mount_service.get_available_path.assert_awaited_once_with(ns_path, path)
+
+    async def test_when_path_is_taken_by_mounted_path(self, file_service: FileService):
+        # GIVEN
+        ns_path, path = "admin", "f.txt"
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        filecore.get_available_path.return_value = path
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.get_available_path.return_value = "f (1).txt"
+        # WHEN
+        result = await file_service.get_available_path(ns_path, path)
+        # THEN
+        assert result == "f (1).txt"
+        filecore.get_available_path.assert_awaited_once_with(ns_path, path)
+        mount_service.get_available_path.assert_awaited_once_with(ns_path, path)
+
+    async def test_when_path_is_taken(self, file_service: FileService):
+        # GIVEN
+        ns_path, path = "admin", "f.txt"
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        filecore.get_available_path.return_value = "f (2).txt"
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.get_available_path.return_value = "f (1).txt"
+        # WHEN
+        result = await file_service.get_available_path(ns_path, path)
+        # THEN
+        assert result == "f (2).txt"
+        filecore.get_available_path.assert_awaited_once_with(ns_path, path)
+        mount_service.get_available_path.assert_awaited_once_with(ns_path, path)
 
 
 @pytest.mark.asyncio
@@ -450,33 +509,27 @@ class TestMount:
 
         at_folder = ("user", "folder")
         mount_service = cast(mock.AsyncMock, file_service.mount_service)
-        mount_service.resolve_path.side_effect = [
-            FullyQualifiedPath(ns_path="user", path=Path("folder")),
-            FullyQualifiedPath(ns_path="user", path=Path("folder/f.txt")),
-        ]
+        fq_path = FullyQualifiedPath(ns_path="user", path=Path("folder"))
+        mount_service.resolve_path.return_value = fq_path
 
         filecore = cast(mock.AsyncMock, file_service.filecore)
         filecore.get_by_id.return_value = file
-        filecore.exists_at_path.side_effect = [True, False]
 
-        # WHEN
-        await file_service.mount(file.id, at_folder=at_folder)
+        target, attr = file_service.__class__, "get_available_path"
+        with mock.patch.object(target, attr) as get_available_path_mock:
+            get_available_path_mock.return_value = Path("folder/f (1).txt")
+            # WHEN
+            await file_service.mount(file.id, at_folder=at_folder)
 
         # THEN
-        mount_service.resolve_path.assert_has_awaits([
-            mock.call(*at_folder),
-            mock.call("user", Path("folder/f.txt"))
-        ])
+        mount_service.resolve_path.assert_awaited_once_with(*at_folder)
         filecore.get_by_id.assert_awaited_once_with(file.id)
         file = filecore.get_by_id.return_value
-        filecore.exists_at_path.assert_has_awaits([
-            mock.call("user", Path("folder")),
-            mock.call("user", Path("folder/f.txt"))
-        ])
+        get_available_path_mock.assert_awaited_once_with("user", Path("folder/f.txt"))
         mount_service.create.assert_awaited_once_with(
             source=(file.ns_path, file.path),
             at_folder=at_folder,
-            name=file.path.name,
+            name="f (1).txt",
         )
 
     async def test_when_mounting_inside_mounted_folder(self, file_service: FileService):
@@ -552,76 +605,6 @@ class TestMount:
         filecore.get_by_id.assert_awaited_once_with(file.id)
         file = filecore.get_by_id.return_value
         filecore.exists_at_path.assert_awaited_once_with("user", Path("folder"))
-        mount_service.assert_not_called()
-
-    async def test_when_mounted_path_already_exists(self, file_service: FileService):
-        # GIVEN
-        file = _make_file("admin", "f.txt")
-
-        at_folder = ("user", "folder")
-
-        mount_service = cast(mock.AsyncMock, file_service.mount_service)
-        mount_service.resolve_path.side_effect = [
-            FullyQualifiedPath(ns_path="user", path=Path("folder")),
-            FullyQualifiedPath(
-                ns_path="admin",
-                path=Path("y.txt"),
-                mount_point=_make_mount_point(
-                    source=_make_file("admin", "y.txt"),
-                    mount_to=_make_file("user", "folder"),
-                    name="f.txt",
-                ),
-            ),
-        ]
-
-        filecore = cast(mock.AsyncMock, file_service.filecore)
-        filecore.get_by_id.return_value = file
-        filecore.exists_at_path.side_effect = [True, True]
-
-        # WHEN
-        with pytest.raises(File.AlreadyExists):
-            await file_service.mount(file.id, at_folder=at_folder)
-
-        # THEN
-        mount_service.resolve_path.assert_has_awaits([
-            mock.call(*at_folder),
-            mock.call("user", Path("folder/f.txt"))
-        ])
-        filecore.get_by_id.assert_awaited_once_with(file.id)
-        filecore.exists_at_path.assert_awaited_once_with("user", Path("folder"))
-        mount_service.assert_not_called()
-
-    async def test_when_path_already_exists(self, file_service: FileService):
-        # GIVEN
-        file = _make_file("admin", "f.txt")
-
-        at_folder = ("user", "folder")
-
-        mount_service = cast(mock.AsyncMock, file_service.mount_service)
-        mount_service.resolve_path.side_effect = [
-            FullyQualifiedPath(ns_path="user", path=Path("folder")),
-            FullyQualifiedPath(ns_path="user", path=Path("folder/f.txt")),
-        ]
-
-        filecore = cast(mock.AsyncMock, file_service.filecore)
-        filecore.get_by_id.return_value = file
-        filecore.exists_at_path.side_effect = [True, True]
-
-        # WHEN
-        with pytest.raises(File.AlreadyExists):
-            await file_service.mount(file.id, at_folder=at_folder)
-
-        # THEN
-        mount_service.resolve_path.assert_has_awaits([
-            mock.call(*at_folder),
-            mock.call("user", Path("folder/f.txt"))
-        ])
-        filecore.get_by_id.assert_awaited_once_with(file.id)
-        file = filecore.get_by_id.return_value
-        filecore.exists_at_path.assert_has_awaits([
-            mock.call("user", Path("folder")),
-            mock.call("user", Path("folder/f.txt"))
-        ])
         mount_service.assert_not_called()
 
 
