@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import abc
 from typing import TYPE_CHECKING, Any
 
 from app.app.files.domain import mediatypes
@@ -62,7 +61,9 @@ class ThumbnailUnavailable(FileError):
 
 
 class _BaseFile:
-    __slots__ = ("id", "ns_path", "name", "path", "size", "mtime", "mediatype")
+    __slots__ = (
+        "id", "ns_path", "name", "path", "size", "mtime", "mediatype", "shared"
+    )
 
     Error = FileError
     AlreadyExists = FileAlreadyExists
@@ -85,6 +86,7 @@ class _BaseFile:
         size: int,
         mediatype: str,
         mtime: float | None = None,
+        shared: bool = False,
     ) -> None:
         self.id = str(id)
         self.ns_path = ns_path
@@ -93,6 +95,7 @@ class _BaseFile:
         self.size = size
         self.mtime = mtime or mtime_factory()
         self.mediatype = mediatype
+        self.shared = shared
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, self.__class__):
@@ -106,11 +109,6 @@ class _BaseFile:
     def __repr__(self) -> str:
         cls_name = self.__class__.__name__
         return f"<{cls_name} ns_path={self.ns_path!r} path={self.path!r}>"
-
-    @abc.abstractmethod
-    def is_mount_point(self) -> bool:
-        """True if file is a mount point, False otherwise."""
-        raise NotImplementedError()  # pragma: no cover
 
     def is_folder(self) -> bool:
         """True if file is a folder, False otherwise."""
@@ -135,9 +133,6 @@ class _BaseFile:
 
 class File(_BaseFile):
     """Regular file with a path pointing to the actual location of the file."""
-
-    def is_mount_point(self) -> bool:
-        return False
 
 
 class MountedFile(_BaseFile):
@@ -167,6 +162,4 @@ class MountedFile(_BaseFile):
             mtime=mtime,
         )
         self.mount_point = mount_point
-
-    def is_mount_point(self) -> bool:
-        return self.mount_point.display_path == self.path
+        self.shared = self.mount_point.display_path == self.path
