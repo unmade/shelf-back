@@ -169,11 +169,13 @@ class TestResolveFile:
 
 @pytest.mark.asyncio
 class TestCreateFile:
-    async def test(self, file_service: FileService):
+    @mock.patch("app.app.files.services.file.FileService.get_available_path")
+    async def test(self, get_available_path_mock: MagicMock, file_service: FileService):
         # GIVEN
         ns_path, path, content = "admin", "f.txt", BytesIO(b"Dummy")
         filecore = cast(mock.MagicMock, file_service.filecore)
         mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        get_available_path_mock.return_value = Path(path)
         # WHEN
         result = await file_service.create_file(ns_path, path, content)
         # THEN
@@ -181,8 +183,9 @@ class TestCreateFile:
         file = filecore.create_file.return_value
         fq_path = mount_service.resolve_path.return_value
         assert result == _resolve_file(file, fq_path.mount_point)
+        get_available_path_mock.assert_awaited_once_with(fq_path.ns_path, fq_path.path)
         filecore.create_file.assert_called_once_with(
-            fq_path.ns_path, fq_path.path, content
+            fq_path.ns_path, Path(path), content
         )
 
 
@@ -736,7 +739,7 @@ class TestMove:
         filecore.get_by_path.assert_awaited_once_with(mp.source.ns_path, mp.source.path)
         filecore.move.assert_not_awaited()
 
-    async def test_renaming_a_mount_point_when_file_with_same_name_exists(
+    async def test_renaming_a_mount_point_when_file_with_the_same_name_exists(
         self, file_service: FileService
     ):
         # GIVEN
@@ -787,6 +790,47 @@ class TestMove:
         filecore.exists_at_path.assert_awaited_once_with(
             to_fq_path.ns_path, to_fq_path.path
         )
+        mount_service.move.assert_not_awaited()
+        filecore.move.assert_not_awaited()
+
+    async def test_renaming_a_file_when_mount_point_with_the_same_name_exists(
+        self, file_service: FileService
+    ):
+        # GIVEN
+        at_fq_path = FullyQualifiedPath(
+            ns_path="user",
+            path=Path("Folder/SharedFolder"),
+        )
+        to_fq_path = FullyQualifiedPath(
+            ns_path="user",
+            path=Path("Folder/SharedFolder"),
+            mount_point=MountPoint(
+                source=MountPoint.Source(
+                    ns_path="user",
+                    path=Path("Folder/SharedFolder"),
+                ),
+                folder=MountPoint.ContainingFolder(
+                    ns_path="admin",
+                    path=Path("Sharing"),
+                ),
+                display_name="PublicFolder",
+            ),
+        )
+        filecore = cast(mock.AsyncMock, file_service.filecore)
+        filecore.exists_at_path.return_value = False
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.resolve_path.side_effect = [at_fq_path, to_fq_path]
+        # WHEN
+        with pytest.raises(File.AlreadyExists):
+            await file_service.move(
+                "admin", "Sharing/TeamFolder", "Sharing/PublicFolder"
+            )
+        # THEN
+        mount_service.resolve_path.assert_has_awaits([
+            mock.call("admin", "Sharing/TeamFolder"),
+            mock.call("admin", "Sharing/PublicFolder"),
+        ])
+        filecore.exists_at_path.assert_not_awaited()
         mount_service.move.assert_not_awaited()
         filecore.move.assert_not_awaited()
 
