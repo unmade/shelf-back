@@ -46,6 +46,7 @@ def _from_db_v2(ns_path: str, obj) -> AnyFile:
             path=obj.path,
             size=obj.size,
             mtime=obj.mtime,
+            shared=obj.shared,
             mediatype=obj.mediatype.name,
         )
 
@@ -374,6 +375,9 @@ class FileRepository(IFileRepository):
                     mtime,
                     mediatype := .mediatype { name },
                     namespace := .namespace { path },
+                    shared := (
+                        EXISTS (.<file[is FileMember])
+                    ),
                     mount_point := (
                         SELECT
                             FileMemberMountPoint {

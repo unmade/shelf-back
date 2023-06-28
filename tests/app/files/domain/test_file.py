@@ -107,13 +107,3 @@ class TestIsFolder:
     def test_file_is_folder(self, mediatype: str | None, folder: bool):
         file = _make_file(mediatype=mediatype)
         assert file.is_folder() is folder
-
-
-class TestIsMountPoint:
-    def test_regular_file(self):
-        file = _make_file()
-        assert file.is_mount_point() is False
-
-    def test_mounted_file(self):
-        mounted_file = _make_mounted_file()
-        assert mounted_file.is_mount_point() is True
