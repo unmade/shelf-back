@@ -73,7 +73,8 @@ class FileService:
             File.NotADirectory: If one of the path parents is not a folder.
         """
         fq_path = await self.mount_service.resolve_path(ns_path, path)
-        file = await self.filecore.create_file(fq_path.ns_path, fq_path.path, content)
+        path = await self.get_available_path(fq_path.ns_path, fq_path.path)
+        file = await self.filecore.create_file(fq_path.ns_path, path, content)
         return _resolve_file(file, fq_path.mount_point)
 
     async def create_folder(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:
@@ -266,6 +267,9 @@ class FileService:
         """
         at_fq_path = await self.mount_service.resolve_path(ns_path, at_path)
         to_fq_path = await self.mount_service.resolve_path(ns_path, to_path)
+
+        if at_fq_path.mount_point is None and to_fq_path.is_mount_point():
+            raise File.AlreadyExists()
 
         if at_fq_path.mount_point and to_fq_path.mount_point:
             if at_fq_path.mount_point != to_fq_path.mount_point:
