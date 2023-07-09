@@ -26,6 +26,7 @@ class TestAdd:
         db.file_member.save.assert_awaited_once_with(
             FileMember(
                 file_id=file_id,
+                permissions=FileMember.EDITOR,
                 user=FileMember.User(
                     id=user_id,
                     username="",

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import enum
+from typing import TYPE_CHECKING, Self
 
 import edgedb
 
@@ -9,14 +10,49 @@ from app.app.files.repositories import IFileMemberRepository
 from app.app.users.domain import User
 
 if TYPE_CHECKING:
+    from app.app.files.domain.file_member import FileMemberPermissions
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
 
 __all__ = ["FileMemberRepository"]
 
 
+class PermissionFlag(enum.IntFlag):
+    can_view = enum.auto()
+    can_download = enum.auto()
+    can_upload = enum.auto()
+    can_move = enum.auto()
+    can_delete = enum.auto()
+
+    @classmethod
+    def dump(cls, value: FileMemberPermissions) -> Self:
+        flag = cls(0)
+        if value.can_view:
+            flag |= cls.can_view
+        if value.can_download:
+            flag |= cls.can_download
+        if value.can_upload:
+            flag |= cls.can_upload
+        if value.can_move:
+            flag |= cls.can_move
+        if value.can_delete:
+            flag |= cls.can_delete
+        return flag
+
+    @classmethod
+    def load(cls, value: int) -> FileMemberPermissions:
+        return FileMember.Permissions(
+            can_view=bool(cls.can_view & value),
+            can_download=bool(cls.can_download & value),
+            can_upload=bool(cls.can_upload & value),
+            can_move=bool(cls.can_move & value),
+            can_delete=bool(cls.can_delete & value),
+        )
+
+
 def _from_db(obj) -> FileMember:
     return FileMember(
         file_id=str(obj.file.id),
+        permissions=PermissionFlag.load(obj.permissions),
         user=FileMember.User(
             id=obj.user.id,
             username=obj.user.username,
@@ -36,6 +72,7 @@ class FileMemberRepository(IFileMemberRepository):
         query = """
             SELECT
                 FileMember {
+                    permissions,
                     file: { id },
                     user: { id, username },
                 }
@@ -55,15 +92,16 @@ class FileMemberRepository(IFileMemberRepository):
                 INSERT FileMember {
                     file := file,
                     user := user,
-                    permissions := 0,
+                    permissions := <int16>$permissions,
                 }
-            ) { file: { id }, user: { id, username } }
+            ) { permissions, file: { id }, user: { id, username } }
         """
 
         try:
             obj = await self.conn.query_required_single(
                 query,
                 file_id=entity.file_id,
+                permissions=PermissionFlag.dump(entity.permissions).value,
                 user_id=entity.user.id,
             )
         except edgedb.MissingRequiredError as exc:

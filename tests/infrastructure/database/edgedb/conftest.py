@@ -185,6 +185,7 @@ def file_member_factory(file_member_repo: IFileMemberRepository) -> FileMemberFa
         return await file_member_repo.save(
             FileMember(
                 file_id=file_id,
+                permissions=FileMember.EDITOR,
                 user=FileMember.User(
                     id=user_id,
                     username="",

@@ -33,9 +33,10 @@ class FileMemberService:
         return await self.db.file_member.save(
             FileMember(
                 file_id=file_id,
+                permissions=FileMember.EDITOR,
                 user=FileMember.User(
                     id=user_id,
-                    username="",
+                    username="",  # hack: will be set in the repository
                 ),
             )
         )
