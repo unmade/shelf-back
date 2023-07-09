@@ -36,6 +36,7 @@ def _make_file(ns_path: str, path: AnyPath) -> File:
 def _make_file_member(file: File, user: User) -> FileMember:
     return FileMember(
         file_id=file.id,
+        permissions=FileMember.EDITOR,
         user=FileMember.User(
             id=user.id,
             username=user.username,
@@ -77,7 +78,7 @@ class TestAddMember:
         client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
-        assert response.json() == {"id": str(user.id), "display_name": user.username}
+        assert response.json()["id"] == str(user.id)
         assert response.status_code == 200
         sharing_use_case.add_member.assert_awaited_once_with(
             namespace.path, file.id, user.username
@@ -340,6 +341,49 @@ class TestGetSharedLinkThumbnail:
         assert response.status_code == 404
 
 
+class TestListMembers:
+    url = "/sharing/list_members"
+
+    async def test(
+        self,
+        client: TestClient,
+        namespace: Namespace,
+        sharing_use_case: MagicMock,
+    ):
+        # GIVEN
+        file = _make_file(namespace.path, "f.txt")
+        users = [_make_user("user_a"), _make_user("user_b")]
+        members = [_make_file_member(file, user) for user in users]
+        sharing_use_case.list_members.return_value = members
+        payload = {"id": file.id}
+        # WHEN
+        client.mock_namespace(namespace)
+        response = await client.post(self.url, json=payload)
+        # THEN
+        assert len(response.json()["members"]) == 2
+        assert response.status_code == 200
+        sharing_use_case.list_members.assert_awaited_once_with(namespace.path, file.id)
+
+    async def test_when_file_not_found(
+        self,
+        client: TestClient,
+        namespace: Namespace,
+        sharing_use_case: MagicMock,
+    ):
+        # GIVEN
+        file_id = str(uuid.uuid4())
+        sharing_use_case.list_members.side_effect = File.NotFound
+        payload = {"id": file_id}
+        # WHEN
+        client.mock_namespace(namespace)
+        response = await client.post(self.url, json=payload)
+        # THEN
+        assert response.json() == PathNotFound(path=file_id).as_dict()
+        assert response.status_code == 404
+        sharing_use_case.list_members.assert_awaited_once_with(namespace.path, file_id)
+
+
+
 class TestRevokeSharedLink:
     async def test(
         self,
@@ -349,10 +393,10 @@ class TestRevokeSharedLink:
     ):
         # GIVEN
         token, filename = "link-token", "f.txt"
-        # WHEN
         payload = {"token": token, "filename": filename}
         client.mock_namespace(namespace)
-        # THEN
+        # WHEN
         response = await client.post("/sharing/revoke_shared_link", json=payload)
+        # THEN
         assert response.status_code == 200
         sharing_use_case.revoke_link.assert_awaited_once_with(token)

@@ -147,7 +147,7 @@ async def list_members(
     try:
         members = await usecases.sharing.list_members(namespace.path, str(payload.id))
     except File.NotFound as exc:
-        raise PathNotFound() from exc
+        raise PathNotFound(path=str(payload.id)) from exc
 
     return ListFileMembersResponse(
         members=[

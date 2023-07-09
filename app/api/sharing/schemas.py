@@ -13,15 +13,25 @@ if TYPE_CHECKING:
     from app.app.files.domain import File, FileMember
 
 
+class FileMemberPermissionsSchema(BaseModel):
+    can_view: bool
+    can_download: bool
+    can_upload: bool
+    can_move: bool
+    can_delete: bool
+
+
 class FileMemberSchema(BaseModel):
     id: UUID
     display_name: str
+    permissions: FileMemberPermissionsSchema
 
     @classmethod
     def from_entity(cls, entity: FileMember) -> Self:
         return cls(
             id=entity.user.id,
             display_name=entity.display_name,
+            permissions=FileMemberPermissionsSchema.parse_obj(entity.permissions),
         )
 
 

@@ -8,9 +8,9 @@ import pytest
 from app.app.files.domain import File, FileMember, Namespace
 from app.app.users.domain import User
 from app.infrastructure.database.edgedb.db import db_context
+from app.infrastructure.database.edgedb.repositories.file_member import PermissionFlag
 
 if TYPE_CHECKING:
-
     from app.infrastructure.database.edgedb.repositories import FileMemberRepository
 
     from ..conftest import FileFactory, FileMemberFactory, UserFactory
@@ -22,6 +22,7 @@ async def _list_members(file_id: str):
     query = """
         SELECT
             FileMember {
+                permissions,
                 file: { id },
                 user: { id, username },
             }
@@ -32,6 +33,7 @@ async def _list_members(file_id: str):
     return [
         FileMember(
             file_id=str(obj.file.id),
+            permissions=PermissionFlag.load(obj.permissions),
             user=FileMember.User(
                 id=obj.user.id,
                 username=obj.user.username,
@@ -88,6 +90,7 @@ class TestSave:
         # GIVEN
         member = FileMember(
             file_id=file.id,
+            permissions=FileMember.EDITOR,
             user=FileMember.User(
                 id=user.id,
                 username="",
@@ -106,6 +109,7 @@ class TestSave:
         # GIVEN
         member = FileMember(
             file_id=file.id,
+            permissions=FileMember.EDITOR,
             user=FileMember.User(
                 id=user.id,
                 username="",
@@ -122,6 +126,7 @@ class TestSave:
         # GIVEN
         member = FileMember(
             file_id=str(uuid.uuid4()),
+            permissions=FileMember.EDITOR,
             user=FileMember.User(
                 id=user.id,
                 username="",
@@ -137,6 +142,7 @@ class TestSave:
         # GIVEN
         member = FileMember(
             file_id=file.id,
+            permissions=FileMember.EDITOR,
             user=FileMember.User(
                 id=uuid.uuid4(),
                 username="",
