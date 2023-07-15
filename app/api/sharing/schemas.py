@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import enum
 from typing import TYPE_CHECKING, Self
 from uuid import UUID
 
@@ -13,25 +14,23 @@ if TYPE_CHECKING:
     from app.app.files.domain import File, FileMember
 
 
-class FileMemberPermissionsSchema(BaseModel):
-    can_view: bool
-    can_download: bool
-    can_upload: bool
-    can_move: bool
-    can_delete: bool
+class FileMemberAccessLevel(str, enum.Enum):
+    owner = "owner"
+    editor = "editor"
+    viewer = "viewer"
 
 
 class FileMemberSchema(BaseModel):
     id: UUID
     display_name: str
-    permissions: FileMemberPermissionsSchema
+    access_level: FileMemberAccessLevel
 
     @classmethod
     def from_entity(cls, entity: FileMember) -> Self:
-        return cls(
+        return cls.construct(
             id=entity.user.id,
+            access_level=FileMemberAccessLevel(entity.access_level),
             display_name=entity.display_name,
-            permissions=FileMemberPermissionsSchema.parse_obj(entity.permissions),
         )
 
 

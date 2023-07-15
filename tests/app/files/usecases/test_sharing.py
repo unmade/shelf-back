@@ -6,6 +6,8 @@ from unittest import mock
 
 import pytest
 
+from app.app.files.domain import FileMember
+
 if TYPE_CHECKING:
     from app.app.files.usecases import SharingUseCase
 
@@ -25,7 +27,9 @@ class TestAddMember:
         assert member == file_member_service.add.return_value
         user_service.get_by_username.assert_awaited_once_with(username)
         user = user_service.get_by_username.return_value
-        file_member_service.add.assert_awaited_once_with(file_id, user.id)
+        file_member_service.add.assert_awaited_once_with(
+            file_id, user.id, access_level=FileMember.AccessLevel.editor
+        )
         file_service.mount.assert_awaited_once_with(
             file_id, at_folder=(user.username, ".")
         )
@@ -87,6 +91,18 @@ class TestGetSharedItem:
             sharing_service.get_link_by_token.return_value.file_id,
         )
         assert file == file_service.filecore.get_by_id.return_value
+
+
+class TestListMember:
+       async def test(self, sharing_use_case: SharingUseCase):
+        # GIVEN
+        ns_path, file_id = "admin", str(uuid.uuid4())
+        file_member_service = cast(mock.MagicMock, sharing_use_case.file_member)
+        # WHEN
+        members = await sharing_use_case.list_members(ns_path, file_id)
+        # THEN
+        assert members == file_member_service.list_all.return_value
+        file_member_service.list_all.assert_awaited_once_with(file_id)
 
 
 class TestRevokeLink:

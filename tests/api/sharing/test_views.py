@@ -36,6 +36,7 @@ def _make_file(ns_path: str, path: AnyPath) -> File:
 def _make_file_member(file: File, user: User) -> FileMember:
     return FileMember(
         file_id=file.id,
+        access_level=FileMember.AccessLevel.editor,
         permissions=FileMember.EDITOR,
         user=FileMember.User(
             id=user.id,

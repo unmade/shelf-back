@@ -7,21 +7,31 @@ from app.app.files.domain import FileMember
 if TYPE_CHECKING:
     from uuid import UUID
 
-    from app.app.files.repositories.file_member import IFileMemberRepository
+    from app.app.files.domain.file_member import FileMemberAccessLevel
+    from app.app.files.repositories import IFileMemberRepository
+    from app.app.files.services.file import FileCoreService
+    from app.app.users.repositories import IUserRepository
 
     class IServiceDatabase(Protocol):
         file_member: IFileMemberRepository
+        user: IUserRepository
 
 __all__ = ["FileMemberService"]
 
 
 class FileMemberService:
-    __slots__ = ("db", )
+    __slots__ = ("db", "filecore")
 
-    def __init__(self, database: IServiceDatabase) -> None:
+    def __init__(self, database: IServiceDatabase, filecore: FileCoreService) -> None:
         self.db = database
+        self.filecore = filecore
 
-    async def add(self, file_id: str, user_id: UUID) -> FileMember:
+    async def add(
+        self,
+        file_id: str,
+        user_id: UUID,
+        access_level: FileMemberAccessLevel,
+    ) -> FileMember:
         """
         Creates a new file member.
 
@@ -30,9 +40,15 @@ class FileMemberService:
             FileMember.AlreadyExists: If user already a member of the target file.
             User.NotFound: If user with a given username does not exist.
         """
+        file = await self.filecore.get_by_id(file_id)
+        user = await self.db.user.get_by_username(file.ns_path)
+        if user.id == user_id:
+            raise FileMember.AlreadyExists() from None
+
         return await self.db.file_member.save(
             FileMember(
                 file_id=file_id,
+                access_level=access_level,
                 permissions=FileMember.EDITOR,
                 user=FileMember.User(
                     id=user_id,
@@ -43,4 +59,18 @@ class FileMemberService:
 
     async def list_all(self, file_id: str) -> list[FileMember]:
         """List all file members for a file with a given ID."""
-        return await self.db.file_member.list_all(file_id)
+        file = await self.filecore.get_by_id(file_id)
+        user = await self.db.user.get_by_username(file.ns_path)
+        members = await self.db.file_member.list_all(file_id)
+        return [
+            FileMember(
+                file_id=file_id,
+                access_level=FileMember.AccessLevel.owner,
+                permissions=FileMember.EDITOR,
+                user=FileMember.User(
+                    id=user.id,
+                    username=user.username,
+                ),
+            ),
+            *members,
+        ]

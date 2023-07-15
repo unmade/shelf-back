@@ -127,7 +127,7 @@ class Services:
             filecore=self.filecore,
             mount_service=MountService(database=database),
         )
-        self.file_member = FileMemberService(database=database)
+        self.file_member = FileMemberService(database=database, filecore=self.filecore)
         self.dupefinder = DuplicateFinderService(database=database)
         self.metadata = MetadataService(database=database)
         self.namespace = NamespaceService(database=database, filecore=self.filecore)
