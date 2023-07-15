@@ -22,6 +22,7 @@ from app.app.files.services import (
     SharingService,
 )
 from app.app.files.services.file import FileCoreService, MountService
+from app.app.users.repositories import IUserRepository
 from app.app.users.services import BookmarkService, UserService
 from app.toolkit import security
 
@@ -85,8 +86,12 @@ def file_service():
 @pytest.fixture
 def file_member_service():
     """A file member service instance."""
-    database = mock.MagicMock(file_member=mock.AsyncMock(IFileMemberRepository))
-    return FileMemberService(database=database)
+    database = mock.MagicMock(
+        file_member=mock.AsyncMock(IFileMemberRepository),
+        user=mock.AsyncMock(IUserRepository),
+    )
+    filecore = mock.MagicMock(FileCoreService)
+    return FileMemberService(database=database, filecore=filecore)
 
 
 @pytest.fixture
@@ -112,8 +117,6 @@ def sharing_service():
 @pytest.fixture
 def user_service(edgedb_database: EdgeDBDatabase):
     """A user service instance."""
-    from app.app.users.services import UserService
-
     return UserService(database=edgedb_database)
 
 

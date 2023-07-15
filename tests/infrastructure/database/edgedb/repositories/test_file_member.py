@@ -33,6 +33,7 @@ async def _list_members(file_id: str):
     return [
         FileMember(
             file_id=str(obj.file.id),
+            access_level=obj.access_level,
             permissions=PermissionFlag.load(obj.permissions),
             user=FileMember.User(
                 id=obj.user.id,
@@ -90,6 +91,7 @@ class TestSave:
         # GIVEN
         member = FileMember(
             file_id=file.id,
+            access_level=FileMember.AccessLevel.editor,
             permissions=FileMember.EDITOR,
             user=FileMember.User(
                 id=user.id,
@@ -109,6 +111,7 @@ class TestSave:
         # GIVEN
         member = FileMember(
             file_id=file.id,
+            access_level=FileMember.AccessLevel.owner,
             permissions=FileMember.EDITOR,
             user=FileMember.User(
                 id=user.id,
@@ -126,6 +129,7 @@ class TestSave:
         # GIVEN
         member = FileMember(
             file_id=str(uuid.uuid4()),
+            access_level=FileMember.AccessLevel.viewer,
             permissions=FileMember.EDITOR,
             user=FileMember.User(
                 id=user.id,
@@ -142,6 +146,7 @@ class TestSave:
         # GIVEN
         member = FileMember(
             file_id=file.id,
+            access_level=FileMember.AccessLevel.viewer,
             permissions=FileMember.EDITOR,
             user=FileMember.User(
                 id=uuid.uuid4(),

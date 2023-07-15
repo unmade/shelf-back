@@ -1,8 +1,10 @@
-CREATE MIGRATION m1kwpkacoecepwto2wpfa7xcdr6dbz2gunjvpb4iyc3qzg2rzzjnra
+CREATE MIGRATION m1sp6qvzdw4sbo3w2xuanhj7dh2r6zjy6p4ue7s2kne6vqwagstkda
     ONTO m1nzwmkepng3ii74yyhhdrrgihy65ujl7ez7j4jae3eykmxab5sy6q
 {
   CREATE TYPE default::FileMember {
-      CREATE REQUIRED LINK file: default::File;
+      CREATE REQUIRED LINK file: default::File {
+          ON TARGET DELETE DELETE SOURCE;
+      };
       CREATE REQUIRED LINK user: default::User {
           ON TARGET DELETE DELETE SOURCE;
       };
@@ -11,6 +13,7 @@ CREATE MIGRATION m1kwpkacoecepwto2wpfa7xcdr6dbz2gunjvpb4iyc3qzg2rzzjnra
   };
   CREATE TYPE default::FileMemberMountPoint {
       CREATE REQUIRED LINK member: default::FileMember {
+          ON TARGET DELETE DELETE SOURCE;
           CREATE CONSTRAINT std::exclusive;
       };
       CREATE REQUIRED LINK parent: default::File {

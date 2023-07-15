@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import enum
 from typing import ClassVar
 from uuid import UUID
 
@@ -7,12 +8,19 @@ from pydantic import BaseModel
 
 __all__ = [
     "FileMember",
+    "FileMemberAccessLevel",
     "FileMemberPermissions",
 ]
 
 
 class FileMemberAlreadyExists(Exception):
     """If file member already exists."""
+
+
+class FileMemberAccessLevel(str, enum.Enum):
+    owner = "owner"
+    editor = "editor"
+    viewer = "viewer"
 
 
 class FileMemberPermissions(BaseModel):
@@ -38,11 +46,13 @@ class FileMember(BaseModel):
     )
 
     Permissions = FileMemberPermissions
+    AccessLevel = FileMemberAccessLevel
     User = FileMemberUser
 
     AlreadyExists = FileMemberAlreadyExists
 
     file_id: str
+    access_level: FileMemberAccessLevel
     permissions: FileMemberPermissions
     user: FileMemberUser
 

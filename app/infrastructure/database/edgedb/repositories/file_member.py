@@ -52,6 +52,7 @@ class PermissionFlag(enum.IntFlag):
 def _from_db(obj) -> FileMember:
     return FileMember(
         file_id=str(obj.file.id),
+        access_level=FileMember.AccessLevel.editor,
         permissions=PermissionFlag.load(obj.permissions),
         user=FileMember.User(
             id=obj.user.id,
