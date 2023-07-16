@@ -94,7 +94,7 @@ class TestGetSharedItem:
 
 
 class TestListMember:
-       async def test(self, sharing_use_case: SharingUseCase):
+    async def test(self, sharing_use_case: SharingUseCase):
         # GIVEN
         ns_path, file_id = "admin", str(uuid.uuid4())
         file_member_service = cast(mock.MagicMock, sharing_use_case.file_member)
@@ -103,6 +103,17 @@ class TestListMember:
         # THEN
         assert members == file_member_service.list_all.return_value
         file_member_service.list_all.assert_awaited_once_with(file_id)
+
+
+class TestRemoveFileMember:
+    async def test(self, sharing_use_case: SharingUseCase):
+        # GIVEN
+        file_id, user_id = str(uuid.uuid4()), uuid.uuid4()
+        file_member_service = cast(mock.MagicMock, sharing_use_case.file_member)
+        # WHEN
+        await sharing_use_case.remove_member(file_id, user_id)
+        # THEN
+        file_member_service.remove.assert_awaited_once_with(file_id, user_id)
 
 
 class TestRevokeLink:

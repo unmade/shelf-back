@@ -384,6 +384,44 @@ class TestListMembers:
         sharing_use_case.list_members.assert_awaited_once_with(namespace.path, file_id)
 
 
+class TestRemoveMember:
+    url = "/sharing/remove_member"
+
+    async def test(
+        self,
+        client: TestClient,
+        namespace: Namespace,
+        sharing_use_case: MagicMock,
+    ):
+        # GIVEN
+        file_id, member_id = str(uuid.uuid4()), uuid.uuid4()
+        payload = {"file_id": file_id, "member_id": str(member_id)}
+        client.mock_namespace(namespace)
+        # WHEN
+        response = await client.post(self.url, json=payload)
+        # THEN
+        assert response.status_code == 200
+        sharing_use_case.remove_member.assert_awaited_once_with(file_id, member_id)
+
+    async def test_when_file_not_found(
+        self,
+        client: TestClient,
+        namespace: Namespace,
+        sharing_use_case: MagicMock,
+    ):
+        # GIVEN
+        file_id, member_id = str(uuid.uuid4()), uuid.uuid4()
+        payload = {"file_id": file_id, "user_id": str(member_id)}
+        sharing_use_case.remove_member.side_effect = File.NotFound
+        client.mock_namespace(namespace)
+        # WHEN
+        response = await client.post(self.url, json=payload)
+        # THEN
+        assert response.json() == PathNotFound(path=str(file_id)).as_dict()
+        assert response.status_code == 404
+        sharing_use_case.remove_member.assert_awaited_once_with(file_id, member_id)
+
+
 
 class TestRevokeSharedLink:
     async def test(

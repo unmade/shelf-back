@@ -20,6 +20,7 @@ from .schemas import (
     GetSharedLinkResponse,
     ListFileMembersRequest,
     ListFileMembersResponse,
+    RemoveMemberRequest,
     RevokeSharedLinkRequest,
     SharedLinkFileSchema,
 )
@@ -157,6 +158,18 @@ async def list_members(
     )
 
 
+@router.post("/remove_member")
+async def remove_member(
+    payload: RemoveMemberRequest,
+    _: NamespaceDeps,
+    usecases: UseCasesDeps,
+) -> None:
+    try:
+        await usecases.sharing.remove_member(payload.file_id, payload.member_id)
+    except File.NotFound as exc:
+        raise PathNotFound(path=str(payload.file_id)) from exc
+
+
 @router.post("/revoke_shared_link")
 async def revoke_shared_link(
     payload: RevokeSharedLinkRequest,
@@ -165,3 +178,11 @@ async def revoke_shared_link(
 ) -> None:
     """Revoke shared link."""
     await usecases.sharing.revoke_link(payload.token)
+
+
+@router.post("/set_member_access_level")
+async def set_member_access_level(
+    _: NamespaceDeps,
+    usecases: UseCasesDeps,
+):
+    return {}

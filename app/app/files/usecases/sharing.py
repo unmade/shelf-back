@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING, cast
 from app.app.files.domain import AnyFile, FileMember
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from app.app.files.domain import AnyPath, File, SharedLink
     from app.app.files.services import FileMemberService, FileService, SharingService
     from app.app.users.services import UserService
@@ -70,6 +72,9 @@ class SharingUseCase:
     async def get_shared_item(self, token: str) -> File:
         link = await self.sharing.get_link_by_token(token)
         return await self.file.filecore.get_by_id(link.file_id)
+
+    async def remove_member(self, file_id: str, user_id: UUID) -> None:
+        await self.file_member.remove(file_id, user_id)
 
     async def revoke_link(self, token: str) -> None:
         await self.sharing.revoke_link(token)

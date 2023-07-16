@@ -44,6 +44,22 @@ async def _list_members(file_id: str):
     ]
 
 
+class TestDelete:
+    async def test(
+        self,
+        file_member_repo: FileMemberRepository,
+        file_member_factory: FileMemberFactory,
+        file: File,
+        user_b: User,
+    ):
+        # GIVEN
+        await file_member_factory(file_id=file.id, user_id=user_b.id)
+        # WHEN
+        await file_member_repo.delete(file.id, user_b.id)
+        # THEN
+        assert await _list_members(file.id) == []
+
+
 class TestListAll:
     async def test(
         self,

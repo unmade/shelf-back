@@ -27,6 +27,7 @@ class FileMemberPermissions(BaseModel):
 
 class FileMemberSchema(BaseModel):
     id: UUID
+    file_id: str
     username: str
     display_name: str
     access_level: FileMemberAccessLevel
@@ -38,6 +39,7 @@ class FileMemberSchema(BaseModel):
         is_owner = access_level == FileMemberAccessLevel.owner
         return cls.construct(
             id=entity.user.id,
+            file_id=entity.file_id,
             username=entity.user.username,
             display_name=entity.display_name,
             access_level=access_level,
@@ -109,6 +111,11 @@ class ListFileMembersRequest(BaseModel):
 
 class ListFileMembersResponse(BaseModel):
     members: list[FileMemberSchema]
+
+
+class RemoveMemberRequest(BaseModel):
+    file_id: str
+    member_id: UUID
 
 
 class RevokeSharedLinkRequest(BaseModel):
