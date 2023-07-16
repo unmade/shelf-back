@@ -33,7 +33,7 @@ async def _list_members(file_id: str):
     return [
         FileMember(
             file_id=str(obj.file.id),
-            access_level=obj.access_level,
+            access_level=FileMember.AccessLevel.editor,
             permissions=PermissionFlag.load(obj.permissions),
             user=FileMember.User(
                 id=obj.user.id,

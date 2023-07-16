@@ -18,8 +18,8 @@ class FileMemberAlreadyExists(Exception):
 
 
 class FileMemberAccessLevel(str, enum.Enum):
-    owner = "owner"
     editor = "editor"
+    owner = "owner"
     viewer = "viewer"
 
 
