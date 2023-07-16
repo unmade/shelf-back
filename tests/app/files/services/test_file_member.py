@@ -119,3 +119,14 @@ class TestListAll:
         db.file_member.list_all.assert_awaited_once_with(file.id)
         filecore.get_by_id.assert_awaited_once_with(file.id)
         db.user.get_by_username.assert_awaited_once_with(file.ns_path)
+
+
+class TestRemove:
+    async def test(self, file_member_service: FileMemberService):
+        # GIVEN
+        file_id, user_id = str(uuid.uuid4()), uuid.uuid4()
+        db = cast(mock.MagicMock, file_member_service.db)
+        # WHEN
+        await file_member_service.remove(file_id, user_id)
+        # THEN
+        db.file_member.delete.assert_awaited_once_with(file_id, user_id)

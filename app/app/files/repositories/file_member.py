@@ -3,12 +3,17 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from app.app.files.domain import FileMember
 
 __all__ = ["IFileMemberRepository"]
 
 
 class IFileMemberRepository(Protocol):
+    async def delete(self, file_id: str, user_id: UUID) -> None:
+        """Deletes a file member."""
+
     async def list_all(self, file_id: str) -> list[FileMember]:
         """Returns a list of all file members for a file with a given ID."""
 

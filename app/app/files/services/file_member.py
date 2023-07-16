@@ -58,7 +58,12 @@ class FileMemberService:
         )
 
     async def list_all(self, file_id: str) -> list[FileMember]:
-        """List all file members for a file with a given ID."""
+        """
+        List all file members for a file with a given ID.
+
+        Raises:
+            File.NotFound: If file with a target ID does not exist.
+        """
         file = await self.filecore.get_by_id(file_id)
         user = await self.db.user.get_by_username(file.ns_path)
         members = await self.db.file_member.list_all(file_id)
@@ -74,3 +79,7 @@ class FileMemberService:
             ),
             *members,
         ]
+
+    async def remove(self, file_id: str, user_id: UUID) -> None:
+        """Removes a file member."""
+        await self.db.file_member.delete(file_id, user_id)

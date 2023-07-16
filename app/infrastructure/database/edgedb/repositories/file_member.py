@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import enum
 from typing import TYPE_CHECKING, Self
+from uuid import UUID
 
 import edgedb
 
@@ -68,6 +69,18 @@ class FileMemberRepository(IFileMemberRepository):
     @property
     def conn(self) -> EdgeDBAnyConn:
         return self.db_context.get()
+
+    async def delete(self, file_id: str, user_id: UUID) -> None:
+        query = """
+            DELETE
+                FileMember
+            FILTER
+                .file.id = <uuid>$file_id
+                AND
+                .user.id = <uuid>$user_id
+        """
+
+        await self.conn.query(query, file_id=file_id, user_id=user_id)
 
     async def list_all(self, file_id: str) -> list[FileMember]:
         query = """
