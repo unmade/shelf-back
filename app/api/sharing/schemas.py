@@ -20,17 +20,31 @@ class FileMemberAccessLevel(str, enum.Enum):
     viewer = "viewer"
 
 
+class FileMemberPermissions(BaseModel):
+    can_change_access_level: bool = False
+    can_remove: bool = False
+
+
 class FileMemberSchema(BaseModel):
     id: UUID
+    username: str
     display_name: str
     access_level: FileMemberAccessLevel
+    permissions: FileMemberPermissions
 
     @classmethod
     def from_entity(cls, entity: FileMember) -> Self:
+        access_level = FileMemberAccessLevel(entity.access_level)
+        is_owner = access_level == FileMemberAccessLevel.owner
         return cls.construct(
             id=entity.user.id,
-            access_level=FileMemberAccessLevel(entity.access_level),
+            username=entity.user.username,
             display_name=entity.display_name,
+            access_level=access_level,
+            permissions=FileMemberPermissions(
+                can_change_access_level=not is_owner,
+                can_remove=not is_owner,
+            ),
         )
 
 
