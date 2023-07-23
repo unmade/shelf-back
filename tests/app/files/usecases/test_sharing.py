@@ -28,7 +28,7 @@ class TestAddMember:
         user_service.get_by_username.assert_awaited_once_with(username)
         user = user_service.get_by_username.return_value
         file_member_service.add.assert_awaited_once_with(
-            file_id, user.id, access_level=FileMember.AccessLevel.editor
+            file_id, user.id, actions=FileMember.EDITOR
         )
         file_service.mount.assert_awaited_once_with(
             file_id, at_folder=(user.username, ".")

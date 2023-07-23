@@ -7,7 +7,7 @@ from app.app.files.domain import FileMember
 if TYPE_CHECKING:
     from uuid import UUID
 
-    from app.app.files.domain.file_member import FileMemberAccessLevel
+    from app.app.files.domain.file_member import FileMemberActions
     from app.app.files.repositories import IFileMemberRepository
     from app.app.files.services.file import FileCoreService
     from app.app.users.repositories import IUserRepository
@@ -30,7 +30,7 @@ class FileMemberService:
         self,
         file_id: str,
         user_id: UUID,
-        access_level: FileMemberAccessLevel,
+        actions: FileMemberActions,
     ) -> FileMember:
         """
         Creates a new file member.
@@ -48,8 +48,7 @@ class FileMemberService:
         return await self.db.file_member.save(
             FileMember(
                 file_id=file_id,
-                access_level=access_level,
-                permissions=FileMember.EDITOR,
+                actions=actions,
                 user=FileMember.User(
                     id=user_id,
                     username="",  # hack: will be set in the repository
@@ -70,8 +69,8 @@ class FileMemberService:
         return [
             FileMember(
                 file_id=file_id,
-                access_level=FileMember.AccessLevel.owner,
-                permissions=FileMember.EDITOR,
+                owner=True,
+                actions=FileMember.EDITOR,
                 user=FileMember.User(
                     id=user.id,
                     username=user.username,

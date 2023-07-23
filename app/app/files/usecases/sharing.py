@@ -44,8 +44,7 @@ class SharingUseCase:
         """
         # todo: check file belongs to the namespace
         user = await self.user.get_by_username(username)
-        access_level = FileMember.AccessLevel.editor
-        member = await self.file_member.add(file_id, user.id, access_level=access_level)
+        member = await self.file_member.add(file_id, user.id, actions=FileMember.EDITOR)
         await self.file.mount(file_id, at_folder=(user.username, "."))
         return member
 
