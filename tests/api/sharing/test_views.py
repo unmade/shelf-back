@@ -10,6 +10,7 @@ import pytest
 from app.api.exceptions import UserNotFound
 from app.api.files.exceptions import PathNotFound
 from app.api.sharing.exceptions import FileMemberAlreadyExists, SharedLinkNotFound
+from app.api.sharing.schemas import FileMemberAccessLevel
 from app.app.files.domain import File, FileMember, Path, SharedLink
 from app.app.users.domain import User
 
@@ -437,3 +438,32 @@ class TestRevokeSharedLink:
         # THEN
         assert response.status_code == 200
         sharing_use_case.revoke_link.assert_awaited_once_with(token)
+
+
+class TestSetMemberAccessLevel:
+    url = "/sharing/set_member_access_level"
+
+    async def test(
+        self,
+        client: TestClient,
+        namespace: Namespace,
+        sharing_use_case: MagicMock,
+    ):
+        # GIVEN
+        file_id, member_id = str(uuid.uuid4()), uuid.uuid4()
+        access_level = FileMemberAccessLevel.viewer
+        payload = {
+            "file_id": file_id,
+            "member_id": str(member_id),
+            "access_level": access_level,
+        }
+        client.mock_namespace(namespace)
+        # WHEN
+        response = await client.post(self.url, json=payload)
+        # THEN
+        assert response.status_code == 200
+        sharing_use_case.set_member_actions.assert_awaited_once_with(
+            file_id,
+            member_id,
+            actions=FileMember.VIEWER,
+        )

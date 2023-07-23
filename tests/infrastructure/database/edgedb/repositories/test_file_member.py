@@ -6,16 +6,48 @@ from typing import TYPE_CHECKING
 import pytest
 
 from app.app.files.domain import File, FileMember, Namespace
+from app.app.files.repositories.file_member import FileMemberUpdate
 from app.app.users.domain import User
 from app.infrastructure.database.edgedb.db import db_context
 from app.infrastructure.database.edgedb.repositories.file_member import ActionFlag
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from app.infrastructure.database.edgedb.repositories import FileMemberRepository
 
     from ..conftest import FileFactory, FileMemberFactory, UserFactory
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
+
+
+async def _get(file_id: str, user_id: UUID) -> FileMember:
+    query = """
+        SELECT
+            FileMember {
+                actions,
+                file: { id },
+                user: { id, username },
+            }
+        FILTER
+            .file.id = <uuid>$file_id
+            AND
+            .user.id = <uuid>$user_id
+        LIMIT 1
+    """
+    obj = await db_context.get().query_required_single(
+        query,
+        file_id=file_id,
+        user_id=user_id,
+    )
+    return FileMember(
+        file_id=str(obj.file.id),
+        actions=ActionFlag.load(obj.actions),
+        user=FileMember.User(
+            id=obj.user.id,
+            username=obj.user.username,
+        )
+    )
 
 
 async def _list_members(file_id: str):
@@ -57,6 +89,32 @@ class TestDelete:
         await file_member_repo.delete(file.id, user_b.id)
         # THEN
         assert await _list_members(file.id) == []
+
+
+class TestGet:
+    async def test(
+        self,
+        file_member_repo: FileMemberRepository,
+        file_member_factory: FileMemberFactory,
+        file: File,
+        user_b: User,
+    ):
+        # GIVEN
+        await file_member_factory(file_id=file.id, user_id=user_b.id)
+        # WHEN
+        member = await file_member_repo.get(file.id, user_b.id)
+        # THEN
+        assert member == await _get(file.id, user_b.id)
+
+    async def test_when_member_not_found(
+        self,
+        file_member_repo: FileMemberRepository,
+    ):
+        # GIVEN
+        file_id, user_id = str(uuid.uuid4()), uuid.uuid4()
+        # WHEN
+        with pytest.raises(FileMember.NotFound):
+            await file_member_repo.get(file_id, user_id)
 
 
 class TestListAll:
@@ -167,3 +225,41 @@ class TestSave:
         # WHEN
         with pytest.raises(User.NotFound):
             await file_member_repo.save(member)
+
+
+class TestUpdate:
+    async def test(
+        self,
+        file_member_repo: FileMemberRepository,
+        file_member_factory: FileMemberFactory,
+        file: File,
+        user_b: User,
+    ):
+        # GIVEN
+        member = await file_member_factory(file_id=file.id, user_id=user_b.id)
+        member_update = FileMemberUpdate(actions=FileMember.VIEWER)
+        # WHEN
+        updated_member = await file_member_repo.update(member, member_update)
+        # THEN
+        assert updated_member != member
+        assert updated_member.actions == member_update["actions"]
+        assert updated_member == await _get(file.id, user_b.id)
+
+    async def test_when_member_not_found(
+        self,
+        file_member_repo: FileMemberRepository,
+    ):
+        # GIVEN
+        file_id, user_id = str(uuid.uuid4()), uuid.uuid4()
+        member = FileMember(
+            file_id=file_id,
+            actions=FileMember.EDITOR,
+            user=FileMember.User(
+                id=user_id,
+                username="admin",
+            )
+        )
+        member_update = FileMemberUpdate(actions=FileMember.VIEWER)
+        # WHEN
+        with pytest.raises(FileMember.NotFound):
+            await file_member_repo.update(member, member_update)

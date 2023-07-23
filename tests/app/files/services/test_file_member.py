@@ -7,6 +7,7 @@ from unittest import mock
 import pytest
 
 from app.app.files.domain import File, FileMember, Path
+from app.app.files.repositories.file_member import FileMemberUpdate
 from app.app.users.domain import User
 
 if TYPE_CHECKING:
@@ -126,3 +127,22 @@ class TestRemove:
         await file_member_service.remove(file_id, user_id)
         # THEN
         db.file_member.delete.assert_awaited_once_with(file_id, user_id)
+
+
+class TestSetActions:
+    async def test(self, file_member_service: FileMemberService):
+        # GIVEN
+        file_id, user_id = str(uuid.uuid4()), uuid.uuid4()
+        actions = FileMember.VIEWER
+        db = cast(mock.MagicMock, file_member_service.db)
+        # WHEN
+        result = await file_member_service.set_actions(
+            file_id, user_id, actions=actions
+        )
+        # THEN
+        assert result == db.file_member.update.return_value
+        db.file_member.get.assert_awaited_once_with(file_id, user_id)
+        member = db.file_member.get.return_value
+        db.file_member.update.assert_awaited_once_with(
+            member, FileMemberUpdate(actions=actions)
+        )

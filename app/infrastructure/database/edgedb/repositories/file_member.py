@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import enum
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Self, TypedDict
 from uuid import UUID
 
 import edgedb
 
 from app.app.files.domain import File, FileMember
 from app.app.files.repositories import IFileMemberRepository
+from app.app.files.repositories.file_member import FileMemberUpdate
 from app.app.users.domain import User
 
 if TYPE_CHECKING:
@@ -16,6 +17,8 @@ if TYPE_CHECKING:
 
 __all__ = ["FileMemberRepository"]
 
+class _FileMemberUpdate(TypedDict):
+    actions: int
 
 class ActionFlag(enum.IntFlag):
     can_view = enum.auto()
@@ -81,6 +84,32 @@ class FileMemberRepository(IFileMemberRepository):
 
         await self.conn.query(query, file_id=file_id, user_id=user_id)
 
+    async def get(self, file_id: str, user_id: UUID) -> FileMember:
+        query = """
+            SELECT
+                FileMember {
+                    actions,
+                    file: { id },
+                    user: { id, username },
+                }
+            FILTER
+                .file.id = <uuid>$file_id
+                AND
+                .user.id = <uuid>$user_id
+            LIMIT 1
+        """
+
+        try:
+            obj = await self.conn.query_required_single(
+                query,
+                file_id=file_id,
+                user_id=user_id,
+            )
+        except edgedb.NoDataError as exc:
+            raise FileMember.NotFound() from exc
+
+        return _from_db(obj)
+
     async def list_all(self, file_id: str) -> list[FileMember]:
         query = """
             SELECT
@@ -114,8 +143,8 @@ class FileMemberRepository(IFileMemberRepository):
             obj = await self.conn.query_required_single(
                 query,
                 file_id=entity.file_id,
-                actions=ActionFlag.dump(entity.actions).value,
                 user_id=entity.user.id,
+                actions=ActionFlag.dump(entity.actions).value,
             )
         except edgedb.MissingRequiredError as exc:
             if "missing value for required link 'user'" in str(exc):
@@ -123,5 +152,33 @@ class FileMemberRepository(IFileMemberRepository):
             raise File.NotFound() from exc
         except edgedb.ConstraintViolationError as exc:
             raise FileMember.AlreadyExists() from exc
+
+        return _from_db(obj)
+
+    async def update(self, entity: FileMember, fields: FileMemberUpdate) -> FileMember:
+        actions = ActionFlag.dump(fields["actions"])
+        query = """
+            SELECT (
+                UPDATE
+                    FileMember
+                FILTER
+                    .file.id = <uuid>$file_id
+                    AND
+                    .user.id = <uuid>$user_id
+                SET {
+                    actions := <int16>$actions
+                }
+            ) { actions, file: { id }, user: { id, username } }
+        """
+
+        try:
+            obj = await self.conn.query_required_single(
+                query,
+                file_id=entity.file_id,
+                user_id=entity.user.id,
+                actions=actions,
+            )
+        except edgedb.NoDataError as exc:
+            raise FileMember.NotFound() from exc
 
         return _from_db(obj)

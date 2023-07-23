@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import enum
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Literal, Self, assert_never
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from fastapi import Request
 
     from app.app.files.domain import File
+    from app.app.files.domain.file_member import FileMemberActions
 
 
 class FileMemberAccessLevel(str, enum.Enum):
@@ -28,6 +29,16 @@ class FileMemberAccessLevel(str, enum.Enum):
             return cls.editor
         return cls.viewer
 
+    def as_actions(self) -> FileMemberActions:
+        match self:
+            case FileMemberAccessLevel.editor:
+                return FileMember.EDITOR
+            case FileMemberAccessLevel.owner:
+                raise AssertionError(f"unsupported value: `{self}`")
+            case FileMemberAccessLevel.viewer:
+                return FileMember.VIEWER
+            case _:
+                assert_never(self)
 
 class FileMemberPermissions(BaseModel):
     can_change_access_level: bool = False
@@ -128,3 +139,9 @@ class RemoveMemberRequest(BaseModel):
 class RevokeSharedLinkRequest(BaseModel):
     token: str
     filename: str
+
+
+class SetMemberAccessLevelRequest(BaseModel):
+    file_id: str
+    member_id: UUID
+    access_level: Literal[FileMemberAccessLevel.editor, FileMemberAccessLevel.viewer]
