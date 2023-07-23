@@ -185,8 +185,7 @@ def file_member_factory(file_member_repo: IFileMemberRepository) -> FileMemberFa
         return await file_member_repo.save(
             FileMember(
                 file_id=file_id,
-                access_level=FileMember.AccessLevel.editor,
-                permissions=FileMember.EDITOR,
+                actions=FileMember.EDITOR,
                 user=FileMember.User(
                     id=user_id,
                     username="",
@@ -253,7 +252,7 @@ def mount_factory(mount_repo: IMountRepository) -> MountFactory:
                     parent := target_folder,
                     member := (
                         INSERT FileMember {
-                            permissions := 0,
+                            actions := 0,
                             user := target_folder.namespace.owner,
                             file := source,
                         }

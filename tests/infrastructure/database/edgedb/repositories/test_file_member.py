@@ -8,7 +8,7 @@ import pytest
 from app.app.files.domain import File, FileMember, Namespace
 from app.app.users.domain import User
 from app.infrastructure.database.edgedb.db import db_context
-from app.infrastructure.database.edgedb.repositories.file_member import PermissionFlag
+from app.infrastructure.database.edgedb.repositories.file_member import ActionFlag
 
 if TYPE_CHECKING:
     from app.infrastructure.database.edgedb.repositories import FileMemberRepository
@@ -22,7 +22,7 @@ async def _list_members(file_id: str):
     query = """
         SELECT
             FileMember {
-                permissions,
+                actions,
                 file: { id },
                 user: { id, username },
             }
@@ -33,8 +33,7 @@ async def _list_members(file_id: str):
     return [
         FileMember(
             file_id=str(obj.file.id),
-            access_level=FileMember.AccessLevel.editor,
-            permissions=PermissionFlag.load(obj.permissions),
+            actions=ActionFlag.load(obj.actions),
             user=FileMember.User(
                 id=obj.user.id,
                 username=obj.user.username,
@@ -107,8 +106,7 @@ class TestSave:
         # GIVEN
         member = FileMember(
             file_id=file.id,
-            access_level=FileMember.AccessLevel.editor,
-            permissions=FileMember.EDITOR,
+            actions=FileMember.EDITOR,
             user=FileMember.User(
                 id=user.id,
                 username="",
@@ -127,8 +125,7 @@ class TestSave:
         # GIVEN
         member = FileMember(
             file_id=file.id,
-            access_level=FileMember.AccessLevel.owner,
-            permissions=FileMember.EDITOR,
+            actions=FileMember.EDITOR,
             user=FileMember.User(
                 id=user.id,
                 username="",
@@ -145,8 +142,7 @@ class TestSave:
         # GIVEN
         member = FileMember(
             file_id=str(uuid.uuid4()),
-            access_level=FileMember.AccessLevel.viewer,
-            permissions=FileMember.EDITOR,
+            actions=FileMember.EDITOR,
             user=FileMember.User(
                 id=user.id,
                 username="",
@@ -162,8 +158,7 @@ class TestSave:
         # GIVEN
         member = FileMember(
             file_id=file.id,
-            access_level=FileMember.AccessLevel.viewer,
-            permissions=FileMember.EDITOR,
+            actions=FileMember.EDITOR,
             user=FileMember.User(
                 id=uuid.uuid4(),
                 username="",

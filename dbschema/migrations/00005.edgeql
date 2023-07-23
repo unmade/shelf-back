@@ -1,4 +1,4 @@
-CREATE MIGRATION m1sp6qvzdw4sbo3w2xuanhj7dh2r6zjy6p4ue7s2kne6vqwagstkda
+CREATE MIGRATION m1im2dwryygfwlcetbheqkooim3755is6q4wbv25zq2cmg5simvorq
     ONTO m1nzwmkepng3ii74yyhhdrrgihy65ujl7ez7j4jae3eykmxab5sy6q
 {
   CREATE TYPE default::FileMember {
@@ -9,7 +9,7 @@ CREATE MIGRATION m1sp6qvzdw4sbo3w2xuanhj7dh2r6zjy6p4ue7s2kne6vqwagstkda
           ON TARGET DELETE DELETE SOURCE;
       };
       CREATE CONSTRAINT std::exclusive ON ((.file, .user));
-      CREATE REQUIRED PROPERTY permissions: std::int16;
+      CREATE REQUIRED PROPERTY actions: std::int16;
   };
   CREATE TYPE default::FileMemberMountPoint {
       CREATE REQUIRED LINK member: default::FileMember {

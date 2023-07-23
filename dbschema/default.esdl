@@ -49,7 +49,7 @@ module default {
     }
 
     type FileMember {
-        required property permissions -> int16;
+        required property actions -> int16;
         required link file -> File {
             on target delete DELETE SOURCE;
         };

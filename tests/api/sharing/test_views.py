@@ -36,8 +36,7 @@ def _make_file(ns_path: str, path: AnyPath) -> File:
 def _make_file_member(file: File, user: User) -> FileMember:
     return FileMember(
         file_id=file.id,
-        access_level=FileMember.AccessLevel.editor,
-        permissions=FileMember.EDITOR,
+        actions=FileMember.EDITOR,
         user=FileMember.User(
             id=user.id,
             username=user.username,
@@ -411,7 +410,7 @@ class TestRemoveMember:
     ):
         # GIVEN
         file_id, member_id = str(uuid.uuid4()), uuid.uuid4()
-        payload = {"file_id": file_id, "user_id": str(member_id)}
+        payload = {"file_id": file_id, "member_id": str(member_id)}
         sharing_use_case.remove_member.side_effect = File.NotFound
         client.mock_namespace(namespace)
         # WHEN
@@ -420,7 +419,6 @@ class TestRemoveMember:
         assert response.json() == PathNotFound(path=str(file_id)).as_dict()
         assert response.status_code == 404
         sharing_use_case.remove_member.assert_awaited_once_with(file_id, member_id)
-
 
 
 class TestRevokeSharedLink:

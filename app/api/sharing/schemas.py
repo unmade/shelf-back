@@ -6,18 +6,27 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from app.app.files.domain import FileMember
 from app.app.files.services.file import thumbnails
 
 if TYPE_CHECKING:
     from fastapi import Request
 
-    from app.app.files.domain import File, FileMember
+    from app.app.files.domain import File
 
 
 class FileMemberAccessLevel(str, enum.Enum):
     owner = "owner"
     editor = "editor"
     viewer = "viewer"
+
+    @classmethod
+    def from_entity(cls, entity: FileMember) -> FileMemberAccessLevel:
+        if entity.owner:
+            return cls.owner
+        if entity.actions == FileMember.EDITOR:
+            return cls.editor
+        return cls.viewer
 
 
 class FileMemberPermissions(BaseModel):
@@ -35,17 +44,15 @@ class FileMemberSchema(BaseModel):
 
     @classmethod
     def from_entity(cls, entity: FileMember) -> Self:
-        access_level = FileMemberAccessLevel(entity.access_level)
-        is_owner = access_level == FileMemberAccessLevel.owner
         return cls.construct(
             id=entity.user.id,
             file_id=entity.file_id,
             username=entity.user.username,
             display_name=entity.display_name,
-            access_level=access_level,
+            access_level=FileMemberAccessLevel.from_entity(entity),
             permissions=FileMemberPermissions(
-                can_change_access_level=not is_owner,
-                can_remove=not is_owner,
+                can_change_access_level=not entity.owner,
+                can_remove=not entity.owner,
             ),
         )
 
