@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol
 
 from app.app.files.domain import FileMember
+from app.app.files.repositories.file_member import FileMemberUpdate
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -82,3 +83,16 @@ class FileMemberService:
     async def remove(self, file_id: str, user_id: UUID) -> None:
         """Removes a file member."""
         await self.db.file_member.delete(file_id, user_id)
+
+    async def set_actions(
+        self, file_id: str, user_id: UUID, actions: FileMemberActions
+    ) -> FileMember:
+        """
+        Sets file member actions.
+
+        Raises:
+            FileMember.NotFound: If file member does not exist.
+        """
+        member = await self.db.file_member.get(file_id, user_id)
+        member_update = FileMemberUpdate(actions=actions)
+        return await self.db.file_member.update(member, member_update)

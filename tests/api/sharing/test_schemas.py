@@ -1,11 +1,31 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest import mock
 
+import pytest
 from fastapi import Request
 
-from app.api.sharing.schemas import SharedLinkFileSchema
-from app.app.files.domain.file import File
+from app.api.sharing.schemas import FileMemberAccessLevel, SharedLinkFileSchema
+from app.app.files.domain import File, FileMember
+
+if TYPE_CHECKING:
+    from app.app.files.domain.file_member import FileMemberActions
+
+
+class TestFileMemberAccessLevel:
+    @pytest.mark.parametrize(["given", "expected"], [
+        (FileMemberAccessLevel.editor, FileMember.EDITOR),
+        (FileMemberAccessLevel.viewer, FileMember.VIEWER),
+    ])
+    def test_as_actions(
+        self, given: FileMemberAccessLevel, expected: FileMemberActions
+    ):
+        assert given.as_actions() == expected
+
+    def test_as_actions_when_value_is_unsupported(self):
+        with pytest.raises(AssertionError):
+            FileMemberAccessLevel.owner.as_actions()
 
 
 class TestSharedLinkFileSchema:

@@ -125,3 +125,17 @@ class TestRevokeLink:
         await sharing_use_case.revoke_link(token)
         # THEN
         sharing_service.revoke_link.assert_awaited_once_with(token)
+
+
+class TestSetMemberActions:
+    async def test(self, sharing_use_case: SharingUseCase):
+        # GIVEN
+        file_id, user_id = str(uuid.uuid4()), uuid.uuid4()
+        actions = FileMember.VIEWER
+        file_member_service = cast(mock.MagicMock, sharing_use_case.file_member)
+        # WHEN
+        await sharing_use_case.set_member_actions(file_id, user_id, actions=actions)
+        # THEN
+        file_member_service.set_actions.assert_awaited_once_with(
+            file_id, user_id, actions=actions
+        )
