@@ -207,6 +207,7 @@ class TestListAll:
                     path=home.path,
                 ),
                 display_name="Team Folder 1",
+                actions=MountPoint.Actions(),
             ),
             MountPoint(
                 source=MountPoint.Source(
@@ -218,6 +219,7 @@ class TestListAll:
                     path=folder.path,
                 ),
                 display_name="Team Folder 2",
+                actions=MountPoint.Actions(),
             ),
         ]
 
@@ -263,6 +265,7 @@ class TestSave:
                 path=folder.path,
             ),
             display_name="Public Folder",
+            actions=MountPoint.Actions(),
         )
         # WHEN
         result = await mount_repo.save(mount_point)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+from .file_member import FileMemberActions
 from .path import Path
 
 __all__ = ["MountPoint"]
@@ -22,6 +23,7 @@ class _ContainingFolder(BaseModel):
 
 
 class MountPoint(BaseModel):
+    Actions = FileMemberActions
     Source = _MountPointSource
     ContainingFolder = _ContainingFolder
 
@@ -30,6 +32,7 @@ class MountPoint(BaseModel):
     source: _MountPointSource
     folder: _ContainingFolder
     display_name: str
+    actions: FileMemberActions
 
     @property
     def display_path(self) -> Path:

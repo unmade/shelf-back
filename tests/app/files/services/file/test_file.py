@@ -7,7 +7,7 @@ from unittest import mock
 
 import pytest
 
-from app.app.files.domain import File, MountedFile, MountPoint, Path
+from app.app.files.domain import File, FileMember, MountedFile, MountPoint, Path
 from app.app.files.services.file.file import _make_thumbnail_ttl, _resolve_file
 from app.app.files.services.file.mount import FullyQualifiedPath
 from app.app.infrastructure.storage import ContentReader
@@ -53,6 +53,7 @@ def _make_mounted_file(source_file: File, ns_path: str, path: AnyPath) -> Mounte
                     path=path.parent,
                 ),
                 display_name=path.name,
+                actions=FileMember.EDITOR,
             ),
         )
 
@@ -68,6 +69,7 @@ def _make_mount_point(source: File, mount_to: File, name: str | None = None):
             path=mount_to.path,
         ),
         display_name=name or source.path.name,
+        actions=FileMember.EDITOR,
     )
 
 
@@ -111,6 +113,7 @@ class TestResolveFile:
                     path=Path("Sharing"),
                 ),
                 display_name="TeamFolder",
+                actions=FileMember.EDITOR,
             ),
         )
         # WHEN
@@ -149,6 +152,7 @@ class TestResolveFile:
                     path=Path("Sharing"),
                 ),
                 display_name="TeamFolder",
+                actions=FileMember.EDITOR,
             ),
         )
         # WHEN
@@ -636,35 +640,20 @@ class TestMove:
 
     async def test_renaming_a_mount_point(self, file_service: FileService):
         # GIVEN
+        mount_point = _make_mount_point(
+            _make_file("user", "Folder/SharedFolder"),
+            mount_to=_make_file("admin", "Sharing"),
+            name="TeamFolder",
+        )
         at_fq_path = FullyQualifiedPath(
             ns_path="user",
             path=Path("Folder/SharedFolder"),
-            mount_point=MountPoint(
-                source=MountPoint.Source(
-                    ns_path="user",
-                    path=Path("Folder/SharedFolder"),
-                ),
-                folder=MountPoint.ContainingFolder(
-                    ns_path="admin",
-                    path=Path("Sharing"),
-                ),
-                display_name="TeamFolder",
-            ),
+            mount_point=mount_point,
         )
         to_fq_path = FullyQualifiedPath(
             ns_path="user",
             path=Path("Folder/SharedFolder"),
-            mount_point=MountPoint(
-                source=MountPoint.Source(
-                    ns_path="user",
-                    path=Path("Folder/SharedFolder"),
-                ),
-                folder=MountPoint.ContainingFolder(
-                    ns_path="admin",
-                    path=Path("Sharing"),
-                ),
-                display_name="TeamFolder",
-            ),
+            mount_point=mount_point,
         )
         filecore = cast(mock.AsyncMock, file_service.filecore)
         filecore.exists_at_path.return_value = False
@@ -692,21 +681,15 @@ class TestMove:
         filecore.move.assert_not_awaited()
 
     async def test_moving_a_mount_point(self, file_service: FileService):
-        # GIVEN
+        mount_point = _make_mount_point(
+            _make_file("user", "Folder/SharedFolder"),
+            mount_to=_make_file("admin", "Sharing"),
+            name="TeamFolder",
+        )
         at_fq_path = FullyQualifiedPath(
             ns_path="user",
             path=Path("Folder/SharedFolder"),
-            mount_point=MountPoint(
-                source=MountPoint.Source(
-                    ns_path="user",
-                    path=Path("Folder/SharedFolder"),
-                ),
-                folder=MountPoint.ContainingFolder(
-                    ns_path="admin",
-                    path=Path("Sharing"),
-                ),
-                display_name="TeamFolder",
-            ),
+            mount_point=mount_point,
         )
         to_fq_path = FullyQualifiedPath(
             ns_path="admin",
@@ -743,35 +726,20 @@ class TestMove:
         self, file_service: FileService
     ):
         # GIVEN
+        mount_point = _make_mount_point(
+            _make_file("user", "Folder/SharedFolder"),
+            mount_to=_make_file("admin", "Sharing"),
+            name="TeamFolder",
+        )
         at_fq_path = FullyQualifiedPath(
             ns_path="user",
             path=Path("Folder/SharedFolder"),
-            mount_point=MountPoint(
-                source=MountPoint.Source(
-                    ns_path="user",
-                    path=Path("Folder/SharedFolder"),
-                ),
-                folder=MountPoint.ContainingFolder(
-                    ns_path="admin",
-                    path=Path("Sharing"),
-                ),
-                display_name="TeamFolder",
-            ),
+            mount_point=mount_point,
         )
         to_fq_path = FullyQualifiedPath(
             ns_path="user",
             path=Path("Folder/SharedFolder"),
-            mount_point=MountPoint(
-                source=MountPoint.Source(
-                    ns_path="user",
-                    path=Path("Folder/SharedFolder"),
-                ),
-                folder=MountPoint.ContainingFolder(
-                    ns_path="admin",
-                    path=Path("Sharing"),
-                ),
-                display_name="TeamFolder",
-            ),
+            mount_point=mount_point,
         )
         filecore = cast(mock.AsyncMock, file_service.filecore)
         filecore.exists_at_path.return_value = True
@@ -797,6 +765,11 @@ class TestMove:
         self, file_service: FileService
     ):
         # GIVEN
+        mount_point = _make_mount_point(
+            _make_file("user", "Folder/SharedFolder"),
+            mount_to=_make_file("admin", "Sharing"),
+            name="TeamFolder",
+        )
         at_fq_path = FullyQualifiedPath(
             ns_path="user",
             path=Path("Folder/SharedFolder"),
@@ -804,17 +777,7 @@ class TestMove:
         to_fq_path = FullyQualifiedPath(
             ns_path="user",
             path=Path("Folder/SharedFolder"),
-            mount_point=MountPoint(
-                source=MountPoint.Source(
-                    ns_path="user",
-                    path=Path("Folder/SharedFolder"),
-                ),
-                folder=MountPoint.ContainingFolder(
-                    ns_path="admin",
-                    path=Path("Sharing"),
-                ),
-                display_name="PublicFolder",
-            ),
+            mount_point=mount_point,
         )
         filecore = cast(mock.AsyncMock, file_service.filecore)
         filecore.exists_at_path.return_value = False
@@ -836,6 +799,11 @@ class TestMove:
 
     async def test_moving_a_file_to_a_mount_point(self, file_service: FileService):
         # GIVEN
+        mount_point = _make_mount_point(
+            _make_file("user", "Folder/SharedFolder"),
+            mount_to=_make_file("admin", "Sharing"),
+            name="TeamFolder",
+        )
         at_fq_path = FullyQualifiedPath(
             ns_path="admin",
             path=Path("f.txt"),
@@ -843,17 +811,7 @@ class TestMove:
         to_fq_path = FullyQualifiedPath(
             ns_path="user",
             path=Path("Folder/SharedFolder/f.txt"),
-            mount_point=MountPoint(
-                source=MountPoint.Source(
-                    ns_path="user",
-                    path=Path("Folder/SharedFolder"),
-                ),
-                folder=MountPoint.ContainingFolder(
-                    ns_path="admin",
-                    path=Path("Sharing"),
-                ),
-                display_name="TeamFolder",
-            ),
+            mount_point=mount_point,
         )
         filecore = cast(mock.AsyncMock, file_service.filecore)
         mount_service = cast(mock.AsyncMock, file_service.mount_service)
@@ -882,32 +840,20 @@ class TestMove:
         at_fq_path = FullyQualifiedPath(
             ns_path="user",
             path=Path("Folder/SharedFolder"),
-            mount_point=MountPoint(
-                source=MountPoint.Source(
-                    ns_path="user",
-                    path=Path("Folder/SharedFolder"),
-                ),
-                folder=MountPoint.ContainingFolder(
-                    ns_path="admin",
-                    path=Path("Sharing"),
-                ),
-                display_name="TeamFolder",
+            mount_point=_make_mount_point(
+                _make_file("user", "Folder/SharedFolder"),
+                mount_to=_make_file("admin", "Sharing"),
+                name="TeamFolder"
             ),
         )
         to_fq_path = FullyQualifiedPath(
             ns_path="admin",
             path=Path("Folder/SharedFolder"),
-            mount_point=MountPoint(
-                source=MountPoint.Source(
-                    ns_path="admin",
-                    path=Path("Folder/SharedFolder"),
-                ),
-                folder=MountPoint.ContainingFolder(
-                    ns_path="admin",
-                    path=Path("Sharing"),
-                ),
-                display_name="TeamFolder",
-            ),
+            mount_point=_make_mount_point(
+                _make_file("admin", "Folder/SharedFolder"),
+                mount_to=_make_file("admin", "Sharing"),
+                name="TeamFolder",
+            )
         )
         filecore = cast(mock.AsyncMock, file_service.filecore)
         filecore.exists_at_path.return_value = True

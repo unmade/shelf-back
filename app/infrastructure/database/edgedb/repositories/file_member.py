@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import enum
-from typing import TYPE_CHECKING, Self, TypedDict
+from typing import TYPE_CHECKING, Self
 from uuid import UUID
 
 import edgedb
@@ -17,8 +17,6 @@ if TYPE_CHECKING:
 
 __all__ = ["FileMemberRepository"]
 
-class _FileMemberUpdate(TypedDict):
-    actions: int
 
 class ActionFlag(enum.IntFlag):
     can_view = enum.auto()

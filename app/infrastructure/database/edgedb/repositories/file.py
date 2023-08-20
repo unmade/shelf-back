@@ -17,6 +17,8 @@ from app.app.files.repositories import IFileRepository
 from app.app.files.repositories.file import FileUpdate
 from app.infrastructure.database.edgedb import autocast
 
+from .file_member import ActionFlag
+
 if TYPE_CHECKING:
     from app.app.files.domain import AnyFile, AnyPath
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
@@ -60,6 +62,7 @@ def _from_db_v2(ns_path: str, obj) -> AnyFile:
             ns_path=ns_path,
             path=obj.mount_point.parent.path
         ),
+        actions=ActionFlag.load(obj.mount_point.member.actions),
     )
 
     return MountedFile(
@@ -383,6 +386,7 @@ class FileRepository(IFileRepository):
                             FileMemberMountPoint {
                                 display_name,
                                 parent: { path },
+                                member: { actions },
                             }
                         FILTER
                             .member.file.id = files.id
