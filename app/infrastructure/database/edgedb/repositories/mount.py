@@ -7,6 +7,8 @@ import edgedb
 from app.app.files.domain import MountPoint, Path
 from app.app.files.repositories.mount import IMountRepository, MountPointUpdate
 
+from .file_member import ActionFlag
+
 if TYPE_CHECKING:
     from app.app.files.domain import AnyPath
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
@@ -18,6 +20,7 @@ def _from_db(ns_path, obj) -> MountPoint:
     shared_file = obj.member.file
     return MountPoint(
         display_name=obj.display_name,
+        actions=ActionFlag.load(obj.member.actions),
         source=MountPoint.Source(
             ns_path=shared_file.namespace.path,
             path=shared_file.path,
@@ -96,6 +99,7 @@ class MountRepository(IMountRepository):
                         path
                     },
                     member: {
+                        actions,
                         file: {
                             path,
                             namespace: {
@@ -143,6 +147,7 @@ class MountRepository(IMountRepository):
                     path
                 },
                 member: {
+                    actions,
                     file: {
                         path,
                         namespace: {
@@ -192,6 +197,7 @@ class MountRepository(IMountRepository):
                         path
                     },
                     member: {
+                        actions,
                         file: {
                             path,
                             namespace: {
@@ -301,6 +307,7 @@ class MountRepository(IMountRepository):
                     path
                 },
                 member: {
+                    actions,
                     file: {
                         path,
                         namespace: {

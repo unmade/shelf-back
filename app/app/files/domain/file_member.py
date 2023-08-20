@@ -20,11 +20,11 @@ class FileMemberNotFound(Exception):
 
 
 class FileMemberActions(BaseModel):
-    can_delete: bool
-    can_download: bool
-    can_move: bool
-    can_upload: bool
-    can_view: bool
+    can_delete: bool = False
+    can_download: bool = False
+    can_move: bool = False
+    can_upload: bool = False
+    can_view: bool = False
 
 
 class FileMemberUser(BaseModel):

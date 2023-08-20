@@ -42,6 +42,7 @@ def _make_mount_point(source: File, mount_to: File, name: str | None = None):
             path=mount_to.path,
         ),
         display_name=name or source.path.name,
+        actions=MountPoint.Actions(),
     )
 
 

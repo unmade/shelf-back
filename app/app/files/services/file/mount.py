@@ -89,6 +89,7 @@ class MountService:
                     path=Path(at_folder[1]),
                 ),
                 display_name=name,
+                actions=MountPoint.Actions(),
             ),
         )
 

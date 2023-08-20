@@ -259,7 +259,8 @@ def mount_factory(mount_repo: IMountRepository) -> MountFactory:
                     )
                 }
             ) {
-                parent: { namespace: { path }, path }
+                parent: { namespace: { path }, path },
+                member: { actions },
             }
         """
         obj = await mount_repo.conn.query_required_single(  # type: ignore
