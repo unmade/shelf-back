@@ -55,6 +55,8 @@ async def create_folder(
     """
     try:
         folder = await usecases.namespace.create_folder(namespace.path, payload.path)
+    except File.ActionNotAllowed as exc:
+        raise exceptions.FileActionNotAllowed() from exc
     except File.AlreadyExists as exc:
         raise exceptions.FileAlreadyExists(path=payload.path) from exc
     except File.NotADirectory as exc:
@@ -113,6 +115,8 @@ async def download(
 
     try:
         file, content = await usecases.namespace.download(value.ns_path, value.path)
+    except File.ActionNotAllowed as exc:
+        raise exceptions.FileActionNotAllowed() from exc
     except File.NotFound as exc:
         raise exceptions.PathNotFound(path=value.path) from exc
 
@@ -144,6 +148,8 @@ async def download_xhr(
     ZIP archive."""
     try:
         file, content = await usecases.namespace.download(namespace.path, payload.path)
+    except File.ActionNotAllowed as exc:
+        raise exceptions.FileActionNotAllowed() from exc
     except File.NotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
 
@@ -249,6 +255,8 @@ async def get_download_url(
     """Return a link to download requested file or folder."""
     try:
         file = await usecases.namespace.get_item_at_path(namespace.path, payload.path)
+    except File.ActionNotAllowed as exc:
+        raise exceptions.FileActionNotAllowed() from exc
     except File.NotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
 
@@ -267,6 +275,8 @@ async def get_content_metadata(
     """Return content metadata for a given file."""
     try:
         meta = await usecases.namespace.get_file_metadata(namespace.path, payload.path)
+    except File.ActionNotAllowed as exc:
+        raise exceptions.FileActionNotAllowed() from exc
     except File.NotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
     except ContentMetadata.NotFound as exc:
@@ -286,6 +296,8 @@ async def get_thumbnail(
         file, thumbnail = await usecases.namespace.get_file_thumbnail(
             namespace.path, str(file_id), size=size.asint()
         )
+    except File.ActionNotAllowed as exc:
+        raise exceptions.FileActionNotAllowed() from exc
     except File.NotFound as exc:
         raise exceptions.PathNotFound(path=str(file_id)) from exc
     except File.IsADirectory as exc:
@@ -319,6 +331,8 @@ async def list_folder(
     """
     try:
         files = await usecases.namespace.list_folder(namespace.path, payload.path)
+    except File.ActionNotAllowed as exc:
+        raise exceptions.FileActionNotAllowed() from exc
     except File.NotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
     except File.NotADirectory as exc:
@@ -406,13 +420,15 @@ async def upload_file(
     ns_path = str(namespace.path)
     try:
         upload = await usecases.namespace.add_file(ns_path, filepath, file.file)
-    except File.TooLarge as exc:
-        raise exceptions.UploadFileTooLarge() from exc
+    except File.ActionNotAllowed as exc:
+        raise exceptions.FileActionNotAllowed() from exc
+    except Account.StorageQuotaExceeded as exc:
+        raise exceptions.StorageQuotaExceeded() from exc
     except File.MalformedPath as exc:
         raise exceptions.MalformedPath(str(exc)) from exc
     except File.NotADirectory as exc:
         raise exceptions.NotADirectory(path=filepath) from exc
-    except Account.StorageQuotaExceeded as exc:
-        raise exceptions.StorageQuotaExceeded() from exc
+    except File.TooLarge as exc:
+        raise exceptions.UploadFileTooLarge() from exc
 
     return FileSchema.from_entity(upload, request=request)

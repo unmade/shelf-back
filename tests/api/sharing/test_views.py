@@ -8,7 +8,7 @@ from unittest import mock
 import pytest
 
 from app.api.exceptions import UserNotFound
-from app.api.files.exceptions import PathNotFound
+from app.api.files.exceptions import FileActionNotAllowed, PathNotFound
 from app.api.sharing.exceptions import FileMemberAlreadyExists, SharedLinkNotFound
 from app.api.sharing.schemas import FileMemberAccessLevel
 from app.app.files.domain import File, FileMember, Path, SharedLink
@@ -17,10 +17,13 @@ from app.app.users.domain import User
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
+    from app.api.exceptions import APIError
     from app.app.files.domain import AnyPath, Namespace
     from tests.api.conftest import TestClient
 
 pytestmark = [pytest.mark.asyncio]
+
+_FILE_ID = str(uuid.uuid4())
 
 
 def _make_file(ns_path: str, path: AnyPath) -> File:
@@ -85,61 +88,31 @@ class TestAddMember:
             namespace.path, file.id, user.username
         )
 
-    async def test_when_file_does_not_exist(
+    @pytest.mark.parametrize(["error", "expected_error"], [
+        (File.ActionNotAllowed(), FileActionNotAllowed()),
+        (File.NotFound(), PathNotFound(path=_FILE_ID)),
+        (FileMember.AlreadyExists(), FileMemberAlreadyExists()),
+        (User.NotFound, UserNotFound()),
+    ])
+    async def test_reraising_app_errors_to_api_errors(
         self,
         client: TestClient,
         namespace: Namespace,
         sharing_use_case: MagicMock,
+        error: Exception,
+        expected_error: APIError,
     ):
         # GIVEN
         ns_path = str(namespace.path)
-        file_id, username = str(uuid.uuid4()), "user"
-        sharing_use_case.add_member.side_effect = File.NotFound()
+        file_id, username = _FILE_ID, "user"
+        sharing_use_case.add_member.side_effect = error
         payload = {"file_id": file_id, "username": username}
         # WHEN
         client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
-        assert response.json() == PathNotFound(path=file_id).as_dict()
-        assert response.status_code == 404
-        sharing_use_case.add_member.assert_awaited_once_with(ns_path, file_id, username)
-
-    async def test_when_file_member_already_exists(
-        self,
-        client: TestClient,
-        namespace: Namespace,
-        sharing_use_case: MagicMock,
-    ):
-        # GIVEN
-        ns_path = str(namespace.path)
-        file_id, username = str(uuid.uuid4()), "user"
-        sharing_use_case.add_member.side_effect = FileMember.AlreadyExists()
-        payload = {"file_id": file_id, "username": username}
-        # WHEN
-        client.mock_namespace(namespace)
-        response = await client.post(self.url, json=payload)
-        # THEN
-        assert response.json() == FileMemberAlreadyExists().as_dict()
-        assert response.status_code == 400
-        sharing_use_case.add_member.assert_awaited_once_with(ns_path, file_id, username)
-
-    async def test_when_user_does_not_exist(
-        self,
-        client: TestClient,
-        namespace: Namespace,
-        sharing_use_case: MagicMock,
-    ):
-        # GIVEN
-        ns_path = str(namespace.path)
-        file_id, username = str(uuid.uuid4()), "user"
-        sharing_use_case.add_member.side_effect = User.NotFound()
-        payload = {"file_id": file_id, "username": username}
-        # WHEN
-        client.mock_namespace(namespace)
-        response = await client.post(self.url, json=payload)
-        # THEN
-        assert response.json() == UserNotFound().as_dict()
-        assert response.status_code == 404
+        assert response.json() == expected_error.as_dict()
+        assert response.status_code == expected_error.status_code
         sharing_use_case.add_member.assert_awaited_once_with(ns_path, file_id, username)
 
 
@@ -365,22 +338,28 @@ class TestListMembers:
         assert response.status_code == 200
         sharing_use_case.list_members.assert_awaited_once_with(namespace.path, file.id)
 
-    async def test_when_file_not_found(
+    @pytest.mark.parametrize(["error", "expected_error"], [
+        (File.ActionNotAllowed(), FileActionNotAllowed()),
+        (File.NotFound(), PathNotFound(path=_FILE_ID)),
+    ])
+    async def test_reraising_app_errors_to_api_errors(
         self,
         client: TestClient,
         namespace: Namespace,
         sharing_use_case: MagicMock,
+        error: Exception,
+        expected_error: APIError,
     ):
         # GIVEN
-        file_id = str(uuid.uuid4())
-        sharing_use_case.list_members.side_effect = File.NotFound
+        file_id = _FILE_ID
+        sharing_use_case.list_members.side_effect = error
         payload = {"id": file_id}
         # WHEN
         client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
-        assert response.json() == PathNotFound(path=file_id).as_dict()
-        assert response.status_code == 404
+        assert response.json() == expected_error.as_dict()
+        assert response.status_code == expected_error.status_code
         sharing_use_case.list_members.assert_awaited_once_with(namespace.path, file_id)
 
 
@@ -401,25 +380,35 @@ class TestRemoveMember:
         response = await client.post(self.url, json=payload)
         # THEN
         assert response.status_code == 200
-        sharing_use_case.remove_member.assert_awaited_once_with(file_id, member_id)
+        sharing_use_case.remove_member.assert_awaited_once_with(
+            namespace.path, file_id, member_id
+        )
 
-    async def test_when_file_not_found(
+    @pytest.mark.parametrize(["error", "expected_error"], [
+        (File.ActionNotAllowed(), FileActionNotAllowed()),
+        (File.NotFound(), PathNotFound(path=_FILE_ID)),
+    ])
+    async def test_reraising_app_errors_to_api_errors(
         self,
         client: TestClient,
         namespace: Namespace,
         sharing_use_case: MagicMock,
+        error: Exception,
+        expected_error: APIError,
     ):
         # GIVEN
-        file_id, member_id = str(uuid.uuid4()), uuid.uuid4()
+        file_id, member_id = _FILE_ID, uuid.uuid4()
         payload = {"file_id": file_id, "member_id": str(member_id)}
-        sharing_use_case.remove_member.side_effect = File.NotFound
+        sharing_use_case.remove_member.side_effect = error
         client.mock_namespace(namespace)
         # WHEN
         response = await client.post(self.url, json=payload)
         # THEN
-        assert response.json() == PathNotFound(path=str(file_id)).as_dict()
-        assert response.status_code == 404
-        sharing_use_case.remove_member.assert_awaited_once_with(file_id, member_id)
+        assert response.json() == expected_error.as_dict()
+        assert response.status_code == expected_error.status_code
+        sharing_use_case.remove_member.assert_awaited_once_with(
+            namespace.path, file_id, member_id
+        )
 
 
 class TestRevokeSharedLink:
@@ -463,6 +452,41 @@ class TestSetMemberAccessLevel:
         # THEN
         assert response.status_code == 200
         sharing_use_case.set_member_actions.assert_awaited_once_with(
+            namespace.path,
+            file_id,
+            member_id,
+            actions=FileMember.VIEWER,
+        )
+
+    @pytest.mark.parametrize(["error", "expected_error"], [
+        (File.ActionNotAllowed(), FileActionNotAllowed()),
+        (File.NotFound(), PathNotFound(path=_FILE_ID)),
+    ])
+    async def test_reraising_app_errors_to_api_errors(
+        self,
+        client: TestClient,
+        namespace: Namespace,
+        sharing_use_case: MagicMock,
+        error: Exception,
+        expected_error: APIError,
+    ):
+        # GIVEN
+        file_id, member_id = _FILE_ID, uuid.uuid4()
+        access_level = FileMemberAccessLevel.viewer
+        payload = {
+            "file_id": file_id,
+            "member_id": str(member_id),
+            "access_level": access_level,
+        }
+        sharing_use_case.set_member_actions.side_effect = error
+        client.mock_namespace(namespace)
+        # WHEN
+        response = await client.post(self.url, json=payload)
+        # THEN
+        assert response.json() == expected_error.as_dict()
+        assert response.status_code == expected_error.status_code
+        sharing_use_case.set_member_actions.assert_awaited_once_with(
+            namespace.path,
             file_id,
             member_id,
             actions=FileMember.VIEWER,

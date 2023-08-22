@@ -24,6 +24,7 @@ class ActionFlag(enum.IntFlag):
     can_upload = enum.auto()
     can_move = enum.auto()
     can_delete = enum.auto()
+    can_reshare = enum.auto()
 
     @classmethod
     def dump(cls, value: FileMemberActions) -> Self:
@@ -38,6 +39,8 @@ class ActionFlag(enum.IntFlag):
             flag |= cls.can_move
         if value.can_delete:
             flag |= cls.can_delete
+        if value.can_reshare:
+            flag |= cls.can_reshare
         return flag
 
     @classmethod
@@ -48,6 +51,7 @@ class ActionFlag(enum.IntFlag):
             can_upload=bool(cls.can_upload & value),
             can_move=bool(cls.can_move & value),
             can_delete=bool(cls.can_delete & value),
+            can_reshare=bool(cls.can_reshare & value),
         )
 
 

@@ -1,32 +1,40 @@
 from __future__ import annotations
 
+import contextlib
 from typing import TYPE_CHECKING, cast
 
-from app.app.files.domain import AnyFile, FileMember
+from app.app.files.domain import AnyFile, File, FileMember
 
 if TYPE_CHECKING:
     from uuid import UUID
 
-    from app.app.files.domain import AnyPath, File, SharedLink
+    from app.app.files.domain import AnyPath, SharedLink
     from app.app.files.domain.file_member import FileMemberActions
-    from app.app.files.services import FileMemberService, FileService, SharingService
+    from app.app.files.services import (
+        FileMemberService,
+        FileService,
+        NamespaceService,
+        SharingService,
+    )
     from app.app.users.services import UserService
 
 __all__ = ["SharingUseCase"]
 
 
 class SharingUseCase:
-    __slots__ = ["file", "file_member", "sharing", "user"]
+    __slots__ = ["file", "file_member", "namespace", "sharing", "user"]
 
     def __init__(
         self,
         file_service: FileService,
         file_member: FileMemberService,
+        namespace: NamespaceService,
         sharing: SharingService,
         user: UserService,
     ):
         self.file = file_service
         self.file_member = file_member
+        self.namespace = namespace
         self.sharing = sharing
         self.user = user
 
@@ -35,6 +43,7 @@ class SharingUseCase:
         Adds a user with a given username to a file members.
 
         Raises:
+            File.ActionNotAllowed: If adding a file member is not allowed.
             File.AlreadyExists: If the file name already taken in the target folder.
             File.IsMounted: If the target folder is a mounted one.
             File.MalformedPath: If file and target folder are in the same namespace.
@@ -43,7 +52,10 @@ class SharingUseCase:
             FileMember.AlreadyExists: If user already a member of the target file.
             User.NotFound: If User with a target username does not exist.
         """
-        # todo: check file belongs to the namespace
+        file = await self.file.get_by_id(ns_path, file_id)
+        if not file.can_reshare():
+            raise File.ActionNotAllowed()
+
         user = await self.user.get_by_username(username)
         member = await self.file_member.add(file_id, user.id, actions=FileMember.EDITOR)
         await self.file.mount(file_id, at_folder=(user.username, "."))
@@ -67,19 +79,62 @@ class SharingUseCase:
         )
 
     async def list_members(self, ns_path: str, file_id: str) -> list[FileMember]:
-        return await self.file_member.list_all(file_id)
+        """
+        Lists all file members including file owner for a given file.
+
+        If a file member doesn't have a permission to view a file, then the result
+        will have only that member and no one else.
+
+        Raises:
+            File.ActionNotAllowed: If listing file members is not allowed.
+            File.NotFound: If file with a given ID does not exist.
+            Namespace.NotFound: If namespace with a target path does not exist.
+        """
+        with contextlib.suppress(File.ActionNotAllowed):
+            file = await self.file.get_by_id(ns_path, file_id)
+            return await self.file_member.list_all(file.id)
+
+        namespace = await self.namespace.get_by_path(ns_path)
+        try:
+            member = await self.file_member.get(file_id, namespace.owner_id)
+        except FileMember.NotFound as exc:
+            raise File.ActionNotAllowed() from exc
+
+        return [member]
 
     async def get_shared_item(self, token: str) -> File:
         link = await self.sharing.get_link_by_token(token)
         return await self.file.filecore.get_by_id(link.file_id)
 
-    async def remove_member(self, file_id: str, user_id: UUID) -> None:
-        await self.file_member.remove(file_id, user_id)
+    async def remove_member(self, ns_path: str, file_id: str, user_id: UUID) -> None:
+        """
+        Removes given file member from a file.
+
+        Raises:
+            File.ActionNotAllowed: If removing a file member is not allowed.
+            File.NotFound: If file with a given ID does not exist.
+            Namespace.NotFound: If namespace with a target path does not exist.
+        """
+        file = await self.file.get_by_id(ns_path, file_id)
+        namespace = await self.namespace.get_by_path(ns_path)
+        if not file.can_reshare() and namespace.owner_id != user_id:
+            raise File.ActionNotAllowed()
+        await self.file_member.remove(file.id, user_id)
 
     async def revoke_link(self, token: str) -> None:
         await self.sharing.revoke_link(token)
 
     async def set_member_actions(
-        self, file_id: str, user_id: UUID, actions: FileMemberActions
+        self, ns_path: str, file_id: str, user_id: UUID, actions: FileMemberActions
     ) -> None:
-        await self.file_member.set_actions(file_id, user_id, actions=actions)
+        """
+        Set available actions for a file member of a file.
+
+        Raises:
+            File.ActionNotAllowed: If setting actions for a file member is not allowed.
+            File.NotFound: If file with a given ID does not exist.
+        """
+        file = await self.file.get_by_id(ns_path, file_id)
+        if not file.can_reshare():
+            raise File.ActionNotAllowed()
+        await self.file_member.set_actions(file.id, user_id, actions=actions)

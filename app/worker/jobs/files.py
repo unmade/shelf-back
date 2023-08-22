@@ -26,6 +26,7 @@ class RelocationPath(BaseModel):
 
 class ErrorCode(str, enum.Enum):
     internal = "internal_error"
+    file_action_not_allowed = "file_action_not_allowed"
     file_already_exists = "file_already_exists"
     file_not_found = "file_not_found"
     file_too_large = "file_too_large"
@@ -49,6 +50,7 @@ class FileTaskResult:
 
 def exc_to_err_code(exc: Exception) -> ErrorCode:
     err_map: dict[type[Exception], ErrorCode] = {
+        File.ActionNotAllowed: ErrorCode.file_action_not_allowed,
         File.AlreadyExists: ErrorCode.file_already_exists,
         File.NotFound: ErrorCode.file_not_found,
         File.TooLarge: ErrorCode.file_too_large,

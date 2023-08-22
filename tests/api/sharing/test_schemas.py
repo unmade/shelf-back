@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from typing import TYPE_CHECKING
 from unittest import mock
 
@@ -14,6 +15,34 @@ if TYPE_CHECKING:
 
 
 class TestFileMemberAccessLevel:
+    @pytest.mark.parametrize(["actions", "owner", "expected_level"], [
+        (FileMember.EDITOR, False, FileMemberAccessLevel.editor),
+        (FileMember.EDITOR, True, FileMemberAccessLevel.owner),
+        (FileMember.VIEWER, False, FileMemberAccessLevel.viewer),
+        (FileMember.VIEWER, True, FileMemberAccessLevel.owner),
+    ])
+    def test_from_entity(
+        self,
+        actions: FileMemberActions,
+        owner: bool,
+        expected_level: FileMemberAccessLevel,
+    ):
+        # GIVEN
+        member = FileMember(
+            file_id=str(uuid.uuid4()),
+            actions=actions,
+            user=FileMember.User(
+                id=uuid.uuid4(),
+                username="admin",
+            ),
+            owner=owner,
+        )
+        # WHEN
+        access_level = FileMemberAccessLevel.from_entity(member)
+        # THEN
+        assert access_level == expected_level
+
+
     @pytest.mark.parametrize(["given", "expected"], [
         (FileMemberAccessLevel.editor, FileMember.EDITOR),
         (FileMemberAccessLevel.viewer, FileMember.VIEWER),

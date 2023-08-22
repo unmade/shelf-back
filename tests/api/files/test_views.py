@@ -13,6 +13,7 @@ import pytest
 from app.api import shortcuts
 from app.api.files.exceptions import (
     DownloadNotFound,
+    FileActionNotAllowed,
     FileAlreadyExists,
     FileContentMetadataNotFound,
     IsADirectory,
@@ -39,6 +40,8 @@ if TYPE_CHECKING:
     from tests.api.conftest import TestClient
 
 pytestmark = [pytest.mark.asyncio]
+
+_FILE_ID = str(uuid.uuid4())
 
 
 def _make_file(
@@ -97,29 +100,31 @@ class TestCreateFolder:
             namespace.path, expected_path
         )
 
-    async def test_when_folder_exists(
-        self, client: TestClient, namespace: Namespace, ns_use_case: MagicMock
+    @pytest.mark.parametrize(["path", "error", "expected_error"], [
+        ("teamfolder/f.txt", File.ActionNotAllowed(), FileActionNotAllowed()),
+        ("Trash", File.AlreadyExists(), FileAlreadyExists(path="Trash")),
+        ("file/folder", File.NotADirectory(), NotADirectory(path="file/folder")),
+    ])
+    async def test_reraising_app_errors_to_api_errors(
+        self,
+        client: TestClient,
+        namespace: Namespace,
+        ns_use_case: MagicMock,
+        path: str,
+        error: Exception,
+        expected_error: APIError,
     ):
+        # GIVEN
         ns_path = namespace.path
-        ns_use_case.create_folder.side_effect = File.AlreadyExists
-        payload = {"path": "Trash"}
-        client.mock_namespace(namespace)
-        response = await client.post("/files/create_folder", json=payload)
-        assert response.json() == FileAlreadyExists(path='Trash').as_dict()
-        assert response.status_code == 400
-        ns_use_case.create_folder.assert_awaited_once_with(ns_path, "Trash")
-
-    async def test_when_parent_is_a_file(
-        self, client: TestClient, namespace: Namespace, ns_use_case: MagicMock
-    ):
-        ns_use_case.create_folder.side_effect = File.NotADirectory()
-        path = "file/folder"
+        ns_use_case.create_folder.side_effect = error
         payload = {"path": path}
+        # WHEN
         client.mock_namespace(namespace)
         response = await client.post("/files/create_folder", json=payload)
-        assert response.json() == NotADirectory(path="file/folder").as_dict()
-        assert response.status_code == 400
-        ns_use_case.create_folder.assert_awaited_once_with(namespace.path, path)
+        # THEN
+        assert response.json() == expected_error.as_dict()
+        assert response.status_code == expected_error.status_code
+        ns_use_case.create_folder.assert_awaited_once_with(ns_path, path)
 
 
 class TestDeleteImmediatelyBatch:
@@ -281,19 +286,28 @@ class TestDownload:
         assert response.json() == DownloadNotFound().as_dict()
         ns_use_case.download.assert_not_awaited()
 
-    async def test_download_but_file_not_found(
-        self, client: TestClient, ns_use_case: MagicMock, namespace: Namespace
+    @pytest.mark.parametrize(["path", "error", "expected_error"], [
+        ("teamfolder/f.txt", File.ActionNotAllowed(), FileActionNotAllowed()),
+        ("f.txt", File.NotFound(), PathNotFound(path="f.txt")),
+    ])
+    async def test_reraising_app_errors_to_api_errors(
+        self,
+        client: TestClient,
+        namespace: Namespace,
+        ns_use_case: MagicMock,
+        path: str,
+        error: Exception,
+        expected_error: APIError,
     ):
         # GIVEN
-        path = "f.txt"
         key = await shortcuts.create_download_cache(namespace.path, path)
-        ns_use_case.download.side_effect = File.NotFound
+        ns_use_case.download.side_effect = error
         # WHEN
         client.mock_namespace(namespace)
         response = await client.get(self.url(key))
         # THEN
-        assert response.json() == PathNotFound(path=path).as_dict()
-        assert response.status_code == 404
+        assert response.json() == expected_error.as_dict()
+        assert response.status_code == expected_error.status_code
         ns_use_case.download.assert_awaited_once_with(str(namespace.path), path)
 
 
@@ -357,19 +371,28 @@ class TestDownloadXHR:
         assert response.headers["Content-Disposition"] == 'attachment; filename="ф.txt"'
         ns_use_case.download.assert_awaited_once_with(namespace.path, file.path)
 
-    async def test_download_but_file_not_found(
-        self, client: TestClient, ns_use_case: MagicMock, namespace: Namespace
+    @pytest.mark.parametrize(["path", "error", "expected_error"], [
+        ("teamfolder/f.txt", File.ActionNotAllowed(), FileActionNotAllowed()),
+        ("f.txt", File.NotFound(), PathNotFound(path="f.txt")),
+    ])
+    async def test_reraising_app_errors_to_api_errors(
+        self,
+        client: TestClient,
+        namespace: Namespace,
+        ns_use_case: MagicMock,
+        path: str,
+        error: Exception,
+        expected_error: APIError,
     ):
         # GIVEN
-        path = "f.txt"
-        ns_use_case.download.side_effect = File.NotFound
+        ns_use_case.download.side_effect = error
         payload = {"path": path}
         # WHEN
         client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
-        assert response.json() == PathNotFound(path=path).as_dict()
-        assert response.status_code == 404
+        assert response.json() == expected_error.as_dict()
+        assert response.status_code == expected_error.status_code
         ns_use_case.download.assert_awaited_once_with(namespace.path, path)
 
 
@@ -523,22 +546,28 @@ class TestGetDownloadURL:
         qs = urllib.parse.parse_qs(parts.query)
         assert len(qs["key"]) == 1
 
-    async def test_when_file_not_found(
+    @pytest.mark.parametrize(["path", "error", "expected_error"], [
+        ("teamfolder/f.txt", File.ActionNotAllowed(), FileActionNotAllowed()),
+        ("path/not/found", File.NotFound(), PathNotFound(path="path/not/found")),
+    ])
+    async def test_reraising_app_errors_to_api_errors(
         self,
         client: TestClient,
-        ns_use_case: MagicMock,
         namespace: Namespace,
+        ns_use_case: MagicMock,
+        path: str,
+        error: Exception,
+        expected_error: APIError,
     ):
         # GIVEN
-        path = "wrong/path"
-        ns_use_case.get_item_at_path.side_effect = File.NotFound
+        ns_use_case.get_item_at_path.side_effect = error
         payload = {"path": path}
         # WHEN
         client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
-        assert response.json() == PathNotFound(path="wrong/path").as_dict()
-        assert response.status_code == 404
+        assert response.json() == expected_error.as_dict()
+        assert response.status_code == expected_error.status_code
 
 
 class TestGetContentMetadata:
@@ -565,44 +594,34 @@ class TestGetContentMetadata:
         assert response.status_code == 200
         ns_use_case.get_file_metadata.assert_awaited_once_with(namespace.path, path)
 
-    async def test_when_file_has_no_metadata(
+    @pytest.mark.parametrize(["path", "error", "expected_error"], [
+        ("i.jpg", ContentMetadata.NotFound, FileContentMetadataNotFound(path="i.jpg")),
+        ("teamfolder/f.txt", File.ActionNotAllowed(), FileActionNotAllowed()),
+        ("path/not/found", File.NotFound(), PathNotFound(path="path/not/found")),
+    ])
+    async def test_reraising_app_errors_to_api_errors(
         self,
         client: TestClient,
-        ns_use_case: MagicMock,
         namespace: Namespace,
+        ns_use_case: MagicMock,
+        path: str,
+        error: Exception,
+        expected_error: APIError,
     ):
         # GIVEN
-        path = "img.jpeg"
-        ns_use_case.get_file_metadata.side_effect = ContentMetadata.NotFound
+        ns_use_case.get_file_metadata.side_effect = error
         payload = {"path": path}
         # WHEN
         client.mock_namespace(namespace)
-        response = await client.post("/files/get_content_metadata", json=payload)
+        response = await client.post(self.url, json=payload)
         # THEN
-        assert response.json() == FileContentMetadataNotFound(path=path).as_dict()
-        assert response.status_code == 404
-
-    async def test_when_file_not_found(
-        self,
-        client: TestClient,
-        ns_use_case: MagicMock,
-        namespace: Namespace,
-    ):
-        # GIVEN
-        path = "wrong/path"
-        ns_use_case.get_file_metadata.side_effect = File.NotFound
-        payload = {"path": path}
-        # WHEN
-        client.mock_namespace(namespace)
-        response = await client.post("/files/get_content_metadata", json=payload)
-        # THEN
-        assert response.json() == PathNotFound(path=path).as_dict()
-        assert response.status_code == 404
+        assert response.json() == expected_error.as_dict()
+        assert response.status_code == expected_error.status_code
 
 
 class TestGetThumbnail:
     def url(self, file_id: str, *, size: str = "xs") -> str:
-        return f"/files/get_thumbnail/{file_id}?size=xs"
+        return f"/files/get_thumbnail/{file_id}?size={size}"
 
     async def test(
         self,
@@ -653,28 +672,29 @@ class TestGetThumbnail:
             namespace.path, file.id, size=64
         )
 
-    @pytest.mark.parametrize(["error", "expected_error_cls"], [
-        (File.NotFound(), PathNotFound),
-        (File.IsADirectory(), IsADirectory),
-        (File.ThumbnailUnavailable(), ThumbnailUnavailable),
+    @pytest.mark.parametrize(["error", "expected_error"], [
+        (File.ActionNotAllowed(), FileActionNotAllowed()),
+        (File.NotFound(), PathNotFound(path=_FILE_ID)),
+        (File.IsADirectory(), IsADirectory(path=_FILE_ID)),
+        (File.ThumbnailUnavailable(), ThumbnailUnavailable(path=_FILE_ID)),
     ])
     async def test_reraising_app_errors_to_api_errors(
         self,
         client: TestClient,
         ns_use_case: MagicMock,
         namespace: Namespace,
-        error,
-        expected_error_cls,
+        error: Exception,
+        expected_error: APIError,
     ):
         # GIVEN
-        file_id = str(uuid.uuid4())
+        file_id = _FILE_ID
         ns_use_case.get_file_thumbnail.side_effect = error
         # WHEN
         client.mock_namespace(namespace)
         response = await client.get(self.url(file_id))
         # THEN
-        assert response.status_code == expected_error_cls.status_code
-        assert response.json() == expected_error_cls(path=file_id).as_dict()
+        assert response.json() == expected_error.as_dict()
+        assert response.status_code == expected_error.status_code
 
 
 class TestListFolder:
@@ -707,37 +727,31 @@ class TestListFolder:
         assert response.json()["items"][2]["name"] == "im.jpeg"
         assert response.json()["items"][2]["thumbnail_url"] is not None
 
-    async def test_when_path_does_not_exists(
-        self, client: TestClient, ns_use_case: MagicMock, namespace: Namespace,
-    ):
-        # GIVEN
-        ns_path = namespace.path
-        ns_use_case.list_folder.side_effect = File.NotFound
-        payload = {"path": "wrong/path"}
-        # WHEN
-        client.mock_namespace(namespace)
-        response = await client.post(self.url, json=payload)
-        # THEN
-        ns_use_case.list_folder.assert_awaited_once_with(ns_path, payload["path"])
-        assert response.status_code == 404
-        assert response.json() == PathNotFound(path="wrong/path").as_dict()
-
-    async def test_when_path_is_not_a_folder(
+    @pytest.mark.parametrize(["path", "error", "expected_error"], [
+        ("teamfolder/f.txt", File.ActionNotAllowed(), FileActionNotAllowed()),
+        ("f.txt", File.NotADirectory(), NotADirectory(path="f.txt")),
+        ("path/not/found", File.NotFound(), PathNotFound(path="path/not/found")),
+    ])
+    async def test_reraising_app_errors_to_api_errors(
         self,
         client: TestClient,
-        ns_use_case: MagicMock,
         namespace: Namespace,
+        ns_use_case: MagicMock,
+        path: str,
+        error: Exception,
+        expected_error: APIError,
     ):
         # GIVEN
         ns_path = namespace.path
-        ns_use_case.list_folder.side_effect = File.NotADirectory
-        payload = {"path": "f.txt"}
+        ns_use_case.list_folder.side_effect = error
+        payload = {"path": path}
         # WHEN
         client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
         ns_use_case.list_folder.assert_awaited_once_with(ns_path, payload["path"])
-        assert response.json() == NotADirectory(path="f.txt").as_dict()
+        assert response.json() == expected_error.as_dict()
+        assert response.status_code == expected_error.status_code
 
 
 class TestMoveBatch:
@@ -886,6 +900,7 @@ class TestUpload:
         assert isinstance(ns_use_case.add_file.await_args.args[2], SpooledTemporaryFile)
 
     @pytest.mark.parametrize(["path", "error", "expected_error"], [
+        ("folder/f.txt", File.ActionNotAllowed(), FileActionNotAllowed()),
         ("Trash", File.MalformedPath("Bad path"), MalformedPath("Bad path")),
         ("f.txt/file", File.NotADirectory(), NotADirectory(path="f.txt/file")),
         ("f.txt", File.TooLarge(), UploadFileTooLarge()),
@@ -900,13 +915,16 @@ class TestUpload:
         error: Exception,
         expected_error: APIError,
     ):
+        # GIVEN
         ns_use_case.add_file.side_effect = error
         payload = {
             "file": BytesIO(b"Dummy file"),
             "path": (None, path.encode()),
         }
+        # WHEN
         client.mock_namespace(namespace)
         response = await client.post(self.url, files=payload)  # type: ignore
+        # THEN
         assert response.json() == expected_error.as_dict()
-        assert response.status_code == 400
+        assert response.status_code == expected_error.status_code
         ns_use_case.add_file.assert_awaited_once()
