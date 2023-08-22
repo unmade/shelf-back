@@ -40,6 +40,7 @@ def sharing_use_case():
             filecore=mock.MagicMock(FileCoreService),
         ),
         file_member=mock.MagicMock(spec=FileMemberService),
+        namespace=mock.MagicMock(spec=NamespaceService),
         sharing=mock.MagicMock(spec=SharingService),
         user=mock.MagicMock(spec=UserService)
     )

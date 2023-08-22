@@ -37,3 +37,9 @@ class MountPoint(BaseModel):
     @property
     def display_path(self) -> Path:
         return self.folder.path / self.display_name
+
+    def can_reshare(self) -> bool:
+        return self.actions.can_reshare
+
+    def can_view(self) -> bool:
+        return self.actions.can_view

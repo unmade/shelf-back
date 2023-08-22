@@ -4,7 +4,7 @@ from fastapi import APIRouter, Request, Response
 
 from app.api import exceptions, shortcuts
 from app.api.deps import NamespaceDeps, UseCasesDeps
-from app.api.files.exceptions import PathNotFound
+from app.api.files.exceptions import FileActionNotAllowed, PathNotFound
 from app.api.files.schemas import PathRequest, ThumbnailSize
 from app.app.files.domain import File, FileMember, SharedLink, mediatypes
 from app.app.users.domain import User
@@ -40,6 +40,8 @@ async def add_member(
 
     try:
         member = await usecases.sharing.add_member(namespace.path, file_id, username)
+    except File.ActionNotAllowed as exc:
+        raise FileActionNotAllowed() from exc
     except File.NotFound as exc:
         raise PathNotFound(path=file_id) from exc
     except FileMember.AlreadyExists as exc:
@@ -148,6 +150,8 @@ async def list_members(
     """List item members at a given path."""
     try:
         members = await usecases.sharing.list_members(namespace.path, str(payload.id))
+    except File.ActionNotAllowed as exc:
+        raise FileActionNotAllowed() from exc
     except File.NotFound as exc:
         raise PathNotFound(path=str(payload.id)) from exc
 
@@ -162,12 +166,15 @@ async def list_members(
 @router.post("/remove_member")
 async def remove_member(
     payload: RemoveMemberRequest,
-    _: NamespaceDeps,
+    namespace: NamespaceDeps,
     usecases: UseCasesDeps,
 ) -> None:
     """Remove a file member."""
+    file_id, member_id = str(payload.file_id), payload.member_id
     try:
-        await usecases.sharing.remove_member(payload.file_id, payload.member_id)
+        await usecases.sharing.remove_member(namespace.path, file_id, member_id)
+    except File.ActionNotAllowed as exc:
+        raise FileActionNotAllowed() from exc
     except File.NotFound as exc:
         raise PathNotFound(path=str(payload.file_id)) from exc
 
@@ -185,12 +192,18 @@ async def revoke_shared_link(
 @router.post("/set_member_access_level")
 async def set_member_access_level(
     payload: SetMemberAccessLevelRequest,
-    _: NamespaceDeps,
+    namespace: NamespaceDeps,
     usecases: UseCasesDeps,
 ):
     """Set file member access level."""
-    await usecases.sharing.set_member_actions(
-        payload.file_id,
-        payload.member_id,
-        actions=payload.access_level.as_actions(),
-    )
+    try:
+        await usecases.sharing.set_member_actions(
+            namespace.path,
+            payload.file_id,
+            payload.member_id,
+            actions=payload.access_level.as_actions(),
+        )
+    except File.ActionNotAllowed as exc:
+        raise FileActionNotAllowed() from exc
+    except File.NotFound as exc:
+        raise PathNotFound(path=str(payload.file_id)) from exc

@@ -37,7 +37,7 @@ class FileMemberAccessLevel(str, enum.Enum):
                 raise AssertionError(f"unsupported value: `{self}`")
             case FileMemberAccessLevel.viewer:
                 return FileMember.VIEWER
-            case _:
+            case _:  # pragma: no cover
                 assert_never(self)
 
 class FileMemberPermissions(BaseModel):

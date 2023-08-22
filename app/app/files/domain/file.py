@@ -24,6 +24,10 @@ class FileError(Exception):
     pass
 
 
+class FileActionNotAllowed(FileError):
+    pass
+
+
 class FileAlreadyExists(FileError):
     pass
 
@@ -66,6 +70,7 @@ class _BaseFile:
     )
 
     Error = FileError
+    ActionNotAllowed = FileActionNotAllowed
     AlreadyExists = FileAlreadyExists
     NotFound = FileNotFound
     TooLarge = FileTooLarge
@@ -134,6 +139,9 @@ class _BaseFile:
 class File(_BaseFile):
     """Regular file with a path pointing to the actual location of the file."""
 
+    def can_reshare(self) -> bool:
+        return True
+
 
 class MountedFile(_BaseFile):
     """A file with a path that is a mount point or a location in a mount point."""
@@ -163,3 +171,6 @@ class MountedFile(_BaseFile):
         )
         self.mount_point = mount_point
         self.shared = self.mount_point.display_path == self.path
+
+    def can_reshare(self) -> bool:
+        return self.mount_point.can_reshare()

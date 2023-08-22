@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
     from app.app.files.domain import AnyPath
+    from app.app.files.domain.file_member import FileMemberActions
     from app.app.files.services import FileService
 
 
@@ -33,7 +34,12 @@ def _make_file(
     )
 
 
-def _make_mounted_file(source_file: File, ns_path: str, path: AnyPath) -> MountedFile:
+def _make_mounted_file(
+    source_file: File,
+    ns_path: str,
+    path: AnyPath,
+    actions: FileMemberActions | None = None,
+) -> MountedFile:
     path = Path(path)
     return MountedFile(
             id=source_file.id,
@@ -53,12 +59,17 @@ def _make_mounted_file(source_file: File, ns_path: str, path: AnyPath) -> Mounte
                     path=path.parent,
                 ),
                 display_name=path.name,
-                actions=FileMember.EDITOR,
+                actions=actions or FileMember.EDITOR,
             ),
         )
 
 
-def _make_mount_point(source: File, mount_to: File, name: str | None = None):
+def _make_mount_point(
+    source: File,
+    mount_to: File,
+    name: str | None = None,
+    actions: FileMemberActions | None = None,
+):
     return MountPoint(
         source=MountPoint.Source(
             ns_path=source.ns_path,
@@ -69,7 +80,7 @@ def _make_mount_point(source: File, mount_to: File, name: str | None = None):
             path=mount_to.path,
         ),
         display_name=name or source.path.name,
-        actions=FileMember.EDITOR,
+        actions=actions or FileMember.EDITOR,
     )
 
 
@@ -176,10 +187,11 @@ class TestCreateFile:
     @mock.patch("app.app.files.services.file.FileService.get_available_path")
     async def test(self, get_available_path_mock: MagicMock, file_service: FileService):
         # GIVEN
-        ns_path, path, content = "admin", "f.txt", BytesIO(b"Dummy")
+        ns_path, path, content = "admin", Path("f.txt"), BytesIO(b"Dummy")
         filecore = cast(mock.MagicMock, file_service.filecore)
         mount_service = cast(mock.AsyncMock, file_service.mount_service)
-        get_available_path_mock.return_value = Path(path)
+        mount_service.resolve_path.return_value = FullyQualifiedPath(ns_path, path)
+        get_available_path_mock.return_value = path
         # WHEN
         result = await file_service.create_file(ns_path, path, content)
         # THEN
@@ -189,17 +201,40 @@ class TestCreateFile:
         assert result == _resolve_file(file, fq_path.mount_point)
         get_available_path_mock.assert_awaited_once_with(fq_path.ns_path, fq_path.path)
         filecore.create_file.assert_called_once_with(
-            fq_path.ns_path, Path(path), content
+            fq_path.ns_path, path, content
         )
+
+    async def test_when_not_allowed(self, file_service: FileService):
+        # GIVEN
+        ns_path, path, content = "user", "teamfolder/f.txt", BytesIO(b"Dummy")
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.resolve_path.return_value = FullyQualifiedPath(
+            "admin",
+            Path("folder/f.txt"),
+            mount_point=_make_mount_point(
+                source=_make_file("admin", "folder"),
+                mount_to=_make_file("user", "."),
+                name="teamfolder",
+                actions=MountPoint.Actions(can_upload=False),
+            ),
+        )
+        # WHEN
+        with pytest.raises(File.ActionNotAllowed):
+            await file_service.create_file(ns_path, path, content)
+        # THEN
+        mount_service.resolve_path.assert_awaited_once_with(ns_path, path)
+        filecore.create_file.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 class TestCreateFolder:
     async def test(self, file_service: FileService):
         # GIVEN
-        ns_path, path = "admin", "f.txt"
+        ns_path, path = "admin", Path("folder")
         filecore = cast(mock.MagicMock, file_service.filecore)
         mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.resolve_path.return_value = FullyQualifiedPath(ns_path, path)
         # WHEN
         result = await file_service.create_folder(ns_path, path)
         # THEN
@@ -209,16 +244,38 @@ class TestCreateFolder:
         assert result == _resolve_file(file, fq_path.mount_point)
         filecore.create_folder.assert_called_once_with(fq_path.ns_path, fq_path.path)
 
+    async def test_when_not_allowed(self, file_service: FileService):
+        # GIVEN
+        ns_path, path = "user", "teamfolder/folder"
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.resolve_path.return_value = FullyQualifiedPath(
+            "admin",
+            Path("folder/folder"),
+            mount_point=_make_mount_point(
+                source=_make_file("admin", "folder"),
+                mount_to=_make_file("user", "."),
+                name="teamfolder",
+                actions=MountPoint.Actions(can_upload=False),
+            ),
+        )
+        # WHEN
+        with pytest.raises(File.ActionNotAllowed):
+            await file_service.create_folder(ns_path, path)
+        # THEN
+        mount_service.resolve_path.assert_awaited_once_with(ns_path, path)
+        filecore.create_folder.assert_not_awaited()
+
 
 @pytest.mark.asyncio
 class TestDelete:
     async def test(self, file_service: FileService):
         # GIVEN
-        ns_path, path = "admin", "f.txt"
+        ns_path, path = "admin", Path("f.txt")
         filecore = cast(mock.MagicMock, file_service.filecore)
+        fq_path = FullyQualifiedPath(ns_path, path)
         mount_service = cast(mock.AsyncMock, file_service.mount_service)
-        fq_path = mount_service.resolve_path.return_value
-        fq_path.is_mount_point = mock.MagicMock(return_value=False)
+        mount_service.resolve_path.return_value = fq_path
         # WHEN
         result = await file_service.delete(ns_path, path)
         # THEN
@@ -227,13 +284,44 @@ class TestDelete:
         assert result == _resolve_file(file, fq_path.mount_point)
         filecore.delete.assert_called_once_with(fq_path.ns_path, fq_path.path)
 
-    async def test_deleting_a_mount_point(self, file_service: FileService):
+    async def test_when_not_allowed(self, file_service: FileService):
         # GIVEN
-        ns_path, path = "admin", "f.txt"
+        ns_path, path = "user", "teamfolder/folder"
         filecore = cast(mock.MagicMock, file_service.filecore)
         mount_service = cast(mock.AsyncMock, file_service.mount_service)
-        fq_path = mount_service.resolve_path.return_value
-        fq_path.is_mount_point = mock.MagicMock(return_value=True)
+        mount_service.resolve_path.return_value = FullyQualifiedPath(
+            "admin",
+            Path("folder/folder"),
+            mount_point=_make_mount_point(
+                source=_make_file("admin", "folder"),
+                mount_to=_make_file("user", "."),
+                name="teamfolder",
+                actions=MountPoint.Actions(can_delete=False),
+            ),
+        )
+        # WHEN
+        with pytest.raises(File.ActionNotAllowed):
+            await file_service.delete(ns_path, path)
+        # THEN
+        mount_service.resolve_path.assert_awaited_once_with(ns_path, path)
+        filecore.delete.assert_not_called()
+
+    async def test_deleting_a_mount_point(self, file_service: FileService):
+        # GIVEN
+        ns_path, path = "user", "teamfolder"
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        fq_path = FullyQualifiedPath(
+            "admin",
+            Path("folder"),
+            mount_point=_make_mount_point(
+                source=_make_file("admin", "folder"),
+                mount_to=_make_file("user", "."),
+                name="teamfolder",
+                actions=MountPoint.Actions(can_delete=True),
+            ),
+        )
+        mount_service.resolve_path.return_value = fq_path
         # WHEN
         with pytest.raises(File.NotFound):
             await file_service.delete(ns_path, path)
@@ -246,11 +334,12 @@ class TestDelete:
 class TestDownload:
     async def test(self, file_service: FileService):
         # GIVEN
-        ns_path, path = "admin", "f.txt"
+        ns_path, path = "admin", Path("f.txt")
         filecore = cast(mock.MagicMock, file_service.filecore)
         file, content = filecore.get_by_path.return_value, mock.MagicMock(ContentReader)
         filecore.download.return_value = file, content
         mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.resolve_path.return_value = FullyQualifiedPath(ns_path, path)
         # WHEN
         result = await file_service.download(ns_path, path)
         # THEN
@@ -260,14 +349,38 @@ class TestDownload:
         filecore.get_by_path.assert_called_once_with(fq_path.ns_path, fq_path.path)
         filecore.download.assert_called_once_with(filecore.get_by_path.return_value.id)
 
+    async def test_when_not_allowed(self, file_service: FileService):
+        # GIVEN
+        ns_path, path = "user", "teamfolder/folder"
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.resolve_path.return_value = FullyQualifiedPath(
+            "admin",
+            Path("folder/folder"),
+            mount_point=_make_mount_point(
+                source=_make_file("admin", "folder"),
+                mount_to=_make_file("user", "."),
+                name="teamfolder",
+                actions=MountPoint.Actions(can_download=False),
+            ),
+        )
+        # WHEN
+        with pytest.raises(File.ActionNotAllowed):
+            await file_service.download(ns_path, path)
+        # THEN
+        mount_service.resolve_path.assert_awaited_once_with(ns_path, path)
+        filecore.get_by_path.assert_not_awaited()
+        filecore.download.assert_not_called()
+
 
 @pytest.mark.asyncio
 class TestEmptyFolder:
     async def test(self, file_service: FileService):
         # GIVEN
-        ns_path, path = "admin", "folder"
+        ns_path, path = "admin", Path("folder")
         filecore = cast(mock.MagicMock, file_service.filecore)
         mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.resolve_path.return_value = FullyQualifiedPath(ns_path, path)
         # WHEN
         await file_service.empty_folder(ns_path, path)
         # THEN
@@ -275,20 +388,105 @@ class TestEmptyFolder:
         fq_path = mount_service.resolve_path.return_value
         filecore.empty_folder.assert_awaited_once_with(fq_path.ns_path, fq_path.path)
 
+    async def test_when_not_allowed(self, file_service: FileService):
+        # GIVEN
+        ns_path, path = "user", "teamfolder/folder"
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.resolve_path.return_value = FullyQualifiedPath(
+            "admin",
+            Path("folder/folder"),
+            mount_point=_make_mount_point(
+                source=_make_file("admin", "folder"),
+                mount_to=_make_file("user", "."),
+                name="teamfolder",
+                actions=MountPoint.Actions(can_delete=False),
+            ),
+        )
+        # WHEN
+        with pytest.raises(File.ActionNotAllowed):
+            await file_service.empty_folder(ns_path, path)
+        # THEN
+        mount_service.resolve_path.assert_awaited_once_with(ns_path, path)
+        filecore.empty_folder.assert_not_called()
+
 
 @pytest.mark.asyncio
 class TestExistsAtPath:
     async def test(self, file_service: FileService):
         # GIVEN
-        ns_path, path = "admin", "folder"
+        ns_path, path = "admin", Path("folder")
         filecore = cast(mock.MagicMock, file_service.filecore)
         mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.resolve_path.return_value = FullyQualifiedPath(ns_path, path)
         # WHEN
         await file_service.exists_at_path(ns_path, path)
         # THEN
         mount_service.resolve_path.assert_awaited_once_with(ns_path, path)
         fq_path = mount_service.resolve_path.return_value
         filecore.exists_at_path.assert_awaited_once_with(fq_path.ns_path, fq_path.path)
+
+    async def test_when_not_allowed(self, file_service: FileService):
+        # GIVEN
+        ns_path, path = "user", "teamfolder/folder"
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.resolve_path.return_value = FullyQualifiedPath(
+            "admin",
+            Path("folder/folder"),
+            mount_point=_make_mount_point(
+                source=_make_file("admin", "folder"),
+                mount_to=_make_file("user", "."),
+                name="teamfolder",
+                actions=MountPoint.Actions(can_delete=False),
+            ),
+        )
+        # WHEN
+        with pytest.raises(File.ActionNotAllowed):
+            await file_service.exists_at_path(ns_path, path)
+        # THEN
+        mount_service.resolve_path.assert_awaited_once_with(ns_path, path)
+        filecore.exists_at_path.assert_not_called()
+
+
+@pytest.mark.asyncio
+class TestGetAtPath:
+    async def test(self, file_service: FileService):
+        # GIVEN
+        ns_path, path = "admin", Path("f.txt")
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.resolve_path.return_value = FullyQualifiedPath(ns_path, path)
+        # WHEN
+        result = await file_service.get_at_path(ns_path, path)
+        # THEN
+        mount_service.resolve_path.assert_awaited_once_with(ns_path, path)
+        file = filecore.get_by_path.return_value
+        fq_path = mount_service.resolve_path.return_value
+        assert result == _resolve_file(file, fq_path.mount_point)
+        filecore.get_by_path.assert_called_once_with(fq_path.ns_path, fq_path.path)
+
+    async def test_when_not_allowed(self, file_service: FileService):
+        # GIVEN
+        ns_path, path = "user", "teamfolder/folder"
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.resolve_path.return_value = FullyQualifiedPath(
+            "admin",
+            Path("folder/folder"),
+            mount_point=_make_mount_point(
+                source=_make_file("admin", "folder"),
+                mount_to=_make_file("user", "."),
+                name="teamfolder",
+                actions=MountPoint.Actions(can_delete=False),
+            ),
+        )
+        # WHEN
+        with pytest.raises(File.ActionNotAllowed):
+            await file_service.get_at_path(ns_path, path)
+        # THEN
+        mount_service.resolve_path.assert_awaited_once_with(ns_path, path)
+        filecore.get_by_path.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -367,10 +565,16 @@ class TestGetByID:
 
     async def test_getting_mounted_file(self, file_service: FileService):
         # GIVEN
-        file = _make_file("admin", "f.txt")
+        source = _make_file("admin", "folder/f.txt")
+        file = _make_mounted_file(
+            source,
+            "folder",
+            "TeamFolder/f.txt",
+        )
         filecore = cast(mock.MagicMock, file_service.filecore)
         filecore.get_by_id.return_value = file
         mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.get_closest_by_source.return_value = file.mount_point
         # WHEN
         result = await file_service.get_by_id("user", file.id)
         # THEN
@@ -397,6 +601,28 @@ class TestGetByID:
             file.ns_path, file.path, target_ns_path="user"
         )
 
+    async def test_when_not_allowed(self, file_service: FileService):
+        # GIVEN
+        source = _make_file("admin", "folder/f.txt")
+        file = _make_mounted_file(
+            source,
+            "folder",
+            "TeamFolder/f.txt",
+            actions=MountPoint.Actions(can_view=False),
+        )
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        filecore.get_by_id.return_value = file
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.get_closest_by_source.return_value = file.mount_point
+        # WHEN
+        with pytest.raises(File.ActionNotAllowed):
+            await file_service.get_by_id("user", file.id)
+        # THEN
+        filecore.get_by_id.assert_awaited_once_with(file.id)
+        mount_service.get_closest_by_source.assert_awaited_once_with(
+            file.ns_path, file.path, target_ns_path="user"
+        )
+
 
 @pytest.mark.asyncio
 class TestGetByIDBatch:
@@ -419,9 +645,6 @@ class TestGetByIDBatch:
         # GIVEN
         files = [_make_file("admin", "f.txt"), _make_file("admin", "f (1).txt")]
 
-        # two mounted files from two different namespaces:
-        #   - "user 1:Folder" mounted under name "User 1" in the "admin" namespace
-        #   - "user 2:im.jpeg" mounted in the "User 2" folder in the "admin" namespace
         mount_points = [
             _make_mount_point(
                 source=_make_file("user 1", "Folder"),
@@ -432,10 +655,16 @@ class TestGetByIDBatch:
                 source=_make_file("user 2", "im.jpeg"),
                 mount_to=_make_file("admin", "User 2"),
             ),
+            _make_mount_point(
+                source=_make_file("user 3", "im (1).jpeg"),
+                mount_to=_make_file("admin", "User 3"),
+                actions=MountPoint.Actions(can_view=False),
+            ),
         ]
         shared_files = [
             _make_file("user 1", "Folder/user.txt"),
             _make_file("user 2", "im.jpeg"),
+            _make_file("user 3", "im (1).jpeg"),
         ]
 
         filecore = cast(mock.MagicMock, file_service.filecore)
@@ -473,39 +702,47 @@ class TestGetByIDBatch:
             sources=[
                 ("user 1", Path("Folder/user.txt")),
                 ("user 2", Path("im.jpeg")),
+                ("user 3", Path("im (1).jpeg")),
             ]
         )
-
-@pytest.mark.asyncio
-class TestGetAtPath:
-    async def test(self, file_service: FileService):
-        # GIVEN
-        ns_path, path = "admin", "f.txt"
-        filecore = cast(mock.MagicMock, file_service.filecore)
-        mount_service = cast(mock.AsyncMock, file_service.mount_service)
-        # WHEN
-        result = await file_service.get_at_path(ns_path, path)
-        # THEN
-        mount_service.resolve_path.assert_awaited_once_with(ns_path, path)
-        file = filecore.get_by_path.return_value
-        fq_path = mount_service.resolve_path.return_value
-        assert result == _resolve_file(file, fq_path.mount_point)
-        filecore.get_by_path.assert_called_once_with(fq_path.ns_path, fq_path.path)
 
 
 @pytest.mark.asyncio
 class TestListFolder:
     async def test(self, file_service: FileService):
         # GIVEN
-        ns_path, path = "admin", "folder"
+        ns_path, path = "admin", Path("folder")
         filecore = cast(mock.AsyncMock, file_service.filecore)
         mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.resolve_path.return_value = FullyQualifiedPath(ns_path, path)
         # WHEN
-        await file_service.list_folder("admin", "folder")
+        await file_service.list_folder(ns_path, path)
         # THEN
         mount_service.resolve_path.assert_awaited_once_with(ns_path, path)
         fq_path = mount_service.resolve_path.return_value
         filecore.list_folder.assert_awaited_once_with(fq_path.ns_path, fq_path.path)
+
+    async def test_when_not_allowed(self, file_service: FileService):
+        # GIVEN
+        ns_path, path = "user", "teamfolder/folder"
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.resolve_path.return_value = FullyQualifiedPath(
+            "admin",
+            Path("folder/folder"),
+            mount_point=_make_mount_point(
+                source=_make_file("admin", "folder"),
+                mount_to=_make_file("user", "."),
+                name="teamfolder",
+                actions=MountPoint.Actions(can_view=False),
+            ),
+        )
+        # WHEN
+        with pytest.raises(File.ActionNotAllowed):
+            await file_service.list_folder(ns_path, path)
+        # THEN
+        mount_service.resolve_path.assert_awaited_once_with(ns_path, path)
+        filecore.list_folder.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -720,6 +957,41 @@ class TestMove:
         )
         mp = mount_service.move.return_value
         filecore.get_by_path.assert_awaited_once_with(mp.source.ns_path, mp.source.path)
+        filecore.move.assert_not_awaited()
+
+    async def test_when_not_allowed(self, file_service: FileService):
+        # GIVEN
+        mount_point = _make_mount_point(
+            _make_file("user", "Folder/SharedFolder"),
+            mount_to=_make_file("admin", "Sharing"),
+            name="TeamFolder",
+            actions=MountPoint.Actions(can_move=False),
+        )
+        at_fq_path = FullyQualifiedPath(
+            ns_path="user",
+            path=Path("Folder/SharedFolder"),
+            mount_point=mount_point,
+        )
+        to_fq_path = FullyQualifiedPath(
+            ns_path="user",
+            path=Path("Folder/SharedFolder"),
+            mount_point=mount_point,
+        )
+        filecore = cast(mock.AsyncMock, file_service.filecore)
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.resolve_path.side_effect = [at_fq_path, to_fq_path]
+        # WHEN
+        with pytest.raises(File.ActionNotAllowed):
+            await file_service.move(
+                "admin", "Sharing/TeamFolder", "Sharing/PublicFolder"
+            )
+        # THEN
+        mount_service.resolve_path.assert_has_awaits([
+            mock.call("admin", "Sharing/TeamFolder"),
+            mock.call("admin", "Sharing/PublicFolder"),
+        ])
+        filecore.exists_at_path.assert_not_awaited()
+        mount_service.move.assert_not_awaited()
         filecore.move.assert_not_awaited()
 
     async def test_renaming_a_mount_point_when_file_with_the_same_name_exists(
@@ -967,6 +1239,39 @@ class TestThumbnail:
         filecore.download.assert_awaited_once_with(file.id)
         mount_service.get_closest_by_source.assert_awaited_once_with(
             file.ns_path, file.path, target_ns_path="admin"
+        )
+        thumbnail_mock.assert_not_called()
+
+    @mock.patch("app.app.files.services.file.file.thumbnails.thumbnail")
+    async def test_when_not_allowed(
+        self,
+        thumbnail_mock: MagicMock,
+        file_service: FileService,
+        image_content: IO[bytes],
+    ):
+        # GIVEN
+        source = _make_file("user", "Folder/SharedFolder/f.txt")
+        file = _make_mounted_file(
+            source,
+            "admin",
+            "Sharing/TeamFolder/f.txt",
+            actions=MountPoint.Actions(can_view=False),
+        )
+        filecore = cast(mock.AsyncMock, file_service.filecore)
+        filecore.download.return_value = (
+            source,
+            ContentReader.from_iter(image_content, zipped=False),
+        )
+        mount_service = cast(mock.AsyncMock, file_service.mount_service)
+        mount_service.get_closest_by_source.return_value = file.mount_point
+        thumbnail_mock.return_value = b"dummy-image-content"
+        # WHEN
+        with pytest.raises(File.ActionNotAllowed):
+            await file_service.thumbnail(file.id, size=64, ns_path="admin")
+        # THEN
+        filecore.download.assert_awaited_once_with(source.id)
+        mount_service.get_closest_by_source.assert_awaited_once_with(
+            source.ns_path, source.path, target_ns_path=file.ns_path
         )
         thumbnail_mock.assert_not_called()
 

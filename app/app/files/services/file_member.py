@@ -57,6 +57,15 @@ class FileMemberService:
             )
         )
 
+    async def get(self, file_id: str, user_id: UUID) -> FileMember:
+        """
+        Returns a member by user ID of a file with a target ID.
+
+        Raises:
+            FileMember.NotFound: If file member does not exist.
+        """
+        return await self.db.file_member.get(file_id, user_id)
+
     async def list_all(self, file_id: str) -> list[FileMember]:
         """
         List all file members for a file with a given ID.

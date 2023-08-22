@@ -95,6 +95,19 @@ class TestAdd:
         db.user.get_by_username.assert_awaited_once_with(file.ns_path)
 
 
+class TestGet:
+    async def test(self, file_member_service: FileMemberService):
+        # GIVEN
+        file_id, user_id = str(uuid.uuid4()), uuid.uuid4()
+        db = cast(mock.MagicMock, file_member_service.db)
+        # WHEN
+        result = await file_member_service.get(file_id, user_id)
+        # THEN
+        member = db.file_member.get.return_value
+        assert result == member
+        db.file_member.get.assert_awaited_once_with(file_id, user_id)
+
+
 class TestListAll:
     async def test(self, file_member_service: FileMemberService):
         # GIVEN

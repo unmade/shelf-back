@@ -28,6 +28,13 @@ class DownloadNotFound(APIError):
     default_message = "Download is expired or doesn't exist"
 
 
+class FileActionNotAllowed(APIError):
+    status_code = 403
+    code = "ACTION_NOT_ALLOWED"
+    code_verbose = "Action not allowed"
+    default_message = "You don't have permission to perform that action"
+
+
 class FileAlreadyDeleted(FilesError):
     status_code = 400
     code = "ALREADY_DELETED"

@@ -69,10 +69,14 @@ class FileService:
         automatically renamed to a next available name.
 
         Raises:
+            File.ActionNotAllowed: If creating a file is not allowed.
             File.AlreadyExists: If a file in a target path already exists.
             File.NotADirectory: If one of the path parents is not a folder.
         """
         fq_path = await self.mount_service.resolve_path(ns_path, path)
+        if not fq_path.can_upload():
+            raise File.ActionNotAllowed()
+
         path = await self.get_available_path(fq_path.ns_path, fq_path.path)
         file = await self.filecore.create_file(fq_path.ns_path, path, content)
         return _resolve_file(file, fq_path.mount_point)
@@ -82,10 +86,14 @@ class FileService:
         Creates a folder with any missing parents in a namespace with a `ns_path`.
 
         Raises:
+            File.ActionNotAllowed: If creating a folder is not allowed.
             File.AlreadyExists: If folder with this path already exists.
             File.NotADirectory: If one of the path parents is not a directory.
         """
         fq_path = await self.mount_service.resolve_path(ns_path, path)
+        if not fq_path.can_upload():
+            raise File.ActionNotAllowed()
+
         file = await self.filecore.create_folder(fq_path.ns_path, fq_path.path)
         return _resolve_file(file, fq_path.mount_point)
 
@@ -95,9 +103,12 @@ class FileService:
         contents.
 
         Raises:
+            File.ActionNotAllowed: If deleting a file or a folder is not allowed.
             File.NotFound: If a file/folder with a given path does not exist.
         """
         fq_path = await self.mount_service.resolve_path(ns_path, path)
+        if not fq_path.can_delete():
+            raise File.ActionNotAllowed()
         if fq_path.is_mount_point():
             raise File.NotFound()
         file = await self.filecore.delete(fq_path.ns_path, fq_path.path)
@@ -110,9 +121,13 @@ class FileService:
         Downloads a file or a folder at a given path.
 
         Raises:
+            File.ActionNotAllowed: If downloading a file is not allowed.
             File.NotFound: If a file at a target path does not exist.
         """
         fq_path = await self.mount_service.resolve_path(ns_path, path)
+        if not fq_path.can_download():
+            raise File.ActionNotAllowed()
+
         file = await self.filecore.get_by_path(fq_path.ns_path, fq_path.path)
         _, content = await self.filecore.download(file.id)
         return _resolve_file(file, fq_path.mount_point), content
@@ -122,14 +137,24 @@ class FileService:
         Delete all files and folder at a given folder.
 
         Raises:
+            File.ActionNotAllowed: If emptying a folder is not allowed.
             File.NotFound: If a file at a target path does not exist.
         """
         fq_path = await self.mount_service.resolve_path(ns_path, path)
+        if not fq_path.can_delete():
+            raise File.ActionNotAllowed()
         await self.filecore.empty_folder(fq_path.ns_path, fq_path.path)
 
     async def exists_at_path(self, ns_path: AnyPath, path: AnyPath) -> bool:
-        """Returns True if file exists at a given path, False otherwise"""
+        """
+        Returns True if file exists at a given path, False otherwise.
+
+        Raises:
+            File.ActionNotAllowed: If getting a file is not allowed.
+        """
         fq_path = await self.mount_service.resolve_path(ns_path, path)
+        if not fq_path.can_view():
+            raise File.ActionNotAllowed()
         return await self.filecore.exists_at_path(fq_path.ns_path, fq_path.path)
 
     async def get_at_path(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:
@@ -137,9 +162,12 @@ class FileService:
         Returns a file at a given path.
 
         Raises:
+            File.ActionNotAllowed: If getting a file is not allowed.
             File.NotFound: If file with at a given path does not exist.
         """
         fq_path = await self.mount_service.resolve_path(ns_path, path)
+        if not fq_path.can_view():
+            raise File.ActionNotAllowed()
         file = await self.filecore.get_by_path(fq_path.ns_path, fq_path.path)
         return _resolve_file(file, fq_path.mount_point)
 
@@ -166,6 +194,7 @@ class FileService:
         Returns a file by ID.
 
         Raises:
+            File.ActionNotAllowed: If getting a file is not allowed.
             File.NotFound: If file with a given ID does not exist.
         """
         file = await self.filecore.get_by_id(file_id)
@@ -176,6 +205,8 @@ class FileService:
             )
             if mount_point is None:
                 raise File.NotFound()
+            if not mount_point.can_view():
+                raise File.ActionNotAllowed()
         return _resolve_file(file, mount_point)
 
     async def get_by_id_batch(
@@ -198,11 +229,13 @@ class FileService:
         mps_map = {
             source: fq_path.mount_point
             for source, fq_path in fq_paths_map.items()
+            if fq_path.can_view()
         }
 
         return [
             _resolve_file(file, mps_map.get((file.ns_path, file.path)))
             for file in files
+            if file.ns_path == ns_path or mps_map.get((file.ns_path, file.path))
         ]
 
     async def list_folder(self, ns_path: AnyPath, path: AnyPath) -> list[AnyFile]:
@@ -211,10 +244,13 @@ class FileService:
         and folders.
 
         Raises:
+            File.ActionNotAllowed: If listing a folder is not allowed.
             File.NotFound: If folder at this path does not exists.
             File.NotADirectory: If path points to a file.
         """
         fq_path = await self.mount_service.resolve_path(ns_path, path)
+        if not fq_path.can_view():
+            raise File.ActionNotAllowed()
         files = await self.filecore.list_folder(fq_path.ns_path, fq_path.path)
         return [_resolve_file(file, fq_path.mount_point) for file in files]
 
@@ -231,7 +267,7 @@ class FileService:
         ns_path, path = at_folder
 
         fq_path = await self.mount_service.resolve_path(ns_path, path)
-        if fq_path.mount_point is not None:
+        if fq_path.is_mounted():
             raise File.IsMounted()
 
         if not await self.filecore.exists_at_path(fq_path.ns_path, fq_path.path):
@@ -259,6 +295,7 @@ class FileService:
         other namespace - the actual namespace of a mount point.
 
         Raises:
+            File.ActionNotAllowed: If moving a file or a folder is not allowed.
             File.AlreadyExists: If some file already in the destination path.
             File.MalformedPath: If `at_path` or `to_path` is invalid.
             File.MissingParent: If 'next_path' parent does not exists.
@@ -268,7 +305,10 @@ class FileService:
         at_fq_path = await self.mount_service.resolve_path(ns_path, at_path)
         to_fq_path = await self.mount_service.resolve_path(ns_path, to_path)
 
-        if at_fq_path.mount_point is None and to_fq_path.is_mount_point():
+        if not at_fq_path.can_move():
+            raise File.ActionNotAllowed()
+
+        if not at_fq_path.is_mounted() and to_fq_path.is_mount_point():
             raise File.AlreadyExists()
 
         if at_fq_path.mount_point and to_fq_path.mount_point:
@@ -277,7 +317,7 @@ class FileService:
 
         # move mount point
         moved = at_fq_path.is_mount_point() and to_fq_path.is_mount_point()
-        renamed = at_fq_path.is_mount_point() and to_fq_path.mount_point is None
+        renamed = at_fq_path.is_mount_point() and not to_fq_path.is_mounted()
         if moved or renamed:
             if await self.filecore.exists_at_path(to_fq_path.ns_path, to_fq_path.path):
                 raise File.AlreadyExists()
@@ -313,6 +353,7 @@ class FileService:
         namespace.
 
         Raises:
+            File.ActionNotAllowed: If thumbnailing a file is not allowed.
             File.NotFound: If file with this path does not exists.
             File.IsADirectory: If file is a directory.
             ThumbnailUnavailable: If file is not an image.
@@ -325,6 +366,8 @@ class FileService:
             )
             if mount_point is None:
                 raise File.NotFound() from None
+            if not mount_point.can_view():
+                raise File.ActionNotAllowed() from None
 
         content = await content_reader.stream()
         thumbnail = await thumbnails.thumbnail(content, size=size)

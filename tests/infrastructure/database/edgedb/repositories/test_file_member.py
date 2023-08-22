@@ -14,9 +14,13 @@ from app.infrastructure.database.edgedb.repositories.file_member import ActionFl
 if TYPE_CHECKING:
     from uuid import UUID
 
+    from app.app.files.domain.file_member import FileMemberActions
     from app.infrastructure.database.edgedb.repositories import FileMemberRepository
-
-    from ..conftest import FileFactory, FileMemberFactory, UserFactory
+    from tests.infrastructure.database.edgedb.conftest import (
+        FileFactory,
+        FileMemberFactory,
+        UserFactory,
+    )
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
@@ -73,6 +77,16 @@ async def _list_members(file_id: str):
         )
         for obj in objs
     ]
+
+
+class TestActionFlag:
+    @pytest.mark.parametrize(["given", "expected"], [
+        (FileMember.Actions(), 0),
+        (FileMember.VIEWER, 3),
+        (FileMember.EDITOR, 63),
+    ])
+    async def test(self, given: FileMemberActions, expected: int):
+        assert ActionFlag.dump(given) == expected
 
 
 class TestDelete:

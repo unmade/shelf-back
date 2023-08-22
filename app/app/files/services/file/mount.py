@@ -57,10 +57,28 @@ class FullyQualifiedPath(NamedTuple):
     path: Path
     mount_point: MountPoint | None = None
 
+    def can_delete(self) -> bool:
+        return self.mount_point is None or self.mount_point.actions.can_delete
+
+    def can_download(self) -> bool:
+        return self.mount_point is None or self.mount_point.actions.can_download
+
+    def can_move(self) -> bool:
+        return self.mount_point is None or self.mount_point.actions.can_move
+
+    def can_view(self) -> bool:
+        return self.mount_point is None or self.mount_point.can_view()
+
+    def can_upload(self) -> bool:
+        return self.mount_point is None or self.mount_point.actions.can_upload
+
     def is_mount_point(self) -> bool:
         if self.mount_point is None:
             return False
         return self.mount_point.source.path == self.path
+
+    def is_mounted(self) -> bool:
+        return self.mount_point is not None
 
 
 class MountService:

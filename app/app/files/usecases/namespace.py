@@ -60,10 +60,11 @@ class NamespaceUseCase:
 
         Raises:
             Account.StorageQuotaExceeded: If storage quota exceeded.
-            File.TooLarge: If upload file size exceeds max upload size limit.
+            File.ActionNotAllowed: If adding a file is not allowed.
             File.AlreadyExists: If a file in a target path already exists.
             File.MalformedPath: If path is invalid (e.g. uploading to Trash folder).
             File.NotADirectory: If one of the path parents is not a folder.
+            File.TooLarge: If upload file size exceeds max upload size limit.
 
         Returns:
             AnyFile: Saved file.
@@ -95,6 +96,7 @@ class NamespaceUseCase:
         Creates a folder with any missing parents in a namespace with a `ns_path`.
 
         Raises:
+            File.ActionNotAllowed: If creating a folder is not allowed.
             File.AlreadyExists: If folder with this path already exists.
             File.NotADirectory: If one of the path parents is not a directory.
         """
@@ -109,6 +111,7 @@ class NamespaceUseCase:
         with all of its contents.
 
         Raises:
+            File.ActionNotAllowed: If deleting an item is not allowed.
             File.NotFound: If a file/folder with a given path does not exist.
         """
         assert Path(path) not in {Path("."), Path("Trash")}, (
@@ -123,6 +126,7 @@ class NamespaceUseCase:
         Downloads a file or a folder at a given path.
 
         Raises:
+            File.ActionNotAllowed: If downloading an item is not allowed.
             File.NotFound: If a file/folder with a given path does not exist.
         """
         return await self.file.download(ns_path, path)
@@ -142,7 +146,7 @@ class NamespaceUseCase:
         are considered the same. Defaults to 5.
         """
         groups = await self.dupefinder.find_in_folder(ns_path, path, max_distance)
-        ids = itertools.chain.from_iterable(
+        ids = itertools.chain.from_iterable(  # pragma: no branch
             (fp.file_id for fp in group)
             for group in groups
         )
@@ -164,6 +168,7 @@ class NamespaceUseCase:
         Returns a file content metadata.
 
         Raises:
+            File.ActionNotAllowed: If getting a file is not allowed.
             File.NotFound: If file with target ID does not exist.
             ContentMetadata.NotFound: If file metadata does not exist.
         """
@@ -177,6 +182,7 @@ class NamespaceUseCase:
         Generates in-memory thumbnail with preserved aspect ratio.
 
         Raises:
+            File.ActionNotAllowed: If thumbnailing a file is not allowed.
             File.NotFound: If file with target ID does not exist.
             File.IsADirectory: If file is a directory.
             ThumbnailUnavailable: If file is not an image.
@@ -191,6 +197,7 @@ class NamespaceUseCase:
         Returns a file at a given path.
 
         Raises:
+            File.ActionNotAllowed: If getting a file is not allowed.
             File.NotFound: If file does not exist at a given path.
         """
         return await self.file.get_at_path(ns_path, path)
@@ -203,6 +210,7 @@ class NamespaceUseCase:
         folder is never present in the response.
 
         Raises:
+            File.ActionNotAllowed: If listing a folder is not allowed.
             File.NotFound: If folder at this path does not exist.
             File.NotADirectory: If path points to a file.
         """
@@ -220,6 +228,7 @@ class NamespaceUseCase:
         If the source path is a folder all its contents will be moved.
 
         Raises:
+            File.ActionNotAllowed: If moving an item is not allowed.
             File.AlreadyExists: If some file already in the destination path.
             File.MalformedPath: If `path` or `next_path` is invalid.
             File.MissingParent: If 'next_path' parent does not exists.
@@ -240,6 +249,7 @@ class NamespaceUseCase:
         If file with the same name already in the Trash, then path will be renamed.
 
         Raises:
+            File.ActionNotAllowed: If moving an item is not allowed.
             File.NotFound: If source path does not exists.
         """
         next_path = Path("Trash") / Path(path).name

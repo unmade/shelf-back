@@ -23,6 +23,7 @@ class FileMemberActions(BaseModel):
     can_delete: bool = False
     can_download: bool = False
     can_move: bool = False
+    can_reshare: bool = False
     can_upload: bool = False
     can_view: bool = False
 
@@ -37,6 +38,7 @@ class FileMember(BaseModel):
         can_delete=True,
         can_download=True,
         can_move=True,
+        can_reshare=True,
         can_upload=True,
         can_view=True,
     )
@@ -44,6 +46,7 @@ class FileMember(BaseModel):
         can_delete=False,
         can_download=True,
         can_move=False,
+        can_reshare=False,
         can_upload=False,
         can_view=True,
     )
@@ -55,8 +58,8 @@ class FileMember(BaseModel):
     NotFound = FileMemberNotFound
 
     file_id: str
-    owner: bool = False
     actions: FileMemberActions
+    owner: bool = False
     user: FileMemberUser
 
     @property
