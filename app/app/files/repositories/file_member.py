@@ -20,10 +20,10 @@ class FileMemberUpdate(TypedDict):
 
 
 class IFileMemberRepository(Protocol):
-    async def delete(self, file_id: str, user_id: UUID) -> None:
+    async def delete(self, file_id: UUID, user_id: UUID) -> None:
         """Deletes a file member."""
 
-    async def get(self, file_id: str, user_id: UUID) -> FileMember:
+    async def get(self, file_id: UUID, user_id: UUID) -> FileMember:
         """
         Returns a member by user ID of a file with a target ID.
 
@@ -31,7 +31,7 @@ class IFileMemberRepository(Protocol):
             FileMember.NotFound: If file member does not exist.
         """
 
-    async def list_all(self, file_id: str) -> list[FileMember]:
+    async def list_all(self, file_id: UUID) -> list[FileMember]:
         """Returns a list of all file members for a file with a given ID."""
 
     async def save(self, entity: FileMember) -> FileMember:

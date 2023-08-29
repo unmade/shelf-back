@@ -27,7 +27,7 @@ def _make_file(ns_path: str, path: AnyPath, size: int = 10) -> File:
         id=uuid.uuid4(),
         ns_path=ns_path,
         name=Path(path).name,
-        path=path,
+        path=Path(path),
         size=size,
         mediatype="image/jpeg",
     )

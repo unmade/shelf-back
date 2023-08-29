@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import enum
 from typing import TYPE_CHECKING, Self
-from uuid import UUID
 
 import edgedb
 
@@ -12,6 +11,8 @@ from app.app.files.repositories.file_member import FileMemberUpdate
 from app.app.users.domain import User
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from app.app.files.domain.file_member import FileMemberActions
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
 
@@ -57,7 +58,7 @@ class ActionFlag(enum.IntFlag):
 
 def _from_db(obj) -> FileMember:
     return FileMember(
-        file_id=str(obj.file.id),
+        file_id=obj.file.id,
         actions=ActionFlag.load(obj.actions),
         user=FileMember.User(
             id=obj.user.id,
@@ -74,7 +75,7 @@ class FileMemberRepository(IFileMemberRepository):
     def conn(self) -> EdgeDBAnyConn:
         return self.db_context.get()
 
-    async def delete(self, file_id: str, user_id: UUID) -> None:
+    async def delete(self, file_id: UUID, user_id: UUID) -> None:
         query = """
             DELETE
                 FileMember
@@ -86,7 +87,7 @@ class FileMemberRepository(IFileMemberRepository):
 
         await self.conn.query(query, file_id=file_id, user_id=user_id)
 
-    async def get(self, file_id: str, user_id: UUID) -> FileMember:
+    async def get(self, file_id: UUID, user_id: UUID) -> FileMember:
         query = """
             SELECT
                 FileMember {
@@ -112,7 +113,7 @@ class FileMemberRepository(IFileMemberRepository):
 
         return _from_db(obj)
 
-    async def list_all(self, file_id: str) -> list[FileMember]:
+    async def list_all(self, file_id: UUID) -> list[FileMember]:
         query = """
             SELECT
                 FileMember {

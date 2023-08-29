@@ -8,8 +8,9 @@ from app.app.users.domain import Bookmark, User
 from app.app.users.repositories import IBookmarkRepository
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
-    from app.typedefs import StrOrUUID
 
 __all__ = ["BookmarkRepository"]
 
@@ -46,7 +47,7 @@ class BookmarkRepository(IBookmarkRepository):
         except edgedb.NoDataError as exc:
             raise User.NotFound() from exc
 
-    async def list_all(self, user_id: StrOrUUID) -> list[Bookmark]:
+    async def list_all(self, user_id: UUID) -> list[Bookmark]:
         query = """
             SELECT
                 User { bookmarks }
@@ -60,7 +61,7 @@ class BookmarkRepository(IBookmarkRepository):
             raise User.NotFound(f"No user with id: '{user_id}'") from exc
 
         return [
-            Bookmark(user_id=str(user_id), file_id=str(entry.id))
+            Bookmark(user_id=user_id, file_id=entry.id)
             for entry in user.bookmarks
         ]
 

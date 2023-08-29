@@ -24,10 +24,11 @@ if TYPE_CHECKING:
 def _make_file(
     ns_path: str, path: AnyPath, size: int = 10, mediatype: str = "plain/text"
 ) -> File:
+    path = Path(path)
     return File(
         id=uuid.uuid4(),
         ns_path=ns_path,
-        name=Path(path).name,
+        name=path.name,
         path=path,
         size=size,
         mediatype=mediatype,
@@ -135,7 +136,7 @@ class TestResolveFile:
             id=file.id,
             name="TeamFolder",
             ns_path="admin",
-            path="Sharing/TeamFolder",
+            path=Path("Sharing/TeamFolder"),
             size=file.size,
             mediatype=file.mediatype,
             mtime=file.mtime,
@@ -174,7 +175,7 @@ class TestResolveFile:
             id=file.id,
             name="f.txt",
             ns_path="admin",
-            path="Sharing/TeamFolder/InnerFolder/f.txt",
+            path=Path("Sharing/TeamFolder/InnerFolder/f.txt"),
             size=file.size,
             mediatype=file.mediatype,
             mtime=file.mtime,

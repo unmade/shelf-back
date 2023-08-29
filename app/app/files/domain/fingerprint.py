@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from app.typedefs import StrOrUUID
+from typing import Any, ClassVar
+from uuid import UUID
 
 __all__ = ["Fingerprint"]
 
@@ -19,11 +17,11 @@ class FingerprintNotFound(Exception):
 class Fingerprint:
     __slots__ = ("file_id", "value")
 
-    AlreadyExists = FingerprintAlreadyExists
-    NotFound = FingerprintNotFound
+    AlreadyExists: ClassVar[type[Exception]] = FingerprintAlreadyExists
+    NotFound: ClassVar[type[Exception]] = FingerprintNotFound
 
-    def __init__(self, file_id: StrOrUUID, value: int):
-        self.file_id = str(file_id)
+    def __init__(self, file_id: UUID, value: int):
+        self.file_id = file_id
         self.value = value
 
     def __eq__(self, other: Any) -> bool:

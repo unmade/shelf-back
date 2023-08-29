@@ -48,4 +48,4 @@ class TestRepr:
         file_id = uuid.uuid4()
         value = 16493668159829433821
         fp = Fingerprint(file_id=file_id, value=value)
-        assert repr(fp) == f"Fingerprint(file_id='{file_id}', value={value})"
+        assert repr(fp) == f"Fingerprint(file_id={file_id!r}, value={value!r})"

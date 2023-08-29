@@ -3,16 +3,18 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Iterable, Protocol
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from app.app.files.domain import ContentMetadata
 
 
 class IContentMetadataRepository(Protocol):
-    async def get_by_file_id(self, file_id: str) -> ContentMetadata:
+    async def get_by_file_id(self, file_id: UUID) -> ContentMetadata:
         """
         Get metadata associated with a given File ID.
 
         Args:
-            file_id (str): Target File ID.
+            file_id (UUID): Target File ID.
 
         Raises:
             ContentMetadata.NotFound: If FileMetada for a given file ID does not exist.

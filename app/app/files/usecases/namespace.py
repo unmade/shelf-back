@@ -11,6 +11,8 @@ from app.config import config
 from app.toolkit import taskgroups, timezone
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from app.app.audit.services import AuditTrailService
     from app.app.files.domain import AnyPath, ContentMetadata
     from app.app.files.services import (
@@ -176,7 +178,7 @@ class NamespaceUseCase:
         return await self.metadata.get_by_file_id(file.id)
 
     async def get_file_thumbnail(
-        self, ns_path: AnyPath, file_id: str, size: int
+        self, ns_path: AnyPath, file_id: UUID, size: int
     ) -> tuple[AnyFile, bytes]:
         """
         Generates in-memory thumbnail with preserved aspect ratio.

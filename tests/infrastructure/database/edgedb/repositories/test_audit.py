@@ -26,7 +26,7 @@ class TestSave:
             id=SENTINEL_ID,
             action=AuditTrail.Action.user_signed_in,
             user=AuditTrail.User(
-                id=str(user.id),
+                id=user.id,
                 username=user.username,
             ),
             created_at=created_at,
@@ -57,11 +57,11 @@ class TestSave:
             id=SENTINEL_ID,
             action=AuditTrail.Action.user_signed_in,
             user=AuditTrail.User(
-                id=str(user.id),
+                id=user.id,
                 username=user.username,
             ),
             asset=AuditTrail.File(
-                id=str(file.id),
+                id=file.id,
                 name=file.name,
                 path=str(file.path),
             ),
@@ -79,4 +79,4 @@ class TestSave:
             id=saved_trail.id
         )
         assert len(obj.assets) == 1
-        assert str(obj.assets[0].id) == file.id
+        assert obj.assets[0].id == file.id

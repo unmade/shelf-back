@@ -10,18 +10,19 @@ from app.app.files.domain import ContentMetadata, Exif, File
 from app.infrastructure.database.edgedb.db import db_context
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from app.app.files.domain import Namespace
     from app.infrastructure.database.edgedb.repositories import (
         ContentMetadataRepository,
     )
-    from app.typedefs import StrOrUUID
 
     from ..conftest import FileFactory
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
 
-async def _get_by_file_id(file_id: StrOrUUID):
+async def _get_by_file_id(file_id: UUID):
     return await db_context.get().query_required_single("""
         SELECT FileMetadata { file: { id }, data }
         FILTER .file.id = <uuid>$file_id
@@ -44,7 +45,7 @@ class TestGetByFileID:
         self,
         metadata_repo: ContentMetadataRepository,
     ):
-        file_id = str(uuid.uuid4())
+        file_id = uuid.uuid4()
         with pytest.raises(ContentMetadata.NotFound):
             await metadata_repo.get_by_file_id(file_id)
 
@@ -64,7 +65,7 @@ class TestSave:
         self, metadata_repo: ContentMetadataRepository,
     ):
         exif = Exif(width=1280, height=800)
-        metadata = ContentMetadata(file_id=str(uuid.uuid4()), data=exif)
+        metadata = ContentMetadata(file_id=uuid.uuid4(), data=exif)
         with pytest.raises(File.NotFound):
             await metadata_repo.save(metadata)
 
@@ -96,6 +97,6 @@ class TestSaveBatch:
         metadata_repo: ContentMetadataRepository,
     ):
         exif = Exif(width=1280, height=800)
-        metadata = ContentMetadata(file_id=str(uuid.uuid4()), data=exif)
+        metadata = ContentMetadata(file_id=uuid.uuid4(), data=exif)
         with pytest.raises(File.NotFound):
             await metadata_repo.save_batch([metadata])

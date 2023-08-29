@@ -4,11 +4,12 @@ from pathlib import PurePath
 from typing import TYPE_CHECKING
 
 import pytest
+from pydantic import BaseModel
 
 from app.app.files.domain import Path
 
 if TYPE_CHECKING:
-    from app.app.files.domain import AnyPath
+    pass
 
 
 class TestInit:
@@ -21,19 +22,32 @@ class TestInit:
         assert path._path == "a/b"
 
 
-class TestValidate:
+class TestAsPydanticField:
+    class Foo(BaseModel):
+        path: Path
+
     @pytest.mark.parametrize(["given", "expected"], [
         ("a/b/c", Path("a/b/c")),
-        (PurePath("a/b/c"), Path("a/b/c")),
         (Path("a/b/c"), Path("a/b/c")),
+        (PurePath("a/b/c"), Path("a/b/c")),
     ])
-    def test(self, given: AnyPath, expected: Path):
-        assert Path.validate(given) == expected
+    def test(self, given, expected: Path):
+        foo = self.Foo(path=given)
+        assert foo.path == expected
+        assert isinstance(foo.path, Path)
 
-    def test_when_valus_of_wrong_type(self):
-        with pytest.raises(TypeError) as excinfo:
-            assert Path.validate(1)
-        assert str(excinfo.value) == "string, pathlib.PurePath or Path required"
+    def test_invalid_path_value(self):
+        with pytest.raises(ValueError):
+            self.Foo(path=0)  # type: ignore
+
+    def test_json_schema(self):
+        schema = self.Foo(path=Path("a/b/c")).model_json_schema()
+        assert schema == {
+            'properties': {'path': {'title': 'Path', 'type': 'string'}},
+            'required': ['path'],
+            'title': 'Foo',
+            'type': 'object'
+        }
 
 
 class TestComparison:

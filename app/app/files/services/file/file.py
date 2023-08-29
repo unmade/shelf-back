@@ -10,11 +10,11 @@ from . import thumbnails
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+    from uuid import UUID
 
     from app.app.files.domain import AnyFile, AnyPath
     from app.app.files.services.file import FileCoreService, MountService
     from app.app.infrastructure.storage import ContentReader
-    from app.typedefs import StrOrUUID
 
 
 def _make_thumbnail_ttl(*args, size: int, **kwargs) -> str:
@@ -189,7 +189,7 @@ class FileService:
             return paths[0]
         return max(paths)
 
-    async def get_by_id(self, ns_path: AnyPath, file_id: str) -> AnyFile:
+    async def get_by_id(self, ns_path: AnyPath, file_id: UUID) -> AnyFile:
         """
         Returns a file by ID.
 
@@ -210,7 +210,7 @@ class FileService:
         return _resolve_file(file, mount_point)
 
     async def get_by_id_batch(
-        self, ns_path: AnyPath, ids: Iterable[StrOrUUID]
+        self, ns_path: AnyPath, ids: Iterable[UUID]
     ) -> list[AnyFile]:
         """
         Returns files by ID in the target namespace, including shared files and files
@@ -254,7 +254,7 @@ class FileService:
         files = await self.filecore.list_folder(fq_path.ns_path, fq_path.path)
         return [_resolve_file(file, fq_path.mount_point) for file in files]
 
-    async def mount(self, file_id: str, at_folder: tuple[str, AnyPath]) -> None:
+    async def mount(self, file_id: UUID, at_folder: tuple[str, AnyPath]) -> None:
         """
         Mounts a file with a given ID to a target folder. The folder must be in a
         different namespace than a file.
@@ -344,7 +344,7 @@ class FileService:
 
     @disk_cache(key="{file_id}:{size}", ttl=_make_thumbnail_ttl)  # type: ignore
     async def thumbnail(
-        self, file_id: str, *, size: int, ns_path: str | None = None
+        self, file_id: UUID, *, size: int, ns_path: str | None = None
     ) -> tuple[AnyFile, bytes]:
         """
         Generate in-memory thumbnail with preserved aspect ratio.

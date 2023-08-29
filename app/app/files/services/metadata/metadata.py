@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 from typing import IO, TYPE_CHECKING, AsyncIterator, Protocol
+from uuid import UUID
 
 from app.app.files.domain import ContentMetadata
 
@@ -22,12 +23,12 @@ class MetadataService:
     def __init__(self, database: IServiceDatabase):
         self.db = database
 
-    async def get_by_file_id(self, file_id: str) -> ContentMetadata:
+    async def get_by_file_id(self, file_id: UUID) -> ContentMetadata:
         """
         Get metadata associated with a given File ID.
 
         Args:
-            file_id (str): Target File ID.
+            file_id (UUID): Target File ID.
 
         Raises:
             ContentMetadata.NotFound: If FileMetada for a given file ID does not exist.
@@ -37,7 +38,7 @@ class MetadataService:
         """
         return await self.db.metadata.get_by_file_id(file_id)
 
-    async def track(self, file_id: str, content: IO[bytes]) -> None:
+    async def track(self, file_id: UUID, content: IO[bytes]) -> None:
         """
         Tracks file content metadata.
 
@@ -75,7 +76,7 @@ class _Tracker:
     def items(self) -> list[ContentMetadata]:
         return self._items
 
-    async def add(self, file_id: str, content: IO[bytes]) -> None:
+    async def add(self, file_id: UUID, content: IO[bytes]) -> None:
         data = await readers.load(content)
         if data is None:
             return

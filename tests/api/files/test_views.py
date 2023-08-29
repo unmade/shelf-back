@@ -34,6 +34,7 @@ from app.worker.jobs.files import FileTaskResult
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
+    from uuid import UUID
 
     from app.api.exceptions import APIError
     from app.app.files.domain import AnyPath, Namespace
@@ -41,17 +42,17 @@ if TYPE_CHECKING:
 
 pytestmark = [pytest.mark.asyncio]
 
-_FILE_ID = str(uuid.uuid4())
+_FILE_ID = uuid.uuid4()
 
 
 def _make_file(
     ns_path: AnyPath, path: AnyPath, size: int = 10, mediatype: str = "plain/text"
 ) -> File:
     return File(
-        id=uuid.uuid4(),  # type: ignore
+        id=uuid.uuid4(),
         ns_path=str(ns_path),
         name=Path(path).name,
-        path=path,  # type: ignore
+        path=Path(path),
         size=size,
         mediatype=mediatype,
     )
@@ -580,7 +581,7 @@ class TestGetContentMetadata:
         namespace: Namespace,
     ):
         # GIVEN
-        file_id, path = str(uuid.uuid4()), "img.jpeg"
+        file_id, path = uuid.uuid4(), "img.jpeg"
         exif = Exif(width=1280, height=800)
         metadata = ContentMetadata(file_id=file_id, data=exif)
         ns_use_case.get_file_metadata.return_value = metadata
@@ -589,7 +590,7 @@ class TestGetContentMetadata:
         client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
-        assert response.json()["file_id"] == file_id
+        assert response.json()["file_id"] == str(file_id)
         assert response.json()["data"] == exif.model_dump()
         assert response.status_code == 200
         ns_use_case.get_file_metadata.assert_awaited_once_with(namespace.path, path)
@@ -620,7 +621,7 @@ class TestGetContentMetadata:
 
 
 class TestGetThumbnail:
-    def url(self, file_id: str, *, size: str = "xs") -> str:
+    def url(self, file_id: UUID, *, size: str = "xs") -> str:
         return f"/files/get_thumbnail/{file_id}?size={size}"
 
     async def test(
@@ -674,9 +675,9 @@ class TestGetThumbnail:
 
     @pytest.mark.parametrize(["error", "expected_error"], [
         (File.ActionNotAllowed(), FileActionNotAllowed()),
-        (File.NotFound(), PathNotFound(path=_FILE_ID)),
-        (File.IsADirectory(), IsADirectory(path=_FILE_ID)),
-        (File.ThumbnailUnavailable(), ThumbnailUnavailable(path=_FILE_ID)),
+        (File.NotFound(), PathNotFound(path=str(_FILE_ID))),
+        (File.IsADirectory(), IsADirectory(path=str(_FILE_ID))),
+        (File.ThumbnailUnavailable(), ThumbnailUnavailable(path=str(_FILE_ID))),
     ])
     async def test_reraising_app_errors_to_api_errors(
         self,

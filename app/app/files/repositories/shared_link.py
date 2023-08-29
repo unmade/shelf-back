@@ -1,8 +1,11 @@
 from __future__ import annotations
 
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
-from app.app.files.domain import SharedLink
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from app.app.files.domain import SharedLink
 
 
 class ISharedLinkRepository(Protocol):
@@ -14,12 +17,12 @@ class ISharedLinkRepository(Protocol):
             token (str): Token to be revoked.
         """
 
-    async def get_by_file_id(self, file_id: str) -> SharedLink:
+    async def get_by_file_id(self, file_id: UUID) -> SharedLink:
         """
         Returns shared link by a given file ID.
 
         Args:
-            file_id (str): File ID.
+            file_id (UUID): File ID.
 
         Raises:
             SharedLink.NotFound: If file/folder with a given path does not exist.

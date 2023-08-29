@@ -15,7 +15,7 @@ pytestmark = [pytest.mark.asyncio]
 class TestAddBookmark:
     async def test(self, user_use_case: UserUseCase):
         # GIVEN
-        user_id, ns_path, file_id  = uuid.uuid4(), "admin", str(uuid.uuid4())
+        user_id, ns_path, file_id  = uuid.uuid4(), "admin", uuid.uuid4()
         bookmark_service = cast(mock.MagicMock, user_use_case.bookmark_service)
         file_service = cast(mock.MagicMock, user_use_case.file_service)
         # WHEN
@@ -85,7 +85,7 @@ class TestListBookmark:
 class TestRemoveBookmark:
     async def test(self, user_use_case: UserUseCase):
         # GIVEN
-        user_id, file_id = uuid.uuid4(), str(uuid.uuid4())
+        user_id, file_id = uuid.uuid4(), uuid.uuid4()
         bookmark_service = cast(mock.MagicMock, user_use_case.bookmark_service)
         # WHEN
         await user_use_case.remove_bookmark(user_id, file_id)

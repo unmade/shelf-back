@@ -36,7 +36,7 @@ def _make_file(ns_path: str, path: AnyPath) -> File:
         id=uuid.uuid4(),
         ns_path=ns_path,
         name=Path(path).name,
-        path=path,
+        path=Path(path),
         size=10,
         mediatype="plain/text",
     )
@@ -60,7 +60,7 @@ class TestTrackFileAction:
                 id=SENTINEL_ID,
                 action=AuditTrail.Action.file_added,
                 user=AuditTrail.User(
-                    id=str(user.id),
+                    id=user.id,
                     username=user.username,
                 ),
                 asset=AuditTrail.File(
@@ -89,7 +89,7 @@ class TestTrackUserAction:
                 id=SENTINEL_ID,
                 action=AuditTrail.Action.trash_emptied,
                 user=AuditTrail.User(
-                    id=str(user.id),
+                    id=user.id,
                     username=user.username,
                 ),
                 created_at=mock.ANY,
@@ -169,7 +169,7 @@ class TestUserSignedIn:
                 id=SENTINEL_ID,
                 action=AuditTrail.Action.user_signed_in,
                 user=AuditTrail.User(
-                    id=str(user.id),
+                    id=user.id,
                     username=user.username,
                 ),
                 created_at=mock.ANY,

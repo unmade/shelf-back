@@ -70,7 +70,7 @@ class FileSchema(BaseModel):
     @classmethod
     def from_entity(cls, file: AnyFile, request: Request) -> Self:
         return cls(
-            id=file.id,  # type: ignore
+            id=file.id,
             name=file.name,
             path=str(file.path),
             size=file.size,
@@ -178,7 +178,7 @@ class DataExif(BaseModel):
 
 
 class GetContentMetadataResponse(BaseModel):
-    file_id: str
+    file_id: UUID
     data: DataExif
 
     @classmethod

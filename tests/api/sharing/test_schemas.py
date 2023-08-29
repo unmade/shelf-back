@@ -17,10 +17,10 @@ if TYPE_CHECKING:
 
 def _make_file(ns_path: str, path: AnyPath, mediatype: str = "plain/text") -> File:
     return File(
-        id=uuid.uuid4(),  # type: ignore
+        id=uuid.uuid4(),
         ns_path=ns_path,
         name=Path(path).name,
-        path=path,  # type: ignore
+        path=Path(path),
         size=10,
         mediatype=mediatype,
     )
@@ -41,7 +41,7 @@ class TestFileMemberAccessLevel:
     ):
         # GIVEN
         member = FileMember(
-            file_id=str(uuid.uuid4()),
+            file_id=uuid.uuid4(),
             actions=actions,
             user=FileMember.User(
                 id=uuid.uuid4(),

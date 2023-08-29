@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 pytestmark = [pytest.mark.asyncio]
 
-_FILE_ID = str(uuid.uuid4())
+_FILE_ID = uuid.uuid4()
 
 
 def _make_file(ns_path: str, path: AnyPath) -> File:
@@ -31,7 +31,7 @@ def _make_file(ns_path: str, path: AnyPath) -> File:
         id=uuid.uuid4(),
         ns_path=ns_path,
         name=Path(path).name,
-        path=path,
+        path=Path(path),
         size=10,
         mediatype="plain/text",
     )
@@ -51,7 +51,7 @@ def _make_file_member(file: File, user: User) -> FileMember:
 def _make_sharing_link() -> SharedLink:
     return SharedLink(
         id=uuid.uuid4(),
-        file_id=str(uuid.uuid4()),
+        file_id=uuid.uuid4(),
         token=uuid.uuid4().hex,
     )
 
@@ -77,7 +77,7 @@ class TestAddMember:
         file, user = _make_file(namespace.path, "f.txt"), _make_user("user")
         file_member = _make_file_member(file, user)
         sharing_use_case.add_member.return_value = file_member
-        payload = {"file_id": file.id, "username": user.username}
+        payload = {"file_id": str(file.id), "username": user.username}
         # WHEN
         client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
@@ -90,7 +90,7 @@ class TestAddMember:
 
     @pytest.mark.parametrize(["error", "expected_error"], [
         (File.ActionNotAllowed(), FileActionNotAllowed()),
-        (File.NotFound(), PathNotFound(path=_FILE_ID)),
+        (File.NotFound(), PathNotFound(path=str(_FILE_ID))),
         (FileMember.AlreadyExists(), FileMemberAlreadyExists()),
         (User.NotFound, UserNotFound()),
     ])
@@ -106,7 +106,7 @@ class TestAddMember:
         ns_path = str(namespace.path)
         file_id, username = _FILE_ID, "user"
         sharing_use_case.add_member.side_effect = error
-        payload = {"file_id": file_id, "username": username}
+        payload = {"file_id": str(file_id), "username": username}
         # WHEN
         client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
@@ -256,7 +256,7 @@ class TestGetSharedLinkFile:
         # WHEN
         response = await client.post(self.url, json=payload)
         # THEN
-        assert response.json()["id"] == file.id
+        assert response.json()["id"] == str(file.id)
         assert response.status_code == 200
         sharing_use_case.get_shared_item.assert_awaited_once_with(payload["token"])
 
@@ -329,7 +329,7 @@ class TestListMembers:
         users = [_make_user("user_a"), _make_user("user_b")]
         members = [_make_file_member(file, user) for user in users]
         sharing_use_case.list_members.return_value = members
-        payload = {"id": file.id}
+        payload = {"id": str(file.id)}
         # WHEN
         client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
@@ -340,7 +340,7 @@ class TestListMembers:
 
     @pytest.mark.parametrize(["error", "expected_error"], [
         (File.ActionNotAllowed(), FileActionNotAllowed()),
-        (File.NotFound(), PathNotFound(path=_FILE_ID)),
+        (File.NotFound(), PathNotFound(path=str(_FILE_ID))),
     ])
     async def test_reraising_app_errors_to_api_errors(
         self,
@@ -353,7 +353,7 @@ class TestListMembers:
         # GIVEN
         file_id = _FILE_ID
         sharing_use_case.list_members.side_effect = error
-        payload = {"id": file_id}
+        payload = {"id": str(file_id)}
         # WHEN
         client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
@@ -373,8 +373,8 @@ class TestRemoveMember:
         sharing_use_case: MagicMock,
     ):
         # GIVEN
-        file_id, member_id = str(uuid.uuid4()), uuid.uuid4()
-        payload = {"file_id": file_id, "member_id": str(member_id)}
+        file_id, member_id = uuid.uuid4(), uuid.uuid4()
+        payload = {"file_id": str(file_id), "member_id": str(member_id)}
         client.mock_namespace(namespace)
         # WHEN
         response = await client.post(self.url, json=payload)
@@ -386,7 +386,7 @@ class TestRemoveMember:
 
     @pytest.mark.parametrize(["error", "expected_error"], [
         (File.ActionNotAllowed(), FileActionNotAllowed()),
-        (File.NotFound(), PathNotFound(path=_FILE_ID)),
+        (File.NotFound(), PathNotFound(path=str(_FILE_ID))),
     ])
     async def test_reraising_app_errors_to_api_errors(
         self,
@@ -398,7 +398,7 @@ class TestRemoveMember:
     ):
         # GIVEN
         file_id, member_id = _FILE_ID, uuid.uuid4()
-        payload = {"file_id": file_id, "member_id": str(member_id)}
+        payload = {"file_id": str(file_id), "member_id": str(member_id)}
         sharing_use_case.remove_member.side_effect = error
         client.mock_namespace(namespace)
         # WHEN
@@ -439,10 +439,10 @@ class TestSetMemberAccessLevel:
         sharing_use_case: MagicMock,
     ):
         # GIVEN
-        file_id, member_id = str(uuid.uuid4()), uuid.uuid4()
+        file_id, member_id = uuid.uuid4(), uuid.uuid4()
         access_level = FileMemberAccessLevel.viewer
         payload = {
-            "file_id": file_id,
+            "file_id": str(file_id),
             "member_id": str(member_id),
             "access_level": access_level,
         }
@@ -460,7 +460,7 @@ class TestSetMemberAccessLevel:
 
     @pytest.mark.parametrize(["error", "expected_error"], [
         (File.ActionNotAllowed(), FileActionNotAllowed()),
-        (File.NotFound(), PathNotFound(path=_FILE_ID)),
+        (File.NotFound(), PathNotFound(path=str(_FILE_ID))),
     ])
     async def test_reraising_app_errors_to_api_errors(
         self,
@@ -474,7 +474,7 @@ class TestSetMemberAccessLevel:
         file_id, member_id = _FILE_ID, uuid.uuid4()
         access_level = FileMemberAccessLevel.viewer
         payload = {
-            "file_id": file_id,
+            "file_id": str(file_id),
             "member_id": str(member_id),
             "access_level": access_level,
         }

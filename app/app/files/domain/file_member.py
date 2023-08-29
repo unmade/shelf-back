@@ -57,7 +57,7 @@ class FileMember(BaseModel):
     AlreadyExists: ClassVar[type[Exception]] = FileMemberAlreadyExists
     NotFound: ClassVar[type[Exception]] = FileMemberNotFound
 
-    file_id: str
+    file_id: UUID
     actions: FileMemberActions
     owner: bool = False
     user: FileMemberUser

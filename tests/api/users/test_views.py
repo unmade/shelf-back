@@ -26,8 +26,8 @@ class TestAddBookmark:
         self, client: TestClient, user_use_case: MagicMock, namespace: Namespace,
     ):
         # GIVEN
-        user_id, file_id = namespace.owner_id, str(uuid.uuid4())
-        payload = {"id": file_id}
+        user_id, file_id = namespace.owner_id, uuid.uuid4()
+        payload = {"id": str(file_id)}
         # WHEN
         client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
@@ -42,8 +42,8 @@ class TestAddBookmark:
         self, client: TestClient, user_use_case: MagicMock, namespace: Namespace,
     ):
         # GIVEN
-        user_id, file_id = namespace.owner_id, str(uuid.uuid4())
-        payload = {"id": file_id}
+        user_id, file_id = namespace.owner_id, uuid.uuid4()
+        payload = {"id": str(file_id)}
         user_use_case.add_bookmark.side_effect = File.NotFound
         # WHEN
         client.mock_namespace(namespace)
@@ -64,8 +64,8 @@ class TestListBookmarks:
     ):
         # GIVEN
         bookmarks = [
-            Bookmark(user_id=str(uuid.uuid4()), file_id=str(uuid.uuid4())),
-            Bookmark(user_id=str(uuid.uuid4()), file_id=str(uuid.uuid4())),
+            Bookmark(user_id=uuid.uuid4(), file_id=uuid.uuid4()),
+            Bookmark(user_id=uuid.uuid4(), file_id=uuid.uuid4()),
         ]
         user_use_case.list_bookmarks.return_value = bookmarks
         # WHEN
@@ -97,8 +97,8 @@ class TestRemoveBookmark:
         self, client: TestClient, user_use_case: MagicMock, user: User,
     ):
         # GIVEN
-        file_id = str(uuid.uuid4())
-        payload = {"id": file_id}
+        file_id = uuid.uuid4()
+        payload = {"id": str(file_id)}
         # WHEN
         client.mock_user(user)
         response = await client.post(self.url, json=payload)

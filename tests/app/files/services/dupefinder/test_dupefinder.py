@@ -88,7 +88,7 @@ class TestTrack:
         dupefinder: DuplicateFinderService,
         image_content: IO[bytes],
     ):
-        file_id = str(uuid.uuid4())
+        file_id = uuid.uuid4()
         dhash.return_value = 0
         await dupefinder.track(file_id, image_content)
         dhash.assert_awaited_once_with(image_content)
@@ -103,7 +103,7 @@ class TestTrack:
         dupefinder: DuplicateFinderService,
         image_content: IO[bytes],
     ):
-        file_id = str(uuid.uuid4())
+        file_id = uuid.uuid4()
         dhash.return_value = None
         await dupefinder.track(file_id, image_content)
         dhash.assert_awaited_once_with(image_content)
@@ -121,7 +121,7 @@ class TestTrackBatch:
         image_content: IO[bytes],
     ):
         # GIVEN
-        file_ids = [str(uuid.uuid4()) for _ in range(3)]
+        file_ids = [uuid.uuid4() for _ in range(3)]
         dhash.side_effect = [123, None, 456]
         # WHEN
         async with dupefinder.track_batch() as tracker:

@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from typing import Annotated, ClassVar
+from typing import ClassVar
 from uuid import UUID
 
 from pydantic import BaseModel, Field
-from pydantic.functional_validators import BeforeValidator
 
 from app.app.files.domain import mediatypes
 from app.toolkit import timezone
@@ -17,12 +16,6 @@ __all__ = ["File", "MountedFile"]
 
 def mtime_factory() -> float:
     return timezone.now().timestamp()
-
-
-def from_uuid(value):
-    if isinstance(value, UUID):
-        return str(value)
-    return value
 
 
 class FileError(Exception):
@@ -82,7 +75,7 @@ class _BaseFile(BaseModel):
     NotADirectory: ClassVar[type[Exception]] = NotADirectory
     ThumbnailUnavailable: ClassVar[type[Exception]] = ThumbnailUnavailable
 
-    id: Annotated[str, BeforeValidator(from_uuid)]
+    id: UUID
     ns_path: str
     name: str
     path: Path

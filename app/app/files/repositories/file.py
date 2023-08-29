@@ -11,8 +11,9 @@ from typing import (
 from app.app.files.domain import File
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from app.app.files.domain import AnyFile, AnyPath
-    from app.typedefs import StrOrUUID
 
 __all__ = ["IFileRepository", "FileUpdate"]
 
@@ -73,24 +74,24 @@ class IFileRepository(Protocol):
         Returns:
             bool: True if file/folder exists, False otherwise.
         """
-    async def exists_with_id(self, ns_path: AnyPath, file_id: StrOrUUID) -> bool:
+    async def exists_with_id(self, ns_path: AnyPath, file_id: UUID) -> bool:
         """
         Checks whether a file or a folder with a given ID exists in a target namespace.
 
         Args:
             ns_path (AnyPath): Target namespace path.
-            file_id (StrOrUUID): File ID.
+            file_id (UUID): File ID.
 
         Returns:
             bool: True if file/folder exists, False otherwise.
         """
 
-    async def get_by_id(self, file_id: str) -> File:
+    async def get_by_id(self, file_id: UUID) -> File:
         """
         Return a file by ID.
 
         Args:
-            file_id (StrOrUUID): File ID.
+            file_id (UUID): File ID.
 
         Raises:
             File.NotFound: If file with a given ID does not exists.
@@ -99,12 +100,12 @@ class IFileRepository(Protocol):
             File: File with a target ID.
         """
 
-    async def get_by_id_batch(self, ids: Iterable[StrOrUUID]) -> list[File]:
+    async def get_by_id_batch(self, ids: Iterable[UUID]) -> list[File]:
         """
         Returns all files with target IDs.
 
         Args:
-            ids (Iterable[StrOrUUID]): Iterable of paths to look for.
+            ids (Iterable[UUID]): Iterable of paths to look for.
 
         Returns:
             List[File]: Files with target IDs.

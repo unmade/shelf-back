@@ -21,7 +21,7 @@ async def add_bookmark(
     try:
         await usecases.user.add_bookmark(
             user_id=namespace.owner_id,
-            file_id=str(payload.id),
+            file_id=payload.id,
             ns_path=namespace.path,
         )
     except File.NotFound as exc:
@@ -45,4 +45,4 @@ async def remove_bookmark(
     usecases: UseCasesDeps,
 ) -> None:
     """Removes a file from user bookmarks."""
-    await usecases.user.remove_bookmark(user.id, str(payload.id))
+    await usecases.user.remove_bookmark(user.id, payload.id)

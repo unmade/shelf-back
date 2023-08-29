@@ -8,13 +8,15 @@ from app.app.files.domain import File, SharedLink
 from app.app.files.repositories import ISharedLinkRepository
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
 
 __all__ = ["SharedLinkRepository"]
 
 
 def _from_db(obj) -> SharedLink:
-    return SharedLink(id=obj.id, file_id=str(obj.file.id), token=obj.token)
+    return SharedLink(id=obj.id, file_id=obj.file.id, token=obj.token)
 
 
 class SharedLinkRepository(ISharedLinkRepository):
@@ -35,7 +37,7 @@ class SharedLinkRepository(ISharedLinkRepository):
 
         await self.conn.query_single(query, token=token)
 
-    async def get_by_file_id(self, file_id: str) -> SharedLink:
+    async def get_by_file_id(self, file_id: UUID) -> SharedLink:
         query = """
             SELECT
                 SharedLink { id, token, file: { id } }

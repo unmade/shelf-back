@@ -3,10 +3,14 @@ from __future__ import annotations
 import mimetypes
 import os.path
 from pathlib import PurePath
-from typing import Any, Callable, Iterator, Self, TypeAlias
+from typing import TYPE_CHECKING, Any, Callable, Iterator, Self, TypeAlias
 
 from pydantic_core import core_schema
-from pydantic_core.core_schema import CoreSchema
+
+if TYPE_CHECKING:
+    from pydantic import GetJsonSchemaHandler
+    from pydantic.json_schema import JsonSchemaValue
+    from pydantic_core.core_schema import CoreSchema
 
 __all__ = ["AnyPath", "Path"]
 
@@ -28,7 +32,14 @@ class Path:
         from_str_schema = core_schema.chain_schema(
             [
                 core_schema.str_schema(),
-                core_schema.no_info_plain_validator_function(cls.validate),
+                core_schema.no_info_plain_validator_function(cls),
+            ]
+        )
+
+        from_pathlib_schema = core_schema.chain_schema(
+            [
+                core_schema.is_instance_schema(PurePath),
+                core_schema.no_info_plain_validator_function(cls),
             ]
         )
 
@@ -36,9 +47,9 @@ class Path:
             json_schema=from_str_schema,
             python_schema=core_schema.union_schema(
                 [
-                    # check if it's an instance first before doing any further work
                     core_schema.is_instance_schema(cls),
                     from_str_schema,
+                    from_pathlib_schema,
                 ]
             ),
             serialization=core_schema.plain_serializer_function_ser_schema(
@@ -46,12 +57,11 @@ class Path:
             ),
         )
 
-
     @classmethod
-    def validate(cls, value) -> Self:
-        if not isinstance(value, (cls, str, PurePath)):
-            raise TypeError("string, pathlib.PurePath or Path required")
-        return cls(value)
+    def __get_pydantic_json_schema__(
+        cls, _core_schema: core_schema.CoreSchema, handler: GetJsonSchemaHandler
+    ) -> JsonSchemaValue:
+        return handler(core_schema.str_schema())
 
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, self.__class__):

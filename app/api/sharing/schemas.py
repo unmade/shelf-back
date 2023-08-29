@@ -47,7 +47,7 @@ class FileMemberPermissions(BaseModel):
 
 class FileMemberSchema(BaseModel):
     id: UUID
-    file_id: str
+    file_id: UUID
     username: str
     display_name: str
     access_level: FileMemberAccessLevel
@@ -69,7 +69,7 @@ class FileMemberSchema(BaseModel):
 
 
 class SharedLinkFileSchema(BaseModel):
-    id: str
+    id: UUID
     name: str
     size: int
     mtime: float
@@ -132,7 +132,7 @@ class ListFileMembersResponse(BaseModel):
 
 
 class RemoveMemberRequest(BaseModel):
-    file_id: str
+    file_id: UUID
     member_id: UUID
 
 
@@ -142,6 +142,6 @@ class RevokeSharedLinkRequest(BaseModel):
 
 
 class SetMemberAccessLevelRequest(BaseModel):
-    file_id: str
+    file_id: UUID
     member_id: UUID
     access_level: Literal[FileMemberAccessLevel.editor, FileMemberAccessLevel.viewer]
