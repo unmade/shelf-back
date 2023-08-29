@@ -8,10 +8,22 @@ import pytest
 from fastapi import Request
 
 from app.api.sharing.schemas import FileMemberAccessLevel, SharedLinkFileSchema
-from app.app.files.domain import File, FileMember
+from app.app.files.domain import File, FileMember, Path
 
 if TYPE_CHECKING:
+    from app.app.files.domain import AnyPath
     from app.app.files.domain.file_member import FileMemberActions
+
+
+def _make_file(ns_path: str, path: AnyPath, mediatype: str = "plain/text") -> File:
+    return File(
+        id=uuid.uuid4(),  # type: ignore
+        ns_path=ns_path,
+        name=Path(path).name,
+        path=path,  # type: ignore
+        size=10,
+        mediatype=mediatype,
+    )
 
 
 class TestFileMemberAccessLevel:
@@ -60,7 +72,7 @@ class TestFileMemberAccessLevel:
 class TestSharedLinkFileSchema:
     def test_make_thumbnail_url_with_image(self):
         # GIVEN
-        file = mock.MagicMock(File, mediatype="image/jpeg")
+        file = _make_file("admin", "im.jpeg", mediatype="image/jpeg")
         token = "shared-link-token"
         request = mock.MagicMock(Request)
         # WHEN
@@ -73,7 +85,7 @@ class TestSharedLinkFileSchema:
 
     def test_make_thumbnail_url_with_arbitrary_file(self):
         # GIVEN
-        file = mock.MagicMock(File, mediatype="plain/text")
+        file = _make_file("admin", "f.txt", mediatype="plain/text")
         token = "shared-link-token"
         request = mock.MagicMock(Request)
         # WHEN

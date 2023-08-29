@@ -48,10 +48,10 @@ def _make_file(
     ns_path: AnyPath, path: AnyPath, size: int = 10, mediatype: str = "plain/text"
 ) -> File:
     return File(
-        id=uuid.uuid4(),
+        id=uuid.uuid4(),  # type: ignore
         ns_path=str(ns_path),
         name=Path(path).name,
-        path=path,
+        path=path,  # type: ignore
         size=size,
         mediatype=mediatype,
     )
@@ -506,7 +506,7 @@ class TestGetBatch:
             for idx in range(2)
         ]
         ns_use_case.file.get_by_id_batch = mock.AsyncMock(return_value=files)
-        payload = {"ids": [file.id for file in files]}
+        payload = {"ids": [str(file.id) for file in files]}
         # WHEN
         client.mock_namespace(namespace)
         response = await client.post("/files/get_batch", json=payload)
@@ -516,8 +516,8 @@ class TestGetBatch:
         )
         assert response.json()["count"] == 2
         assert len(response.json()["items"]) == 2
-        assert response.json()["items"][0]["id"] == files[0].id
-        assert response.json()["items"][1]["id"] == files[1].id
+        assert response.json()["items"][0]["id"] == str(files[0].id)
+        assert response.json()["items"][1]["id"] == str(files[1].id)
         assert response.status_code == 200
 
 

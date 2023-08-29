@@ -34,7 +34,7 @@ def _resolve_file(file: AnyFile, mount_point: MountPoint | None) -> AnyFile:
     relpath = str(file.path)[len(str(mount_point.source.path)) + 1:]
     path = mount_point.display_path / relpath
 
-    return MountedFile(
+    return MountedFile.model_construct(  # replace with regular init
         id=file.id,
         ns_path=mount_point.folder.ns_path,
         name=path.name,

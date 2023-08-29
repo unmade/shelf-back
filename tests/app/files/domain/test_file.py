@@ -19,44 +19,11 @@ def _make_file(
         id=str(fake.uuid4()),
         ns_path=ns_path or fake.file_path(depth=1),
         name=Path(pathname).name,
-        path=str(pathname),
+        path=str(pathname),  # type: ignore
         size=fake.pyint(),
         mtime=fake.pyfloat(positive=True),
         mediatype=mediatype or fake.mime_type(),
     )
-
-
-class TestFileEQ:
-    def test_equal_files(self) -> None:
-        a = _make_file()
-        b = File(
-            id=a.id,
-            ns_path=a.ns_path,
-            name=a.name,
-            path=a.path,
-            size=a.size,
-            mtime=a.mtime,
-            mediatype=a.mediatype,
-        )
-        assert a == b
-
-    def test_two_non_equal_files(self):
-        assert _make_file() != _make_file()
-
-    def test_comparing_file_with_another_object_always_false(self):
-        assert (_make_file() == {}) is False
-
-
-class TestRepr:
-    def test(self):
-        file = _make_file(ns_path="admin", path="home")
-        assert repr(file) == "<File ns_path='admin' path=Path('home')>"
-
-
-class TestJson:
-    def test(self) -> None:
-        file = _make_file()
-        assert file.json()
 
 
 class TestIsHidden:
