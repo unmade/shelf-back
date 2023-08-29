@@ -29,10 +29,11 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 def _make_file(
     ns_path: str, path: AnyPath, size: int = 10, mediatype: str = "plain/text"
 ) -> File:
+    path = Path(path)
     return File(
         id=uuid.uuid4(),
         ns_path=ns_path,
-        name=Path(path).name,
+        name=path.name,
         path=path,
         size=size,
         mediatype=mediatype,
@@ -327,7 +328,7 @@ class TestEmptyFolder:
 class TestExistsWithID:
     async def test(self, filecore: FileCoreService):
         # GIVEN
-        ns_path, file_id = "admin", str(uuid.uuid4())
+        ns_path, file_id = "admin", uuid.uuid4()
         # WHEN
         with mock.patch.object(filecore, "db", autospec=filecore.db) as db:
             result = await filecore.exists_with_id(ns_path, file_id)
@@ -409,7 +410,7 @@ class TestGetAvailablePath:
 class TestGetById:
     async def test(self, filecore: FileCoreService):
         # GIVEN
-        file_id = str(uuid.uuid4())
+        file_id = uuid.uuid4()
         # WHEN
         with mock.patch.object(filecore, "db", autospec=filecore.db) as db:
             result = await filecore.get_by_id(file_id)
@@ -421,7 +422,7 @@ class TestGetById:
 class TestGetByIDBatch:
     async def test(self, filecore: FileCoreService):
         # GIVEN
-        ids = [str(uuid.uuid4()), str(uuid.uuid4())]
+        ids = [uuid.uuid4(), uuid.uuid4()]
         # WHEN
         with mock.patch.object(filecore, "db", autospec=filecore.db) as db:
             result = await filecore.get_by_id_batch(ids=ids)

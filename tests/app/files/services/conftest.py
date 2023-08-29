@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     from app.typedefs import StrOrUUID
 
     class BookmarkFactory(Protocol):
-        async def __call__(self, user_id: StrOrUUID, file_id: StrOrUUID) -> None: ...
+        async def __call__(self, user_id: StrOrUUID, file_id: UUID) -> None: ...
 
     class FileFactory(Protocol):
         async def __call__(
@@ -129,8 +129,8 @@ def _hashed_password():
 def bookmark_factory(edgedb_database: EdgeDBDatabase):
     """A factory to bookmark a file by ID for a given user ID."""
     bookmark_service = BookmarkService(edgedb_database)
-    async def factory(user_id: StrOrUUID, file_id: StrOrUUID) -> None:
-        await bookmark_service.add_bookmark(user_id, str(file_id))
+    async def factory(user_id: UUID, file_id: UUID) -> None:
+        await bookmark_service.add_bookmark(user_id, file_id)
     return factory
 
 

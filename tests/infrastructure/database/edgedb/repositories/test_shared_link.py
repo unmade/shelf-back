@@ -34,7 +34,7 @@ async def _get_by_token(token: str) -> SharedLink:
         FILTER .token = <str>$token
     """
     obj = await db_context.get().query_required_single(query, token=token)
-    return SharedLink(id=obj.id, file_id=str(obj.file.id), token=obj.token)
+    return SharedLink(id=obj.id, file_id=obj.file.id, token=obj.token)
 
 
 class TestDelete:
@@ -55,7 +55,7 @@ class TestGetByFileID:
     async def test_when_link_does_not_exist(
         self, shared_link_repo: SharedLinkRepository
     ):
-        file_id = str(uuid.uuid4())
+        file_id = uuid.uuid4()
         with pytest.raises(SharedLink.NotFound):
             await shared_link_repo.get_by_file_id(file_id)
 
@@ -92,7 +92,7 @@ class TestSave:
     async def test_when_file_does_not_exist(
         self, shared_link_repo: SharedLinkRepository,
     ):
-        file_id = str(uuid.uuid4())
+        file_id = uuid.uuid4()
         link = SharedLink(id=SENTINEL_ID, file_id=file_id, token="secret")
         with pytest.raises(File.NotFound):
             await shared_link_repo.save(link)

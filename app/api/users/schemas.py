@@ -8,4 +8,4 @@ class IDRequest(BaseModel):
 
 
 class ListBookmarksResponse(BaseModel):
-    items: list[str]
+    items: list[UUID]

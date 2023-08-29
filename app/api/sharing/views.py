@@ -36,14 +36,14 @@ async def add_member(
     usecases: UseCasesDeps,
 ) -> FileMemberSchema:
     """Add a new file member."""
-    file_id, username = str(payload.file_id), payload.username
+    file_id, username = payload.file_id, payload.username
 
     try:
         member = await usecases.sharing.add_member(namespace.path, file_id, username)
     except File.ActionNotAllowed as exc:
         raise FileActionNotAllowed() from exc
     except File.NotFound as exc:
-        raise PathNotFound(path=file_id) from exc
+        raise PathNotFound(path=str(file_id)) from exc
     except FileMember.AlreadyExists as exc:
         raise FileMemberAlreadyExists() from exc
     except User.NotFound as exc:
@@ -149,7 +149,7 @@ async def list_members(
 ) -> ListFileMembersResponse:
     """List item members at a given path."""
     try:
-        members = await usecases.sharing.list_members(namespace.path, str(payload.id))
+        members = await usecases.sharing.list_members(namespace.path, payload.id)
     except File.ActionNotAllowed as exc:
         raise FileActionNotAllowed() from exc
     except File.NotFound as exc:
@@ -170,7 +170,7 @@ async def remove_member(
     usecases: UseCasesDeps,
 ) -> None:
     """Remove a file member."""
-    file_id, member_id = str(payload.file_id), payload.member_id
+    file_id, member_id = payload.file_id, payload.member_id
     try:
         await usecases.sharing.remove_member(namespace.path, file_id, member_id)
     except File.ActionNotAllowed as exc:

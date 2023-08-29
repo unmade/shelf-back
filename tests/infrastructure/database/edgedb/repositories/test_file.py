@@ -6,15 +6,16 @@ from typing import TYPE_CHECKING, cast
 
 import pytest
 
-from app.app.files.domain import File
+from app.app.files.domain import File, Path
 from app.app.files.repositories.file import FileUpdate
 from app.app.infrastructure.database import SENTINEL_ID
 from app.infrastructure.database.edgedb.db import db_context
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from app.app.files.domain import AnyPath, Namespace
     from app.infrastructure.database.edgedb.repositories import FileRepository
-    from app.typedefs import StrOrUUID
     from tests.infrastructure.database.edgedb.conftest import (
         FileFactory,
         FolderFactory,
@@ -26,7 +27,7 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
 
-async def _exists_with_id(file_id: StrOrUUID) -> bool:
+async def _exists_with_id(file_id: UUID) -> bool:
     query = """SELECT EXISTS(SELECT File FILTER .id = <uuid>$file_id)"""
     return cast(
         bool,
@@ -34,7 +35,7 @@ async def _exists_with_id(file_id: StrOrUUID) -> bool:
     )
 
 
-async def _get_by_id(file_id: StrOrUUID) -> File:
+async def _get_by_id(file_id: UUID) -> File:
     query = """
         SELECT
             File {
@@ -165,7 +166,7 @@ class TestGetById:
         assert result == file
 
     async def test_when_file_does_not_exist(self, file_repo: FileRepository):
-        file_id = str(uuid.uuid4())
+        file_id = uuid.uuid4()
         with pytest.raises(File.NotFound):
             await file_repo.get_by_id(file_id)
 
@@ -182,7 +183,7 @@ class TestGetByIdBatch:
     async def test_when_some_file_does_not_exist(
         self, file_repo: FileRepository, file: File,
     ):
-        ids = [file.id, str(uuid.uuid4())]
+        ids = [file.id, uuid.uuid4()]
         result = await file_repo.get_by_id_batch(ids)
         assert result == [file]
 
@@ -446,7 +447,7 @@ class TestSave:
                 id=SENTINEL_ID,
                 name="f.txt",
                 ns_path=namespace.path,
-                path="folder/f.txt",
+                path=Path("folder/f.txt"),
                 size=10,
                 mtime=12.34,
                 mediatype="plain/text",
@@ -480,7 +481,7 @@ class TestSaveBatch:
                 id=SENTINEL_ID,
                 name="folder",
                 ns_path=namespace.path,
-                path="folder",
+                path=Path("folder"),
                 size=10,
                 mtime=12.34,
                 mediatype="application/directory",
@@ -489,7 +490,7 @@ class TestSaveBatch:
                 id=SENTINEL_ID,
                 name="f.txt",
                 ns_path=namespace.path,
-                path="folder/f.txt",
+                path=Path("folder/f.txt"),
                 size=10,
                 mtime=12.35,
                 mediatype="plain/text",

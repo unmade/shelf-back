@@ -26,10 +26,11 @@ pytestmark = [pytest.mark.asyncio]
 def _make_file(
     ns_path: str, path: AnyPath, size: int = 10, mediatype: str = "plain/text"
 ) -> File:
+    path = Path(path)
     return File(
         id=uuid.uuid4(),
         ns_path=ns_path,
-        name=Path(path).name,
+        name=path.name,
         path=path,
         size=size,
         mediatype=mediatype,
@@ -166,7 +167,7 @@ class TestGetSharedItem:
 class TestListMember:
     async def test(self, sharing_use_case: SharingUseCase):
         # GIVEN
-        ns_path, file_id = "admin", str(uuid.uuid4())
+        ns_path, file_id = "admin", uuid.uuid4()
         file_service = cast(mock.MagicMock, sharing_use_case.file)
         file_member_service = cast(mock.MagicMock, sharing_use_case.file_member)
         ns_service = cast(mock.MagicMock, sharing_use_case.namespace)

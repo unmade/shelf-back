@@ -28,13 +28,13 @@ class AssetType(str, enum.Enum):
 
 
 class AuditTrailUser(BaseModel):
-    id: str
+    id: UUID
     username: str
 
 
 class AuditTrailFile(BaseModel):
     type: Literal[AssetType.file] = AssetType.file
-    id: str
+    id: UUID
     name: str
     path: str
 

@@ -45,7 +45,6 @@ if TYPE_CHECKING:
         IUserRepository,
     )
     from app.infrastructure.database.edgedb import EdgeDBDatabase
-    from app.typedefs import StrOrUUID
 
     class FileFactory(Protocol):
         async def __call__(
@@ -57,10 +56,10 @@ if TYPE_CHECKING:
             ...
 
     class FileMemberFactory(Protocol):
-        async def __call__(self, file_id: str, user_id: UUID) -> FileMember: ...
+        async def __call__(self, file_id: UUID, user_id: UUID) -> FileMember: ...
 
     class FingerprintFactory(Protocol):
-        async def __call__(self, file_id: str, value: int) -> Fingerprint: ...
+        async def __call__(self, file_id: UUID, value: int) -> Fingerprint: ...
 
     class FolderFactory(Protocol):
         async def __call__(self, ns_path: str, path: AnyPath | None = None) -> File:
@@ -69,18 +68,18 @@ if TYPE_CHECKING:
     class MountFactory(Protocol):
         async def __call__(
             self,
-            source_file_id: StrOrUUID,
-            target_folder_id: StrOrUUID,
+            source_file_id: UUID,
+            target_folder_id: UUID,
             display_name: str,
         ) -> MountPoint:
             ...
 
     class NamespaceFactory(Protocol):
-        async def __call__(self, path: AnyPath, owner_id: StrOrUUID) -> Namespace:
+        async def __call__(self, path: AnyPath, owner_id: UUID) -> Namespace:
             ...
 
     class SharedLinkFactory(Protocol):
-        async def __call__(self, file_id: str) -> SharedLink:
+        async def __call__(self, file_id: UUID) -> SharedLink:
             ...
 
     class UserFactory(Protocol):
@@ -171,7 +170,7 @@ def file_factory(file_repo: IFileRepository) -> FileFactory:
                 id=SENTINEL_ID,
                 ns_path=ns_path,
                 name=Path(path).name,
-                path=path,
+                path=Path(path),
                 size=10,
                 mediatype=mediatype,
             )
@@ -181,7 +180,7 @@ def file_factory(file_repo: IFileRepository) -> FileFactory:
 
 @pytest.fixture
 def file_member_factory(file_member_repo: IFileMemberRepository) -> FileMemberFactory:
-    async def factory(file_id: str, user_id: UUID) -> FileMember:
+    async def factory(file_id: UUID, user_id: UUID) -> FileMember:
         return await file_member_repo.save(
             FileMember(
                 file_id=file_id,
@@ -197,7 +196,7 @@ def file_member_factory(file_member_repo: IFileMemberRepository) -> FileMemberFa
 
 @pytest.fixture
 def fingerprint_factory(fingerprint_repo: IFingerprintRepository) -> FingerprintFactory:
-    async def factory(file_id: str, value: int):
+    async def factory(file_id: UUID, value: int):
         return await fingerprint_repo.save(
             Fingerprint(file_id, value=value)
         )
@@ -214,7 +213,7 @@ def folder_factory(file_repo: IFileRepository) -> FolderFactory:
                 id=SENTINEL_ID,
                 ns_path=ns_path,
                 name=Path(path).name,
-                path=path,
+                path=Path(path),
                 size=0,
                 mediatype=mediatypes.FOLDER,
             )
@@ -225,7 +224,7 @@ def folder_factory(file_repo: IFileRepository) -> FolderFactory:
 @pytest.fixture
 def namespace_factory(namespace_repo: INamespaceRepository):
     """A factory to persist Namespace to the EdgeDB."""
-    async def factory(path: AnyPath, owner_id: StrOrUUID):
+    async def factory(path: AnyPath, owner_id: UUID):
         return await namespace_repo.save(
             Namespace(
                 id=SENTINEL_ID,
@@ -239,9 +238,7 @@ def namespace_factory(namespace_repo: INamespaceRepository):
 @pytest.fixture
 def mount_factory(mount_repo: IMountRepository) -> MountFactory:
     """A factory to mount file/folder into another folder."""
-    async def factory(
-        source_file_id: StrOrUUID, target_folder_id: StrOrUUID, display_name: str
-    ):
+    async def factory(source_file_id: UUID, target_folder_id: UUID, display_name: str):
         query = """
             WITH
                 source := (SELECT File FILTER .id = <uuid>$source_file_id),
@@ -373,5 +370,5 @@ async def user(user_a: User):
 
 @pytest.fixture
 async def bookmark(bookmark_repo: IBookmarkRepository, file: File, user: User):
-    bookmark = Bookmark(user_id=str(user.id), file_id=file.id)
+    bookmark = Bookmark(user_id=user.id, file_id=file.id)
     return await bookmark_repo.save(bookmark)

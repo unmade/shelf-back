@@ -19,7 +19,7 @@ pytestmark = [pytest.mark.asyncio]
 class TestGetByFileID:
     async def test(self, metadata_service: MetadataService):
         # GIVEN
-        file_id = str(uuid.uuid4())
+        file_id = uuid.uuid4()
         db = cast(mock.MagicMock, metadata_service.db)
         # WHEN
         result = await metadata_service.get_by_file_id(file_id)
@@ -37,7 +37,7 @@ class TestTrack:
         image_content: IO[bytes],
     ):
         # GIVEN
-        file_id = str(uuid.uuid4())
+        file_id = uuid.uuid4()
         db = cast(mock.MagicMock, metadata_service.db)
         load_metadata.return_value = Exif(width=1280, height=800)
         # WHEN
@@ -55,7 +55,7 @@ class TestTrack:
         image_content: IO[bytes],
     ):
         # GIVEN
-        file_id = str(uuid.uuid4())
+        file_id = uuid.uuid4()
         db = cast(mock.MagicMock, metadata_service.db)
         load_metadata.return_value = None
         # WHEN
@@ -74,7 +74,7 @@ class TestTrackBatch:
         image_content: IO[bytes],
     ):
         # GIVEN
-        file_ids = [str(uuid.uuid4()) for _ in range(3)]
+        file_ids = [uuid.uuid4() for _ in range(3)]
         db = cast(mock.MagicMock, metadata_service.db)
         load_metadata.side_effect = [
             Exif(width=1280, height=800),

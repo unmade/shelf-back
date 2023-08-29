@@ -7,6 +7,8 @@ from app.app.files.domain import SharedLink
 from app.app.infrastructure.database import SENTINEL_ID
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from app.app.files.repositories import ISharedLinkRepository
 
     class IServiceDatabase(Protocol):
@@ -21,19 +23,13 @@ class SharingService:
     def __init__(self, database: IServiceDatabase):
         self.db = database
 
-    async def create_link(self, file_id: str) -> SharedLink:
+    async def create_link(self, file_id: UUID) -> SharedLink:
         """
         Creates a shared link for a file at a given path. If the link already exists,
         then existing link will be returned.
 
-        Args:
-            file_id (str): Target file ID to share.
-
         Raises:
             File.NotFound: If file/folder with a given path does not exist.
-
-        Returns:
-            SharedLink: A shared link.
         """
         link = SharedLink(
             id=SENTINEL_ID,
@@ -42,12 +38,12 @@ class SharingService:
         )
         return await self.db.shared_link.save(link)
 
-    async def get_link_by_file_id(self, file_id: str) -> SharedLink:
+    async def get_link_by_file_id(self, file_id: UUID) -> SharedLink:
         """
         Returns shared link by a given file ID.
 
         Args:
-            file_id (str): File ID.
+            file_id (UUID): File ID.
 
         Raises:
             SharedLink.NotFound: If file/folder with a given path does not exist.

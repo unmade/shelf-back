@@ -9,6 +9,8 @@ from app.app.files.domain import Fingerprint
 from . import dhash
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from app.app.files.domain import AnyPath
     from app.app.files.repositories import IFingerprintRepository
     from app.app.files.repositories.fingerprint import MatchResult
@@ -90,12 +92,12 @@ class DuplicateFinderService:
         )
         return self._group(intersection, max_distance=max_distance)
 
-    async def track(self, file_id: str, content: IO[bytes]) -> None:
+    async def track(self, file_id: UUID, content: IO[bytes]) -> None:
         """
         Tracks fingerprints for a given file content.
 
         Args:
-            file_id (str): File ID.
+            file_id (UUID): File ID.
             content (IO[bytes]): File Content.
 
         Raises:
@@ -129,7 +131,7 @@ class _Tracker:
     def items(self) -> list[Fingerprint]:
         return self._items
 
-    async def add(self, file_id: str, content: IO[bytes]) -> None:
+    async def add(self, file_id: UUID, content: IO[bytes]) -> None:
         value = await dhash.dhash(content)
         if value is None:
             return

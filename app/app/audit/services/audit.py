@@ -29,7 +29,7 @@ class AuditTrailService:
                 id=SENTINEL_ID,
                 action=action,
                 user=AuditTrail.User(
-                    id=str(ctx.user.id),
+                    id=ctx.user.id,
                     username=ctx.user.username,
                 ),
                 asset=AuditTrail.File(
@@ -47,7 +47,7 @@ class AuditTrailService:
                 id=SENTINEL_ID,
                 action=action,
                 user=AuditTrail.User(
-                    id=str(ctx.user.id),
+                    id=ctx.user.id,
                     username=ctx.user.username,
                 ),
             )
@@ -74,7 +74,7 @@ class AuditTrailService:
                 id=SENTINEL_ID,
                 action=AuditTrail.Action.user_signed_in,
                 user=AuditTrail.User(
-                    id=str(user.id),
+                    id=user.id,
                     username=user.username,
                 ),
             )

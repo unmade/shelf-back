@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
 
-async def _get(file_id: str, user_id: UUID) -> FileMember:
+async def _get(file_id: UUID, user_id: UUID) -> FileMember:
     query = """
         SELECT
             FileMember {
@@ -45,7 +45,7 @@ async def _get(file_id: str, user_id: UUID) -> FileMember:
         user_id=user_id,
     )
     return FileMember(
-        file_id=str(obj.file.id),
+        file_id=obj.file.id,
         actions=ActionFlag.load(obj.actions),
         user=FileMember.User(
             id=obj.user.id,
@@ -54,7 +54,7 @@ async def _get(file_id: str, user_id: UUID) -> FileMember:
     )
 
 
-async def _list_members(file_id: str):
+async def _list_members(file_id: UUID):
     query = """
         SELECT
             FileMember {
@@ -68,7 +68,7 @@ async def _list_members(file_id: str):
     objs = await db_context.get().query(query, file_id=file_id)
     return [
         FileMember(
-            file_id=str(obj.file.id),
+            file_id=obj.file.id,
             actions=ActionFlag.load(obj.actions),
             user=FileMember.User(
                 id=obj.user.id,
@@ -125,7 +125,7 @@ class TestGet:
         file_member_repo: FileMemberRepository,
     ):
         # GIVEN
-        file_id, user_id = str(uuid.uuid4()), uuid.uuid4()
+        file_id, user_id = uuid.uuid4(), uuid.uuid4()
         # WHEN
         with pytest.raises(FileMember.NotFound):
             await file_member_repo.get(file_id, user_id)
@@ -166,7 +166,7 @@ class TestListAll:
         self,
         file_member_repo: FileMemberRepository,
     ):
-        file_id = str(uuid.uuid4())
+        file_id = uuid.uuid4()
         result = await file_member_repo.list_all(file_id)
         assert result == []
 
@@ -213,7 +213,7 @@ class TestSave:
     ):
         # GIVEN
         member = FileMember(
-            file_id=str(uuid.uuid4()),
+            file_id=uuid.uuid4(),
             actions=FileMember.EDITOR,
             user=FileMember.User(
                 id=user.id,
@@ -264,7 +264,7 @@ class TestUpdate:
         file_member_repo: FileMemberRepository,
     ):
         # GIVEN
-        file_id, user_id = str(uuid.uuid4()), uuid.uuid4()
+        file_id, user_id = uuid.uuid4(), uuid.uuid4()
         member = FileMember(
             file_id=file_id,
             actions=FileMember.EDITOR,

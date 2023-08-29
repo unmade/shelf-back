@@ -21,7 +21,7 @@ def _make_file(ns_path: str, path: AnyPath, mediatype: str = "plain/text") -> Fi
         id=uuid.uuid4(),
         ns_path=ns_path,
         name=Path(path).name,
-        path=path,
+        path=Path(path),
         size=10,
         mediatype=mediatype,
     )

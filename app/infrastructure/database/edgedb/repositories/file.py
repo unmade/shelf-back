@@ -7,6 +7,7 @@ from typing import (
     cast,
     get_type_hints,
 )
+from uuid import UUID
 
 import edgedb
 
@@ -181,7 +182,7 @@ class FileRepository(IFileRepository):
         )
         return cast(bool, exists)
 
-    async def exists_with_id(self, ns_path: AnyPath, file_id: StrOrUUID) -> bool:
+    async def exists_with_id(self, ns_path: AnyPath, file_id: UUID) -> bool:
         query = """
             SELECT EXISTS (
                 SELECT
@@ -198,7 +199,7 @@ class FileRepository(IFileRepository):
         )
         return cast(bool, exists)
 
-    async def get_by_id(self, file_id: str) -> File:
+    async def get_by_id(self, file_id: UUID) -> File:
         query = """
             SELECT
                 File {

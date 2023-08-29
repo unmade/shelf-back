@@ -20,10 +20,11 @@ pytestmark = [pytest.mark.asyncio]
 def _make_file(
     ns_path: str, path: AnyPath, size: int = 10, mediatype: str = "plain/text"
 ) -> File:
+    path = Path(path)
     return File(
         id=uuid.uuid4(),
         ns_path=ns_path,
-        name=Path(path).name,
+        name=path.name,
         path=path,
         size=size,
         mediatype=mediatype,
@@ -98,7 +99,7 @@ class TestAdd:
 class TestGet:
     async def test(self, file_member_service: FileMemberService):
         # GIVEN
-        file_id, user_id = str(uuid.uuid4()), uuid.uuid4()
+        file_id, user_id = uuid.uuid4(), uuid.uuid4()
         db = cast(mock.MagicMock, file_member_service.db)
         # WHEN
         result = await file_member_service.get(file_id, user_id)
@@ -134,7 +135,7 @@ class TestListAll:
 class TestRemove:
     async def test(self, file_member_service: FileMemberService):
         # GIVEN
-        file_id, user_id = str(uuid.uuid4()), uuid.uuid4()
+        file_id, user_id = uuid.uuid4(), uuid.uuid4()
         db = cast(mock.MagicMock, file_member_service.db)
         # WHEN
         await file_member_service.remove(file_id, user_id)
@@ -145,7 +146,7 @@ class TestRemove:
 class TestSetActions:
     async def test(self, file_member_service: FileMemberService):
         # GIVEN
-        file_id, user_id = str(uuid.uuid4()), uuid.uuid4()
+        file_id, user_id = uuid.uuid4(), uuid.uuid4()
         actions = FileMember.VIEWER
         db = cast(mock.MagicMock, file_member_service.db)
         # WHEN

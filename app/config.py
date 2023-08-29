@@ -41,7 +41,7 @@ def _as_absolute_path(value: str) -> str | None:
 
 def _parse_bytes_size(value):
     if not isinstance(value, str):
-        return value  # noqa: RET504
+        return value
 
     value = value.strip().lower()
     if value.isnumeric():
@@ -55,7 +55,7 @@ def _parse_bytes_size(value):
 
 def _parse_timedelta_from_str(value):
     if not isinstance(value, str):
-        return value  # noqa: RET504
+        return value
 
     msg = 'string in a valid format required (e.g. "1d6h30m15s", "2h30m", "15m")'
     value = value.strip().lower()

@@ -13,16 +13,17 @@ from app.infrastructure.database.edgedb.repositories.fingerprint import (
 )
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from app.app.files.domain import Namespace
     from app.infrastructure.database.edgedb.repositories import FingerprintRepository
-    from app.typedefs import StrOrUUID
 
     from ..conftest import FileFactory, FingerprintFactory
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
 
-async def _get_by_file_id(file_id: StrOrUUID):
+async def _get_by_file_id(file_id: UUID):
     return await db_context.get().query_required_single("""
         SELECT Fingerprint { part1, part2, part3, part4 }
         FILTER .file.id = <uuid>$file_id

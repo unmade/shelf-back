@@ -47,10 +47,11 @@ class TestGetByPath:
 class TestGetSpaceUsedByOwnerID:
     @staticmethod
     def make_folder(ns_path: str, path: AnyPath, size: int) -> File:
+        path = Path(path)
         return File(
             id=SENTINEL_ID,
             ns_path=ns_path,
-            name=Path(path).name,
+            name=path.name,
             path=path,
             size=size,
             mediatype=mediatypes.FOLDER,

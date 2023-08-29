@@ -38,7 +38,9 @@ class SharingUseCase:
         self.sharing = sharing
         self.user = user
 
-    async def add_member(self, ns_path: str, file_id: str, username: str) -> FileMember:
+    async def add_member(
+        self, ns_path: str, file_id: UUID, username: str
+    ) -> FileMember:
         """
         Adds a user with a given username to a file members.
 
@@ -78,7 +80,7 @@ class SharingUseCase:
             await self.file.thumbnail(link.file_id, size=size)
         )
 
-    async def list_members(self, ns_path: str, file_id: str) -> list[FileMember]:
+    async def list_members(self, ns_path: str, file_id: UUID) -> list[FileMember]:
         """
         Lists all file members including file owner for a given file.
 
@@ -106,7 +108,7 @@ class SharingUseCase:
         link = await self.sharing.get_link_by_token(token)
         return await self.file.filecore.get_by_id(link.file_id)
 
-    async def remove_member(self, ns_path: str, file_id: str, user_id: UUID) -> None:
+    async def remove_member(self, ns_path: str, file_id: UUID, user_id: UUID) -> None:
         """
         Removes given file member from a file.
 
@@ -125,7 +127,7 @@ class SharingUseCase:
         await self.sharing.revoke_link(token)
 
     async def set_member_actions(
-        self, ns_path: str, file_id: str, user_id: UUID, actions: FileMemberActions
+        self, ns_path: str, file_id: UUID, user_id: UUID, actions: FileMemberActions
     ) -> None:
         """
         Set available actions for a file member of a file.

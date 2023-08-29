@@ -18,12 +18,12 @@ if TYPE_CHECKING:
         Protocol,
         Sequence,
     )
+    from uuid import UUID
 
     from app.app.files.domain import AnyFile, AnyPath
     from app.app.files.repositories import IFileRepository
     from app.app.infrastructure import IDatabase
     from app.app.infrastructure.storage import ContentReader, IStorage
-    from app.typedefs import StrOrUUID
 
     class IServiceDatabase(IDatabase, Protocol):
         file: IFileRepository
@@ -75,7 +75,7 @@ class FileCoreService:
         async for _ in self.db.atomic(attempts=10):
             file = await self.db.file.save(
                 File(
-                    id=SENTINEL_ID,  # type: ignore
+                    id=SENTINEL_ID,
                     ns_path=str(ns_path),
                     name=next_path.name,
                     path=next_path,
@@ -114,7 +114,7 @@ class FileCoreService:
         await self.db.file.save_batch(
             [
                 File(
-                    id=SENTINEL_ID,  # type: ignore
+                    id=SENTINEL_ID,
                     ns_path=str(ns_path),
                     name=p.name,
                     path=p,
@@ -147,14 +147,14 @@ class FileCoreService:
 
         return file
 
-    async def download(self, file_id: StrOrUUID) -> tuple[File, ContentReader]:
+    async def download(self, file_id: UUID) -> tuple[File, ContentReader]:
         """
         Downloads a file or a folder at a given path.
 
         Raises:
             File.NotFound: If a file at a target path does not exists.
         """
-        file = await self.get_by_id(str(file_id))
+        file = await self.get_by_id(file_id)
         if file.is_folder():
             download_func = self.storage.downloaddir
         else:
@@ -178,7 +178,7 @@ class FileCoreService:
             await self.db.file.incr_size_batch(ns_path, paths, value=-file.size)
         await self.storage.emptydir(ns_path, path)
 
-    async def exists_with_id(self, ns_path: AnyPath, file_id: StrOrUUID) -> bool:
+    async def exists_with_id(self, ns_path: AnyPath, file_id: UUID) -> bool:
         """Returns True if file exists with a given ID, False otherwise"""
         return await self.db.file.exists_with_id(ns_path, file_id)
 
@@ -202,7 +202,7 @@ class FileCoreService:
         count = await self.db.file.count_by_path_pattern(ns_path, pattern)
         return path.with_stem(f"{path.stem} ({count + 1})")
 
-    async def get_by_id(self, file_id: str) -> File:
+    async def get_by_id(self, file_id: UUID) -> File:
         """
         Return a file by ID.
 
@@ -211,7 +211,7 @@ class FileCoreService:
         """
         return await self.db.file.get_by_id(file_id)
 
-    async def get_by_id_batch(self, ids: Iterable[StrOrUUID]) -> list[File]:
+    async def get_by_id_batch(self, ids: Iterable[UUID]) -> list[File]:
         """Returns all files with target IDs."""
         return await self.db.file.get_by_id_batch(ids)
 
@@ -377,7 +377,7 @@ class FileCoreService:
                     mediatype = mediatypes.guess_unsafe(file.name)
 
                 missing[Path(file.path)] = File(
-                    id=SENTINEL_ID,  # type: ignore
+                    id=SENTINEL_ID,
                     ns_path=ns_path,
                     name=file.name,
                     path=file.path,  # type: ignore

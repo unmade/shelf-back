@@ -16,5 +16,5 @@ class SharedLink(BaseModel):
     NotFound: ClassVar[type[Exception]] = SharedLinkNotFound
 
     id: UUID
-    file_id: str
+    file_id: UUID
     token: str

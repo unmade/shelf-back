@@ -9,6 +9,8 @@ from app.app.files.repositories import IContentMetadataRepository
 from app.toolkit import json_
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
 
 __all__ = ["ContentMetadataRepository"]
@@ -16,7 +18,7 @@ __all__ = ["ContentMetadataRepository"]
 
 def _from_db(obj) -> ContentMetadata:
     return ContentMetadata(
-        file_id=str(obj.file.id),
+        file_id=obj.file.id,
         data=json_.loads(obj.data),
     )
 
@@ -29,7 +31,7 @@ class ContentMetadataRepository(IContentMetadataRepository):
     def conn(self) -> EdgeDBAnyConn:
         return self.db_context.get()
 
-    async def get_by_file_id(self, file_id: str) -> ContentMetadata:
+    async def get_by_file_id(self, file_id: UUID) -> ContentMetadata:
         query = """
             SELECT
                 FileMetadata { data, file: { id } }

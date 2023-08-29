@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import ClassVar, Literal
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -30,5 +31,5 @@ class Exif(BaseModel):
 class ContentMetadata(BaseModel):
     NotFound: ClassVar[type[Exception]] = ContentMetadataNotFound
 
-    file_id: str
+    file_id: UUID
     data: Exif

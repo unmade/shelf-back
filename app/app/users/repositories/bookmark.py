@@ -3,8 +3,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from app.app.users.domain import Bookmark
-    from app.typedefs import StrOrUUID
 
 
 class IBookmarkRepository(Protocol):
@@ -19,12 +20,12 @@ class IBookmarkRepository(Protocol):
             Bookmark.NotFound: If bookmark does not exist.
         """
 
-    async def list_all(self, user_id: StrOrUUID) -> list[Bookmark]:
+    async def list_all(self, user_id: UUID) -> list[Bookmark]:
         """
         Lists all bookmarks for a given user ID.
 
         Args:
-            user_id (StrOrUUID): User ID to list bookmarks for.
+            user_id (UUID): User ID to list bookmarks for.
 
         Raises:
             User.NotFound: If a user associated with a bookmark does not exist.

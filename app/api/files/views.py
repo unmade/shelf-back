@@ -287,7 +287,7 @@ async def get_thumbnail(
     """Get thumbnail for an image file."""
     try:
         file, thumbnail = await usecases.namespace.get_file_thumbnail(
-            namespace.path, str(file_id), size=size.asint()
+            namespace.path, file_id, size=size.asint()
         )
     except File.ActionNotAllowed as exc:
         raise exceptions.FileActionNotAllowed() from exc

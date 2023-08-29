@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import ClassVar
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -12,5 +13,5 @@ class BookmarkNotFound(Exception):
 class Bookmark(BaseModel):
     NotFound: ClassVar[type[Exception]] = BookmarkNotFound
 
-    user_id: str
-    file_id: str
+    user_id: UUID
+    file_id: UUID

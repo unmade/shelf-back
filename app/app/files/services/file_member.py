@@ -29,7 +29,7 @@ class FileMemberService:
 
     async def add(
         self,
-        file_id: str,
+        file_id: UUID,
         user_id: UUID,
         actions: FileMemberActions,
     ) -> FileMember:
@@ -57,7 +57,7 @@ class FileMemberService:
             )
         )
 
-    async def get(self, file_id: str, user_id: UUID) -> FileMember:
+    async def get(self, file_id: UUID, user_id: UUID) -> FileMember:
         """
         Returns a member by user ID of a file with a target ID.
 
@@ -66,7 +66,7 @@ class FileMemberService:
         """
         return await self.db.file_member.get(file_id, user_id)
 
-    async def list_all(self, file_id: str) -> list[FileMember]:
+    async def list_all(self, file_id: UUID) -> list[FileMember]:
         """
         List all file members for a file with a given ID.
 
@@ -89,12 +89,12 @@ class FileMemberService:
             *members,
         ]
 
-    async def remove(self, file_id: str, user_id: UUID) -> None:
+    async def remove(self, file_id: UUID, user_id: UUID) -> None:
         """Removes a file member."""
         await self.db.file_member.delete(file_id, user_id)
 
     async def set_actions(
-        self, file_id: str, user_id: UUID, actions: FileMemberActions
+        self, file_id: UUID, user_id: UUID, actions: FileMemberActions
     ) -> FileMember:
         """
         Sets file member actions.
