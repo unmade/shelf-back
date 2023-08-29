@@ -516,7 +516,7 @@ class FileRepository(IFileRepository):
         """
 
         files = list(files)
-        data = [file.json() for file in files]
+        data = [file.model_dump_json() for file in files]
         if not data:
             return
 

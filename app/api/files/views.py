@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Form, Query, Request, UploadFile
 from fastapi import File as FileParam
-from fastapi.responses import ORJSONResponse, Response, StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 
 from app.api import shortcuts
 from app.api.deps import CurrentUserContextDeps, NamespaceDeps, UseCasesDeps, WorkerDeps
@@ -195,54 +195,47 @@ async def empty_trash_check(
     return response_model(status=AsyncTaskStatus.pending)
 
 
-@router.post("/find_duplicates", response_model=FindDuplicatesResponse)
+@router.post("/find_duplicates")
 async def find_duplicates(
     request: Request,
     payload: FindDuplicatesRequest,
     namespace: NamespaceDeps,
     usecases: UseCasesDeps,
-):
+) -> FindDuplicatesResponse:
     """Find all duplicate files in a folder including all sub-folders."""
     ns_path = namespace.path
     path, max_distance = payload.path, payload.max_distance
 
     groups = await usecases.namespace.find_duplicates(ns_path, path, max_distance)
 
-    # by returning response class directly we avoid pydantic checks
-    # that way we speed up on a large volume of data
-    return ORJSONResponse(content={
-        "path": payload.path,
-        "items": [
+    return FindDuplicatesResponse(
+        path=payload.path,
+        items=[
             [
-                FileSchema.from_entity(file, request=request).model_dump()
+                FileSchema.from_entity(file, request=request)
                 for file in group
             ]
             for group in groups
         ],
-        "count": len(groups),
-    })
+        count=len(groups),
+    )
 
 
-@router.post("/get_batch", response_model=GetBatchResponse, deprecated=True)
+@router.post("/get_batch")
 async def get_batch(
     request: Request,
     payload: GetBatchRequest,
     namespace: NamespaceDeps,
     usecases: UseCasesDeps,
-):
+) -> GetBatchResponse:
     """Return all files with specified IDs."""
     ns_path = namespace.path
     files = await usecases.namespace.file.get_by_id_batch(ns_path, payload.ids)
 
-    # by returning response class directly we avoid pydantic checks
-    # that way we speed up on a large volume of data
-    return ORJSONResponse(content={
-        "items": [
-            FileSchema.from_entity(file, request=request).model_dump()
-            for file in files
-        ],
-        "count": len(files),
-    })
+    return GetBatchResponse(
+        items=[FileSchema.from_entity(file, request=request) for file in files],
+        count=len(files),
+    )
 
 
 @router.post("/get_download_url")
@@ -317,13 +310,13 @@ async def get_thumbnail(
     return Response(thumbnail, headers=headers)
 
 
-@router.post("/list_folder", response_model=ListFolderResponse)
+@router.post("/list_folder")
 async def list_folder(
     request: Request,
     payload: PathRequest,
     namespace: NamespaceDeps,
     usecases: UseCasesDeps,
-):
+) -> ListFolderResponse:
     """
     List content of a folder with a given path.
 
@@ -338,16 +331,11 @@ async def list_folder(
     except File.NotADirectory as exc:
         raise exceptions.NotADirectory(path=payload.path) from exc
 
-    # by returning response class directly we avoid pydantic checks
-    # that way we speed up on a large volume of data
-    return ORJSONResponse(content={
-        "path": payload.path,
-        "items": [
-            FileSchema.from_entity(file, request=request).model_dump()
-            for file in files
-        ],
-        "count": len(files),
-    })
+    return ListFolderResponse(
+        path=payload.path,
+        items=[FileSchema.from_entity(file, request=request) for file in files],
+        count=len(files),
+    )
 
 
 @router.post("/move_batch")

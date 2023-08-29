@@ -75,7 +75,7 @@ class FileCoreService:
         async for _ in self.db.atomic(attempts=10):
             file = await self.db.file.save(
                 File(
-                    id=SENTINEL_ID,
+                    id=SENTINEL_ID,  # type: ignore
                     ns_path=str(ns_path),
                     name=next_path.name,
                     path=next_path,
@@ -114,7 +114,7 @@ class FileCoreService:
         await self.db.file.save_batch(
             [
                 File(
-                    id=SENTINEL_ID,
+                    id=SENTINEL_ID,  # type: ignore
                     ns_path=str(ns_path),
                     name=p.name,
                     path=p,
@@ -377,10 +377,10 @@ class FileCoreService:
                     mediatype = mediatypes.guess_unsafe(file.name)
 
                 missing[Path(file.path)] = File(
-                    id=SENTINEL_ID,
+                    id=SENTINEL_ID,  # type: ignore
                     ns_path=ns_path,
                     name=file.name,
-                    path=file.path,
+                    path=file.path,  # type: ignore
                     size=size,
                     mtime=file.mtime,
                     mediatype=mediatype,
