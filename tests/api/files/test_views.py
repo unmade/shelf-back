@@ -590,7 +590,7 @@ class TestGetContentMetadata:
         response = await client.post(self.url, json=payload)
         # THEN
         assert response.json()["file_id"] == file_id
-        assert response.json()["data"] == exif.dict()
+        assert response.json()["data"] == exif.model_dump()
         assert response.status_code == 200
         ns_use_case.get_file_metadata.assert_awaited_once_with(namespace.path, path)
 
@@ -764,7 +764,7 @@ class TestMoveBatch:
         context = mock.MagicMock()
         expected_job_id = str(uuid.uuid4())
         worker_mock.enqueue.return_value = Job(id=expected_job_id)
-        payload = MoveBatchRequest.parse_obj({
+        payload = MoveBatchRequest.model_validate({
             "items": [
                 {"from_path": f"{i}.txt", "to_path": f"folder/{i}.txt"}
                 for i in range(3)
@@ -772,7 +772,7 @@ class TestMoveBatch:
         })
         client.mock_current_user_ctx(context).mock_namespace(namespace)
         # WHEN
-        response = await client.post(self.url, json=payload.dict())
+        response = await client.post(self.url, json=payload.model_dump())
         # THEN
         job_id = response.json()["async_task_id"]
         assert job_id == str(expected_job_id)

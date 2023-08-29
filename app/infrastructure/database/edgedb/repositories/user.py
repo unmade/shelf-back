@@ -15,7 +15,7 @@ __all__ = ["UserRepository"]
 
 
 def _from_db(obj) -> User:
-    return User.construct(
+    return User(
         id=obj.id,
         username=obj.username,
         password=obj.password,
@@ -80,4 +80,4 @@ class UserRepository(IUserRepository):
             message = f"Username '{user.username}' is taken"
             raise User.AlreadyExists(message) from exc
 
-        return user.copy(update={"id": obj.id})
+        return user.model_copy(update={"id": obj.id})

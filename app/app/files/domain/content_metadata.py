@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import BaseModel
-
-from app.toolkit import json_
 
 __all__ = [
     "ContentMetadata",
@@ -28,13 +26,9 @@ class Exif(BaseModel):
     height: int | None = None
     width: int | None = None
 
-    class Config:
-        json_loads = json_.loads
-        json_dumps = json_.dumps
-
 
 class ContentMetadata(BaseModel):
-    NotFound = ContentMetadataNotFound
+    NotFound: ClassVar[type[Exception]] = ContentMetadataNotFound
 
     file_id: str
     data: Exif

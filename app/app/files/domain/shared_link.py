@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import ClassVar
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -12,7 +13,7 @@ class SharedLinkNotFound(Exception):
 
 
 class SharedLink(BaseModel):
-    NotFound = SharedLinkNotFound
+    NotFound: ClassVar[type[Exception]] = SharedLinkNotFound
 
     id: UUID
     file_id: str

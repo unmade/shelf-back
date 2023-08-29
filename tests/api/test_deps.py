@@ -62,7 +62,8 @@ class TestCurrentUserContext:
         result = await anext(deps.current_user_ctx(payload=payload, usecases=usecases))
         # THEN
         current_user = CurrentUserContext.User(id=user.id, username=user.username)
-        assert result == CurrentUserContext(user=current_user)
+        assert result.user == current_user
+        assert result._token is not None
         usecases.user.user_service.get_by_id.assert_awaited_once_with(payload.sub)
 
     async def test_when_user_not_found(self, payload: AccessToken, usecases: MagicMock):

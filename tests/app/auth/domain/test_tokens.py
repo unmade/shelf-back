@@ -10,7 +10,7 @@ class TestEncodable:
         def __init__(self, sub):
             self.sub = sub
 
-        def dict(self):
+        def model_dump(self):
             return {"sub": self.sub}
 
     def test_encode_decode(self):

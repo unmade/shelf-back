@@ -342,7 +342,7 @@ class FileService:
         """
         await self.filecore.reindex(ns_path, path)
 
-    @disk_cache(key="{file_id}:{size}", ttl=_make_thumbnail_ttl)
+    @disk_cache(key="{file_id}:{size}", ttl=_make_thumbnail_ttl)  # type: ignore
     async def thumbnail(
         self, file_id: str, *, size: int, ns_path: str | None = None
     ) -> tuple[AnyFile, bytes]:

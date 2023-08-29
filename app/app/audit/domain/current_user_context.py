@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextvars import ContextVar, Token
-from typing import Self
+from typing import ClassVar, Self
 from uuid import UUID
 
 from pydantic import BaseModel, PrivateAttr
@@ -21,7 +21,7 @@ class CurrentUser(BaseModel):
 
 
 class CurrentUserContext(BaseModel):
-    User = CurrentUser
+    User: ClassVar[type[CurrentUser]] = CurrentUser
 
     user: CurrentUser
     _token: Token[CurrentUserContext] | None = PrivateAttr(None)
@@ -35,4 +35,4 @@ class CurrentUserContext(BaseModel):
         current_user_ctx.reset(self._token)
 
     def __reduce__(self):
-        return (self.parse_obj, ({"user": self.user}, ))
+        return (self.model_validate, ({"user": self.user}, ))

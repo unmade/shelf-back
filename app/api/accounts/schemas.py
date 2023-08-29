@@ -19,7 +19,7 @@ class AccountSchema(BaseModel):
 
     @classmethod
     def from_entity(cls, account: Account) -> Self:
-        return cls.construct(
+        return cls(
             id=account.id,
             username=account.username,
             email=account.email,

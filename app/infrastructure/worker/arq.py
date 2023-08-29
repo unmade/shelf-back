@@ -17,7 +17,7 @@ class ARQWorker:
     __slots__ = ("pool", "_stack")
 
     def __init__(self, worker_config: ARQWorkerConfig):
-        self.pool: ArqRedis = ArqRedis.from_url(worker_config.broker_dsn)
+        self.pool: ArqRedis = ArqRedis.from_url(str(worker_config.broker_dsn))
         self._stack = AsyncExitStack()
 
     async def __aenter__(self) -> Self:

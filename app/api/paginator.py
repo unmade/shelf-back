@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Generic, TypeVar
 
 from fastapi import Query
-from pydantic.generics import GenericModel
+from pydantic import BaseModel
 
 T = TypeVar("T")
 
@@ -11,7 +11,7 @@ PageParam = Query(1, ge=1, description="Page number")
 PageSizeParam = Query(25, ge=5, le=100, description="Page size")
 
 
-class Page(GenericModel, Generic[T]):
+class Page(BaseModel, Generic[T]):
     page: int
     count: int
     results: list[T]

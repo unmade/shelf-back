@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from enum import Enum
 from os.path import normpath
-from typing import TYPE_CHECKING, Literal, Self
+from typing import TYPE_CHECKING, Annotated, Literal, Self
 from uuid import UUID
 
-from pydantic import BaseModel, root_validator, validator
+from pydantic import BaseModel, RootModel, field_validator, model_validator
+from pydantic.functional_validators import AfterValidator
 
 from app.app.files.services.file import thumbnails
 from app.worker.jobs.files import ErrorCode as TaskErrorCode
@@ -68,7 +69,7 @@ class FileSchema(BaseModel):
 
     @classmethod
     def from_entity(cls, file: AnyFile, request: Request) -> Self:
-        return cls.construct(
+        return cls(
             id=file.id,  # type: ignore
             name=file.name,
             path=str(file.path),
@@ -87,16 +88,12 @@ class FileSchema(BaseModel):
         return None
 
 
-class PathParam(BaseModel):
-    __root__: str
-
-    _normalize_path = validator("__root__", allow_reuse=True)(_normalize)
+class PathParam(RootModel[str]):
+    root: Annotated[str, AfterValidator(_normalize)]
 
 
 class PathRequest(BaseModel):
-    path: str
-
-    _normalize_path = validator("path", allow_reuse=True)(_normalize)
+    path: Annotated[str, AfterValidator(_normalize)]
 
 
 class AsyncTaskID(BaseModel):
@@ -118,14 +115,15 @@ class AsyncTaskResult(BaseModel):
         entity: FileTaskResult,
         request: Request,
     ) -> AsyncTaskResult:
-        return cls.construct(
+        return cls(
             file=FileSchema.from_entity(entity.file, request) if entity.file else None,
             err_code=entity.err_code if entity.err_code else None,
         )
 
 
 class DeleteImmediatelyRequest(PathRequest):
-    @validator("path")
+    @field_validator("path")
+    @classmethod
     def check_path_is_not_special(cls, value: str):
         if value.casefold() in {".", "trash"}:
             message = f"Path '{value}' is a special path and can't be deleted"
@@ -213,29 +211,28 @@ class ListFolderResponse(BaseModel):
 
 
 class MoveRequest(BaseModel):
-    from_path: str
-    to_path: str
+    from_path: Annotated[str, AfterValidator(_normalize)]
+    to_path: Annotated[str, AfterValidator(_normalize)]
 
-    _normalize_path = validator("from_path", "to_path", allow_reuse=True)(_normalize)
-
-    @validator("from_path", "to_path")
+    @field_validator("from_path", "to_path")
+    @classmethod
     def path_should_not_be_home_or_trash_folders(cls, value: str):
         if value == "." or value.casefold() == "trash":
             raise MalformedPath("Can't move Home or Trash folder")
         return value
 
-    @validator("to_path")
+    @field_validator("to_path")
+    @classmethod
     def to_path_should_not_be_inside_trash_folder(cls, value: str):
         if value.casefold().startswith("trash/"):
             raise MalformedPath("Can't move files inside Trash")
         return value
 
-    @root_validator
-    def check_path_does_not_contain_itself(cls, values):
-        from_path, to_path = values["from_path"], values["to_path"]
-        if to_path.lower().startswith(f"{from_path.lower()}/"):
+    @model_validator(mode='after')
+    def check_path_does_not_contain_itself(self):
+        if self.to_path.lower().startswith(f"{self.from_path.lower()}/"):
             raise MalformedPath("'to_path' should not start with 'from_path'")
-        return values
+        return self
 
 
 class MoveBatchRequest(BaseModel):
@@ -248,7 +245,8 @@ class MoveBatchCheckResponse(BaseModel):
 
 
 class MoveToTrashRequest(PathRequest):
-    @validator("path")
+    @field_validator("path")
+    @classmethod
     def check_path_is_not_trash(cls, value: str):
         if value.casefold() == "trash":
             raise MalformedPath("Can't move Trash into itself")

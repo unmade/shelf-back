@@ -39,7 +39,7 @@ class AccountRepository(IAccountRepository):
             message = f"No account for user with id: {user_id}"
             raise User.NotFound(message) from exc
 
-        return Account.construct(
+        return Account(
             id=obj.id,
             username=obj.user.username,
             email=obj.email,
@@ -81,4 +81,4 @@ class AccountRepository(IAccountRepository):
         except edgedb.ConstraintViolationError as exc:
             raise User.AlreadyExists(f"Email '{account.email}' is taken") from exc
 
-        return account.copy(update={"id": obj.id})
+        return account.model_copy(update={"id": obj.id})

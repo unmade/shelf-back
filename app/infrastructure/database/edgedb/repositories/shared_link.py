@@ -95,4 +95,4 @@ class SharedLinkRepository(ISharedLinkRepository):
         except edgedb.MissingRequiredError as exc:
             raise File.NotFound() from exc
 
-        return shared_link.copy(update={"id": link.id})
+        return shared_link.model_copy(update={"id": link.id})

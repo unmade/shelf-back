@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import ClassVar
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -12,7 +13,7 @@ class NamespaceNotFound(Exception):
 
 
 class Namespace(BaseModel):
-    NotFound = NamespaceNotFound
+    NotFound: ClassVar[type[Exception]] = NamespaceNotFound
 
     id: UUID
     path: str

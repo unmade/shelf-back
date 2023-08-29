@@ -47,7 +47,7 @@ class TestTrackFileAction:
         # GIVEN
         user = _make_user("admin")
         file = _make_file("admin", "folder/f.txt")
-        current_user_ctx.set(CurrentUserContext(user=user))
+        current_user_ctx.set(CurrentUserContext(user=user.model_dump()))
         db = cast(mock.MagicMock, audit_trail_service.db)
         # WHEN
         await audit_trail_service._track_file_action(
@@ -56,7 +56,7 @@ class TestTrackFileAction:
         )
         # THEN
         db.audit_trail.save.assert_awaited_once_with(
-            AuditTrail.construct(
+            AuditTrail.model_construct(
                 id=SENTINEL_ID,
                 action=AuditTrail.Action.file_added,
                 user=AuditTrail.User(
@@ -77,7 +77,7 @@ class TestTrackUserAction:
     async def test(self, audit_trail_service: AuditTrailService):
         # GIVEN
         user = _make_user("admin")
-        current_user_ctx.set(CurrentUserContext(user=user))
+        current_user_ctx.set(CurrentUserContext(user=user.model_dump()))
         db = cast(mock.MagicMock, audit_trail_service.db)
         # WHEN
         await audit_trail_service._track_user_action(
@@ -85,7 +85,7 @@ class TestTrackUserAction:
         )
         # THEN
         db.audit_trail.save.assert_awaited_once_with(
-            AuditTrail.construct(
+            AuditTrail.model_construct(
                 id=SENTINEL_ID,
                 action=AuditTrail.Action.trash_emptied,
                 user=AuditTrail.User(
@@ -165,7 +165,7 @@ class TestUserSignedIn:
         await audit_trail_service.user_signed_in(user=user)
         # THEN
         db.audit_trail.save.assert_awaited_once_with(
-            AuditTrail.construct(
+            AuditTrail.model_construct(
                 id=SENTINEL_ID,
                 action=AuditTrail.Action.user_signed_in,
                 user=AuditTrail.User(

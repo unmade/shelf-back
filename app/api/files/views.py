@@ -214,7 +214,7 @@ async def find_duplicates(
         "path": payload.path,
         "items": [
             [
-                FileSchema.from_entity(file, request=request).dict()
+                FileSchema.from_entity(file, request=request).model_dump()
                 for file in group
             ]
             for group in groups
@@ -238,7 +238,7 @@ async def get_batch(
     # that way we speed up on a large volume of data
     return ORJSONResponse(content={
         "items": [
-            FileSchema.from_entity(file, request=request).dict()
+            FileSchema.from_entity(file, request=request).model_dump()
             for file in files
         ],
         "count": len(files),
@@ -343,7 +343,7 @@ async def list_folder(
     return ORJSONResponse(content={
         "path": payload.path,
         "items": [
-            FileSchema.from_entity(file, request=request).dict()
+            FileSchema.from_entity(file, request=request).model_dump()
             for file in files
         ],
         "count": len(files),
@@ -414,7 +414,7 @@ async def upload_file(
     path: PathParam = Form(...),
 ) -> FileSchema:
     """Upload file to the specified path."""
-    filepath = path.__root__
+    filepath = str(path.root)
     del path
 
     ns_path = str(namespace.path)
