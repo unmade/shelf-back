@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import ClassVar
+
 from pydantic import BaseModel
 
 from .file_member import FileMemberActions
@@ -23,11 +25,11 @@ class _ContainingFolder(BaseModel):
 
 
 class MountPoint(BaseModel):
-    Actions = FileMemberActions
-    Source = _MountPointSource
-    ContainingFolder = _ContainingFolder
+    Actions: ClassVar[type[FileMemberActions]] = FileMemberActions
+    Source: ClassVar[type[_MountPointSource]] = _MountPointSource
+    ContainingFolder: ClassVar[type[_ContainingFolder]] = _ContainingFolder
 
-    NotFound = NotFound
+    NotFound: ClassVar[type[Exception]] = NotFound
 
     source: _MountPointSource
     folder: _ContainingFolder

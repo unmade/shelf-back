@@ -25,7 +25,7 @@ def test_sign_up_request_but_username_is_invalid() -> None:
     errors = excinfo.value.errors()
     assert len(errors) == 1
     assert errors[0]["loc"] == ("username", )
-    assert errors[0]["msg"].startswith("Username must be at least")
+    assert "Username must be at least 3 characters" in errors[0]["msg"]
 
 
 @pytest.mark.parametrize("password", ["password1", "Password", "!Password"])
@@ -40,7 +40,7 @@ def test_sign_up_request_but_password_is_weak(password: str):
     errors = excinfo.value.errors()
     assert len(errors) == 1
     assert errors[0]["loc"] == ("password", )
-    assert errors[0]["msg"].startswith("Password must be at least")
+    assert "Password must be at least 8 characters" in errors[0]["msg"]
 
 
 def test_sign_up_request_but_password_dont_match() -> None:
@@ -53,5 +53,5 @@ def test_sign_up_request_but_password_dont_match() -> None:
 
     errors = excinfo.value.errors()
     assert len(errors) == 1
-    assert errors[0]["loc"] == ("confirm_password", )
-    assert errors[0]["msg"].startswith("Passwords do not match")
+    assert errors[0]["loc"] == ()
+    assert errors[0]["msg"].startswith("Value error, Passwords do not match")

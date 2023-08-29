@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 def edgedb_config():
     assert config.database.dsn is not None
     db_name = f"{config.database.dsn.name}_test"
-    return config.database.copy(
+    return config.database.model_copy(
         update={
             "dsn": config.database.dsn.with_name(db_name),
             "edgedb_max_concurrency": 1
@@ -37,9 +37,9 @@ def setup_edgedb_database(reuse_db: bool, edgedb_config: EdgeDBConfig) -> None:
     async def _create_db():
         assert edgedb_config.dsn is not None
         db_name = edgedb_config.dsn.name
-        server_config = edgedb_config.copy(update={"dsn": edgedb_config.dsn.origin})
+        server_conf = edgedb_config.model_copy(update={"dsn": edgedb_config.dsn.origin})
         created = True
-        async with EdgeDBDatabase(server_config) as db:
+        async with EdgeDBDatabase(server_conf) as db:
             try:
                 await db.client.execute(f"CREATE DATABASE {db_name};")
             except edgedb.DuplicateDatabaseDefinitionError:
@@ -86,7 +86,7 @@ def flush_edgedb_database_if_needed(request: FixtureRequest):
 @pytest.fixture(scope="session")
 def _session_sync_client(edgedb_config: EdgeDBConfig):
     with edgedb.create_client(
-        edgedb_config.dsn,
+        str(edgedb_config.dsn),
         max_concurrency=1,
         tls_ca_file=edgedb_config.edgedb_tls_ca_file,
         tls_security=edgedb_config.edgedb_tls_security,

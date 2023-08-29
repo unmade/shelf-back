@@ -35,13 +35,15 @@ class TestSave:
         saved_trail = await audit_trail_repo.save(audit_trail)
         # THEN: action is created
         assert saved_trail.id != SENTINEL_ID
-        assert saved_trail.dict(exclude={"id"}) == audit_trail.dict(exclude={"id"})
+        audit_trail.id = saved_trail.id
+        assert saved_trail == audit_trail
 
         # WHEN: action exists
         saved_trail = await audit_trail_repo.save(audit_trail)
         # THEN: action is selected
         assert saved_trail.id != SENTINEL_ID
-        assert saved_trail.dict(exclude={"id"}) == audit_trail.dict(exclude={"id"})
+        audit_trail.id = saved_trail.id
+        assert saved_trail == audit_trail
 
     async def test_saving_asset(
         self,
@@ -69,7 +71,8 @@ class TestSave:
         saved_trail = await audit_trail_repo.save(audit_trail)
         # THEN
         assert saved_trail.id != SENTINEL_ID
-        assert saved_trail.dict(exclude={"id"}) == audit_trail.dict(exclude={"id"})
+        audit_trail.id = saved_trail.id
+        assert saved_trail == audit_trail
 
         obj = await audit_trail_repo.conn.query_required_single(
             "select AuditTrail { assets } filter .id = <uuid>$id",

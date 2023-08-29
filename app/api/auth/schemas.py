@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import BaseModel, EmailStr, Field, validator
+from pydantic import (
+    BaseModel,
+    EmailStr,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 from app.toolkit import security
 
@@ -13,7 +19,8 @@ class SignUpRequest(BaseModel):
     confirm_password: Annotated[str, Field(min_length=8, max_length=63)]
     email: EmailStr | None = None
 
-    @validator("username")
+    @field_validator("username")
+    @classmethod
     def username_is_long_and_alphanumeric(cls, value: str) -> str:
         assert value.isalnum(), (
             "Username must be at least 3 characters and contain only letters and "
@@ -21,7 +28,8 @@ class SignUpRequest(BaseModel):
         )
         return value.lower()
 
-    @validator("password")
+    @field_validator("password")
+    @classmethod
     def password_is_strong(cls, value: str) -> str:
         assert security.is_strong_password(value), (
             "Password must be at least 8 characters including a lowercase letter, "
@@ -29,11 +37,11 @@ class SignUpRequest(BaseModel):
         )
         return value
 
-    @validator("confirm_password")
-    def passwords_should_match(cls, value: str, values, **kwargs) -> str:
-        if "password" in values and value != values["password"]:
+    @model_validator(mode="after")
+    def passwords_should_match(self):
+        if self.password != self.confirm_password:
             raise ValueError("Passwords do not match")
-        return value
+        return self
 
 
 class TokensSchema(BaseModel):

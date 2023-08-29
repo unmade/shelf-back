@@ -6,7 +6,7 @@ import boto3
 import pytest
 from botocore.client import Config
 from botocore.exceptions import ClientError
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.config import AppConfig, S3StorageConfig
 from app.infrastructure.storage.s3 import S3Storage
@@ -15,12 +15,16 @@ if TYPE_CHECKING:
     from mypy_boto3_s3 import S3ServiceResource
 
 
-class _S3StorageConfig(S3StorageConfig):
+class _S3StorageConfig(S3StorageConfig, BaseSettings):
     type: str  # type: ignore
     s3_bucket: str = "shelft-test"
 
+    model_config = SettingsConfigDict(
+        extra="ignore",
+    )
 
-class _AppConfig(AppConfig, BaseSettings):
+
+class _AppConfig(AppConfig):
     storage: _S3StorageConfig
 
 

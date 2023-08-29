@@ -3,7 +3,10 @@ from __future__ import annotations
 import mimetypes
 import os.path
 from pathlib import PurePath
-from typing import Any, Iterator, Self, TypeAlias
+from typing import Any, Callable, Iterator, Self, TypeAlias
+
+from pydantic_core import core_schema
+from pydantic_core.core_schema import CoreSchema
 
 __all__ = ["AnyPath", "Path"]
 
@@ -17,8 +20,32 @@ class Path:
         self._path = os.path.normpath(str(path))
 
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+    def __get_pydantic_core_schema__(
+        cls,
+        _source_type: Any,
+        _handler: Callable[[Any], CoreSchema],
+    ) -> CoreSchema:
+        from_str_schema = core_schema.chain_schema(
+            [
+                core_schema.str_schema(),
+                core_schema.no_info_plain_validator_function(cls.validate),
+            ]
+        )
+
+        return core_schema.json_or_python_schema(
+            json_schema=from_str_schema,
+            python_schema=core_schema.union_schema(
+                [
+                    # check if it's an instance first before doing any further work
+                    core_schema.is_instance_schema(cls),
+                    from_str_schema,
+                ]
+            ),
+            serialization=core_schema.plain_serializer_function_ser_schema(
+                lambda instance: str(instance)
+            ),
+        )
+
 
     @classmethod
     def validate(cls, value) -> Self:

@@ -12,13 +12,13 @@ router = APIRouter()
 @router.get("/list")
 async def list_all() -> ListFeatureResponse:
     """Return a list of available features."""
-    return ListFeatureResponse.construct(
+    return ListFeatureResponse(
         items=[
-            Feature.construct(
+            Feature(
                 name=FeatureName.sign_up_disabled,
                 value=config.features.sign_up_disabled,
             ),
-            Feature.construct(
+            Feature(
                 name=FeatureName.upload_file_max_size,
                 value=config.features.upload_file_max_size,
             ),

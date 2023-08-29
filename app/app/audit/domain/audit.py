@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import enum
 from datetime import datetime
-from typing import Literal
+from typing import ClassVar, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -40,12 +40,12 @@ class AuditTrailFile(BaseModel):
 
 
 class AuditTrail(BaseModel):
-    Action = AuditTrailAction
-    User = AuditTrailUser
-    File = AuditTrailFile
+    Action: ClassVar[type[AuditTrailAction]] = AuditTrailAction
+    User: ClassVar[type[AuditTrailUser]] = AuditTrailUser
+    File: ClassVar[type[AuditTrailFile]] = AuditTrailFile
 
     id: UUID
     action: AuditTrailAction
     user: AuditTrailUser | None
-    asset: AuditTrailFile | None
+    asset: AuditTrailFile | None = None
     created_at: datetime = Field(default_factory=timezone.now)

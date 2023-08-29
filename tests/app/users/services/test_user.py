@@ -6,6 +6,7 @@ from unittest import mock
 
 import pytest
 
+from app.app.infrastructure.database import SENTINEL_ID
 from app.app.users.domain import Account, User
 from app.app.users.services import UserService
 
@@ -20,15 +21,16 @@ class TestCreate:
                 "password": "psswd"
             },
             {
-                "user": User.construct(
-                    id=mock.ANY,
+                "user": User.model_construct(
+                    id=SENTINEL_ID,
                     username="johndoe",
                     password=mock.ANY,
                     superuser=False,
                 ),
-                "account": Account.construct(
-                    id=mock.ANY,
+                "account": Account.model_construct(
+                    id=SENTINEL_ID,
                     username="johndoe",
+                    email=None,
                     first_name="",
                     last_name="",
                     storage_quota=None,
@@ -46,14 +48,14 @@ class TestCreate:
                 "storage_quota": 1024,
             },
             {
-                "user": User.construct(
-                    id=mock.ANY,
+                "user": User.model_construct(
+                    id=SENTINEL_ID,
                     username="johndoe",
                     password=mock.ANY,
                     superuser=False,
                 ),
-                "account": Account.construct(
-                    id=mock.ANY,
+                "account": Account.model_construct(
+                    id=SENTINEL_ID,
                     username="johndoe",
                     email="johndoe@example.com",
                     first_name="John",

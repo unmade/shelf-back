@@ -61,7 +61,7 @@ class EdgeDBDatabase(IDatabase):
     def __init__(self, config: EdgeDBConfig) -> None:
         self.config = config
         self.client = edgedb.create_async_client(
-            dsn=config.dsn,
+            dsn=str(config.dsn),
             max_concurrency=config.edgedb_max_concurrency,
             tls_ca_file=config.edgedb_tls_ca_file,
             tls_security=config.edgedb_tls_security,

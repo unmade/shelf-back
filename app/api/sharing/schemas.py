@@ -55,7 +55,7 @@ class FileMemberSchema(BaseModel):
 
     @classmethod
     def from_entity(cls, entity: FileMember) -> Self:
-        return cls.construct(
+        return cls(
             id=entity.user.id,
             file_id=entity.file_id,
             username=entity.user.username,
@@ -79,7 +79,7 @@ class SharedLinkFileSchema(BaseModel):
 
     @classmethod
     def from_entity(cls, file: File, token: str, request: Request) -> Self:
-        return cls.construct(
+        return cls(
             id=file.id,
             name=file.name,
             size=file.size,

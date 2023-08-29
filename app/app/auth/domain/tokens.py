@@ -45,7 +45,7 @@ class Encodable:
         return cast(
             str,
             jwt.encode(
-                self.dict(),  # type: ignore[attr-defined]
+                self.model_dump(),  # type: ignore[attr-defined]
                 key=config.auth.secret_key,
                 algorithm=ALGORITHM,
             ),

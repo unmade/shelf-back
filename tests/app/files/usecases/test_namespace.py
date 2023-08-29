@@ -33,6 +33,17 @@ def _make_file(ns_path: str, path: AnyPath, size: int = 10) -> File:
     )
 
 
+def _make_account(storage_quota: int | None = None) -> Account:
+    return Account(
+        id=uuid.uuid4(),
+        username="admin",
+        email=None,
+        first_name="",
+        last_name="",
+        storage_quota=storage_quota or None,
+    )
+
+
 class TestAddFile:
     async def test_unlimited_storage_quota(self, ns_use_case: NamespaceUseCase):
         # GIVEN
@@ -42,9 +53,7 @@ class TestAddFile:
         metadata = cast(mock.MagicMock, ns_use_case.metadata)
         ns_service = cast(mock.MagicMock, ns_use_case.namespace)
         user_service = cast(mock.MagicMock, ns_use_case.user)
-        user_service.get_account = mock.AsyncMock(
-            return_value=mock.MagicMock(Account, storage_quota=None)
-        )
+        user_service.get_account.return_value = _make_account(storage_quota=None)
 
         ns_path, path, content = "admin", "f.txt", BytesIO(b"Dummy Content!")
 
@@ -71,9 +80,7 @@ class TestAddFile:
         ns_service = cast(mock.MagicMock, ns_use_case.namespace)
         ns_service.get_space_used_by_owner_id = mock.AsyncMock(return_value=512)
         user_service = cast(mock.MagicMock, ns_use_case.user)
-        user_service.get_account = mock.AsyncMock(
-            return_value=mock.MagicMock(Account, storage_quota=1024)
-        )
+        user_service.get_account.return_value = _make_account(storage_quota=1024)
 
         ns_path, path, content = "admin", "f.txt", BytesIO(b"Dummy Content!")
 
@@ -117,9 +124,7 @@ class TestAddFile:
         ns_service = cast(mock.MagicMock, ns_use_case.namespace)
         ns_service.get_space_used_by_owner_id = mock.AsyncMock(return_value=1024)
         user_service = cast(mock.MagicMock, ns_use_case.user)
-        user_service.get_account = mock.AsyncMock(
-            return_value=mock.MagicMock(Account, storage_quota=1024)
-        )
+        user_service.get_account.return_value = _make_account(storage_quota=1024)
 
         ns_path, path, content = "admin", "f.txt", BytesIO(b"Dummy Content!")
         # WHEN

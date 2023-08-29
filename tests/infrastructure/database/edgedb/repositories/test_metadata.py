@@ -58,7 +58,7 @@ class TestSave:
         await metadata_repo.save(given)
         # THEN
         meta = await _get_by_file_id(file.id)
-        assert orjson.loads(meta.data) == exif.dict(exclude_none=True)
+        assert orjson.loads(meta.data) == exif.model_dump(exclude_none=True)
 
     async def test_when_file_does_not_exist(
         self, metadata_repo: ContentMetadataRepository,
@@ -87,9 +87,9 @@ class TestSaveBatch:
         await metadata_repo.save_batch(given)
         # THEN
         meta = await _get_by_file_id(files[0].id)
-        assert orjson.loads(meta.data) == given[0].data.dict(exclude_none=True)
+        assert orjson.loads(meta.data) == given[0].data.model_dump(exclude_none=True)
         meta = await _get_by_file_id(files[1].id)
-        assert orjson.loads(meta.data) == given[1].data.dict(exclude_none=True)
+        assert orjson.loads(meta.data) == given[1].data.model_dump(exclude_none=True)
 
     async def test_when_file_does_not_exist(
         self,

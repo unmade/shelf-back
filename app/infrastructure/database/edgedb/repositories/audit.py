@@ -64,4 +64,4 @@ class AuditTrailRepository(IAuditTrailRepository):
             created_at=audit_trail.created_at,
         )
 
-        return audit_trail.copy(update={"id": obj.id})
+        return audit_trail.model_copy(update={"id": obj.id})

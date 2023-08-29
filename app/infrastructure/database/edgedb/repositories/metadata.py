@@ -58,7 +58,7 @@ class ContentMetadataRepository(IContentMetadataRepository):
         """
 
         file_id = metadata.file_id
-        data = metadata.data.json(exclude_none=True)
+        data = metadata.data.model_dump_json(exclude_none=True)
 
         try:
             await self.conn.query_required_single(query, file_id=file_id, data=data)
@@ -89,7 +89,7 @@ class ContentMetadataRepository(IContentMetadataRepository):
         entries = [
             json_.dumps({
                 "file_id": str(metadata.file_id),
-                "data": metadata.data.dict(exclude_none=True),
+                "data": metadata.data.model_dump(exclude_none=True),
             })
             for metadata in metadatas
         ]

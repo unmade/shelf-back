@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 def edgedb_config(edgedb_config: EdgeDBConfig):
     assert edgedb_config.dsn is not None
     db_name = f"db_{uuid.uuid4().hex}"
-    return edgedb_config.copy(
+    return edgedb_config.model_copy(
         update={
             "dsn": edgedb_config.dsn.with_name(db_name)
         }

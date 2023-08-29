@@ -4,55 +4,51 @@
 #
 #    pip-compile --resolver=backtracking requirements/test.in
 #
-anyio==3.6.2
+anyio==3.7.1
     # via
     #   -c requirements/base.txt
     #   httpcore
-attrs==22.2.0
-    # via pytest
-certifi==2022.12.7
+certifi==2023.7.22
     # via
     #   -c requirements/base.txt
     #   httpcore
     #   httpx
-coverage[toml]==7.2.3
+coverage[toml]==7.3.0
     # via pytest-cov
-faker==18.4.0
+faker==18.13.0
     # via -r requirements/test.in
 h11==0.14.0
     # via
     #   -c requirements/base.txt
     #   httpcore
-httpcore==0.16.3
+httpcore==0.17.3
     # via httpx
-httpx==0.23.3
+httpx==0.24.1
     # via -r requirements/test.in
 idna==3.4
     # via
     #   -c requirements/base.txt
     #   anyio
-    #   rfc3986
+    #   httpx
 iniconfig==2.0.0
     # via pytest
-packaging==23.0
+packaging==23.1
     # via pytest
-pluggy==1.0.0
+pluggy==1.3.0
     # via pytest
-pytest==7.2.2
+pytest==7.4.0
     # via
     #   -r requirements/test.in
     #   pytest-asyncio
     #   pytest-cov
-pytest-asyncio==0.21.0
+pytest-asyncio==0.21.1
     # via -r requirements/test.in
-pytest-cov==4.0.0
+pytest-cov==4.1.0
     # via -r requirements/test.in
 python-dateutil==2.8.2
     # via
     #   -c requirements/base.txt
     #   faker
-rfc3986[idna2008]==1.5.0
-    # via httpx
 six==1.16.0
     # via
     #   -c requirements/base.txt

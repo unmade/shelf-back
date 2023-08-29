@@ -37,7 +37,7 @@ class TestCreate:
         # THEN
         assert namespace == db.namespace.save.return_value
         db.namespace.save.assert_awaited_once_with(
-            Namespace.construct(
+            Namespace.model_construct(
                 id=SENTINEL_ID,
                 path=ns_path,
                 owner_id=owner_id,

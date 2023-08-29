@@ -51,11 +51,11 @@ class FileMember(BaseModel):
         can_view=True,
     )
 
-    Actions = FileMemberActions
-    User = FileMemberUser
+    Actions: ClassVar[type[FileMemberActions]] = FileMemberActions
+    User: ClassVar[type[FileMemberUser]] = FileMemberUser
 
-    AlreadyExists = FileMemberAlreadyExists
-    NotFound = FileMemberNotFound
+    AlreadyExists: ClassVar[type[Exception]] = FileMemberAlreadyExists
+    NotFound: ClassVar[type[Exception]] = FileMemberNotFound
 
     file_id: str
     actions: FileMemberActions

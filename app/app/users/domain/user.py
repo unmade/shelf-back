@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import ClassVar
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -30,21 +31,21 @@ class UserNotFound(Exception):
 
 
 class Account(BaseModel):
-    StorageQuotaExceeded = StorageQuotaExceeded
+    StorageQuotaExceeded: ClassVar[type[StorageQuotaExceeded]] = StorageQuotaExceeded
 
     id: UUID
     username: str
     email: str | None
     first_name: str
     last_name: str
-    storage_quota: int | None
+    storage_quota: int | None = None
     created_at: datetime = Field(default_factory=timezone.now)
 
 
 class User(BaseModel):
-    AlreadyExists = UserAlreadyExists
-    InvalidCredentials = InvalidCredentials
-    NotFound = UserNotFound
+    AlreadyExists: ClassVar[type[Exception]] = UserAlreadyExists
+    InvalidCredentials: ClassVar[type[Exception]] = InvalidCredentials
+    NotFound: ClassVar[type[Exception]] = UserNotFound
 
     id: UUID
     username: str

@@ -9,10 +9,12 @@ pre-commit>=3.2,<4
 arq
 asgiref
 boto3-stubs[s3]
+cashews
 edgedb
 fastapi
 httpx
 pydantic
+pydantic-settings
 pytest
 sentry-sdk[fastapi]
 typer

@@ -31,18 +31,23 @@ class TestGetByUserID:
 
 class TestSave:
     async def test(self, user: User, account_repo: IAccountRepository):
+        # GIVEN
         created_at = datetime(2022, 8, 14, 16, 13, tzinfo=tz.gettz("America/New_York"))
         account = Account(
             id=SENTINEL_ID,
+            email=None,
             username=user.username,
             first_name="John",
             last_name="Doe",
             storage_quota=1024**3,
             created_at=created_at,
         )
+        # WHEN
         created_account = await account_repo.save(account)
+        # THEN
         assert created_account.id != SENTINEL_ID
-        assert created_account.dict(exclude={"id"}) == account.dict(exclude={"id"})
+        account.id = created_account.id
+        assert created_account == account
 
     async def test_when_email_is_taken(
         self, user: User, account_repo: IAccountRepository

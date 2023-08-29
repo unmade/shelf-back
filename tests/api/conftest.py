@@ -125,6 +125,7 @@ async def user():
 async def account(user: User):
     return Account(
         id=uuid.uuid4(),
+        email=None,
         username=user.username,
         first_name="John",
         last_name="Doe",
