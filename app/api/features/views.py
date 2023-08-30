@@ -15,6 +15,10 @@ async def list_all() -> ListFeatureResponse:
     return ListFeatureResponse(
         items=[
             Feature(
+                name=FeatureName.max_file_size_to_thumbnail,
+                value=config.features.max_file_size_to_thumbnail,
+            ),
+            Feature(
                 name=FeatureName.sign_up_disabled,
                 value=config.features.sign_up_disabled,
             ),

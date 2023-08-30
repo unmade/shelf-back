@@ -9,6 +9,7 @@ from unittest import mock
 import pytest
 
 from app.app.files.domain import File, Fingerprint, Path
+from app.app.files.domain.file import ThumbnailUnavailable
 from app.app.infrastructure.storage import ContentReader
 from app.app.users.domain import Account
 from app.config import config
@@ -263,14 +264,29 @@ class TestGetFileThumbnail:
         ns_path, path = "admin", "img.jpeg"
         file, thumbnail = _make_file(ns_path, path), mock.ANY
         file_service = cast(mock.MagicMock, ns_use_case.file)
+        file_service.get_by_id.return_value = file
         file_service.thumbnail.return_value = file, thumbnail
         # WHEN
         result = await ns_use_case.get_file_thumbnail(ns_path, file.id, size=32)
         # THEN
         assert result == file_service.thumbnail.return_value
+        file_service.get_by_id.assert_awaited_once_with(ns_path, file.id)
         file_service.thumbnail.assert_awaited_once_with(
             file.id, size=32, ns_path=ns_path
         )
+
+    async def test_when_file_size_exceeds_limit(self, ns_use_case: NamespaceUseCase):
+        # GIVEN
+        ns_path, path = "admin", "img.jpeg"
+        file = _make_file(ns_path, path, size=30 * 2**20)  # 30 MB
+        file_service = cast(mock.MagicMock, ns_use_case.file)
+        file_service.get_by_id.return_value = file
+        # WHEN
+        with pytest.raises(ThumbnailUnavailable):
+            await ns_use_case.get_file_thumbnail(ns_path, file.id, size=32)
+        # THEN
+        file_service.get_by_id.assert_awaited_once_with(ns_path, file.id)
+        file_service.thumbnail.assert_not_awaited()
 
 
 class TestGetItemAtPath:
