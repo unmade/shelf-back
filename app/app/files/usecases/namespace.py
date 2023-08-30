@@ -4,6 +4,7 @@ import itertools
 from typing import IO, TYPE_CHECKING, cast
 
 from app.app.files.domain import AnyFile, File, Path
+from app.app.files.domain.file import ThumbnailUnavailable
 from app.app.files.services.dupefinder import dhash
 from app.app.files.services.metadata import readers as metadata_readers
 from app.app.users.domain import Account
@@ -189,6 +190,9 @@ class NamespaceUseCase:
             File.IsADirectory: If file is a directory.
             ThumbnailUnavailable: If file is not an image.
         """
+        file = await self.file.get_by_id(ns_path, file_id)
+        if file.size > config.features.max_file_size_to_thumbnail:
+            raise ThumbnailUnavailable() from None
         return cast(
             tuple[AnyFile, bytes],
             await self.file.thumbnail(file_id, size=size, ns_path=ns_path)

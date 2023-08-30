@@ -17,6 +17,10 @@ async def test_list_features(client: TestClient):
     assert response.json() == {
         "items": [
             {
+                "name": "max_file_size_to_thumbnail",
+                "value": config.features.max_file_size_to_thumbnail,
+            },
+            {
                 "name": "sign_up_disabled",
                 "value": config.features.sign_up_disabled,
             },
