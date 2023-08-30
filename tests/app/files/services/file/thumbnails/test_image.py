@@ -24,7 +24,15 @@ class TestImageThumbnail:
         with self.pkg.joinpath(name).open("rb") as content:
             thumbnail = thumbnail_image(content, size=size)
 
-        assert len(thumbnail) == 19246
+        assert len(thumbnail) == 11758
+
+    def test_animated_image_stays_the_same_on_upscale(self):
+        size = 512
+        name = "animated.gif"
+        with self.pkg.joinpath(name).open("rb") as content:
+            thumbnail = thumbnail_image(content, size=size)
+
+        assert len(thumbnail) == 33981
 
     @pytest.mark.parametrize(["size", "dimensions"], [
         (256, (192, 256)),

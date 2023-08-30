@@ -53,10 +53,13 @@ def thumbnail_image(content: IO[bytes], *, size: int) -> bytes:
     try:
         with Image.open(content) as im:
             if im.format == 'GIF' and getattr(im, "is_animated", False):
+                if im.size[0] < size and im.size[1] < size:
+                    content.seek(0)
+                    return content.read()
                 frames = _thumbnail_image_sequence(im, size)
                 frame = next(frames)
                 frame.info = im.info
-                frame.save(buffer, "gif", save_all=True, append_images=frames)
+                frame.save(buffer, "gif", save_all=True,  append_images=frames)
             else:
                 im.thumbnail((size, size))
                 exif_transpose(im).save(buffer, "webp", method=method, quality=quality)
@@ -70,7 +73,9 @@ def thumbnail_image(content: IO[bytes], *, size: int) -> bytes:
 
 def _thumbnail_image_sequence(im: ImageType, size: int) -> Iterator[ImageType]:
     frames = ImageSequence.Iterator(im)
-    for frame in frames:
-        thumbnail = frame.copy()
-        thumbnail.thumbnail((size, size))
-        yield thumbnail
+    for idx, _ in enumerate(frames):
+        im.seek(idx)
+        new_frame = Image.new('RGBA', im.size)
+        new_frame.paste(im)
+        new_frame.thumbnail((size, size))
+        yield new_frame
