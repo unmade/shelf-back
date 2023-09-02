@@ -169,8 +169,7 @@ class S3Storage(IStorage):
                         is_dir=False,
                     )
 
-    @sync_to_async
-    def makedirs(self, ns_path: AnyPath, path: AnyPath) -> None:
+    async def makedirs(self, ns_path: AnyPath, path: AnyPath) -> None:
         return None
 
     @sync_to_async

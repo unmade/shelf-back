@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Self, TypeAlias
 from urllib.parse import urlsplit, urlunsplit
 
-from pydantic import BaseModel, Field, RedisDsn
+from pydantic import AnyHttpUrl, BaseModel, Field, RedisDsn
 from pydantic.functional_validators import AfterValidator, BeforeValidator
 from pydantic_core import core_schema
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -153,7 +153,7 @@ class FileSystemStorageConfig(BaseModel):
 class S3StorageConfig(BaseSettings):
     type: Literal[StorageType.s3] = StorageType.s3
     quota: BytesSize | None = None
-    s3_location: str
+    s3_location: AnyHttpUrl
     s3_access_key_id: str
     s3_secret_access_key: str
     s3_bucket: str = "shelf"
