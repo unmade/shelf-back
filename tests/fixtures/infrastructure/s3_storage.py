@@ -9,6 +9,7 @@ from botocore.exceptions import ClientError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.config import AppConfig, S3StorageConfig
+from app.infrastructure.storage.async_s3 import AsyncS3Storage
 from app.infrastructure.storage.s3 import S3Storage
 
 if TYPE_CHECKING:
@@ -17,7 +18,7 @@ if TYPE_CHECKING:
 
 class _S3StorageConfig(S3StorageConfig, BaseSettings):
     type: str  # type: ignore
-    s3_bucket: str = "shelft-test"
+    s3_bucket: str = "shelf-test"
 
     model_config = SettingsConfigDict(
         extra="ignore",
@@ -44,7 +45,7 @@ def s3_resource(s3_storage_config: S3StorageConfig):
     """An s3 resource client."""
     return boto3.resource(
         "s3",
-        endpoint_url=s3_storage_config.s3_location,
+        endpoint_url=str(s3_storage_config.s3_location),
         aws_access_key_id=s3_storage_config.s3_access_key_id,
         aws_secret_access_key=s3_storage_config.s3_secret_access_key,
         config=Config(signature_version="s3v4"),
@@ -107,3 +108,13 @@ def s3_storage(
 ) -> S3Storage:
     """An instance of `S3Storage` created with an `s3_storage_config`."""
     return S3Storage(s3_storage_config)
+
+
+@pytest.fixture
+def async_s3_storage(
+    setup_s3_bucket,
+    teardown_s3_bucket,
+    teardown_s3_files,
+    s3_storage_config: S3StorageConfig
+) -> AsyncS3Storage:
+    return AsyncS3Storage(s3_storage_config)
