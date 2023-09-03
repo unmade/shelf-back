@@ -164,22 +164,6 @@ class IStorage(Protocol):
         """
 
     @abc.abstractmethod
-    async def get_modified_time(self, ns_path: AnyPath, path: AnyPath) -> float:
-        """
-        Get a datetime of the last modified time of the file.
-
-        Args:
-            ns_path (AnyPath): Namespace path.
-            path (AnyPath): File pathname relative to namespace.
-
-        Raises:
-            File.NotFound: If file in path doesn't exists
-
-        Returns:
-            float: Last modified time of the file.
-        """
-
-    @abc.abstractmethod
     async def iterdir(
         self,
         ns_path: AnyPath,
@@ -276,20 +260,4 @@ class IStorage(Protocol):
 
         Returns:
             StorageFile: Saved StorageFile.
-        """
-
-    @abc.abstractmethod
-    async def size(self, ns_path: AnyPath, path: AnyPath) -> int:
-        """
-        Get the total size, in bytes, of the file referenced by path.
-
-        Args:
-            ns_path (AnyPath): Namespace path.
-            path (AnyPath): File pathname relative to namespace.
-
-        Raises:
-            File.NotFound: If given path does not exist.
-
-        Returns:
-            int: Total size in bytes.
         """

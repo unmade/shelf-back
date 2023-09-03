@@ -176,25 +176,6 @@ async def test_exists_but_client_raises_error(s3_storage: S3Storage):
             await s3_storage.exists("user", "f.txt")
 
 
-async def test_get_modified(file_factory, s3_storage: S3Storage):
-    await file_factory("user/f.txt")
-    mtime = await s3_storage.get_modified_time("user", "f.txt")
-    assert mtime > 0
-
-
-async def test_get_modified_time_but_file_does_not_exist(s3_storage: S3Storage):
-    with pytest.raises(File.NotFound):
-        await s3_storage.get_modified_time("user", "f.txt")
-
-
-async def test_get_modified_time_but_client_raises_error(s3_storage: S3Storage):
-    stubber = Stubber(s3_storage.s3.meta.client)
-    stubber.add_client_error("head_object")
-
-    with stubber, pytest.raises(ClientError):
-            await s3_storage.get_modified_time("user", "f.txt")
-
-
 async def test_iterdir(file_factory, s3_storage: S3Storage):
     await file_factory("user/a/x.txt")
     await file_factory("user/a/y.txt")
@@ -386,22 +367,3 @@ async def test_save_overrides_existing_file(file_factory, s3_storage: S3Storage)
     await file_factory("user/f.txt")
     file = await s3_storage.save("user", "f.txt", content=BytesIO(b"Hello, World!"))
     assert file.size == 13
-
-
-async def test_size(file_factory, s3_storage: S3Storage):
-    await file_factory("user/f.txt")
-    size = await s3_storage.size("user", "f.txt")
-    assert size == 15
-
-
-async def test_size_but_file_does_not_exist(s3_storage: S3Storage):
-    with pytest.raises(File.NotFound):
-        await s3_storage.size("user", "f.txt")
-
-
-async def test_size_but_client_raises_error(s3_storage: S3Storage):
-    stubber = Stubber(s3_storage.s3.meta.client)
-    stubber.add_client_error("head_object")
-
-    with stubber, pytest.raises(ClientError):
-            await s3_storage.size("user", "f.txt")

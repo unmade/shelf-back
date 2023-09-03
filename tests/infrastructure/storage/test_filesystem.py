@@ -162,20 +162,6 @@ async def test_exists(file_factory, fs_storage: FileSystemStorage):
     assert await fs_storage.exists("user", "a/f.txt")
 
 
-async def test_get_modified_time(file_factory, fs_storage: FileSystemStorage):
-    fullpath = await file_factory("user/a/f.txt")
-    mtime = await fs_storage.get_modified_time("user", "a/f.txt")
-    assert mtime == fullpath.lstat().st_mtime
-
-    mtime = await fs_storage.get_modified_time("user", "a")
-    assert mtime == fullpath.parent.lstat().st_mtime
-
-
-async def test_get_modified_time_but_file_does_not_exist(fs_storage: FileSystemStorage):
-    with pytest.raises(File.NotFound):
-        await fs_storage.get_modified_time("user", "f.txt")
-
-
 async def test_iterdir(file_factory, fs_storage: FileSystemStorage):
     await file_factory("user/a/x.txt")
     await file_factory("user/a/y.txt")
@@ -360,14 +346,3 @@ async def test_save_overrides_existing_file(
     assert fullpath.lstat().st_size == 15
     file = await fs_storage.save("user", "f.txt", content=BytesIO(b""))
     assert file.size == 0
-
-
-async def test_size(file_factory, fs_storage: FileSystemStorage):
-    fullpath = await file_factory("user/f.txt")
-    size = await fs_storage.size("user", "f.txt")
-    assert size == fullpath.lstat().st_size
-
-
-async def test_size_but_file_does_not_exist(fs_storage: FileSystemStorage):
-    with pytest.raises(File.NotFound):
-        await fs_storage.size("user", "f.txt")
