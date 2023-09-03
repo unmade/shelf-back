@@ -6,13 +6,13 @@ import glob
 import os
 import os.path
 import shutil
-from typing import IO, TYPE_CHECKING, AsyncIterator, Iterator
+from typing import IO, TYPE_CHECKING, AsyncIterator, Iterator, Self
 
 import stream_zip
 from asgiref.sync import sync_to_async
 
 from app.app.files.domain import File
-from app.app.infrastructure.storage import ContentReader, IStorage, StorageFile
+from app.app.infrastructure.storage import IStorage, StorageFile
 from app.config import FileSystemStorageConfig
 
 from ._datastructures import StreamZipFile
@@ -26,6 +26,12 @@ __all__ = ["FileSystemStorage"]
 class FileSystemStorage(IStorage):
     def __init__(self, config: FileSystemStorageConfig):
         self.location = config.fs_location
+
+    async def __aenter__(self) -> Self:
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        pass
 
     @staticmethod
     def _joinpath(path: AnyPath, *paths: AnyPath) -> str:
@@ -79,7 +85,7 @@ class FileSystemStorage(IStorage):
                 else:
                     os.unlink(entry.path)
 
-    async def download(self, ns_path: AnyPath, path) -> ContentReader:
+    async def download(self, ns_path: AnyPath, path) -> AsyncIterator[bytes]:
         fullpath = self._joinpath(self.location, ns_path, path)
         try:
             file = self._from_path(ns_path, fullpath)
@@ -89,16 +95,14 @@ class FileSystemStorage(IStorage):
         if file.is_dir():
             raise File.NotFound()
 
-        return ContentReader(self._download_iter(fullpath), zipped=False)
-
-    async def _download_iter(self, fullpath: AnyPath) -> AsyncIterator[bytes]:
         with open(str(fullpath), "rb", buffering=4096) as f:
             for chunk in f:
                 yield chunk
 
-    async def downloaddir(self, ns_path: AnyPath, path: AnyPath) -> ContentReader:
-        archive = stream_zip.stream_zip(self._downloaddir_iter(ns_path, path))
-        return ContentReader.from_iter(archive, zipped=True)
+    def downloaddir(self, ns_path: AnyPath, path: AnyPath) -> Iterator[bytes]:
+        return stream_zip.stream_zip(  # type: ignore[no-any-return]
+            self._downloaddir_iter(ns_path, path)
+        )
 
     def _downloaddir_iter(
         self,
@@ -125,8 +129,9 @@ class FileSystemStorage(IStorage):
         fullpath = self._joinpath(self.location, ns_path, path)
         return os.path.exists(fullpath)
 
-    @sync_to_async
-    def iterdir(self, ns_path: AnyPath, path: AnyPath) -> Iterator[StorageFile]:
+    async def iterdir(
+        self, ns_path: AnyPath, path: AnyPath
+    ) -> AsyncIterator[StorageFile]:
         dir_path = self._joinpath(self.location, ns_path, path)
         try:
             entries = os.scandir(dir_path)

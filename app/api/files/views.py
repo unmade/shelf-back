@@ -104,10 +104,10 @@ async def download(
     key: str = Query(None),
 ):
     """
-    Download a file or a folder.
+    Download a file.
 
     This endpoint is useful to perform downloads with browser. A `key` is obtained by
-    calling `get_download_url` endpoint. Folders will be downloaded as a ZIP archive.
+    calling `get_download_url` endpoint.
     """
     value = await shortcuts.pop_download_cache(key)
     if not value:
@@ -117,21 +117,17 @@ async def download(
         file, content = await usecases.namespace.download(value.ns_path, value.path)
     except File.ActionNotAllowed as exc:
         raise exceptions.FileActionNotAllowed() from exc
+    except File.IsADirectory as exc:
+        raise exceptions.IsADirectory(path=value.path) from exc
     except File.NotFound as exc:
         raise exceptions.PathNotFound(path=value.path) from exc
 
-    filename = file.name.encode("utf-8").decode("latin-1")
-    if content.zipped:
-        headers = {
-            "Content-Disposition": f'attachment; filename="{filename}.zip"',
-            "Content-Type": "attachment/zip",
-        }
-    else:
-        headers = {
-            "Content-Disposition": f'attachment; filename="{filename}"',
-            "Content-Length": str(file.size),
-            "Content-Type": file.mediatype,
-        }
+    filename = file.path.name.encode("utf-8").decode("latin-1")
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"',
+        "Content-Length": str(file.size),
+        "Content-Type": file.mediatype,
+    }
     return StreamingResponse(content, headers=headers)
 
 
@@ -142,29 +138,25 @@ async def download_xhr(
     usecases: UseCasesDeps,
 ):
     """
-    Download a file or a folder.
+    Download a file.
 
-    This endpoint is useful to download files with XHR. Folders will be downloaded as a
-    ZIP archive."""
+    This endpoint is useful to download files with XHR.
+    """
     try:
         file, content = await usecases.namespace.download(namespace.path, payload.path)
     except File.ActionNotAllowed as exc:
         raise exceptions.FileActionNotAllowed() from exc
+    except File.IsADirectory as exc:
+        raise exceptions.IsADirectory(path=payload.path) from exc
     except File.NotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
 
     filename = file.name.encode("utf-8").decode("latin-1")
-    if content.zipped:
-        headers = {
-            "Content-Disposition": f'attachment; filename="{filename}.zip"',
-            "Content-Type": "attachment/zip",
-        }
-    else:
-        headers = {
-            "Content-Disposition": f'attachment; filename="{filename}"',
-            "Content-Length": str(file.size),
-            "Content-Type": file.mediatype,
-        }
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"',
+        "Content-Length": str(file.size),
+        "Content-Type": file.mediatype,
+    }
 
     return StreamingResponse(content, headers=headers)
 
@@ -253,7 +245,8 @@ async def get_download_url(
     except File.NotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
 
-    key = await shortcuts.create_download_cache(namespace.path, file.path)
+    # check that user can download a file before generating a link
+    key = await shortcuts.create_download_cache(file.ns_path, file.path)
 
     download_url = request.url_for("download")
     return GetDownloadUrlResponse(download_url=f"{download_url}?key={key}")

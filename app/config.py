@@ -150,7 +150,7 @@ class FileSystemStorageConfig(BaseModel):
     fs_location: str
 
 
-class S3StorageConfig(BaseSettings):
+class S3StorageConfig(BaseModel):
     type: Literal[StorageType.s3] = StorageType.s3
     quota: BytesSize | None = None
     s3_location: AnyHttpUrl

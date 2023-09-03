@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import IO, TYPE_CHECKING
+from io import BytesIO
+from typing import IO, TYPE_CHECKING, AsyncIterator
 
 from app.app.files.domain import File, MountedFile, MountPoint, Path
 from app.cache import disk_cache
@@ -14,7 +15,6 @@ if TYPE_CHECKING:
 
     from app.app.files.domain import AnyFile, AnyPath
     from app.app.files.services.file import FileCoreService, MountService
-    from app.app.infrastructure.storage import ContentReader
 
 
 def _make_thumbnail_ttl(*args, size: int, **kwargs) -> str:
@@ -116,12 +116,13 @@ class FileService:
 
     async def download(
         self, ns_path: AnyPath, path: AnyPath
-    ) -> tuple[AnyFile, ContentReader]:
+    ) -> tuple[AnyFile, AsyncIterator[bytes]]:
         """
         Downloads a file or a folder at a given path.
 
         Raises:
             File.ActionNotAllowed: If downloading a file is not allowed.
+            File.IsADirectory: If file is a directory.
             File.NotFound: If a file at a target path does not exist.
         """
         fq_path = await self.mount_service.resolve_path(ns_path, path)
@@ -358,7 +359,7 @@ class FileService:
             File.IsADirectory: If file is a directory.
             ThumbnailUnavailable: If file is not an image.
         """
-        file, content_reader = await self.filecore.download(file_id)
+        file, chunks = await self.filecore.download(file_id)
         mount_point = None
         if ns_path and file.ns_path != ns_path:
             mount_point = await self.mount_service.get_closest_by_source(
@@ -369,6 +370,6 @@ class FileService:
             if not mount_point.can_view():
                 raise File.ActionNotAllowed() from None
 
-        content = await content_reader.stream()
+        content = BytesIO(b"".join([chunk async for chunk in chunks]))
         thumbnail = await thumbnails.thumbnail(content, size=size)
         return _resolve_file(file, mount_point), thumbnail

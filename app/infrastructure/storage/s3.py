@@ -14,7 +14,7 @@ from botocore.client import Config
 from botocore.exceptions import ClientError
 
 from app.app.files.domain import File
-from app.app.infrastructure.storage import ContentReader, IStorage, StorageFile
+from app.app.infrastructure.storage import ContentReader, StorageFile
 from app.config import S3StorageConfig
 
 from ._datastructures import StreamZipFile
@@ -34,7 +34,7 @@ class NonCloseableBufferedReader(BufferedReader):
         self.flush()
 
 
-class S3Storage(IStorage):
+class S3Storage:
     def __init__(self, config: S3StorageConfig):
         self.location = str(config.s3_location)
         self.bucket_name = config.s3_bucket

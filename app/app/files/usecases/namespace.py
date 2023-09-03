@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import itertools
-from typing import IO, TYPE_CHECKING, cast
+from io import BytesIO
+from typing import IO, TYPE_CHECKING, AsyncIterator, cast
 
 from app.app.files.domain import AnyFile, File, Path
 from app.app.files.domain.file import ThumbnailUnavailable
@@ -22,7 +23,6 @@ if TYPE_CHECKING:
         MetadataService,
         NamespaceService,
     )
-    from app.app.infrastructure.storage import ContentReader
     from app.app.users.services import UserService
 
 __all__ = ["NamespaceUseCase"]
@@ -124,13 +124,14 @@ class NamespaceUseCase:
 
     async def download(
         self, ns_path: AnyPath, path: AnyPath
-    ) -> tuple[AnyFile, ContentReader]:
+    ) -> tuple[AnyFile, AsyncIterator[bytes]]:
         """
-        Downloads a file or a folder at a given path.
+        Downloads a file at a given path.
 
         Raises:
             File.ActionNotAllowed: If downloading an item is not allowed.
-            File.NotFound: If a file/folder with a given path does not exist.
+            File.IsADirectory: If file is a directory.
+            File.NotFound: If a file with a given path does not exist.
         """
         return await self.file.download(ns_path, path)
 
@@ -310,7 +311,7 @@ class NamespaceUseCase:
                 ))
 
     async def _reindex_content(self, file: File, trackers) -> None:
-        _, content_reader = await self.file.filecore.download(file.id)
-        content = await content_reader.stream()
+        _, chunks = await self.file.filecore.download(file.id)
+        content = BytesIO(b"".join([chunk async for chunk in chunks]))
         for tracker in trackers:
             await tracker.add(file.id, content)

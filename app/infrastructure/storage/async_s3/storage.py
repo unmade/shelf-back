@@ -3,18 +3,18 @@ from __future__ import annotations
 import asyncio
 import os
 import os.path
-from typing import IO, TYPE_CHECKING, AsyncIterator, Iterator
+from contextlib import AsyncExitStack
+from typing import IO, TYPE_CHECKING, AsyncIterator, Iterator, Self
 
 import httpx
-from aioaws.s3 import S3Config, S3File
 import stream_zip
+from aioaws.s3 import S3Config, S3File
 
 from app.app.files.domain import File
-from app.app.infrastructure.storage import ContentReader, StorageFile
+from app.app.infrastructure.storage import IStorage, StorageFile
 from app.config import S3StorageConfig
 
 from .._datastructures import StreamZipFile
-
 from .client import AsyncS3Client, NoSuchKey
 
 if TYPE_CHECKING:
@@ -23,12 +23,12 @@ if TYPE_CHECKING:
 __all__ = ["AsyncS3Storage"]
 
 
-class AsyncS3Storage:
+class AsyncS3Storage(IStorage):
     def __init__(self, config: S3StorageConfig):
-        client = httpx.AsyncClient()
+        self.client = httpx.AsyncClient()
         netloc = ":".join([str(config.s3_location.host), str(config.s3_location.port)])
         self.s3 = AsyncS3Client(
-            client,
+            self.client,
             S3Config(
                 aws_host=netloc,
                 aws_access_key=config.s3_access_key_id,
@@ -40,6 +40,14 @@ class AsyncS3Storage:
         self.s3._aws_client.schema = config.s3_location.scheme
         self.location = str(config.s3_location)
         self.bucket_name = config.s3_bucket
+        self._stack = AsyncExitStack()
+
+    async def __aenter__(self) -> Self:
+        await self._stack.enter_async_context(self.client)
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        await self._stack.aclose()
 
     def _joinpath(self, ns_path: AnyPath, path: AnyPath) -> str:
         return os.path.normpath(os.path.join(str(ns_path), str(path)))
@@ -63,14 +71,14 @@ class AsyncS3Storage:
             return False
         return True
 
-    def download(self, ns_path: AnyPath, path: AnyPath) -> ContentReader:
+    async def download(self, ns_path: AnyPath, path: AnyPath) -> AsyncIterator[bytes]:
         key = self._joinpath(ns_path, path)
-        content_iterator = self.s3.iter_download(self.bucket_name, key)
-        return ContentReader(content_iterator, zipped=False)
+        async for chunk in self.s3.iter_download(self.bucket_name, key):
+            yield chunk
 
     def downloaddir(self, ns_path: AnyPath, path: AnyPath) -> Iterator[bytes]:
         prefix = self._joinpath(ns_path, path)
-        return stream_zip.stream_zip(
+        return stream_zip.stream_zip(  # type: ignore[no-any-return]
             StreamZipFile(
                 path=os.path.relpath(entry.key, prefix),
                 modified_at=entry.last_modified,
@@ -81,7 +89,7 @@ class AsyncS3Storage:
             for entry in self._iterdir_sync(ns_path, path)
         )
 
-    def _download_sync(self, key: str):
+    def _download_sync(self, key: str) -> Iterator[bytes]:
         path = f"{self.bucket_name}/{key}"
         url = httpx.URL(f'{self.s3._aws_client.endpoint}/{path}')
         headers = self.s3._aws_client._auth.auth_headers("GET", url)
@@ -93,8 +101,9 @@ class AsyncS3Storage:
             for chunk in r.iter_bytes():
                 yield chunk
 
-    def _iterdir_sync(self, ns_path: AnyPath, path: AnyPath):
+    def _iterdir_sync(self, ns_path: AnyPath, path: AnyPath) -> Iterator[S3File]:
         from xml.etree import ElementTree
+
         from aioaws._utils import pretty_xml
         from aioaws.s3 import S3File, xmlns_re
 

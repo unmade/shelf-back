@@ -88,6 +88,14 @@ class IStorage(Protocol):
     location: str
 
     @abc.abstractmethod
+    async def __aenter__(self) -> Self:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
     async def delete(self, ns_path: AnyPath, path: AnyPath) -> None:
         """
         Delete a file by path.
@@ -122,7 +130,7 @@ class IStorage(Protocol):
         """
 
     @abc.abstractmethod
-    async def download(self, ns_path: AnyPath, path: AnyPath) -> ContentReader:
+    def download(self, ns_path: AnyPath, path: AnyPath) -> AsyncIterator[bytes]:
         """
         Return an iterator over a file content.
 
@@ -138,7 +146,7 @@ class IStorage(Protocol):
         """
 
     @abc.abstractmethod
-    async def downloaddir(self, ns_path: AnyPath, path: AnyPath) -> ContentReader:
+    def downloaddir(self, ns_path: AnyPath, path: AnyPath) -> Iterator[bytes]:
         """
         Return an iterator over a zipped folder content.
 
@@ -164,11 +172,11 @@ class IStorage(Protocol):
         """
 
     @abc.abstractmethod
-    async def iterdir(
+    def iterdir(
         self,
         ns_path: AnyPath,
         path: AnyPath,
-    ) -> Iterator[StorageFile]:
+    ) -> AsyncIterator[StorageFile]:
         """
         Return an iterator of StorageFile objects for a given path.
 
