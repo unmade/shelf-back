@@ -6,7 +6,7 @@ import pytest
 
 from app.infrastructure.context import Infrastructure
 from app.infrastructure.database.edgedb import EdgeDBDatabase
-from app.infrastructure.storage import FileSystemStorage, S3Storage
+from app.infrastructure.storage import AsyncS3Storage, FileSystemStorage
 
 if TYPE_CHECKING:
     from pytest import FixtureRequest
@@ -32,7 +32,7 @@ class TestInfrastructure:
 
     @pytest.mark.parametrize(["config_name", "storage_cls"], [
         ("fs_storage_config", FileSystemStorage),
-        ("s3_storage_config", S3Storage),
+        ("s3_storage_config", AsyncS3Storage),
     ])
     def test_get_storage(self, request: FixtureRequest, config_name, storage_cls):
         config = request.getfixturevalue(config_name)

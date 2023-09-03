@@ -5,7 +5,7 @@ import urllib.parse
 import uuid
 from io import BytesIO
 from tempfile import SpooledTemporaryFile
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, AsyncIterator
 from unittest import mock
 
 import pytest
@@ -26,7 +26,6 @@ from app.api.files.exceptions import (
 )
 from app.api.files.schemas import MoveBatchRequest
 from app.app.files.domain import ContentMetadata, Exif, File, Path, mediatypes
-from app.app.infrastructure.storage import ContentReader
 from app.app.infrastructure.worker import Job, JobStatus
 from app.app.users.domain import Account
 from app.worker.jobs.files import ErrorCode as TaskErrorCode
@@ -58,11 +57,8 @@ def _make_file(
     )
 
 
-def _make_content_reader(content: bytes, *, zipped: bool) -> ContentReader:
-    async def content_iter():
-        yield content
-
-    return ContentReader(content_iter(), zipped=zipped)
+async def _aiter(content: bytes) -> AsyncIterator[bytes]:
+    yield content
 
 
 class TestCreateFolder:
@@ -230,8 +226,7 @@ class TestDownload:
     ):
         # GIVEN
         file = _make_file(str(namespace.path), "f.txt")
-        content_reader = _make_content_reader(b"Hello, World!", zipped=False)
-        ns_use_case.download.return_value = file, content_reader
+        ns_use_case.download.return_value = file, _aiter(b"Hello, World!")
         key = await shortcuts.create_download_cache(namespace.path, file.path)
         # WHEN
         client.mock_namespace(namespace)
@@ -244,31 +239,12 @@ class TestDownload:
         assert response.content == b"Hello, World!"
         ns_use_case.download.assert_awaited_once_with(str(namespace.path), file.path)
 
-    async def test_when_content_reader_is_zipped(
-        self, client: TestClient, ns_use_case: MagicMock, namespace: Namespace,
-    ):
-        # GIVEN
-        file = _make_file(str(namespace.path), "f.txt")
-        content_reader = _make_content_reader(b"Hello, World!", zipped=True)
-        ns_use_case.download.return_value = file, content_reader
-        key = await shortcuts.create_download_cache(namespace.path, file.path)
-        # WHEN
-        client.mock_namespace(namespace)
-        response = await client.get(self.url(key))
-        # THEN
-        assert response.status_code == 200
-        assert "Content-Length" not in response.headers
-        assert response.headers["Content-Type"] == "attachment/zip"
-        assert response.content == b"Hello, World!"
-        ns_use_case.download.assert_awaited_once_with(str(namespace.path), file.path)
-
     async def test_when_path_has_non_latin_characters(
         self, client: TestClient, ns_use_case: MagicMock, namespace: Namespace,
     ):
         # GIVEN
         file = _make_file(str(namespace.path), "ф.txt")
-        content_reader = _make_content_reader(b"Hello, World!", zipped=False)
-        ns_use_case.download.return_value = file, content_reader
+        ns_use_case.download.return_value = file, _aiter(b"Hello, World!")
         key = await shortcuts.create_download_cache(namespace.path, file.path)
         # WHEN
         client.mock_namespace(namespace)
@@ -289,6 +265,7 @@ class TestDownload:
 
     @pytest.mark.parametrize(["path", "error", "expected_error"], [
         ("teamfolder/f.txt", File.ActionNotAllowed(), FileActionNotAllowed()),
+        ("folder", File.IsADirectory(), IsADirectory(path="folder")),
         ("f.txt", File.NotFound(), PathNotFound(path="f.txt")),
     ])
     async def test_reraising_app_errors_to_api_errors(
@@ -315,7 +292,6 @@ class TestDownload:
 class TestDownloadXHR:
     url = "/files/download"
 
-    # Use lambda to prevent long names in pytest output
     async def test(
         self,
         client: TestClient,
@@ -324,8 +300,7 @@ class TestDownloadXHR:
     ):
         # GIVEN
         file = _make_file(str(namespace.path), "f.txt")
-        content_reader = _make_content_reader(b"Hello, World!", zipped=False)
-        ns_use_case.download.return_value = file, content_reader
+        ns_use_case.download.return_value = file, _aiter(b"Hello, World!")
         payload = {"path": str(file.path)}
         # WHEN
         client.mock_namespace(namespace)
@@ -338,31 +313,12 @@ class TestDownloadXHR:
         assert response.content == b"Hello, World!"
         ns_use_case.download.assert_awaited_once_with(namespace.path, file.path)
 
-    async def test_when_content_reader_is_zipped(
-        self, client: TestClient, ns_use_case: MagicMock, namespace: Namespace,
-    ):
-        # GIVEN
-        file = _make_file(str(namespace.path), "f.txt")
-        content_reader = _make_content_reader(b"Hello, World!", zipped=True)
-        ns_use_case.download.return_value = file, content_reader
-        payload = {"path": str(file.path)}
-        # WHEN
-        client.mock_namespace(namespace)
-        response = await client.post(self.url, json=payload)
-        # THEN
-        assert response.status_code == 200
-        assert "Content-Length" not in response.headers
-        assert response.headers["Content-Type"] == "attachment/zip"
-        assert response.content == b"Hello, World!"
-        ns_use_case.download.assert_awaited_once_with(namespace.path, file.path)
-
     async def test_when_path_has_non_latin_characters(
         self, client: TestClient, ns_use_case: MagicMock, namespace: Namespace,
     ):
         # GIVEN
         file = _make_file(str(namespace.path), "ф.txt")
-        content_reader = _make_content_reader(b"Hello, World!", zipped=False)
-        ns_use_case.download.return_value = file, content_reader
+        ns_use_case.download.return_value = file, _aiter(b"Hello, World!")
         payload = {"path": str(file.path)}
         # WHEN
         client.mock_namespace(namespace)
@@ -374,6 +330,7 @@ class TestDownloadXHR:
 
     @pytest.mark.parametrize(["path", "error", "expected_error"], [
         ("teamfolder/f.txt", File.ActionNotAllowed(), FileActionNotAllowed()),
+        ("folder", File.IsADirectory(), IsADirectory(path="folder")),
         ("f.txt", File.NotFound(), PathNotFound(path="f.txt")),
     ])
     async def test_reraising_app_errors_to_api_errors(

@@ -3,14 +3,13 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 from io import BytesIO
-from typing import IO, TYPE_CHECKING, cast
+from typing import IO, TYPE_CHECKING, AsyncIterator, cast
 from unittest import mock
 
 import pytest
 
 from app.app.files.domain import File, Fingerprint, Path
 from app.app.files.domain.file import ThumbnailUnavailable
-from app.app.infrastructure.storage import ContentReader
 from app.app.users.domain import Account
 from app.config import config
 
@@ -21,6 +20,11 @@ if TYPE_CHECKING:
     from app.app.files.usecases import NamespaceUseCase
 
 pytestmark = [pytest.mark.asyncio]
+
+
+async def _aiter(content: IO[bytes]) -> AsyncIterator[bytes]:
+    for chunk in content:
+        yield chunk
 
 
 def _make_file(ns_path: str, path: AnyPath, size: int = 10) -> File:
@@ -412,8 +416,8 @@ class TestReindexContents:
         filecore = file_service.filecore
         filecore.iter_by_mediatypes.return_value = iter_by_mediatypes_result()
         filecore.download.side_effect = [
-            (jpg_1, ContentReader.from_iter(image_content, zipped=False)),
-            (jpg_2, ContentReader.from_iter(image_content, zipped=False)),
+            (jpg_1, _aiter(image_content)),
+            (jpg_2, _aiter(image_content)),
         ]
         dupefinder = cast(mock.MagicMock, ns_use_case.dupefinder)
         meta_service = cast(mock.MagicMock, ns_use_case.metadata)

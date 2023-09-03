@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from app.app.files.domain import AnyFile, AnyPath
     from app.app.files.repositories import IFileRepository
     from app.app.infrastructure import IDatabase
-    from app.app.infrastructure.storage import ContentReader, IStorage
+    from app.app.infrastructure.storage import IStorage
 
     class IServiceDatabase(IDatabase, Protocol):
         file: IFileRepository
@@ -147,26 +147,25 @@ class FileCoreService:
 
         return file
 
-    async def download(self, file_id: UUID) -> tuple[File, ContentReader]:
+    async def download(self, file_id: UUID) -> tuple[File, AsyncIterator[bytes]]:
         """
-        Downloads a file or a folder at a given path.
+        Downloads a file at a given path.
 
         Raises:
-            File.NotFound: If a file at a target path does not exists.
+            File.IsADirectory: If file is a directory.
+            File.NotFound: If a file at a target path does not exist.
         """
         file = await self.get_by_id(file_id)
         if file.is_folder():
-            download_func = self.storage.downloaddir
-        else:
-            download_func = self.storage.download
-        return file, await download_func(file.ns_path, file.path)
+            raise File.IsADirectory() from None
+        return file, self.storage.download(file.ns_path, file.path)
 
     async def empty_folder(self, ns_path: AnyPath, path: AnyPath) -> None:
         """
         Delete all files and folder at a given folder.
 
         Raises:
-            File.NotFound: If a file at a target path does not exists.
+            File.NotFound: If a file at a target path does not exist.
         """
         file = await self.db.file.get_by_path(ns_path, path)
         if file.size == 0:
@@ -363,7 +362,7 @@ class FileCoreService:
         folders = deque([Path(path)])
         while len(folders):
             folder = folders.pop()
-            for file in await self.storage.iterdir(ns_path, folder):
+            async for file in self.storage.iterdir(ns_path, folder):
                 if file.is_dir():
                     folders.append(Path(file.path))
                     size = 0

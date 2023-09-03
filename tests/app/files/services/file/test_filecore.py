@@ -258,16 +258,16 @@ class TestDelete:
 
 class TestDownload:
     async def test_on_file(self, filecore: FileCoreService, file: File):
-        with mock.patch.object(filecore, "storage", autospec=True) as storage_mock:
+        with mock.patch.object(filecore, "storage") as storage_mock:
             result = await filecore.download(file.id)
-        storage_mock.download.assert_awaited_once_with(file.ns_path, file.path)
+        storage_mock.download.assert_called_once_with(file.ns_path, file.path)
         assert result == (file, storage_mock.download.return_value)
 
-    async def test_on_folder(self, filecore, folder: File):
-        with mock.patch.object(filecore, "storage", autospec=True) as storage_mock:
-            result = await filecore.download(folder.id)
-        storage_mock.downloaddir.assert_awaited_once_with(folder.ns_path, folder.path)
-        assert result == (folder, storage_mock.downloaddir.return_value)
+    async def test_when_is_a_folder(self, filecore, folder: File):
+        with mock.patch.object(filecore, "storage") as storage_mock:  # noqa: SIM117
+            with pytest.raises(File.IsADirectory):
+                await filecore.download(folder.id)
+        storage_mock.downloaddir.assert_not_called()
 
 
 class TestEmptyFolder:

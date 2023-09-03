@@ -27,7 +27,7 @@ from app.config import (
     WorkerConfig,
 )
 from app.infrastructure.database.edgedb import EdgeDBDatabase
-from app.infrastructure.storage import FileSystemStorage, S3Storage
+from app.infrastructure.storage import AsyncS3Storage, FileSystemStorage
 from app.infrastructure.worker import ARQWorker
 from app.toolkit import taskgroups
 
@@ -80,6 +80,7 @@ class Infrastructure:
     async def __aenter__(self) -> Self:
         await taskgroups.gather(
             self._stack.enter_async_context(self.database),
+            self._stack.enter_async_context(self.storage),
             self._stack.enter_async_context(self.worker),
         )
         return self
@@ -94,7 +95,7 @@ class Infrastructure:
     @staticmethod
     def _get_storage(storage_config: StorageConfig) -> IStorage:
         if isinstance(storage_config, S3StorageConfig):
-            return S3Storage(storage_config)
+            return AsyncS3Storage(storage_config)
         if isinstance(storage_config, FileSystemStorageConfig):
             return FileSystemStorage(storage_config)
         assert_never(storage_config)

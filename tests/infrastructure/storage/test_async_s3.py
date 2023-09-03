@@ -105,10 +105,9 @@ class TestDownload:
         # GIVEN
         await file_factory("user/f.txt")
         # WHEN
-        content_reader = async_s3_storage.download("user", "f.txt")
+        chunks = async_s3_storage.download("user", "f.txt")
         # THEN
-        assert content_reader.zipped is False
-        content = await content_reader.stream()
+        content = BytesIO(b"".join([chunk async for chunk in chunks]))
         assert content.read() == b"I'm Dummy File!"
 
     @pytest.mark.skip("figure out how to handle errors in the async iterator")
@@ -117,14 +116,12 @@ class TestDownload:
     ):
         await file_factory("user/a/f.txt")
         with pytest.raises(File.NotFound):
-            content_reader = async_s3_storage.download("user", "a")
-            await content_reader.stream()
+            async_s3_storage.download("user", "a")
 
     @pytest.mark.skip("figure out how to handle errors in the async iterator")
     async def test_when_file_does_not_exist(self, async_s3_storage: AsyncS3Storage):
         with pytest.raises(File.NotFound):
-            content_reader = async_s3_storage.download("user", "f.txt")
-            await content_reader.stream()
+            async_s3_storage.download("user", "f.txt")
 
 
 class TestDownloadDir:
