@@ -126,20 +126,6 @@ class S3Storage(IStorage):
         return True
 
     @sync_to_async
-    def get_modified_time(self, ns_path: AnyPath, path: AnyPath) -> float:
-        key = self._joinpath(ns_path, path)
-        obj = self.s3.Object(self.bucket_name, key)
-
-        try:
-            obj.load()
-        except ClientError as exc:
-            if exc.response["Error"]["Code"] == "404":
-                raise File.NotFound() from exc
-            raise
-
-        return obj.last_modified.timestamp()
-
-    @sync_to_async
     def iterdir(self, ns_path: AnyPath, path: AnyPath) -> Iterator[StorageFile]:
         ns_path = str(ns_path)
         bucket_name = self.bucket_name
@@ -233,17 +219,3 @@ class S3Storage(IStorage):
             mtime=datetime.datetime.now().timestamp(),
             is_dir=False,
         )
-
-    @sync_to_async
-    def size(self, ns_path: AnyPath, path: AnyPath) -> int:
-        key = self._joinpath(ns_path, path)
-        obj = self.s3.Object(self.bucket_name, key)
-
-        try:
-            obj.load()
-        except ClientError as exc:
-            if exc.response["Error"]["Code"] == "404":
-                raise File.NotFound() from exc
-            raise
-
-        return obj.content_length

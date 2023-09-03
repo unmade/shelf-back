@@ -126,14 +126,6 @@ class FileSystemStorage(IStorage):
         return os.path.exists(fullpath)
 
     @sync_to_async
-    def get_modified_time(self, ns_path: AnyPath, path: AnyPath) -> float:
-        fullpath = self._joinpath(self.location, ns_path, path)
-        try:
-            return os.lstat(fullpath).st_mtime
-        except FileNotFoundError as exc:
-            raise File.NotFound() from exc
-
-    @sync_to_async
     def iterdir(self, ns_path: AnyPath, path: AnyPath) -> Iterator[StorageFile]:
         dir_path = self._joinpath(self.location, ns_path, path)
         try:
@@ -225,11 +217,3 @@ class FileSystemStorage(IStorage):
             raise File.NotADirectory() from exc
 
         return self._from_path(ns_path, fullpath)
-
-    @sync_to_async
-    def size(self, ns_path: AnyPath, path: AnyPath) -> int:
-        fullpath = self._joinpath(self.location, ns_path, path)
-        try:
-            return os.lstat(fullpath).st_size
-        except FileNotFoundError as exc:
-            raise File.NotFound() from exc
