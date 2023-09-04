@@ -208,7 +208,7 @@ typing-extensions==4.7.1
     #   pydantic
     #   pydantic-core
     #   typer
-urllib3==1.26.16
+urllib3==2.0.4
     # via
     #   -c requirements/base.txt
     #   sentry-sdk
