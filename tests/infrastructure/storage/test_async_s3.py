@@ -6,34 +6,33 @@ from typing import TYPE_CHECKING
 from zipfile import ZipFile
 
 import pytest
-from asgiref.sync import sync_to_async
 
 from app.app.files.domain.file import File
 
 if TYPE_CHECKING:
     from app.app.files.domain import AnyPath
+    from app.infrastructure.storage.async_s3.client import AsyncS3Client
     from app.infrastructure.storage.async_s3.storage import AsyncS3Storage
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.storage_s3]
 
 
 @pytest.fixture
-def file_factory(s3_bucket: str, s3_resource):
+def file_factory(s3_bucket: str, s3_client: AsyncS3Client):
     """
     A file factory for a S3Storage.
 
     Save file in a specified path with a given content and return full path.
     Any missing parents will be created.
     """
-    @sync_to_async
-    def create_file(
+    async def create_file(
         path: AnyPath,
         content: bytes | BytesIO = b"I'm Dummy File!",
     ) -> None:
         if isinstance(content, bytes):
             content = BytesIO(content)
 
-        s3_resource.Bucket(s3_bucket).upload_fileobj(content, path)
+        await s3_client.put_object(s3_bucket, str(path), content)
 
     return create_file
 
@@ -316,15 +315,20 @@ class TestMoveDir:
 
 
 class TestSave:
-    async def test(self, s3_bucket: str, s3_resource, async_s3_storage: AsyncS3Storage):
+    async def test(
+        self,
+        async_s3_storage: AsyncS3Storage,
+        s3_bucket: str,
+        s3_client: AsyncS3Client,
+    ):
         content = BytesIO(b"I'm Dummy file!")
         file = await async_s3_storage.save("user", "a/f.txt", content=content)
 
-        obj = s3_resource.Object(s3_bucket, "user/a/f.txt")
+        obj = await s3_client.head_object(s3_bucket, "user/a/f.txt")
         assert file.name == "f.txt"
         assert file.ns_path == "user"
         assert file.path == "a/f.txt"
-        assert file.size == obj.content_length == 15
+        assert file.size == obj.size == 15
         assert file.is_dir() is False
 
     @pytest.mark.skip("that operation should not be allowed")

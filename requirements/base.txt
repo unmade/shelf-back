@@ -24,12 +24,6 @@ async-timeout==4.0.3
     # via redis
 bcrypt==4.0.1
     # via -r requirements/base.in
-boto3==1.28.40
-    # via -r requirements/base.in
-botocore==1.31.40
-    # via
-    #   boto3
-    #   s3transfer
 cashews[diskcache,redis]==6.2.0
     # via -r requirements/base.in
 certifi==2023.7.22
@@ -83,10 +77,6 @@ idna==3.4
     #   anyio
     #   email-validator
     #   rfc3986
-jmespath==1.0.1
-    # via
-    #   boto3
-    #   botocore
 orjson==3.9.5
     # via -r requirements/base.in
 passlib==1.7.4
@@ -118,9 +108,7 @@ pymupdf==1.23.3
 pymupdfb==1.23.3
     # via pymupdf
 python-dateutil==2.8.2
-    # via
-    #   -r requirements/base.in
-    #   botocore
+    # via -r requirements/base.in
 python-dotenv==1.0.0
     # via
     #   pydantic-settings
@@ -139,8 +127,6 @@ rfc3986[idna2008]==1.5.0
     # via httpx
 rsa==4.9
     # via python-jose
-s3transfer==0.6.2
-    # via boto3
 sentry-sdk==1.9.4
     # via -r requirements/base.in
 six==1.16.0
@@ -165,10 +151,8 @@ typing-extensions==4.7.1
     #   pydantic
     #   pydantic-core
     #   typer
-urllib3==1.26.16
-    # via
-    #   botocore
-    #   sentry-sdk
+urllib3==2.0.4
+    # via sentry-sdk
 uvicorn[standard]==0.23.2
     # via -r requirements/base.in
 uvloop==0.17.0

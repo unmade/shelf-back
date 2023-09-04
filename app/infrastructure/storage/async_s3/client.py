@@ -18,6 +18,14 @@ if TYPE_CHECKING:
 __all__ = ["AsyncS3Client"]
 
 
+class BucketAlreadyExists(Exception):
+    pass
+
+
+class BucketAlreadyOwnedByYou(Exception):
+    pass
+
+
 class NoSuchKey(Exception):
     pass
 
@@ -45,6 +53,29 @@ class AsyncS3Client:
                 raise NoSuchKey() from None
             raise RequestError(r) from None
 
+    async def create_bucket(self, name: str) -> None:
+        url = URL(f"{self._aws_client.endpoint}/{name}")
+        headers = self._aws_client._auth.auth_headers(
+            method="PUT",  # type: ignore[arg-type]
+            url=url,
+        )
+        r = await self._aws_client.client.put(url, headers=headers)
+        if r.status_code != 200:
+            if "BucketAlreadyOwnedByYou" in r.text:
+                raise BucketAlreadyOwnedByYou() from None
+            if "BucketAlreadyExists" in r.text:
+                raise BucketAlreadyExists() from None
+        r.raise_for_status()
+
+    async def delete_bucket(self, name: str) -> None:
+        url = URL(f"{self._aws_client.endpoint}/{name}")
+        headers = self._aws_client._auth.auth_headers(
+            method="DELETE",  # type: ignore[arg-type]
+            url=url,
+        )
+        r = await self._aws_client.client.delete(url, headers=headers)
+        r.raise_for_status()
+
     async def delete(self, bucket: str, *files: str | S3File) -> list[str]:
         """
         Delete one or more files, based on keys.
@@ -60,7 +91,7 @@ class AsyncS3Client:
                 )
         return list(itertools.chain.from_iterable(task.result() for task in tasks))
 
-    async def delete_recursive(self, bucket: str, prefix: str) -> list[str]:
+    async def delete_recursive(self, bucket: str, prefix: str | None) -> list[str]:
         """
         Delete files starting with a specific prefix.
         """
@@ -135,18 +166,18 @@ class AsyncS3Client:
 
     @overload
     def list_objects(
-        self, bucket: str, prefix: str, *, delimiter: str
+        self, bucket: str, prefix: str | None, *, delimiter: str
     ) -> AsyncIterator[str | S3File]:
         ...
 
     @overload
     def list_objects(
-        self, bucket: str, prefix: str, *, delimiter: None = None
+        self, bucket: str, prefix: str | None, *, delimiter: None = None
     ) -> AsyncIterator[S3File]:
         ...
 
     async def list_objects(
-        self, bucket: str, prefix: str, *, delimiter: str | None = None
+        self, bucket: str, prefix: str | None, *, delimiter: str | None = None
     ) -> AsyncIterator[str | S3File]:
         """
         List S3 files with the given prefix including common prefixes.
