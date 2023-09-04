@@ -8,8 +8,8 @@ from aioaws.s3 import S3Config
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.config import AppConfig, S3StorageConfig
-from app.infrastructure.storage.async_s3 import AsyncS3Storage
-from app.infrastructure.storage.async_s3.client import (
+from app.infrastructure.storage.s3 import S3Storage
+from app.infrastructure.storage.s3.client import (
     AsyncS3Client,
     BucketAlreadyOwnedByYou,
 )
@@ -88,11 +88,11 @@ async def teardown_s3_files(s3_client: AsyncS3Client, s3_bucket: str):
 
 
 @pytest.fixture
-def async_s3_storage(
+def s3_storage(
     setup_s3_bucket,
     teardown_s3_bucket,
     teardown_s3_files,
     s3_storage_config: S3StorageConfig
-) -> AsyncS3Storage:
+) -> S3Storage:
     """An instance of `S3Storage` created with a `s3_storage_config`."""
-    return AsyncS3Storage(s3_storage_config)
+    return S3Storage(s3_storage_config)

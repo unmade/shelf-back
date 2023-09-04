@@ -31,17 +31,17 @@ class NoSuchKey(Exception):
 
 
 class AsyncS3Client:
-    __slots__ = '_config', '_aws_client'
+    __slots__ = "_config", "_aws_client"
 
     def __init__(self, http_client: AsyncClient, config: S3ConfigProtocol):
-        self._aws_client = AwsClient(http_client, config, 's3')
+        self._aws_client = AwsClient(http_client, config, "s3")
         self._config = config
 
     async def copy_object(
         self, bucket: str, from_key: str | S3File, to_key: str | S3File
     ) -> None:
         path = f"{bucket}/{to_key}"
-        url = URL(f'{self._aws_client.endpoint}/{path}')
+        url = URL(f"{self._aws_client.endpoint}/{path}")
         headers = self._aws_client._auth.auth_headers(
             method="PUT",  # type: ignore[arg-type]
             url=url,
@@ -153,7 +153,7 @@ class AsyncS3Client:
 
     async def iter_download(self, bucket: str, key: str) -> AsyncIterator[bytes]:
         path = f"{bucket}/{key}"
-        url = URL(f'{self._aws_client.endpoint}/{path}')
+        url = URL(f"{self._aws_client.endpoint}/{path}")
         headers = self._aws_client._auth.auth_headers("GET", url)
         async with self._aws_client.client.stream("GET", url, headers=headers) as r:
             if r.status_code != 200:

@@ -9,7 +9,6 @@ pre-commit>=3.2,<4
 aioaws
 arq
 asgiref
-boto3-stubs[s3]
 cashews
 edgedb
 fastapi

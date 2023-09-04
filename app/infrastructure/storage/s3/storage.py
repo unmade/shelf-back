@@ -12,18 +12,20 @@ from aioaws.s3 import S3Config, S3File
 
 from app.app.files.domain import File
 from app.app.infrastructure.storage import IStorage, StorageFile
-from app.config import S3StorageConfig
 
 from .._datastructures import StreamZipFile
 from .client import AsyncS3Client, NoSuchKey
 
 if TYPE_CHECKING:
     from app.app.files.domain import AnyPath
+    from app.config import S3StorageConfig
 
-__all__ = ["AsyncS3Storage"]
+__all__ = ["S3Storage"]
 
 
-class AsyncS3Storage(IStorage):
+class S3Storage(IStorage):
+    __slots__ = ("client", "s3", "location", "bucket", "_stack")
+
     def __init__(self, config: S3StorageConfig):
         self.client = httpx.AsyncClient()
         netloc = ":".join([str(config.s3_location.host), str(config.s3_location.port)])
@@ -39,7 +41,7 @@ class AsyncS3Storage(IStorage):
         )
         self.s3._aws_client.schema = config.s3_location.scheme
         self.location = str(config.s3_location)
-        self.bucket_name = config.s3_bucket
+        self.bucket = config.s3_bucket
         self._stack = AsyncExitStack()
 
     async def __aenter__(self) -> Self:
@@ -54,11 +56,11 @@ class AsyncS3Storage(IStorage):
 
     async def delete(self, ns_path: AnyPath, path: AnyPath) -> None:
         key = self._joinpath(ns_path, path)
-        await self.s3.delete(self.bucket_name, key)
+        await self.s3.delete(self.bucket, key)
 
     async def deletedir(self, ns_path: AnyPath, path: AnyPath) -> None:
         prefix = f"{self._joinpath(ns_path, path)}/"
-        await self.s3.delete_recursive(self.bucket_name, prefix)
+        await self.s3.delete_recursive(self.bucket, prefix)
 
     async def emptydir(self, ns_path: AnyPath, path: AnyPath) -> None:
         await self.deletedir(ns_path, path)
@@ -66,14 +68,14 @@ class AsyncS3Storage(IStorage):
     async def exists(self, ns_path: AnyPath, path: AnyPath) -> bool:
         key = self._joinpath(ns_path, path)
         try:
-            await self.s3.head_object(self.bucket_name, key)
+            await self.s3.head_object(self.bucket, key)
         except NoSuchKey:
             return False
         return True
 
     async def download(self, ns_path: AnyPath, path: AnyPath) -> AsyncIterator[bytes]:
         key = self._joinpath(ns_path, path)
-        async for chunk in self.s3.iter_download(self.bucket_name, key):
+        async for chunk in self.s3.iter_download(self.bucket, key):
             yield chunk
 
     def downloaddir(self, ns_path: AnyPath, path: AnyPath) -> Iterator[bytes]:
@@ -90,7 +92,7 @@ class AsyncS3Storage(IStorage):
         )
 
     def _download_sync(self, key: str) -> Iterator[bytes]:
-        path = f"{self.bucket_name}/{key}"
+        path = f"{self.bucket}/{key}"
         url = httpx.URL(f'{self.s3._aws_client.endpoint}/{path}')
         headers = self.s3._aws_client._auth.auth_headers("GET", url)
         with httpx.stream("GET", url, headers=headers) as r:
@@ -118,7 +120,7 @@ class AsyncS3Storage(IStorage):
             }
             params = {k: v for k, v in params.items() if v is not None}
             url = httpx.URL(
-                f'{self.s3._aws_client.endpoint}/{self.bucket_name}',
+                f'{self.s3._aws_client.endpoint}/{self.bucket}',
                 params=[(k, v) for k, v in sorted((params or {}).items())]
             )
             headers = self.s3._aws_client._auth.auth_headers("GET", url)
@@ -142,7 +144,7 @@ class AsyncS3Storage(IStorage):
     ) -> AsyncIterator[StorageFile]:
         ns_path = str(ns_path)
         prefix = f"{self._joinpath(ns_path, path)}/"
-        async for item in self.s3.list_objects(self.bucket_name, prefix, delimiter="/"):
+        async for item in self.s3.list_objects(self.bucket, prefix, delimiter="/"):
             if isinstance(item, S3File):
                 yield StorageFile(
                     name=os.path.basename(item.key),
@@ -172,10 +174,10 @@ class AsyncS3Storage(IStorage):
         from_key = self._joinpath(*at)
         to_key = self._joinpath(*to)
         try:
-            await self.s3.copy_object(self.bucket_name, from_key, to_key)
+            await self.s3.copy_object(self.bucket, from_key, to_key)
         except NoSuchKey as exc:
             raise File.NotFound() from exc
-        await self.s3.delete(self.bucket_name, from_key)
+        await self.s3.delete(self.bucket, from_key)
 
     async def movedir(
         self, at: tuple[AnyPath, AnyPath], to: tuple[AnyPath, AnyPath]
@@ -184,14 +186,14 @@ class AsyncS3Storage(IStorage):
         to_prefix = f"{self._joinpath(*to)}/"
         keys_to_delete = []
         async with asyncio.TaskGroup() as tg:
-            async for entry in self.s3.list_objects(self.bucket_name, from_prefix):
+            async for entry in self.s3.list_objects(self.bucket, from_prefix):
                 rel_key = os.path.relpath(entry.key, from_prefix)
                 new_key = os.path.normpath(os.path.join(to_prefix, rel_key))
                 keys_to_delete.append(entry.key)
                 tg.create_task(
-                    self.s3.copy_object(self.bucket_name, entry.key, new_key)
+                    self.s3.copy_object(self.bucket, entry.key, new_key)
                 )
-        await self.s3.delete(self.bucket_name, *keys_to_delete)
+        await self.s3.delete(self.bucket, *keys_to_delete)
 
     async def save(
         self,
@@ -200,7 +202,7 @@ class AsyncS3Storage(IStorage):
         content: IO[bytes],
     ) -> StorageFile:
         key = self._joinpath(ns_path, path)
-        file = await self.s3.put_object(self.bucket_name, key, content)
+        file = await self.s3.put_object(self.bucket, key, content)
         return StorageFile(
             name=os.path.basename(str(path)),
             ns_path=str(ns_path),
