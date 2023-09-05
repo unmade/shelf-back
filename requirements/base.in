@@ -1,6 +1,5 @@
 aioaws>=0.14,<1
 arq>=0.25.0,<1
-asgiref>=3.6,<4
 bcrypt>=4,<5
 cashews[diskcache,redis]>=6,<7
 edgedb>=1.3,<2

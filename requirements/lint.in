@@ -1,14 +1,14 @@
 -c base.txt
 -c test.txt
 
-mypy>=1.1,<2
+# fix mypy version to use '--new-type-inference' for `asyncio.to_thread`
+mypy @ git+https://github.com/python/mypy@c0906408c10d24d748711fa24be5befb2c794d4c
 pre-commit>=3.2,<4
 
 # these dependencies are needed for mypy:
 
 aioaws
 arq
-asgiref
 cashews
 edgedb
 fastapi

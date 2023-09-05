@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import datetime
 import glob
@@ -9,7 +10,6 @@ import shutil
 from typing import IO, TYPE_CHECKING, AsyncIterator, Iterator, Self
 
 import stream_zip
-from asgiref.sync import sync_to_async
 
 from app.app.files.domain import File
 from app.app.infrastructure.storage import IStorage, StorageFile
@@ -24,6 +24,8 @@ __all__ = ["FileSystemStorage"]
 
 
 class FileSystemStorage(IStorage):
+    __slots__ = ("location",)
+
     def __init__(self, config: FileSystemStorageConfig):
         self.location = config.fs_location
 
@@ -62,31 +64,30 @@ class FileSystemStorage(IStorage):
             is_dir=os.path.isdir(path),
         )
 
-    @sync_to_async
-    def delete(self, ns_path: AnyPath, path: AnyPath) -> None:
+    async def delete(self, ns_path: AnyPath, path: AnyPath) -> None:
         fullpath = self._joinpath(self.location, ns_path, path)
         if not os.path.isdir(fullpath):
             with contextlib.suppress(FileNotFoundError):
-                os.unlink(fullpath)
+                await asyncio.to_thread(os.unlink, fullpath)
 
-    @sync_to_async
-    def deletedir(self, ns_path: AnyPath, path: AnyPath) -> None:
+    async def deletedir(self, ns_path: AnyPath, path: AnyPath) -> None:
         fullpath = self._joinpath(self.location, ns_path, path)
         with contextlib.suppress(FileNotFoundError, NotADirectoryError):
-            shutil.rmtree(fullpath)
+            await asyncio.to_thread(shutil.rmtree, fullpath)
 
-    @sync_to_async
-    def emptydir(self, ns_path: AnyPath, path: AnyPath) -> None:
+    async def emptydir(self, ns_path: AnyPath, path: AnyPath) -> None:
         fullpath = self._joinpath(self.location, ns_path, path)
-        with contextlib.suppress(FileNotFoundError, NotADirectoryError):
-            for entry in os.scandir(fullpath):
-                if entry.is_dir():
-                    shutil.rmtree(entry.path)
-                else:
-                    os.unlink(entry.path)
+        async with asyncio.TaskGroup() as tg:
+            with contextlib.suppress(FileNotFoundError, NotADirectoryError):
+                for entry in await asyncio.to_thread(os.scandir, fullpath):
+                    if entry.is_dir():
+                        tg.create_task(asyncio.to_thread(shutil.rmtree, entry.path))
+                    else:
+                        tg.create_task(asyncio.to_thread(os.unlink, entry.path))
 
     async def download(self, ns_path: AnyPath, path) -> AsyncIterator[bytes]:
         fullpath = self._joinpath(self.location, ns_path, path)
+
         try:
             file = self._from_path(ns_path, fullpath)
         except FileNotFoundError as exc:
@@ -124,8 +125,7 @@ class FileSystemStorage(IStorage):
                     content=content,
                 )
 
-    @sync_to_async
-    def exists(self, ns_path: AnyPath, path: AnyPath) -> bool:
+    async def exists(self, ns_path: AnyPath, path: AnyPath) -> bool:
         fullpath = self._joinpath(self.location, ns_path, path)
         return os.path.exists(fullpath)
 
@@ -134,7 +134,7 @@ class FileSystemStorage(IStorage):
     ) -> AsyncIterator[StorageFile]:
         dir_path = self._joinpath(self.location, ns_path, path)
         try:
-            entries = os.scandir(dir_path)
+            entries = await asyncio.to_thread(os.scandir, dir_path)
         except FileNotFoundError as exc:
             raise File.NotFound() from exc
         except NotADirectoryError as exc:
@@ -148,8 +148,7 @@ class FileSystemStorage(IStorage):
                     continue
                 raise  # pragma: no cover
 
-    @sync_to_async
-    def makedirs(self, ns_path: AnyPath, path: AnyPath) -> None:
+    async def makedirs(self, ns_path: AnyPath, path: AnyPath) -> None:
         self._makedirs(ns_path, path)
 
     def _makedirs(self, ns_path: AnyPath, path: AnyPath) -> None:
@@ -161,8 +160,7 @@ class FileSystemStorage(IStorage):
         except NotADirectoryError as exc:
             raise File.NotADirectory() from exc
 
-    @sync_to_async
-    def move(
+    async def move(
         self,
         at: tuple[AnyPath, AnyPath],
         to: tuple[AnyPath, AnyPath],
@@ -177,10 +175,9 @@ class FileSystemStorage(IStorage):
             to_ns_path, to_path = to
             self._makedirs(to_ns_path, os.path.dirname(str(to_path)))
 
-        self._move(at, to)
+        await self._move(at, to)
 
-    @sync_to_async
-    def movedir(
+    async def movedir(
         self,
         at: tuple[AnyPath, AnyPath],
         to: tuple[AnyPath, AnyPath],
@@ -189,9 +186,9 @@ class FileSystemStorage(IStorage):
         if not os.path.isdir(from_fullpath):
             return
 
-        self._move(at, to)
+        await self._move(at, to)
 
-    def _move(
+    async def _move(
         self,
         at: tuple[AnyPath, AnyPath],
         to: tuple[AnyPath, AnyPath],
@@ -199,14 +196,13 @@ class FileSystemStorage(IStorage):
         source = self._joinpath(self.location, *at)
         destination = self._joinpath(self.location, *to)
         try:
-            shutil.move(source, destination)
+            await asyncio.to_thread(shutil.move, source, destination)
         except FileNotFoundError as exc:
             raise File.NotFound() from exc
         except NotADirectoryError as exc:
             raise File.NotADirectory() from exc
 
-    @sync_to_async
-    def save(
+    async def save(
         self,
         ns_path: AnyPath,
         path: AnyPath,
@@ -217,7 +213,7 @@ class FileSystemStorage(IStorage):
 
         try:
             with open(fullpath, "wb") as buffer:
-                shutil.copyfileobj(content, buffer)
+                await asyncio.to_thread(shutil.copyfileobj, content, buffer)
         except NotADirectoryError as exc:
             raise File.NotADirectory() from exc
 
