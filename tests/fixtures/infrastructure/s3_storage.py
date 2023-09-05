@@ -2,17 +2,16 @@ from __future__ import annotations
 
 import contextlib
 
-import httpx
 import pytest
-from aioaws.s3 import S3Config
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.config import AppConfig, S3StorageConfig
 from app.infrastructure.storage.s3 import S3Storage
-from app.infrastructure.storage.s3.client import (
+from app.infrastructure.storage.s3.clients import (
     AsyncS3Client,
-    BucketAlreadyOwnedByYou,
+    S3ClientConfig,
 )
+from app.infrastructure.storage.s3.clients.exceptions import BucketAlreadyOwnedByYou
 
 
 class _S3StorageConfig(S3StorageConfig, BaseSettings):
@@ -42,21 +41,15 @@ def s3_bucket(s3_storage_config: S3StorageConfig):
 @pytest.fixture(scope="session")
 async def s3_client(s3_storage_config: S3StorageConfig):
     """An s3 client."""
-    config = s3_storage_config
-    netloc = ":".join([str(config.s3_location.host), str(config.s3_location.port)])
-    async with httpx.AsyncClient() as client:
-        s3 = AsyncS3Client(
-            client,
-            S3Config(
-                aws_host=netloc,
-                aws_access_key=config.s3_access_key_id,
-                aws_secret_key=config.s3_secret_access_key,
-                aws_region=config.s3_region,
-                aws_s3_bucket=config.s3_bucket,
-            ),
+    async with AsyncS3Client(
+        S3ClientConfig(
+            base_url=str(s3_storage_config.s3_location),
+            access_key=s3_storage_config.s3_access_key_id,
+            secret_key=s3_storage_config.s3_secret_access_key,
+            region=s3_storage_config.s3_region,
         )
-        s3._aws_client.schema = config.s3_location.scheme
-        yield s3
+    ) as client:
+        yield client
 
 
 @pytest.fixture(scope="session")

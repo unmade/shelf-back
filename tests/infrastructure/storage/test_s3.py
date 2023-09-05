@@ -12,7 +12,7 @@ from app.app.files.domain.file import File
 if TYPE_CHECKING:
     from app.app.files.domain import AnyPath
     from app.infrastructure.storage import S3Storage
-    from app.infrastructure.storage.s3.client import AsyncS3Client
+    from app.infrastructure.storage.s3.clients import AsyncS3Client
 
     class FileFactory(Protocol):
         async def __call__(
@@ -24,7 +24,7 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.storage_s3]
 
 
 @pytest.fixture
-def file_factory(s3_bucket: str, s3_client: AsyncS3Client):
+def file_factory(s3_bucket: str, s3_client: AsyncS3Client) -> FileFactory:
     """
     A file factory for a S3Storage.
 
