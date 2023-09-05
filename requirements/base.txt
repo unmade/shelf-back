@@ -4,10 +4,6 @@
 #
 #    pip-compile requirements/base.in
 #
-aioaws==0.14
-    # via -r requirements/base.in
-aiofiles==23.2.1
-    # via aioaws
 annotated-types==0.5.0
     # via pydantic
 anyio==3.7.1
@@ -37,9 +33,7 @@ click==8.1.7
     #   typer
     #   uvicorn
 cryptography==41.0.3
-    # via
-    #   aioaws
-    #   python-jose
+    # via python-jose
 diskcache==5.6.3
     # via cashews
 dnspython==2.4.2
@@ -67,9 +61,7 @@ httpcore==0.16.3
 httptools==0.6.0
     # via uvicorn
 httpx==0.23.3
-    # via
-    #   -r requirements/base.in
-    #   aioaws
+    # via -r requirements/base.in
 idna==3.4
     # via
     #   anyio
@@ -94,7 +86,6 @@ pycparser==2.21
 pydantic[email]==2.3.0
     # via
     #   -r requirements/base.in
-    #   aioaws
     #   fastapi
     #   pydantic-settings
 pydantic-core==2.6.3

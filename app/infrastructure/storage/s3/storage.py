@@ -6,15 +6,18 @@ import os.path
 from contextlib import AsyncExitStack
 from typing import IO, TYPE_CHECKING, AsyncIterator, Iterator, Self
 
-import httpx
 import stream_zip
-from aioaws.s3 import S3Config, S3File
 
 from app.app.files.domain import File
 from app.app.infrastructure.storage import IStorage, StorageFile
+from app.infrastructure.storage._datastructures import StreamZipFile
 
-from .._datastructures import StreamZipFile
-from .client import AsyncS3Client, NoSuchKey
+from .clients import (
+    AsyncS3Client,
+    S3Client,
+    S3ClientConfig,
+)
+from .clients.exceptions import NoSuchKey, ResourceNotFound
 
 if TYPE_CHECKING:
     from app.app.files.domain import AnyPath
@@ -24,28 +27,25 @@ __all__ = ["S3Storage"]
 
 
 class S3Storage(IStorage):
-    __slots__ = ("client", "s3", "location", "bucket", "_stack")
+    __slots__ = ("location", "bucket", "s3", "sync_s3", "_stack")
 
     def __init__(self, config: S3StorageConfig):
-        self.client = httpx.AsyncClient()
-        netloc = ":".join([str(config.s3_location.host), str(config.s3_location.port)])
-        self.s3 = AsyncS3Client(
-            self.client,
-            S3Config(
-                aws_host=netloc,
-                aws_access_key=config.s3_access_key_id,
-                aws_secret_key=config.s3_secret_access_key,
-                aws_region=config.s3_region,
-                aws_s3_bucket=config.s3_bucket,
-            ),
-        )
-        self.s3._aws_client.schema = config.s3_location.scheme
         self.location = str(config.s3_location)
         self.bucket = config.s3_bucket
+
+        s3_client_config = S3ClientConfig(
+            base_url=str(config.s3_location),
+            access_key=config.s3_access_key_id,
+            secret_key=config.s3_secret_access_key,
+            region=config.s3_region,
+        )
+        self.s3 = AsyncS3Client(s3_client_config)
+        self.sync_s3 = S3Client(s3_client_config)
+
         self._stack = AsyncExitStack()
 
     async def __aenter__(self) -> Self:
-        await self._stack.enter_async_context(self.client)
+        await self._stack.enter_async_context(self.s3)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -69,7 +69,7 @@ class S3Storage(IStorage):
         key = self._joinpath(ns_path, path)
         try:
             await self.s3.head_object(self.bucket, key)
-        except NoSuchKey:
+        except ResourceNotFound:
             return False
         return True
 
@@ -86,58 +86,10 @@ class S3Storage(IStorage):
                 modified_at=entry.last_modified,
                 perms=0o600,
                 compression=stream_zip.ZIP_32,
-                content=self._download_sync(entry.key),
+                content=self.sync_s3.iter_download(self.bucket, entry.key),
             )
-            for entry in self._iterdir_sync(ns_path, path)
+            for entry in self.sync_s3.list_objects(self.bucket, prefix)
         )
-
-    def _download_sync(self, key: str) -> Iterator[bytes]:
-        path = f"{self.bucket}/{key}"
-        url = httpx.URL(f'{self.s3._aws_client.endpoint}/{path}')
-        headers = self.s3._aws_client._auth.auth_headers("GET", url)
-        with httpx.stream("GET", url, headers=headers) as r:
-            if r.status_code != 200:
-                if r.status_code == 404:
-                    raise NoSuchKey() from None
-                r.raise_for_status()
-            for chunk in r.iter_bytes():
-                yield chunk
-
-    def _iterdir_sync(self, ns_path: AnyPath, path: AnyPath) -> Iterator[S3File]:
-        from xml.etree import ElementTree
-
-        from aioaws._utils import pretty_xml
-        from aioaws.s3 import S3File, xmlns_re
-
-        prefix = f"{self._joinpath(ns_path, path)}/"
-        continuation_token = None
-
-        while True:
-            params = {
-                "list-type": 2,
-                "prefix": prefix,
-                "continuation-token": continuation_token,
-            }
-            params = {k: v for k, v in params.items() if v is not None}
-            url = httpx.URL(
-                f'{self.s3._aws_client.endpoint}/{self.bucket}',
-                params=[(k, v) for k, v in sorted((params or {}).items())]
-            )
-            headers = self.s3._aws_client._auth.auth_headers("GET", url)
-            r = httpx.get(url, headers=headers)
-
-            xml_root = ElementTree.fromstring(xmlns_re.sub(b"", r.content))
-            for c in xml_root.findall("Contents"):
-                yield S3File.model_validate({v.tag: v.text for v in c})
-            if (t := xml_root.find("IsTruncated")) is not None and t.text == "false":
-                break
-
-            if (t := xml_root.find("NextContinuationToken")) is not None:
-                continuation_token = t.text
-            else:
-                raise RuntimeError(
-                    f"unexpected response from S3:\n{pretty_xml(r.content)}"
-                )
 
     async def iterdir(
         self, ns_path: AnyPath, path: AnyPath
@@ -145,16 +97,7 @@ class S3Storage(IStorage):
         ns_path = str(ns_path)
         prefix = f"{self._joinpath(ns_path, path)}/"
         async for item in self.s3.list_objects(self.bucket, prefix, delimiter="/"):
-            if isinstance(item, S3File):
-                yield StorageFile(
-                    name=os.path.basename(item.key),
-                    ns_path=ns_path,
-                    path=item.key[len(ns_path) + 1:],
-                    size=item.size,
-                    mtime=item.last_modified.timestamp(),
-                    is_dir=False,
-                )
-            else:
+            if isinstance(item, str):
                 key = item.strip("/")
                 yield StorageFile(
                     name=os.path.basename(key),
@@ -163,6 +106,15 @@ class S3Storage(IStorage):
                     size=0,
                     mtime=0,
                     is_dir=True,
+                )
+            else:
+                yield StorageFile(
+                    name=os.path.basename(item.key),
+                    ns_path=ns_path,
+                    path=item.key[len(ns_path) + 1:],
+                    size=item.size,
+                    mtime=item.last_modified.timestamp(),
+                    is_dir=False,
                 )
 
     async def makedirs(self, ns_path: AnyPath, path: AnyPath) -> None:

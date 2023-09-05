@@ -7,7 +7,6 @@ pre-commit>=3.2,<4
 
 # these dependencies are needed for mypy:
 
-aioaws
 arq
 cashews
 edgedb

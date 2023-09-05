@@ -2,79 +2,81 @@ from __future__ import annotations
 
 import asyncio
 import itertools
+from contextlib import AsyncExitStack
 from email.utils import parsedate_to_datetime
-from typing import IO, TYPE_CHECKING, AsyncIterator, overload
+from typing import (
+    IO,
+    AsyncIterator,
+    Self,
+    overload,
+)
 from xml.etree import ElementTree
 
-from aioaws._utils import pretty_xml
-from aioaws.core import AwsClient, RequestError
-from aioaws.s3 import S3File, to_key, xmlns, xmlns_re
-from httpx import URL
+from httpx import AsyncClient
 
-if TYPE_CHECKING:
-    from aioaws._types import S3ConfigProtocol
-    from httpx import AsyncClient
+from app.contrib.aws_v4_auth import AWSV4AuthFlow
 
-__all__ = ["AsyncS3Client"]
+from .constants import xmlns, xmlns_re
+from .exceptions import araise_for_status
+from .models import S3ClientConfig, S3File
 
-
-class BucketAlreadyExists(Exception):
-    pass
-
-
-class BucketAlreadyOwnedByYou(Exception):
-    pass
-
-
-class NoSuchKey(Exception):
-    pass
+__all__ = [
+    "AsyncS3Client",
+]
 
 
 class AsyncS3Client:
-    __slots__ = "_config", "_aws_client"
+    __slots__ = ("base_url", "client", "auth", "_stack")
 
-    def __init__(self, http_client: AsyncClient, config: S3ConfigProtocol):
-        self._aws_client = AwsClient(http_client, config, "s3")
-        self._config = config
+    def __init__(self, config: S3ClientConfig):
+        self.base_url = config.base_url
+        self.auth = AWSV4AuthFlow(
+            aws_access_key=config.access_key,
+            aws_secret_key=config.secret_key,
+            region=config.region,
+            service="s3",
+        )
+        self.client = AsyncClient(
+            auth=self.auth,
+            event_hooks={
+                "response": [araise_for_status],
+            },
+        )
+        self._stack = AsyncExitStack()
+
+    async def __aenter__(self) -> Self:
+        await self._stack.enter_async_context(self.client)
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        await self._stack.aclose()
+
+    def _url(self, path: str) -> str:
+        return f"{self.base_url}{path}"
 
     async def copy_object(
         self, bucket: str, from_key: str | S3File, to_key: str | S3File
     ) -> None:
-        path = f"{bucket}/{to_key}"
-        url = URL(f"{self._aws_client.endpoint}/{path}")
-        headers = self._aws_client._auth.auth_headers(
-            method="PUT",  # type: ignore[arg-type]
-            url=url,
-        )
-        headers["x-amz-copy-source"] = f"/{bucket}/{from_key}"
-        r = await self._aws_client.client.put(url=url, headers=headers)
-        if r.status_code != 200:
-            if r.status_code == 404:
-                raise NoSuchKey() from None
-            raise RequestError(r) from None
+        """
+        https://docs.aws.amazon.com/AmazonS3/latest/API/API_CopyObject.html
+        """
+        url = self._url(f"{bucket}/{to_key}")
+        headers = {"x-amz-copy-source": f"/{bucket}/{from_key}"}
+        await self.client.put(url, headers=headers)
 
     async def create_bucket(self, name: str) -> None:
-        url = URL(f"{self._aws_client.endpoint}/{name}")
-        headers = self._aws_client._auth.auth_headers(
-            method="PUT",  # type: ignore[arg-type]
-            url=url,
-        )
-        r = await self._aws_client.client.put(url, headers=headers)
-        if r.status_code != 200:
-            if "BucketAlreadyOwnedByYou" in r.text:
-                raise BucketAlreadyOwnedByYou() from None
-            if "BucketAlreadyExists" in r.text:
-                raise BucketAlreadyExists() from None
-        r.raise_for_status()
+        """
+        https://docs.aws.amazon.com/AmazonS3/latest/API/API_CreateBucket.html
+        """
+        url = self._url(name)
+        await self.client.put(url)
 
     async def delete_bucket(self, name: str) -> None:
-        url = URL(f"{self._aws_client.endpoint}/{name}")
-        headers = self._aws_client._auth.auth_headers(
-            method="DELETE",  # type: ignore[arg-type]
-            url=url,
-        )
-        r = await self._aws_client.client.delete(url, headers=headers)
-        r.raise_for_status()
+        """
+        https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteBucket.html
+        """
+        url = self._url(name)
+        await self.client.delete(url)
 
     async def delete(self, bucket: str, *files: str | S3File) -> list[str]:
         """
@@ -119,48 +121,31 @@ class AsyncS3Client:
         xml = (
             f'<?xml version="1.0" encoding="UTF-8"?>'
             f'<Delete xmlns="{xmlns}">'
-            f' {"".join(f"<Object><Key>{to_key(k)}</Key></Object>" for k in files)}'
+            f' {"".join(f"<Object><Key>{file}</Key></Object>" for file in files)}'
             f"</Delete>"
         )
-        r = await self._aws_client.post(
-            f"/{bucket}",
-            data=xml.encode(),
-            params={"delete": 1},
-            content_type="text/xml",
-        )
+        data = xml.encode()
+        url = self._url(bucket)
+        r = await self.client.post(url, content=data, params={"delete": 1})
         xml_root = ElementTree.fromstring(xmlns_re.sub(b"", r.content))
         return [k.find("Key").text for k in xml_root]  # type: ignore
 
     async def head_object(self, bucket: str, key: str) -> S3File:
-        path = "/".join([f"/{bucket}", key])
-        try:
-            r = await self._aws_client.request(
-                "HEAD",  # type: ignore[arg-type]
-                path=path,
-                params=None,
-            )
-        except RequestError as exc:
-            if exc.status == 404:
-                raise NoSuchKey() from exc
-            raise
-        return S3File.model_construct(
+        """
+        https://docs.aws.amazon.com/AmazonS3/latest/API/API_HeadObject.html
+        """
+        url = self._url(f"{bucket}/{key}")
+        r = await self.client.head(url, auth=self.auth)
+        return S3File(
             key=key,
             last_modified=parsedate_to_datetime(r.headers["Last-Modified"]),
             size=int(r.headers["Content-Length"]),
-            e_tag=r.headers["ETag"],
-            storage_class=r.headers["Server"],
+            etag=r.headers["ETag"],
         )
 
     async def iter_download(self, bucket: str, key: str) -> AsyncIterator[bytes]:
-        path = f"{bucket}/{key}"
-        url = URL(f"{self._aws_client.endpoint}/{path}")
-        headers = self._aws_client._auth.auth_headers("GET", url)
-        async with self._aws_client.client.stream("GET", url, headers=headers) as r:
-            if r.status_code != 200:
-                if r.status_code == 404:
-                    raise NoSuchKey() from None
-                raise RequestError(r)
-
+        url = self._url(f"{bucket}/{key}")
+        async with self.client.stream("GET", url) as r:
             async for chunk in r.aiter_bytes():
                 yield chunk
 
@@ -188,25 +173,27 @@ class AsyncS3Client:
         assert prefix is None or not prefix.startswith("/"), (
             'the prefix to filter by should not start with "/"'
         )
+
         continuation_token = None
 
         while True:
+            # WARNING! order is important here, params need to be in alphabetical order
             params = {
+                "continuation-token": continuation_token,
+                "delimiter": delimiter,
                 "list-type": 2,
                 "prefix": prefix,
-                "delimiter": delimiter,
-                "continuation-token": continuation_token,
             }
+            url = self._url(bucket)
             params = {k: v for k, v in params.items() if v is not None}
-            r = await self._aws_client.get(f"/{bucket}", params=params)
-
+            r = await self.client.get(url, params=params)
             xml_root = ElementTree.fromstring(xmlns_re.sub(b"", r.content))
             for c in xml_root.findall("CommonPrefixes"):
                 for cp in c:
                     if cp.text:
                         yield cp.text
             for c in xml_root.findall("Contents"):
-                yield S3File.model_validate({v.tag: v.text for v in c})
+                yield S3File.from_xml(c)
             if (t := xml_root.find("IsTruncated")) is not None and t.text == "false":
                 break
 
@@ -214,37 +201,25 @@ class AsyncS3Client:
                 continuation_token = t.text
             else:
                 raise RuntimeError(
-                    f"unexpected response from S3:\n{pretty_xml(r.content)}"
+                    f"unexpected response from S3:\n{r.content.decode()}"
                 )
 
     async def put_object(self, bucket: str, key: str, data: IO[bytes]) -> S3File:
-        async def async_iter(buf):
-            for chunk in buf:
-                yield chunk
-
+        """
+        https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html
+        """
         data.seek(0)
-        size = data.seek(0, 2)
-        data.seek(0)
+        content = data.read()
+        size = len(content)
 
-        path = f"{bucket}/{key}"
-        url = URL(f'{self._aws_client.endpoint}/{path}')
-        headers = self._aws_client._auth.auth_headers(
-            method="PUT",  # type: ignore[arg-type]
-            url=url,
-            data=data.read(),
-        )
-        headers["content-length"] = str(size)
-        data.seek(0)
-        r = await self._aws_client.client.put(
-            url, headers=headers, content=async_iter(data)
-        )
-        if r.status_code != 200:
-            raise RequestError(r) from None
+        url = self._url(f"{bucket}/{key}")
+        headers = {"content-length": str(size)}
 
-        return S3File.model_construct(
+        r = await self.client.put(url, headers=headers, content=content)
+
+        return S3File(
             key=key,
             last_modified=parsedate_to_datetime(r.headers["Date"]),
             size=size,
-            e_tag=r.headers["ETag"],
-            storage_class=r.headers["Server"],
+            etag=r.headers["ETag"],
         )
