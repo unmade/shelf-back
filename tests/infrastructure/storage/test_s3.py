@@ -38,7 +38,7 @@ def file_factory(s3_bucket: str, s3_client: AsyncS3Client) -> FileFactory:
         if isinstance(content, bytes):
             content = BytesIO(content)
 
-        await s3_client.put_object(s3_bucket, str(path), content)
+        await s3_client.upload_obj(s3_bucket, str(path), content)
 
     return create_file
 

@@ -141,7 +141,7 @@ class EdgeDBConfig(BaseModel):
 class FeatureConfig(BaseModel):
     max_file_size_to_thumbnail: BytesSize = 20 * BytesSizeMultipliers.mb
     sign_up_disabled: bool = False
-    upload_file_max_size: BytesSize = 100 * BytesSizeMultipliers.mb
+    upload_file_max_size: BytesSize = 100 * BytesSizeMultipliers.gb
 
 
 class FileSystemStorageConfig(BaseModel):

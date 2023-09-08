@@ -54,20 +54,26 @@ h11==0.14.0
     # via
     #   httpcore
     #   uvicorn
+h2==4.1.0
+    # via httpx
 hiredis==2.2.3
     # via redis
+hpack==4.0.0
+    # via h2
 httpcore==0.16.3
     # via httpx
 httptools==0.6.0
     # via uvicorn
-httpx==0.23.3
+httpx[http2]==0.23.3
     # via -r requirements/base.in
+hyperframe==6.0.1
+    # via h2
 idna==3.4
     # via
     #   anyio
     #   email-validator
     #   rfc3986
-orjson==3.9.5
+orjson==3.9.7
     # via -r requirements/base.in
 passlib==1.7.4
     # via -r requirements/base.in

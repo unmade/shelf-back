@@ -15,6 +15,7 @@ from xml.etree import ElementTree
 from httpx import AsyncClient
 
 from app.contrib.aws_v4_auth import AWSV4AuthFlow
+from app.toolkit import taskgroups
 
 from .constants import xmlns, xmlns_re
 from .exceptions import araise_for_status
@@ -23,6 +24,16 @@ from .models import S3ClientConfig, S3File
 __all__ = [
     "AsyncS3Client",
 ]
+
+_MB_5 = 5 * 2**20
+
+
+def _readchunks(stream, *, chunk_size: int):
+    has_content = True
+    while has_content:
+        chunk = stream.read(chunk_size)
+        has_content = len(chunk) == chunk_size
+        yield chunk
 
 
 class AsyncS3Client:
@@ -38,6 +49,7 @@ class AsyncS3Client:
         )
         self.client = AsyncClient(
             auth=self.auth,
+            http2=True,
             event_hooks={
                 "response": [araise_for_status],
             },
@@ -122,7 +134,7 @@ class AsyncS3Client:
             f'<?xml version="1.0" encoding="UTF-8"?>'
             f'<Delete xmlns="{xmlns}">'
             f' {"".join(f"<Object><Key>{file}</Key></Object>" for file in files)}'
-            f"</Delete>"
+            f'</Delete>'
         )
         data = xml.encode()
         url = self._url(bucket)
@@ -135,7 +147,7 @@ class AsyncS3Client:
         https://docs.aws.amazon.com/AmazonS3/latest/API/API_HeadObject.html
         """
         url = self._url(f"{bucket}/{key}")
-        r = await self.client.head(url, auth=self.auth)
+        r = await self.client.head(url)
         return S3File(
             key=key,
             last_modified=parsedate_to_datetime(r.headers["Last-Modified"]),
@@ -223,3 +235,114 @@ class AsyncS3Client:
             size=size,
             etag=r.headers["ETag"],
         )
+
+    async def upload_obj(self, bucket: str, key: str, data: IO[bytes]) -> S3File:
+        data.seek(0)
+        size = data.seek(0, 2)
+        data.seek(0)
+
+        if size < _MB_5:
+            return await self.put_object(bucket, key, data)
+
+        chunk_size = max(_MB_5, size // (_MB_5 * 10_000))
+
+        url = self._url(f"{bucket}/{key}")
+        chunks = _readchunks(data, chunk_size=chunk_size)
+        async with MultipartUpload(url, client=self.client) as mpu:
+            await taskgroups.gather(*(
+                mpu.upload_part(idx, chunk)
+                for idx, chunk in enumerate(chunks, start=1)
+            ))
+        return mpu.result()
+
+
+class MultipartUpload:
+    __slots__ = ( "url", "client", "_semaphore", "_upload_id", "_parts", "_result")
+
+    def __init__(self, url: str, *, client: AsyncClient, max_concurrency: int = 8):
+        self.url = url
+        self.client = client
+        self._semaphore = asyncio.Semaphore(max_concurrency)
+        self._upload_id: str | None = None
+        self._parts: dict[int, tuple[str, int]] = {}
+        self._result: S3File | None = None
+
+    async def __aenter__(self) -> Self:
+        await self.create()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        if exc_val:
+            if self._upload_id is not None:
+                await self.abort()
+            raise
+
+        if self._upload_id is not None:
+            self._result = await self.complete()
+
+    def result(self) -> S3File:
+        assert self._result is not None, "Multipart upload not completed"
+        return self._result
+
+    async def abort(self) -> None:
+        """
+        https://docs.aws.amazon.com/AmazonS3/latest/API/API_AbortMultipartUpload.html
+        """
+        assert self._upload_id is not None, "Multipart upload not started"
+        params = {"uploadId": self._upload_id}
+        await self.client.delete(self.url, params=params)
+
+    async def complete(self) -> S3File:
+        """
+        https://docs.aws.amazon.com/AmazonS3/latest/API/API_CompleteMultipartUpload.html
+        """
+        assert self._upload_id is not None, "Multipart upload not started"
+        xml_parts = "".join(
+            f"<Part><PartNumber>{part}</PartNumber><ETag>{etag}</ETag></Part>"
+            for part, (etag, _) in sorted(self._parts.items())
+        )
+        xml = (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            f'<CompleteMultipartUpload xmlns="{xmlns}">'
+            f'  {xml_parts}'
+            '</CompleteMultipartUpload>'
+        )
+        data = xml.encode()
+        params = {"uploadId": self._upload_id}
+        r = await self.client.post(self.url, content=data, params=params)
+        xml_root = ElementTree.fromstring(xmlns_re.sub(b'', r.content))
+        return S3File(
+            key=xml_root.find("Key").text,  # type: ignore[union-attr, arg-type]
+            last_modified=parsedate_to_datetime(r.headers["Date"]),
+            size=sum(v[1] for v in self._parts.values()),
+            etag=r.headers["ETag"],
+        )
+
+    async def create(self) -> None:
+        """
+        https://docs.aws.amazon.com/AmazonS3/latest/API/API_CreateMultipartUpload.html
+        """
+        r = await self.client.post(self.url, params={"uploads": ""})
+
+        xml_root = ElementTree.fromstring(xmlns_re.sub(b'', r.content))
+        upload_id = xml_root.find('UploadId')
+        assert upload_id is not None, "`UploadId` not found"
+        self._upload_id = upload_id.text
+
+    async def upload_part(self, part_number: int, content: bytes) -> None:
+        """
+        https://docs.aws.amazon.com/AmazonS3/latest/API/API_UploadPart.html
+        """
+        assert self._upload_id is not None, "Multipart upload not started"
+        size = len(content)
+
+        headers = {"content-length": str(size)}
+        params = {
+            "partNumber": str(part_number),
+            "uploadId": self._upload_id,
+        }
+        async with self._semaphore:
+            r = await self.client.put(
+                self.url, headers=headers, params=params, content=content
+            )
+        self._parts[part_number] = r.headers["ETag"], size

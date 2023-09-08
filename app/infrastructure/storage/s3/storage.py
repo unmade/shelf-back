@@ -154,7 +154,7 @@ class S3Storage(IStorage):
         content: IO[bytes],
     ) -> StorageFile:
         key = self._joinpath(ns_path, path)
-        file = await self.s3.put_object(self.bucket, key, content)
+        file = await self.s3.upload_obj(self.bucket, key, content)
         return StorageFile(
             name=os.path.basename(str(path)),
             ns_path=str(ns_path),

@@ -117,7 +117,7 @@ pydantic-settings==2.0.3
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
-pytest==7.4.1
+pytest==7.4.2
     # via
     #   -c requirements/test.txt
     #   -r requirements/lint.in
@@ -178,7 +178,7 @@ uvloop==0.17.0
     # via
     #   -c requirements/base.txt
     #   -r requirements/lint.in
-virtualenv==20.24.4
+virtualenv==20.24.5
     # via pre-commit
 
 # The following packages are considered to be unsafe in a requirements file:
