@@ -98,7 +98,7 @@ async def get_shared_link_download_url(
     except SharedLink.NotFound as exc:
         raise SharedLinkNotFound() from exc
 
-    key = await shortcuts.create_download_cache(file.ns_path, file.path)
+    key = await shortcuts.create_download_cache(file)
 
     download_url = request.url_for("download")
     return GetSharedLinkDownloadUrlResponse(download_url=f"{download_url}?key={key}")

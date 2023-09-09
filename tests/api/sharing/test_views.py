@@ -210,9 +210,10 @@ class TestGetSharedLinkDownloadUrl:
         sharing_use_case: MagicMock,
     ):
         # GIVEN
+        file = _make_file("admin", "f.txt")
         download_key = uuid.uuid4().hex
         download_cache_mock.return_value = download_key
-        payload = {"token": "link-token", "filename": "f.txt"}
+        payload = {"token": "link-token", "filename": file.name}
 
         # WHEN
         response = await client.post(self.url, json=payload)
@@ -228,7 +229,7 @@ class TestGetSharedLinkDownloadUrl:
 
         sharing_use_case.get_shared_item.assert_awaited_once_with("link-token")
         file = sharing_use_case.get_shared_item.return_value
-        download_cache_mock.assert_awaited_once_with(file.ns_path, file.path)
+        download_cache_mock.assert_awaited_once_with(file)
 
     async def test_when_link_not_found(
         self, client: TestClient, sharing_use_case: MagicMock

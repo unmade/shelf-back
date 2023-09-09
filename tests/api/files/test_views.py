@@ -25,7 +25,15 @@ from app.api.files.exceptions import (
     UploadFileTooLarge,
 )
 from app.api.files.schemas import MoveBatchRequest
-from app.app.files.domain import ContentMetadata, Exif, File, Path, mediatypes
+from app.app.files.domain import (
+    ContentMetadata,
+    Exif,
+    File,
+    MountedFile,
+    MountPoint,
+    Path,
+    mediatypes,
+)
 from app.app.infrastructure.worker import Job, JobStatus
 from app.app.users.domain import Account
 from app.worker.jobs.files import ErrorCode as TaskErrorCode
@@ -226,8 +234,8 @@ class TestDownload:
     ):
         # GIVEN
         file = _make_file(str(namespace.path), "f.txt")
-        ns_use_case.download.return_value = file, _aiter(b"Hello, World!")
-        key = await shortcuts.create_download_cache(namespace.path, file.path)
+        ns_use_case.download_by_id.return_value = _aiter(b"Hello, World!")
+        key = await shortcuts.create_download_cache(file)
         # WHEN
         client.mock_namespace(namespace)
         response = await client.get(self.url(key))
@@ -237,22 +245,22 @@ class TestDownload:
         assert response.headers["Content-Length"] == str(file.size)
         assert response.headers["Content-Type"] == "plain/text"
         assert response.content == b"Hello, World!"
-        ns_use_case.download.assert_awaited_once_with(str(namespace.path), file.path)
+        ns_use_case.download_by_id.assert_awaited_once_with(file.id)
 
     async def test_when_path_has_non_latin_characters(
         self, client: TestClient, ns_use_case: MagicMock, namespace: Namespace,
     ):
         # GIVEN
         file = _make_file(str(namespace.path), "ф.txt")
-        ns_use_case.download.return_value = file, _aiter(b"Hello, World!")
-        key = await shortcuts.create_download_cache(namespace.path, file.path)
+        ns_use_case.download_by_id.return_value = _aiter(b"Hello, World!")
+        key = await shortcuts.create_download_cache(file)
         # WHEN
         client.mock_namespace(namespace)
         response = await client.get(self.url(key))
         # THEN
         assert response.status_code == 200
         assert response.headers["Content-Disposition"] == 'attachment; filename="ф.txt"'
-        ns_use_case.download.assert_awaited_once_with(str(namespace.path), file.path)
+        ns_use_case.download_by_id.assert_awaited_once_with(file.id)
 
     async def test_download_but_key_is_invalid(
         self, client: TestClient, ns_use_case: MagicMock
@@ -261,10 +269,9 @@ class TestDownload:
         response = await client.get(self.url(key))
         assert response.status_code == 404
         assert response.json() == DownloadNotFound().as_dict()
-        ns_use_case.download.assert_not_awaited()
+        ns_use_case.download_by_id.assert_not_awaited()
 
     @pytest.mark.parametrize(["path", "error", "expected_error"], [
-        ("teamfolder/f.txt", File.ActionNotAllowed(), FileActionNotAllowed()),
         ("folder", File.IsADirectory(), IsADirectory(path="folder")),
         ("f.txt", File.NotFound(), PathNotFound(path="f.txt")),
     ])
@@ -278,15 +285,16 @@ class TestDownload:
         expected_error: APIError,
     ):
         # GIVEN
-        key = await shortcuts.create_download_cache(namespace.path, path)
-        ns_use_case.download.side_effect = error
+        file = _make_file(namespace.path, path)
+        key = await shortcuts.create_download_cache(file)
+        ns_use_case.download_by_id.side_effect = error
         # WHEN
         client.mock_namespace(namespace)
         response = await client.get(self.url(key))
         # THEN
         assert response.json() == expected_error.as_dict()
         assert response.status_code == expected_error.status_code
-        ns_use_case.download.assert_awaited_once_with(str(namespace.path), path)
+        ns_use_case.download_by_id.assert_awaited_once_with(file.id)
 
 
 class TestDownloadXHR:
@@ -352,6 +360,29 @@ class TestDownloadXHR:
         assert response.json() == expected_error.as_dict()
         assert response.status_code == expected_error.status_code
         ns_use_case.download.assert_awaited_once_with(namespace.path, path)
+
+
+class TestDownloadFolder:
+    def url(self, key: str) -> str:
+        return f"/files/download_folder?key={key}"
+
+    async def test(
+        self, client: TestClient, ns_use_case: MagicMock, namespace: Namespace,
+    ):
+        # GIVEN
+        file = _make_file(namespace.path, "f", mediatype=mediatypes.FOLDER)
+        ns_use_case.download_folder.return_value = BytesIO(b"I'm a ZIP archive")
+        key = await shortcuts.create_download_cache(file)
+        # WHEN
+        client.mock_namespace(namespace)
+        response = await client.get(self.url(key))
+        # THEN
+        assert response.status_code == 200
+        assert response.headers["Content-Disposition"] == 'attachment; filename="f.zip"'
+        assert "Content-Length" not in response.headers
+        assert response.headers["Content-Type"] == "attachment/zip"
+        assert response.content == b"I'm a ZIP archive"
+        ns_use_case.download_folder.assert_called_once_with(namespace.path, file.path)
 
 
 class TestEmptyTrash:
@@ -482,27 +513,78 @@ class TestGetBatch:
 class TestGetDownloadURL:
     url = "/files/get_download_url"
 
-    async def test(
+    async def test_on_file(
         self,
         client: TestClient,
         ns_use_case: MagicMock,
         namespace: Namespace,
     ):
         # GIVEN
-        ns_path, path = namespace.path, "f.txt"
-        file = _make_file(ns_path, path)
+        file = _make_file(namespace.path, "f.txt")
+        ns_use_case.get_item_at_path.return_value = file
         payload = {"path": str(file.path)}
         # WHEN
         client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
-        ns_use_case.get_item_at_path.assert_awaited_once_with(ns_path, path)
+        ns_use_case.get_item_at_path.assert_awaited_once_with(file.ns_path, file.path)
         download_url = response.json()["download_url"]
         assert download_url.startswith(str(client.base_url))
+        assert "/download?" in download_url
         assert response.status_code == 200
         parts = urllib.parse.urlsplit(download_url)
         qs = urllib.parse.parse_qs(parts.query)
         assert len(qs["key"]) == 1
+
+    async def test_on_folder(
+        self,
+        client: TestClient,
+        ns_use_case: MagicMock,
+        namespace: Namespace,
+    ):
+        # GIVEN
+        file = _make_file(namespace.path, "f", mediatype=mediatypes.FOLDER)
+        ns_use_case.get_item_at_path.return_value = file
+        payload = {"path": str(file.path)}
+        # WHEN
+        client.mock_namespace(namespace)
+        response = await client.post(self.url, json=payload)
+        # THEN
+        ns_use_case.get_item_at_path.assert_awaited_once_with(file.ns_path, file.path)
+        download_url = response.json()["download_url"]
+        assert download_url.startswith(str(client.base_url))
+        assert "/download_folder?" in download_url
+        assert response.status_code == 200
+        parts = urllib.parse.urlsplit(download_url)
+        qs = urllib.parse.parse_qs(parts.query)
+        assert len(qs["key"]) == 1
+
+    async def test_when_mounted_file_is_not_permitted_to_download(
+        self,
+        client: TestClient,
+        ns_use_case: MagicMock,
+        namespace: Namespace,
+    ):
+        # GIVEN
+        file = _make_file(namespace.path, "f.txt")
+        mounted_file = MountedFile(
+            **file.model_dump(),
+            mount_point=MountPoint(
+                source=MountPoint.Source(ns_path="user", path=Path("f.txt")),
+                folder=MountPoint.ContainingFolder(ns_path="admin", path=Path(".")),
+                display_name="f.txt",
+                actions=MountPoint.Actions(can_download=False),
+            ),
+        )
+        ns_use_case.get_item_at_path.return_value = mounted_file
+        payload = {"path": str(mounted_file.path)}
+        # WHEN
+        client.mock_namespace(namespace)
+        response = await client.post(self.url, json=payload)
+        # THEN
+        assert response.json() == FileActionNotAllowed().as_dict()
+        assert response.status_code == FileActionNotAllowed.status_code
+        ns_use_case.get_item_at_path.assert_awaited_once_with(file.ns_path, file.path)
 
     @pytest.mark.parametrize(["path", "error", "expected_error"], [
         ("teamfolder/f.txt", File.ActionNotAllowed(), FileActionNotAllowed()),

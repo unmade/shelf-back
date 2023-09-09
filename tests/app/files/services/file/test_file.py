@@ -384,6 +384,31 @@ class TestDownload:
         filecore.download.assert_not_called()
 
 
+class TestDownloadByID:
+    async def test(self, file_service: FileService):
+        # GIVEN
+        file, content = _make_file("admin", "f.txt"), mock.AsyncMock()
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        filecore.download.return_value = file, content
+        # WHEN
+        result = await file_service.download_by_id(file.id)
+        # THEN
+        assert result == content
+        filecore.download.assert_awaited_once_with(file.id)
+
+
+class TestDownloadFolder:
+    def test(self, file_service: FileService):
+        # GIVEN
+        ns_path, path = "admin", Path("f.txt")
+        filecore = cast(mock.MagicMock, file_service.filecore)
+        # WHEN
+        result = file_service.download_folder(ns_path, path)
+        # THEN
+        assert result == filecore.download_folder.return_value
+        filecore.download_folder.assert_called_once_with(ns_path, path)
+
+
 @pytest.mark.asyncio
 class TestEmptyFolder:
     async def test(self, file_service: FileService):

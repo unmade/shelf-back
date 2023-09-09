@@ -195,7 +195,31 @@ class TestDownload:
         result = await ns_use_case.download(ns_path, path)
         # THEN
         assert result == file_service.download.return_value
-        file_service.download.assert_called_once_with(ns_path, path)
+        file_service.download.assert_awaited_once_with(ns_path, path)
+
+
+class TestDownloadByID:
+    async def test(self, ns_use_case: NamespaceUseCase):
+        # GIVEN
+        file_id = uuid.uuid4()
+        file_service = cast(mock.MagicMock, ns_use_case.file)
+        # WHEN
+        result = await ns_use_case.download_by_id(file_id)
+        # THEN
+        assert result == file_service.download_by_id.return_value
+        file_service.download_by_id.assert_awaited_once_with(file_id)
+
+
+class TestDownloadFolder:
+    async def test(self, ns_use_case: NamespaceUseCase):
+        # GIVEN
+        ns_path, path = "admin", "f.txt"
+        file_service = cast(mock.MagicMock, ns_use_case.file)
+        # WHEN
+        result = ns_use_case.download_folder(ns_path, path)
+        # THEN
+        assert result == file_service.download_folder.return_value
+        file_service.download_folder.assert_called_once_with(ns_path, path)
 
 
 class TestEmptyTrash:

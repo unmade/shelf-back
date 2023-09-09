@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from io import BytesIO
-from typing import TYPE_CHECKING, AsyncIterator
+from typing import TYPE_CHECKING, AsyncIterator, Iterator
 
 from app.app.files.domain import File, MountedFile, MountPoint, Path
 from app.cache import disk_cache
@@ -118,7 +118,7 @@ class FileService:
         self, ns_path: AnyPath, path: AnyPath
     ) -> tuple[AnyFile, AsyncIterator[bytes]]:
         """
-        Downloads a file or a folder at a given path.
+        Downloads a file at a given path.
 
         Raises:
             File.ActionNotAllowed: If downloading a file is not allowed.
@@ -132,6 +132,26 @@ class FileService:
         file = await self.filecore.get_by_path(fq_path.ns_path, fq_path.path)
         _, content = await self.filecore.download(file.id)
         return _resolve_file(file, fq_path.mount_point), content
+
+    async def download_by_id(self, file_id: UUID) -> AsyncIterator[bytes]:
+        """
+        Downloads a file with the given ID.
+
+        Raises:
+            File.IsADirectory: If file is a directory.
+            File.NotFound: If a file with the given ID does not exist.
+        """
+        _, content = await self.filecore.download(file_id)
+        return content
+
+    def download_folder(self, ns_path: AnyPath, path: AnyPath) -> Iterator[bytes]:
+        """
+        Downloads a folder at a given path.
+
+        Raises:
+            File.NotFound: If a file at a target path does not exist.
+        """
+        return self.filecore.download_folder(ns_path, path)
 
     async def empty_folder(self, ns_path: AnyPath, path: AnyPath) -> None:
         """

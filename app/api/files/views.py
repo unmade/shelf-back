@@ -2,12 +2,18 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Form, Query, Request
+from fastapi import APIRouter, Form, Request
 from fastapi import File as FileParam
 from fastapi.responses import Response, StreamingResponse
 
 from app.api import shortcuts
-from app.api.deps import CurrentUserContextDeps, NamespaceDeps, UseCasesDeps, WorkerDeps
+from app.api.deps import (
+    CurrentUserContextDeps,
+    DownloadCacheDeps,
+    NamespaceDeps,
+    UseCasesDeps,
+    WorkerDeps,
+)
 from app.app.files.domain import ContentMetadata, File, mediatypes
 from app.app.infrastructure.worker import JobStatus
 from app.app.users.domain import Account
@@ -102,26 +108,19 @@ async def delete_immediately_check(
 @router.get("/download")
 async def download(
     usecases: UseCasesDeps,
-    key: str = Query(None),
+    file: DownloadCacheDeps,
 ):
     """
     Download a file.
 
-    This endpoint is useful to perform downloads with browser. A `key` is obtained by
-    calling `get_download_url` endpoint.
+    A `key` is obtained by calling `get_download_url` endpoint.
     """
-    value = await shortcuts.pop_download_cache(key)
-    if not value:
-        raise exceptions.DownloadNotFound()
-
     try:
-        file, content = await usecases.namespace.download(value.ns_path, value.path)
-    except File.ActionNotAllowed as exc:
-        raise exceptions.FileActionNotAllowed() from exc
+        content = await usecases.namespace.download_by_id(file.id)
     except File.IsADirectory as exc:
-        raise exceptions.IsADirectory(path=value.path) from exc
+        raise exceptions.IsADirectory(path=file.path) from exc
     except File.NotFound as exc:
-        raise exceptions.PathNotFound(path=value.path) from exc
+        raise exceptions.PathNotFound(path=file.path) from exc
 
     filename = file.path.name.encode("utf-8").decode("latin-1")
     headers = {
@@ -159,6 +158,29 @@ async def download_xhr(
         "Content-Type": file.mediatype,
     }
 
+    return StreamingResponse(content, headers=headers)
+
+
+@router.get("/download_folder")
+def download_folder(
+    usecases: UseCasesDeps,
+    file: DownloadCacheDeps,
+):
+    """
+    Download a folder as a ZIP archive.
+
+    A `key` is obtained by calling `get_download_url` endpoint.
+    """
+    try:
+        content = usecases.namespace.download_folder(file.ns_path, file.path)
+    except File.NotFound as exc:
+        raise exceptions.PathNotFound(path=file.path) from exc
+
+    filename = file.name.encode("utf-8").decode("latin-1")
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}.zip"',
+        "Content-Type": "attachment/zip",
+    }
     return StreamingResponse(content, headers=headers)
 
 
@@ -246,10 +268,14 @@ async def get_download_url(
     except File.NotFound as exc:
         raise exceptions.PathNotFound(path=payload.path) from exc
 
-    # check that user can download a file before generating a link
-    key = await shortcuts.create_download_cache(file.ns_path, file.path)
+    if not file.can_download():
+        raise exceptions.FileActionNotAllowed() from None
 
-    download_url = request.url_for("download")
+    key = await shortcuts.create_download_cache(file)
+    if file.is_folder():
+        download_url = request.url_for("download_folder")
+    else:
+        download_url = request.url_for("download")
     return GetDownloadUrlResponse(download_url=f"{download_url}?key={key}")
 
 
