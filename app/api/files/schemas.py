@@ -5,6 +5,7 @@ from os.path import normpath
 from typing import TYPE_CHECKING, Annotated, Literal, Self
 from uuid import UUID
 
+from fastapi import UploadFile
 from pydantic import BaseModel, RootModel, field_validator, model_validator
 from pydantic.functional_validators import AfterValidator
 
@@ -257,6 +258,12 @@ class MoveToTrashRequest(PathRequest):
 
 class MoveToTrashBatchRequest(BaseModel):
     items: list[MoveToTrashRequest]
+
+
+class UploadContent(UploadFile):
+    # UploadFile has size annotated as optional, but in our case it'll always be set
+    # So to not bother with mypy and checking for None just override annotation
+    size: int
 
 
 class UploadResponse(BaseModel):

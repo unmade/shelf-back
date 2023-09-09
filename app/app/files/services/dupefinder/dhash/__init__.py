@@ -24,17 +24,8 @@ SUPPORTED_TYPES = _SUPPORTED_IMAGES
 
 
 async def dhash(content: IO[bytes]) -> int | None:
-    """
-    Calculates a difference hash based on content mediatype.
-
-    Args:
-        content (IO[bytes]): Content to calculate difference hash for.
-
-    Returns:
-        int, optional: None if mediatype is unsupported, otherwise - a difference hash.
-    """
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, _dhash, content)
+    """Calculates a difference hash based on content mediatype."""
+    return await asyncio.to_thread(_dhash, content)
 
 
 def _dhash(content: IO[bytes]) -> int | None:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import IO, TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, cast
 from unittest import mock
 
 import pytest
@@ -11,6 +11,7 @@ from app.app.files.domain import ContentMetadata, Exif
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
+    from app.app.files.domain import IFileContent
     from app.app.files.services import MetadataService
 
 pytestmark = [pytest.mark.asyncio]
@@ -34,7 +35,7 @@ class TestTrack:
         self,
         load_metadata: MagicMock,
         metadata_service: MetadataService,
-        image_content: IO[bytes],
+        image_content: IFileContent,
     ):
         # GIVEN
         file_id = uuid.uuid4()
@@ -43,7 +44,7 @@ class TestTrack:
         # WHEN
         await metadata_service.track(file_id, image_content)
         # THEN
-        load_metadata.assert_awaited_once_with(image_content)
+        load_metadata.assert_awaited_once_with(image_content.file)
         db.metadata.save.assert_awaited_once_with(
             ContentMetadata(file_id=file_id, data=load_metadata.return_value)
         )
@@ -52,7 +53,7 @@ class TestTrack:
         self,
         load_metadata: MagicMock,
         metadata_service: MetadataService,
-        image_content: IO[bytes],
+        image_content: IFileContent,
     ):
         # GIVEN
         file_id = uuid.uuid4()
@@ -61,7 +62,7 @@ class TestTrack:
         # WHEN
         await metadata_service.track(file_id, image_content)
         # THEN
-        load_metadata.assert_awaited_once_with(image_content)
+        load_metadata.assert_awaited_once_with(image_content.file)
         db.metadata.save.assert_not_awaited()
 
 
@@ -71,7 +72,7 @@ class TestTrackBatch:
         self,
         load_metadata: MagicMock,
         metadata_service: MetadataService,
-        image_content: IO[bytes],
+        image_content: IFileContent,
     ):
         # GIVEN
         file_ids = [uuid.uuid4() for _ in range(3)]

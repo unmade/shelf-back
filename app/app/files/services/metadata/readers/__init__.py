@@ -24,18 +24,8 @@ SUPPORTED_TYPES = _SUPPORTED_IMAGES
 
 
 async def load(content: IO[bytes]) -> Exif | None:
-    """
-    Loads metadata for a given content based on its mediatype.
-
-    Args:
-        content (IO[bytes]): Content to load metadata from.
-
-    Returns:
-        Exif | None: None if no metadata available, otherwise return a metadata specific
-            to a given media type.
-    """
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, _load, content)
+    """Loads metadata for a given content based on its mediatype."""
+    return await asyncio.to_thread(_load, content)
 
 
 def _load(content: IO[bytes]) -> Exif | None:

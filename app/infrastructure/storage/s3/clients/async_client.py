@@ -5,9 +5,12 @@ import itertools
 from contextlib import AsyncExitStack
 from email.utils import parsedate_to_datetime
 from typing import (
-    IO,
+    TYPE_CHECKING,
+    AsyncIterable,
     AsyncIterator,
+    Protocol,
     Self,
+    TypeVar,
     overload,
 )
 from xml.etree import ElementTree
@@ -15,23 +18,42 @@ from xml.etree import ElementTree
 from httpx import AsyncClient
 
 from app.contrib.aws_v4_auth import AWSV4AuthFlow
-from app.toolkit import taskgroups
 
 from .constants import xmlns, xmlns_re
 from .exceptions import araise_for_status
 from .models import S3ClientConfig, S3File
 
+if TYPE_CHECKING:
+    T = TypeVar("T")
+
+    class AsyncBytesReader(Protocol):
+        size: int
+
+        async def read(self, size: int = -1) -> bytes:
+            ...
+
 __all__ = [
     "AsyncS3Client",
 ]
 
-_MB_5 = 5 * 2**20
+_5_MB = 5 * 2**20
 
 
-def _readchunks(stream, *, chunk_size: int):
+async def _aenumerate(
+    iterable: AsyncIterable[T], start: int = 0
+) -> AsyncIterator[tuple[int, T]]:
+    n = start
+    async for item in iterable:
+        yield n, item
+        n += 1
+
+
+async def _readchunks(
+    stream: AsyncBytesReader, *, chunk_size: int
+) -> AsyncIterator[bytes]:
     has_content = True
     while has_content:
-        chunk = stream.read(chunk_size)
+        chunk = await stream.read(chunk_size)
         has_content = len(chunk) == chunk_size
         yield chunk
 
@@ -216,43 +238,41 @@ class AsyncS3Client:
                     f"unexpected response from S3:\n{r.content.decode()}"
                 )
 
-    async def put_object(self, bucket: str, key: str, data: IO[bytes]) -> S3File:
+    async def put_object(
+        self, bucket: str, key: str, content: AsyncBytesReader
+    ) -> S3File:
         """
         https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html
         """
-        data.seek(0)
-        content = data.read()
-        size = len(content)
-
         url = self._url(f"{bucket}/{key}")
-        headers = {"content-length": str(size)}
+        headers = {"content-length": str(content.size)}
 
-        r = await self.client.put(url, headers=headers, content=content)
+        r = await self.client.put(url, headers=headers, content=await content.read())
 
         return S3File(
             key=key,
             last_modified=parsedate_to_datetime(r.headers["Date"]),
-            size=size,
+            size=content.size,
             etag=r.headers["ETag"],
         )
 
-    async def upload_obj(self, bucket: str, key: str, data: IO[bytes]) -> S3File:
-        data.seek(0)
-        size = data.seek(0, 2)
-        data.seek(0)
+    async def upload_obj(
+        self, bucket: str, key: str, content: AsyncBytesReader
+    ) -> S3File:
+        if content.size < _5_MB:
+            return await self.put_object(bucket, key, content)
 
-        if size < _MB_5:
-            return await self.put_object(bucket, key, data)
-
-        chunk_size = max(_MB_5, size // (_MB_5 * 10_000))
+        chunk_size = max(_5_MB, content.size // (_5_MB * 10_000))
 
         url = self._url(f"{bucket}/{key}")
-        chunks = _readchunks(data, chunk_size=chunk_size)
-        async with MultipartUpload(url, client=self.client) as mpu:
-            await taskgroups.gather(*(
-                mpu.upload_part(idx, chunk)
-                for idx, chunk in enumerate(chunks, start=1)
-            ))
+        chunks = _readchunks(content, chunk_size=chunk_size)
+        async with (
+            MultipartUpload(url, client=self.client) as mpu,
+            asyncio.TaskGroup() as tg,
+        ):
+            async for n, chunk in _aenumerate(chunks, start=1):
+                tg.create_task(mpu.upload_part(n, chunk))
+
         return mpu.result()
 
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Form, Query, Request, UploadFile
+from fastapi import APIRouter, Form, Query, Request
 from fastapi import File as FileParam
 from fastapi.responses import Response, StreamingResponse
 
@@ -34,6 +34,7 @@ from .schemas import (
     PathParam,
     PathRequest,
     ThumbnailSize,
+    UploadContent,
 )
 
 router = APIRouter()
@@ -391,7 +392,7 @@ async def upload_file(
     request: Request,
     namespace: NamespaceDeps,
     usecases: UseCasesDeps,
-    file: UploadFile = FileParam(...),
+    file: UploadContent = FileParam(...),
     path: PathParam = Form(...),
 ) -> FileSchema:
     """Upload file to the specified path."""
@@ -400,7 +401,7 @@ async def upload_file(
 
     ns_path = str(namespace.path)
     try:
-        upload = await usecases.namespace.add_file(ns_path, filepath, file.file)
+        upload = await usecases.namespace.add_file(ns_path, filepath, file)
     except File.ActionNotAllowed as exc:
         raise exceptions.FileActionNotAllowed() from exc
     except Account.StorageQuotaExceeded as exc:

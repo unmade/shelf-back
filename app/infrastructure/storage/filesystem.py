@@ -7,7 +7,7 @@ import glob
 import os
 import os.path
 import shutil
-from typing import IO, TYPE_CHECKING, AsyncIterator, Iterator, Self
+from typing import TYPE_CHECKING, AsyncIterator, Iterator, Self
 
 import stream_zip
 
@@ -18,7 +18,7 @@ from app.config import FileSystemStorageConfig
 from ._datastructures import StreamZipFile
 
 if TYPE_CHECKING:
-    from app.app.files.domain import AnyPath
+    from app.app.files.domain import AnyPath, IFileContent
 
 __all__ = ["FileSystemStorage"]
 
@@ -206,14 +206,14 @@ class FileSystemStorage(IStorage):
         self,
         ns_path: AnyPath,
         path: AnyPath,
-        content: IO[bytes],
+        content: IFileContent,
     ) -> StorageFile:
-        content.seek(0)
+        await content.seek(0)
         fullpath = self._joinpath(self.location, ns_path, path)
 
         try:
             with open(fullpath, "wb") as buffer:
-                await asyncio.to_thread(shutil.copyfileobj, content, buffer)
+                await asyncio.to_thread(shutil.copyfileobj, content.file, buffer)
         except NotADirectoryError as exc:
             raise File.NotADirectory() from exc
 

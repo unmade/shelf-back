@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import itertools
 from io import BytesIO
-from typing import IO, TYPE_CHECKING, AsyncIterator, cast
+from typing import TYPE_CHECKING, AsyncIterator, cast
 
 from app.app.files.domain import AnyFile, File, Path
 from app.app.files.domain.file import ThumbnailUnavailable
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from app.app.audit.services import AuditTrailService
-    from app.app.files.domain import AnyPath, ContentMetadata
+    from app.app.files.domain import AnyPath, ContentMetadata, IFileContent
     from app.app.files.services import (
         DuplicateFinderService,
         FileService,
@@ -50,7 +50,7 @@ class NamespaceUseCase:
         self.user = user
 
     async def add_file(
-        self, ns_path: AnyPath, path: AnyPath, content: IO[bytes]
+        self, ns_path: AnyPath, path: AnyPath, content: IFileContent
     ) -> AnyFile:
         """
         Saves a file to a storage and to a database. Additionally calculates and saves
@@ -76,15 +76,14 @@ class NamespaceUseCase:
         if path.is_relative_to("trash"):
             raise File.MalformedPath("Uploads to the Trash folder are not allowed")
 
-        size = content.seek(0, 2)
-        if size > config.features.upload_file_max_size:
+        if content.size > config.features.upload_file_max_size:
             raise File.TooLarge()
 
         ns = await self.namespace.get_by_path(str(ns_path))
         account = await self.user.get_account(ns.owner_id)
         if account.storage_quota is not None:
             used = await self.namespace.get_space_used_by_owner_id(ns.owner_id)
-            if (used + size) > account.storage_quota:
+            if (used + content.size) > account.storage_quota:
                 raise Account.StorageQuotaExceeded()
 
         file = await self.file.create_file(ns_path, path, content)

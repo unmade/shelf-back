@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import operator
 import uuid
-from io import BytesIO
-from typing import IO, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from unittest import mock
 
 import pytest
@@ -12,7 +11,7 @@ from app.app.files.domain import File, Path, mediatypes
 from app.toolkit import taskgroups
 
 if TYPE_CHECKING:
-    from app.app.files.domain import AnyPath, Namespace
+    from app.app.files.domain import AnyPath, IFileContent, Namespace
     from app.app.files.services.file import FileCoreService
 
     from ..conftest import (
@@ -41,28 +40,28 @@ def _make_file(
 
 
 class TestCreateFile:
-    async def test(self, filecore: FileCoreService, namespace: Namespace):
-        content = BytesIO(b"Dummy file")
+    async def test(
+        self, filecore: FileCoreService, namespace: Namespace, content: IFileContent
+    ):
         file = await filecore.create_file(namespace.path, "f.txt", content)
         assert file.name == "f.txt"
         assert file.path == "f.txt"
-        assert file.size == 10
+        assert file.size == content.size
         assert file.mediatype == 'text/plain'
 
     async def test_saving_an_image(
         self,
         filecore: FileCoreService,
         namespace: Namespace,
-        image_content: BytesIO,
+        image_content: IFileContent,
     ):
         content = image_content
         file = await filecore.create_file(namespace.path, "im.jpeg", content)
         assert file.mediatype == "image/jpeg"
 
     async def test_creating_missing_parents(
-        self, filecore: FileCoreService, namespace: Namespace,
+        self, filecore: FileCoreService, namespace: Namespace, content: IFileContent
     ):
-        content = BytesIO(b"Dummy file")
         file = await filecore.create_file(namespace.path, "a/b/f.txt", content)
         assert file.name == "f.txt"
         assert file.path == "a/b/f.txt"
@@ -74,25 +73,24 @@ class TestCreateFile:
         assert b.path == "a/b"
 
     async def test_parents_size_is_updated(
-        self, filecore: FileCoreService, namespace: Namespace
+        self, filecore: FileCoreService, namespace: Namespace, content: IFileContent
     ):
-        content = BytesIO(b"Dummy file")
         await filecore.create_file(namespace.path, "a/b/f.txt", content)
         paths = [".", "a", "a/b"]
         db = filecore.db
         home, a, b = await db.file.get_by_path_batch(namespace.path, paths=paths)
-        assert home.size == 10
-        assert a.size == 10
-        assert b.size == 10
+        assert b.size == content.size
+        assert a.size == b.size
+        assert home.size == a.size
 
     @pytest.mark.database(transaction=True)
     async def test_saving_files_concurrently(
-        self, filecore: FileCoreService, namespace: Namespace,
+        self, filecore: FileCoreService, namespace: Namespace, content: IFileContent
     ):
         CONCURRENCY = 50
         parent = Path("a/b/c")
         paths = [parent / str(name) for name in range(CONCURRENCY)]
-        contents = [BytesIO(b"1") for _ in range(CONCURRENCY)]
+        contents = [content for _ in range(CONCURRENCY)]
 
         await filecore.create_folder(namespace.path, parent)
 
@@ -106,12 +104,11 @@ class TestCreateFile:
         assert count == CONCURRENCY
 
         home = await db.file.get_by_path(namespace.path, ".")
-        assert home.size == CONCURRENCY
+        assert home.size == content.size * CONCURRENCY
 
     async def test_when_file_path_already_taken(
-        self, filecore: FileCoreService, namespace: Namespace,
+        self, filecore: FileCoreService, namespace: Namespace, content: IFileContent
     ):
-        content = BytesIO(b"Dummy file")
         await filecore.create_file(namespace.path, "f.txt", content)
         await filecore.create_file(namespace.path, "f.txt", content)
 
@@ -122,9 +119,8 @@ class TestCreateFile:
         assert f_1.path == "f (1).txt"
 
     async def test_when_parent_path_is_file(
-        self, filecore: FileCoreService, namespace: Namespace,
+        self, filecore: FileCoreService, namespace: Namespace, content: IFileContent
     ):
-        content = BytesIO(b"Dummy file")
         await filecore.create_file(namespace.path, "f.txt", content)
         with pytest.raises(File.NotADirectory):
             await filecore.create_file(namespace.path, "f.txt/f.txt", content)
@@ -449,7 +445,7 @@ class TestIterByMediatypes:
         filecore: FileCoreService,
         file_factory: FileFactory,
         namespace: Namespace,
-        image_content: IO[bytes],
+        image_content: IFileContent,
     ):
         # GIVEN
         ns_path = str(namespace.path)
@@ -778,17 +774,17 @@ class TestReindex:
         self,
         filecore: FileCoreService,
         namespace: Namespace,
-        image_content: IO[bytes],
+        content: IFileContent,
+        image_content: IFileContent,
     ):
         # GIVEN
         db = filecore.db
         storage = filecore.storage
-        dummy_text = b"Dummy file"
 
         # these files exist in the storage, but not in the database
         await storage.makedirs(namespace.path, "a")
         await storage.makedirs(namespace.path, "b")
-        await storage.save(namespace.path, "b/f.txt", content=BytesIO(dummy_text))
+        await storage.save(namespace.path, "b/f.txt", content=content)
         await storage.save(namespace.path, "im.jpeg", content=image_content)
 
         # WHEN
@@ -797,7 +793,7 @@ class TestReindex:
         # THEN
         # ensure home size is correct
         home = await db.file.get_by_path(namespace.path, ".")
-        assert home.size == 1661
+        assert home.size == 1668
 
         # ensure missing files in the database has been created
         paths = ["a", "b", "b/f.txt", "im.jpeg"]
@@ -805,11 +801,11 @@ class TestReindex:
         assert a.is_folder()
         assert a.size == 0
         assert b.is_folder()
-        assert b.size == 10
-        assert f.size == len(dummy_text)
+        assert b.size == content.size
+        assert f.size == content.size
         assert f.mediatype == "text/plain"
         assert i.mediatype == "image/jpeg"
-        assert i.size == image_content.seek(0, 2)
+        assert i.size == image_content.size
 
     async def test_removing_dangling_files(
         self,
@@ -894,9 +890,10 @@ class TestReindex:
         self,
         filecore: FileCoreService,
         namespace: Namespace,
+        content: IFileContent,
     ):
         await filecore.storage.makedirs(namespace.path, ".")
-        await filecore.storage.save(namespace.path, "a", content=BytesIO(b"Dummy"))
+        await filecore.storage.save(namespace.path, "a", content=content)
         with pytest.raises(File.NotADirectory):
             await filecore.reindex(namespace.path, "a")
         assert not await filecore.db.file.exists_at_path(namespace.path, "a")

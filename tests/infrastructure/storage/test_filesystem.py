@@ -14,7 +14,7 @@ from app.app.files.domain import File
 from app.infrastructure.storage import FileSystemStorage
 
 if TYPE_CHECKING:
-    from app.app.files.domain import AnyPath
+    from app.app.files.domain import AnyPath, IFileContent
 
     class FileFactory(Protocol):
         async def __call__(
@@ -364,10 +364,9 @@ class TestMoveDir:
 
 
 class TestSave:
-    async def test_save(self, fs_storage: FileSystemStorage):
+    async def test_save(self, fs_storage: FileSystemStorage, content: IFileContent):
         # GIVEN
         await fs_storage.makedirs("user", "a")
-        content = BytesIO(b"I'm Dummy file!")
         # WHEN
         file = await fs_storage.save("user", "a/f.txt", content=content)
         # THEN
@@ -375,23 +374,30 @@ class TestSave:
         assert file.name == "f.txt"
         assert file.ns_path == "user"
         assert file.path == "a/f.txt"
-        assert file.size == 15
+        assert file.size == content.size
         assert file.is_dir() is False
 
     async def test_save_but_path_is_not_a_dir(
-        self, fs_storage: FileSystemStorage, file_factory: FileFactory
+        self,
+        fs_storage: FileSystemStorage,
+        file_factory: FileFactory,
+        content: IFileContent,
     ):
         await file_factory("user/f.txt")
         with pytest.raises(File.NotADirectory):
-            await fs_storage.save("user", "f.txt/f.txt", content=BytesIO(b""))
+            await fs_storage.save("user", "f.txt/f.txt", content=content)
 
     async def test_save_overrides_existing_file(
-        self, file_factory: FileFactory, fs_storage: FileSystemStorage
+        self,
+        file_factory: FileFactory,
+        fs_storage: FileSystemStorage,
+        content: IFileContent,
     ):
         # GIVEN
         fullpath = await file_factory("user/f.txt")
-        assert fullpath.lstat().st_size == 15
+        size = fullpath.lstat().st_size == content.size
         # WHEN
-        file = await fs_storage.save("user", "f.txt", content=BytesIO(b""))
+        file = await fs_storage.save("user", "f.txt", content=content)
         # THEN
-        assert file.size == 0
+        assert file.size == content.size
+        assert file.size != size

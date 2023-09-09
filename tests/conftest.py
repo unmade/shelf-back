@@ -1,17 +1,15 @@
 from __future__ import annotations
 
 import asyncio
-from importlib import resources
-from io import BytesIO
 
 import pytest
 from faker import Faker
-from PIL import Image
 
 fake = Faker()
 
 pytest_plugins = [
     "pytester",
+    "tests.fixtures.app.files",
     "tests.fixtures.infrastructure.arq_worker",
     "tests.fixtures.infrastructure.edgedb",
     "tests.fixtures.infrastructure.fs_storage",
@@ -48,19 +46,3 @@ def reuse_db(pytestconfig):
     the test run.
     """
     return pytestconfig.getoption("reuse_db", False)
-
-
-@pytest.fixture
-def image_content() -> BytesIO:
-    """Create a sample in-memory image."""
-    buffer = BytesIO()
-    with Image.new("RGB", (256, 256)) as im:
-        im.save(buffer, "JPEG")
-    buffer.seek(0)
-    return buffer
-
-
-@pytest.fixture
-def image_content_with_exif() -> BytesIO:
-    name = "exif_iphone_with_hdr_on.jpeg"
-    return BytesIO(resources.files("tests.data.images").joinpath(name).read_bytes())

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from io import BytesIO
-from typing import IO, TYPE_CHECKING, AsyncIterator
+from typing import TYPE_CHECKING, AsyncIterator
 
 from app.app.files.domain import File, MountedFile, MountPoint, Path
 from app.cache import disk_cache
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from uuid import UUID
 
-    from app.app.files.domain import AnyFile, AnyPath
+    from app.app.files.domain import AnyFile, AnyPath, IFileContent
     from app.app.files.services.file import FileCoreService, MountService
 
 
@@ -62,7 +62,7 @@ class FileService:
         self.mount_service = mount_service
 
     async def create_file(
-        self, ns_path: AnyPath, path: AnyPath, content: IO[bytes]
+        self, ns_path: AnyPath, path: AnyPath, content: IFileContent
     ) -> AnyFile:
         """
         Creates a new file with any missing parents. If file name is taken, then file

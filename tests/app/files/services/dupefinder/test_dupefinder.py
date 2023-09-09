@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import IO, TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, cast
 from unittest import mock
 
 import pytest
@@ -11,6 +11,7 @@ from app.app.files.domain import Fingerprint
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
+    from app.app.files.domain import IFileContent
     from app.app.files.repositories.fingerprint import MatchResult
     from app.app.files.services import DuplicateFinderService
 
@@ -86,12 +87,12 @@ class TestTrack:
         self,
         dhash: MagicMock,
         dupefinder: DuplicateFinderService,
-        image_content: IO[bytes],
+        image_content: IFileContent,
     ):
         file_id = uuid.uuid4()
         dhash.return_value = 0
         await dupefinder.track(file_id, image_content)
-        dhash.assert_awaited_once_with(image_content)
+        dhash.assert_awaited_once_with(image_content.file)
         db: MagicMock = cast(mock.MagicMock, dupefinder.db)
         db.fingerprint.save.assert_awaited_once_with(
             Fingerprint(file_id, value=0)
@@ -101,12 +102,12 @@ class TestTrack:
         self,
         dhash: MagicMock,
         dupefinder: DuplicateFinderService,
-        image_content: IO[bytes],
+        image_content: IFileContent,
     ):
         file_id = uuid.uuid4()
         dhash.return_value = None
         await dupefinder.track(file_id, image_content)
-        dhash.assert_awaited_once_with(image_content)
+        dhash.assert_awaited_once_with(image_content.file)
         db: MagicMock = cast(mock.MagicMock, dupefinder.db)
         db.fingerprint.save.assert_not_awaited()
 
@@ -118,7 +119,7 @@ class TestTrackBatch:
         self,
         dhash: MagicMock,
         dupefinder: DuplicateFinderService,
-        image_content: IO[bytes],
+        image_content: IFileContent,
     ):
         # GIVEN
         file_ids = [uuid.uuid4() for _ in range(3)]
@@ -135,4 +136,7 @@ class TestTrackBatch:
         ]
         db = cast(mock.MagicMock, dupefinder.db)
         db.fingerprint.save_batch.assert_awaited_once_with(items)
-        dhash.assert_has_calls([mock.call(image_content), mock.call(image_content)])
+        dhash.assert_has_calls([
+            mock.call(image_content.file),
+            mock.call(image_content.file),
+        ])

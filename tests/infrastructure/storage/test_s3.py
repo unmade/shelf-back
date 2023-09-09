@@ -10,7 +10,7 @@ import pytest
 from app.app.files.domain.file import File
 
 if TYPE_CHECKING:
-    from app.app.files.domain import AnyPath
+    from app.app.files.domain import AnyPath, IFileContent
     from app.infrastructure.storage import S3Storage
     from app.infrastructure.storage.s3.clients import AsyncS3Client
 
@@ -35,10 +35,14 @@ def file_factory(s3_bucket: str, s3_client: AsyncS3Client) -> FileFactory:
         path: AnyPath,
         content: bytes | BytesIO = b"I'm Dummy File!",
     ) -> None:
-        if isinstance(content, bytes):
-            content = BytesIO(content)
+        from tests.fixtures.app.files import FileContent
 
-        await s3_client.upload_obj(s3_bucket, str(path), content)
+        if isinstance(content, bytes):
+            _content = FileContent(content)
+        else:
+            _content = FileContent.from_buffer(content)
+
+        await s3_client.upload_obj(s3_bucket, str(path), _content)
 
     return create_file
 
@@ -319,35 +323,33 @@ class TestSave:
         s3_storage: S3Storage,
         s3_bucket: str,
         s3_client: AsyncS3Client,
+        content: IFileContent,
     ):
-        content = BytesIO(b"I'm Dummy file!")
         file = await s3_storage.save("user", "a/f.txt", content=content)
 
         obj = await s3_client.head_object(s3_bucket, "user/a/f.txt")
         assert file.name == "f.txt"
         assert file.ns_path == "user"
         assert file.path == "a/f.txt"
-        assert file.size == obj.size == 15
+        assert file.size == obj.size == content.size
         assert file.is_dir() is False
 
     @pytest.mark.skip("that operation should not be allowed")
     async def test_when_path_is_not_a_dir(
-        self, s3_storage: S3Storage, file_factory: FileFactory
+        self, s3_storage: S3Storage, file_factory: FileFactory, content: IFileContent
     ):
         await file_factory("user/f.txt")
 
         # with pytest.raises(ClientError) as excinfo:
-        await s3_storage.save("user", "f.txt/f.txt", content=BytesIO(b""))
+        await s3_storage.save("user", "f.txt/f.txt", content=content)
 
         # based on MinIO version the error code will be one of
         # codes = ("AccessDenied", "XMinioParentIsObject")
         # assert excinfo.value.response["Error"]["Code"] in codes
 
     async def test_when_overrides_existing_file(
-        self, s3_storage: S3Storage, file_factory: FileFactory
+        self, s3_storage: S3Storage, file_factory: FileFactory, content: IFileContent
     ):
         await file_factory("user/f.txt")
-        file = await s3_storage.save(
-            "user", "f.txt", content=BytesIO(b"Hello, World!")
-        )
-        assert file.size == 13
+        file = await s3_storage.save("user", "f.txt", content=content)
+        assert file.size == content.size

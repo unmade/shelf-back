@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import contextlib
-from typing import IO, TYPE_CHECKING, AsyncIterator, Protocol
+from typing import TYPE_CHECKING, AsyncIterator, Protocol
 from uuid import UUID
 
 from app.app.files.domain import ContentMetadata
@@ -9,6 +9,7 @@ from app.app.files.domain import ContentMetadata
 from . import readers
 
 if TYPE_CHECKING:
+    from app.app.files.domain import IFileContent
     from app.app.files.repositories.metadata import IContentMetadataRepository
 
     class IServiceDatabase(Protocol):
@@ -27,29 +28,19 @@ class MetadataService:
         """
         Get metadata associated with a given File ID.
 
-        Args:
-            file_id (UUID): Target File ID.
-
         Raises:
             ContentMetadata.NotFound: If FileMetada for a given file ID does not exist.
-
-        Returns:
-            ContentMetadata: File content metadata.
         """
         return await self.db.metadata.get_by_file_id(file_id)
 
-    async def track(self, file_id: UUID, content: IO[bytes]) -> None:
+    async def track(self, file_id: UUID, content: IFileContent) -> None:
         """
         Tracks file content metadata.
-
-        Args:
-            file_id (str): File ID to associate metadata with.
-            content (IO[bytes]): Metadata.
 
         Raises:
             File.NotFound: If a file with specified ID doesn't exist.
         """
-        data = await readers.load(content)
+        data = await readers.load(content.file)
         if data is None:
             return
 
@@ -76,8 +67,8 @@ class _Tracker:
     def items(self) -> list[ContentMetadata]:
         return self._items
 
-    async def add(self, file_id: UUID, content: IO[bytes]) -> None:
-        data = await readers.load(content)
+    async def add(self, file_id: UUID, content: IFileContent) -> None:
+        data = await readers.load(content.file)
         if data is None:
             return
 

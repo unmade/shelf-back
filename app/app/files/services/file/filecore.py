@@ -12,7 +12,6 @@ from app.toolkit import taskgroups
 
 if TYPE_CHECKING:
     from typing import (
-        IO,
         AsyncIterator,
         Iterable,
         Protocol,
@@ -20,7 +19,7 @@ if TYPE_CHECKING:
     )
     from uuid import UUID
 
-    from app.app.files.domain import AnyFile, AnyPath
+    from app.app.files.domain import AnyFile, AnyPath, IFileContent
     from app.app.files.repositories import IFileRepository
     from app.app.infrastructure import IDatabase
     from app.app.infrastructure.storage import IStorage
@@ -45,7 +44,7 @@ class FileCoreService:
         self.storage = storage
 
     async def create_file(
-        self, ns_path: AnyPath, path: AnyPath, content: IO[bytes]
+        self, ns_path: AnyPath, path: AnyPath, content: IFileContent
     ) -> File:
         """
         Saves a file to a storage and to a database. Any missing parents automatically
@@ -68,7 +67,7 @@ class FileCoreService:
                 raise File.NotADirectory()
 
         next_path = await self.get_available_path(ns_path, path)
-        mediatype = mediatypes.guess(content, name=path.name)
+        mediatype = mediatypes.guess(content.file, name=path.name)
 
         storage_file = await self.storage.save(ns_path, next_path, content)
 

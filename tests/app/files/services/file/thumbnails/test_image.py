@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from importlib import resources
 from io import BytesIO
-from typing import IO
+from typing import TYPE_CHECKING
 
 import pytest
 from PIL import Image
@@ -10,12 +10,15 @@ from PIL import Image
 from app.app.files.domain.file import File
 from app.app.files.services.file.thumbnails.image import thumbnail_image
 
+if TYPE_CHECKING:
+    from app.app.files.domain import IFileContent
+
 
 class TestImageThumbnail:
     pkg = resources.files("tests.data.images")
 
-    def test_on_regular_image(self, image_content: IO[bytes]):
-        thumbnail = thumbnail_image(image_content, size=128)
+    def test_on_regular_image(self, image_content: IFileContent):
+        thumbnail = thumbnail_image(image_content.file, size=128)
         assert len(thumbnail) == 112
 
     def test_on_animated_image(self):

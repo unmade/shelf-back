@@ -4,11 +4,11 @@ import secrets
 import urllib.parse
 import uuid
 from io import BytesIO
-from tempfile import SpooledTemporaryFile
 from typing import TYPE_CHECKING, AsyncIterator
 from unittest import mock
 
 import pytest
+from starlette.datastructures import UploadFile
 
 from app.api import shortcuts
 from app.api.files.exceptions import (
@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from app.api.exceptions import APIError
-    from app.app.files.domain import AnyPath, Namespace
+    from app.app.files.domain import AnyPath, IFileContent, Namespace
     from tests.api.conftest import TestClient
 
 pytestmark = [pytest.mark.asyncio]
@@ -586,11 +586,11 @@ class TestGetThumbnail:
         client: TestClient,
         ns_use_case: MagicMock,
         namespace: Namespace,
-        image_content: BytesIO,
+        image_content: IFileContent,
     ):
         # GIVEN
-        path = "im.jpeg"
-        file, thumbnail = _make_file(namespace.path, path), image_content.getvalue()
+        ns_path, path = namespace.path, "im.jpeg"
+        file, thumbnail = _make_file(ns_path, path), image_content.file.read()
         ns_use_case.get_file_thumbnail.return_value = file, thumbnail
         # WHEN
         client.mock_namespace(namespace)
@@ -612,11 +612,11 @@ class TestGetThumbnail:
         client: TestClient,
         ns_use_case: MagicMock,
         namespace: Namespace,
-        image_content: BytesIO,
+        image_content: IFileContent,
     ):
         # GIVEN
-        path = "изо.jpeg"
-        file, thumbnail = _make_file(namespace.path, path), image_content.getvalue()
+        ns_path, path = namespace.path, "изо.jpeg"
+        file, thumbnail = _make_file(ns_path, path), image_content.file.read()
         ns_use_case.get_file_thumbnail.return_value = file, thumbnail
         # WHEN
         client.mock_namespace(namespace)
@@ -855,7 +855,7 @@ class TestUpload:
         assert ns_use_case.add_file.await_args is not None
         assert len(ns_use_case.add_file.await_args.args) == 3
         assert ns_use_case.add_file.await_args.args[:2] == (ns_path, expected_path)
-        assert isinstance(ns_use_case.add_file.await_args.args[2], SpooledTemporaryFile)
+        assert isinstance(ns_use_case.add_file.await_args.args[2], UploadFile)
 
     @pytest.mark.parametrize(["path", "error", "expected_error"], [
         ("folder/f.txt", File.ActionNotAllowed(), FileActionNotAllowed()),

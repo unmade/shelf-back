@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TypeAlias
 
+from .content import IFileContent
 from .content_metadata import ContentMetadata, Exif
 from .file import File, MountedFile
 from .file_member import FileMember
@@ -16,6 +17,7 @@ __all__ = [
     "Exif",
     "File",
     "FileMember",
+    "IFileContent",
     "MountedFile",
     "Fingerprint",
     "MountPoint",
