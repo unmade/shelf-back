@@ -30,7 +30,7 @@ class FileContent:
         self.file.seek(offset)
 
     async def close(self) -> None:
-        self.file.close()
+        self.file.close()  # pragma: no cover
 
 
 @pytest.fixture

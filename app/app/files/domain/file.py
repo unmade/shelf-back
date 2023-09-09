@@ -96,6 +96,9 @@ class _BaseFile(BaseModel):
 class File(_BaseFile):
     """Regular file with a path pointing to the actual location of the file."""
 
+    def can_download(self) -> bool:
+        return True
+
     def can_reshare(self) -> bool:
         return True
 
@@ -104,6 +107,9 @@ class MountedFile(_BaseFile):
     """A file with a path that is a mount point or a location in a mount point."""
 
     mount_point: MountPoint
+
+    def can_download(self) -> bool:
+        return self.mount_point.can_download()
 
     def can_reshare(self) -> bool:
         return self.mount_point.can_reshare()

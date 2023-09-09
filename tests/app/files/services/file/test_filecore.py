@@ -266,6 +266,14 @@ class TestDownload:
         storage_mock.downloaddir.assert_not_called()
 
 
+class TestDownloadFolder:
+    async def test(self, filecore: FileCoreService, file: File):
+        with mock.patch.object(filecore, "storage") as storage_mock:
+            result = filecore.download_folder(file.ns_path, file.path)
+        storage_mock.downloaddir.assert_called_once_with(file.ns_path, file.path)
+        assert result == storage_mock.downloaddir.return_value
+
+
 class TestEmptyFolder:
     async def test(
         self,

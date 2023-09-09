@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import itertools
 from io import BytesIO
-from typing import TYPE_CHECKING, AsyncIterator, cast
+from typing import TYPE_CHECKING, AsyncIterator, Iterator, cast
 
 from app.app.files.domain import AnyFile, File, Path
 from app.app.files.domain.file import ThumbnailUnavailable
@@ -134,6 +134,20 @@ class NamespaceUseCase:
         """
         return await self.file.download(ns_path, path)
 
+    async def download_by_id(self, file_id: UUID) -> AsyncIterator[bytes]:
+        """
+        Downloads a file with the given ID.
+
+        Raises:
+            File.IsADirectory: If file is a directory.
+            File.NotFound: If a file with the given ID does not exist.
+        """
+        return await self.file.download_by_id(file_id)
+
+    def download_folder(self, ns_path: AnyPath, path: AnyPath) -> Iterator[bytes]:
+        """Downloads a folder as a ZIP archive."""
+        return self.file.download_folder(ns_path, path)
+
     async def empty_trash(self, ns_path: AnyPath) -> None:
         """Deletes all files and folders in the Trash folder in a target namespace."""
         await self.file.empty_folder(ns_path, "trash")
@@ -163,6 +177,7 @@ class NamespaceUseCase:
             [files[fp.file_id] for fp in group]
             for group in groups
         ]
+
 
     async def get_file_metadata(
         self, ns_path: AnyPath, path: AnyPath

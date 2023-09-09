@@ -2,18 +2,19 @@ from __future__ import annotations
 
 from typing import Annotated, AsyncIterator, TypeAlias
 
-from fastapi import Depends, Request
+from fastapi import Depends, Query, Request
 from fastapi.security import OAuth2PasswordBearer
 
+from app.api.files.exceptions import DownloadNotFound
 from app.app.audit.domain import CurrentUserContext
 from app.app.audit.domain.current_user_context import CurrentUser
 from app.app.auth.domain import AccessToken, TokenError
-from app.app.files.domain import Namespace
+from app.app.files.domain import AnyFile, Namespace
 from app.app.infrastructure.worker import IWorker
 from app.app.users.domain import User
 from app.infrastructure.context import UseCases
 
-from . import exceptions
+from . import exceptions, shortcuts
 
 __all__ = [
     "CurrentUserDeps",
@@ -65,6 +66,13 @@ async def current_user(ctx: CurrentUserContextDeps) -> CurrentUser:
     return ctx.user
 
 
+async def download_cache(key: str = Query(None)):
+    value = await shortcuts.pop_download_cache(key)
+    if not value:
+        raise DownloadNotFound()
+    return value
+
+
 async def namespace(
     user: CurrentUserDeps,
     usecases: UseCasesDeps,
@@ -80,6 +88,7 @@ CurrentUserDeps: TypeAlias = Annotated[CurrentUser, Depends(current_user)]
 CurrentUserContextDeps: TypeAlias = Annotated[
     CurrentUserContext, Depends(current_user_ctx)
 ]
+DownloadCacheDeps: TypeAlias = Annotated[AnyFile, Depends(download_cache)]
 NamespaceDeps: TypeAlias = Annotated[Namespace, Depends(namespace)]
 UseCasesDeps: TypeAlias = Annotated[UseCases, Depends(usecases)]
 WorkerDeps: TypeAlias = Annotated[IWorker, Depends(worker)]

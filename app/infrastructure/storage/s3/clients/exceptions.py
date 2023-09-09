@@ -48,8 +48,9 @@ def raise_for_status(response: Response) -> None:
     if response.is_success:
         return
 
+    content = response.read()
     try:
-        error = ElementTree.fromstring(response.content)
+        error = ElementTree.fromstring(content)
     except ElementTree.ParseError:
         pass
     else:

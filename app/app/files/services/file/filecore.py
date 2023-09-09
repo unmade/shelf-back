@@ -3,7 +3,7 @@ from __future__ import annotations
 import contextlib
 import itertools
 from collections import deque
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterator
 
 from app.app.files.domain import File, Path, mediatypes
 from app.app.files.repositories.file import FileUpdate
@@ -158,6 +158,15 @@ class FileCoreService:
         if file.is_folder():
             raise File.IsADirectory() from None
         return file, self.storage.download(file.ns_path, file.path)
+
+    def download_folder(self, ns_path: AnyPath, path: AnyPath) -> Iterator[bytes]:
+        """
+        Downloads a file at a given path.
+
+        Raises:
+            File.NotFound: If a file at a target path does not exist.
+        """
+        return self.storage.downloaddir(ns_path, path)
 
     async def empty_folder(self, ns_path: AnyPath, path: AnyPath) -> None:
         """

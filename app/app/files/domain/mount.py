@@ -40,6 +40,9 @@ class MountPoint(BaseModel):
     def display_path(self) -> Path:
         return self.folder.path / self.display_name
 
+    def can_download(self) -> bool:
+        return self.actions.can_download
+
     def can_reshare(self) -> bool:
         return self.actions.can_reshare
 
