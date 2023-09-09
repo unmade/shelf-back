@@ -4,7 +4,7 @@ import asyncio
 import os
 import os.path
 from contextlib import AsyncExitStack
-from typing import IO, TYPE_CHECKING, AsyncIterator, Iterator, Self
+from typing import TYPE_CHECKING, AsyncIterator, Iterator, Self
 
 import stream_zip
 
@@ -20,7 +20,7 @@ from .clients import (
 from .clients.exceptions import NoSuchKey, ResourceNotFound
 
 if TYPE_CHECKING:
-    from app.app.files.domain import AnyPath
+    from app.app.files.domain import AnyPath, IFileContent
     from app.config import S3StorageConfig
 
 __all__ = ["S3Storage"]
@@ -151,7 +151,7 @@ class S3Storage(IStorage):
         self,
         ns_path: AnyPath,
         path: AnyPath,
-        content: IO[bytes],
+        content: IFileContent,
     ) -> StorageFile:
         key = self._joinpath(ns_path, path)
         file = await self.s3.upload_obj(self.bucket, key, content)

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import uuid
-from io import BytesIO
 from typing import IO, TYPE_CHECKING, AsyncIterator, cast
 from unittest import mock
 
@@ -15,7 +14,7 @@ from app.cache import disk_cache
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
-    from app.app.files.domain import AnyPath
+    from app.app.files.domain import AnyPath, IFileContent
     from app.app.files.domain.file_member import FileMemberActions
     from app.app.files.services import FileService
 
@@ -190,9 +189,14 @@ class TestResolveFile:
 @pytest.mark.asyncio
 class TestCreateFile:
     @mock.patch("app.app.files.services.file.FileService.get_available_path")
-    async def test(self, get_available_path_mock: MagicMock, file_service: FileService):
+    async def test(
+        self,
+        get_available_path_mock: MagicMock,
+        file_service: FileService,
+        content: IFileContent,
+    ):
         # GIVEN
-        ns_path, path, content = "admin", Path("f.txt"), BytesIO(b"Dummy")
+        ns_path, path = "admin", Path("f.txt")
         filecore = cast(mock.MagicMock, file_service.filecore)
         mount_service = cast(mock.AsyncMock, file_service.mount_service)
         mount_service.resolve_path.return_value = FullyQualifiedPath(ns_path, path)
@@ -209,9 +213,11 @@ class TestCreateFile:
             fq_path.ns_path, path, content
         )
 
-    async def test_when_not_allowed(self, file_service: FileService):
+    async def test_when_not_allowed(
+        self, file_service: FileService, content: IFileContent
+    ):
         # GIVEN
-        ns_path, path, content = "user", "teamfolder/f.txt", BytesIO(b"Dummy")
+        ns_path, path = "user", "teamfolder/f.txt"
         filecore = cast(mock.MagicMock, file_service.filecore)
         mount_service = cast(mock.AsyncMock, file_service.mount_service)
         mount_service.resolve_path.return_value = FullyQualifiedPath(
@@ -1172,12 +1178,12 @@ class TestThumbnail:
         self,
         thumbnail_mock: MagicMock,
         file_service: FileService,
-        image_content: IO[bytes],
+        image_content: IFileContent,
     ):
         # GIVEN
         file = _make_file("admin", "im.jpeg")
         filecore = cast(mock.AsyncMock, file_service.filecore)
-        filecore.download.return_value = file, _aiter(image_content)
+        filecore.download.return_value = file, _aiter(image_content.file)
         mount_service = cast(mock.AsyncMock, file_service.mount_service)
         thumbnail_mock.return_value = b"dummy-image-content"
         # WHEN
@@ -1193,13 +1199,13 @@ class TestThumbnail:
         self,
         thumbnail_mock: MagicMock,
         file_service: FileService,
-        image_content: IO[bytes],
+        image_content: IFileContent,
     ):
         # GIVEN
         source = _make_file("user", "Folder/SharedFolder/f.txt")
         file = _make_mounted_file(source, "admin", "Sharing/TeamFolder/f.txt")
         filecore = cast(mock.AsyncMock, file_service.filecore)
-        filecore.download.return_value = source, _aiter(image_content)
+        filecore.download.return_value = source, _aiter(image_content.file)
         mount_service = cast(mock.AsyncMock, file_service.mount_service)
         mount_service.get_closest_by_source.return_value = file.mount_point
         thumbnail_mock.return_value = b"dummy-image-content"
@@ -1219,12 +1225,12 @@ class TestThumbnail:
         self,
         thumbnail_mock: MagicMock,
         file_service: FileService,
-        image_content: IO[bytes],
+        image_content: IFileContent,
     ):
         # GIVEN
         file = _make_file("user", "Folder/SharedFolder/f.txt")
         filecore = cast(mock.AsyncMock, file_service.filecore)
-        filecore.download.return_value = file, _aiter(image_content)
+        filecore.download.return_value = file, _aiter(image_content.file)
         mount_service = cast(mock.AsyncMock, file_service.mount_service)
         mount_service.get_closest_by_source.return_value = None
         thumbnail_mock.return_value = b"dummy-image-content"
@@ -1243,7 +1249,7 @@ class TestThumbnail:
         self,
         thumbnail_mock: MagicMock,
         file_service: FileService,
-        image_content: IO[bytes],
+        image_content: IFileContent,
     ):
         # GIVEN
         source = _make_file("user", "Folder/SharedFolder/f.txt")
@@ -1254,7 +1260,7 @@ class TestThumbnail:
             actions=MountPoint.Actions(can_view=False),
         )
         filecore = cast(mock.AsyncMock, file_service.filecore)
-        filecore.download.return_value = source, _aiter(image_content)
+        filecore.download.return_value = source, _aiter(image_content.file)
         mount_service = cast(mock.AsyncMock, file_service.mount_service)
         mount_service.get_closest_by_source.return_value = file.mount_point
         thumbnail_mock.return_value = b"dummy-image-content"
@@ -1273,13 +1279,13 @@ class TestThumbnail:
         self,
         thumbnail_mock: MagicMock,
         file_service: FileService,
-        image_content: IO[bytes],
+        image_content: IFileContent,
     ):
         # GIVEN
         ns_path = "admin"
         file = _make_file(ns_path, "im.jpeg")
         filecore = cast(mock.AsyncMock, file_service.filecore)
-        filecore.download.return_value = file, _aiter(image_content)
+        filecore.download.return_value = file, _aiter(image_content.file)
         thumbnail_mock.return_value = b"dummy-image-content"
         with disk_cache.detect as detector:
             # WHEN hits for the first time

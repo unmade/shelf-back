@@ -3,11 +3,16 @@ from __future__ import annotations
 from datetime import datetime
 from importlib import resources
 from io import BytesIO
+from typing import TYPE_CHECKING
 
 import pytest
 
 from app.app.files.domain import Exif
 from app.app.files.services.metadata.readers.image import load_image_data
+
+if TYPE_CHECKING:
+    from app.app.files.domain import IFileContent
+
 
 
 class TestLoadImageData:
@@ -81,8 +86,8 @@ class TestLoadImageData:
 
         assert actual == expected
 
-    def test_when_there_is_no_exif(self, image_content: BytesIO):
-        assert load_image_data(image_content) is None
+    def test_when_there_is_no_exif(self, image_content: IFileContent):
+        assert load_image_data(image_content.file) is None
 
     def test_when_content_is_broken(self):
         content = BytesIO(b"Dummy content")

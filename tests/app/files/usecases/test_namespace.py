@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from io import BytesIO
 from typing import IO, TYPE_CHECKING, AsyncIterator, cast
 from unittest import mock
 
@@ -16,7 +15,7 @@ from app.config import config
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
-    from app.app.files.domain import AnyPath
+    from app.app.files.domain import AnyPath, IFileContent
     from app.app.files.usecases import NamespaceUseCase
 
 pytestmark = [pytest.mark.asyncio]
@@ -50,7 +49,9 @@ def _make_account(storage_quota: int | None = None) -> Account:
 
 
 class TestAddFile:
-    async def test_unlimited_storage_quota(self, ns_use_case: NamespaceUseCase):
+    async def test_unlimited_storage_quota(
+        self, ns_use_case: NamespaceUseCase, content: IFileContent
+    ):
         # GIVEN
         audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
         file_service = cast(mock.MagicMock, ns_use_case.file)
@@ -60,7 +61,7 @@ class TestAddFile:
         user_service = cast(mock.MagicMock, ns_use_case.user)
         user_service.get_account.return_value = _make_account(storage_quota=None)
 
-        ns_path, path, content = "admin", "f.txt", BytesIO(b"Dummy Content!")
+        ns_path, path = "admin", "f.txt"
 
         # WHEN
         result = await ns_use_case.add_file(ns_path, path, content)
@@ -76,7 +77,9 @@ class TestAddFile:
         ns_service.get_space_used_by_owner_id.assert_not_awaited()
         audit_trail.file_added.assert_called_once_with(result)
 
-    async def test_limited_storage_quota(self, ns_use_case: NamespaceUseCase):
+    async def test_limited_storage_quota(
+        self, ns_use_case: NamespaceUseCase, content: IFileContent
+    ):
         # GIVEN
         audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
         file_service = cast(mock.MagicMock, ns_use_case.file)
@@ -87,7 +90,7 @@ class TestAddFile:
         user_service = cast(mock.MagicMock, ns_use_case.user)
         user_service.get_account.return_value = _make_account(storage_quota=1024)
 
-        ns_path, path, content = "admin", "f.txt", BytesIO(b"Dummy Content!")
+        ns_path, path = "admin", "f.txt"
 
         # WHEN
         result = await ns_use_case.add_file(ns_path, path, content)
@@ -103,15 +106,17 @@ class TestAddFile:
         ns_service.get_space_used_by_owner_id.assert_awaited_once_with(owner_id)
         audit_trail.file_added.assert_called_once_with(result)
 
-    async def test_when_adding_to_trash_folder(self, ns_use_case: NamespaceUseCase):
-        ns_path, path, content = "admin", "Trash/f.txt", BytesIO(b"Dummy Content!")
+    async def test_when_adding_to_trash_folder(
+        self, ns_use_case: NamespaceUseCase, content: IFileContent
+    ):
+        ns_path, path = "admin", "Trash/f.txt"
         with pytest.raises(File.MalformedPath):
             await ns_use_case.add_file(ns_path, path, content)
 
     async def test_when_max_upload_size_limit_is_exceeded(
-        self, ns_use_case: NamespaceUseCase
+        self, ns_use_case: NamespaceUseCase, content: IFileContent
     ):
-        ns_path, path, content = "admin", "f.txt", BytesIO(b"Dummy Content!")
+        ns_path, path = "admin", "f.txt"
         with (
             mock.patch.object(config.features, "upload_file_max_size", 5),
             pytest.raises(File.TooLarge),
@@ -119,7 +124,7 @@ class TestAddFile:
             await ns_use_case.add_file(ns_path, path, content)
 
     async def test_when_exceeding_storage_quota_limit(
-        self, ns_use_case: NamespaceUseCase
+        self, ns_use_case: NamespaceUseCase, content: IFileContent
     ):
         # GIVEN
         audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
@@ -131,7 +136,7 @@ class TestAddFile:
         user_service = cast(mock.MagicMock, ns_use_case.user)
         user_service.get_account.return_value = _make_account(storage_quota=1024)
 
-        ns_path, path, content = "admin", "f.txt", BytesIO(b"Dummy Content!")
+        ns_path, path = "admin", "f.txt"
         # WHEN
         with pytest.raises(Account.StorageQuotaExceeded):
             await ns_use_case.add_file(ns_path, path, content)
@@ -402,7 +407,7 @@ class TestReindex:
 
 
 class TestReindexContents:
-    async def test(self, ns_use_case: NamespaceUseCase, image_content: IO[bytes]):
+    async def test(self, ns_use_case: NamespaceUseCase, image_content: IFileContent):
         # GIVEN
         ns_path = "admin"
         jpg_1 = _make_file(ns_path, "a/b/img (1).jpeg")
@@ -416,8 +421,8 @@ class TestReindexContents:
         filecore = file_service.filecore
         filecore.iter_by_mediatypes.return_value = iter_by_mediatypes_result()
         filecore.download.side_effect = [
-            (jpg_1, _aiter(image_content)),
-            (jpg_2, _aiter(image_content)),
+            (jpg_1, _aiter(image_content.file)),
+            (jpg_2, _aiter(image_content.file)),
         ]
         dupefinder = cast(mock.MagicMock, ns_use_case.dupefinder)
         meta_service = cast(mock.MagicMock, ns_use_case.metadata)

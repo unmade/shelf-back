@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from io import BytesIO
-from typing import IO, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from unittest import mock
 
 import pytest
@@ -30,7 +29,7 @@ if TYPE_CHECKING:
     from typing import Protocol
     from uuid import UUID
 
-    from app.app.files.domain import AnyPath, File, Namespace
+    from app.app.files.domain import AnyPath, File, IFileContent, Namespace
     from app.app.infrastructure import IStorage
     from app.app.users.domain import User
     from app.infrastructure.database.edgedb import EdgeDBDatabase
@@ -44,7 +43,7 @@ if TYPE_CHECKING:
             self,
             ns_path: str,
             path: str,
-            content: IO[bytes] | None = None,
+            content: IFileContent | None = None,
         ) -> File:
             ...
 
@@ -138,9 +137,11 @@ def bookmark_factory(edgedb_database: EdgeDBDatabase):
 def file_factory(filecore: FileCoreService) -> FileFactory:
     """A factory to create a File instance saved to the DB and storage."""
     async def factory(
-        ns_path: str, path: str, content: IO[bytes] | None = None
+        ns_path: str, path: str, content: IFileContent | None = None
     ):
-        content = content or BytesIO(b"Dummy file")
+        from tests.fixtures.app.files import FileContent
+
+        content = content or FileContent(b"Dummy file")
         return await filecore.create_file(ns_path, path, content)
     return factory
 
