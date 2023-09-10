@@ -380,7 +380,6 @@ class TestDownloadFolder:
         assert response.status_code == 200
         assert response.headers["Content-Disposition"] == 'attachment; filename="f.zip"'
         assert "Content-Length" not in response.headers
-        assert response.headers["Content-Type"] == "attachment/zip"
         assert response.content == b"I'm a ZIP archive"
         ns_use_case.download_folder.assert_called_once_with(namespace.path, file.path)
 

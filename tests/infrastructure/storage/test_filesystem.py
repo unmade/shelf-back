@@ -89,6 +89,7 @@ class TestDeletedir:
     ):
         fullpath = await file_factory("user/a/f.txt")
         await fs_storage.deletedir("user", "a/f.txt")
+        await asyncio.sleep(0)  # hack: fix coverage after `asyncio.to_thread`
         assert fullpath.exists()
 
     async def test_when_dir_does_not_exist(self, fs_storage: FileSystemStorage):
@@ -112,6 +113,7 @@ class TestEmptydir:
     ):
         fullpath = await file_factory("user/a/f.txt")
         await fs_storage.emptydir("user", "a/f.txt")
+        await asyncio.sleep(0)  # hack: fix coverage after `asyncio.to_thread`
         assert fullpath.exists()
 
     async def test_when_dir_does_not_exist(self, fs_storage: FileSystemStorage):
@@ -128,18 +130,16 @@ class TestDownload:
         content = BytesIO(b"".join([chunk async for chunk in chunks]))
         assert content.read() == b"I'm Dummy File!"
 
-    @pytest.mark.skip("figure out how to handle errors in the async iterator")
     async def test_when_it_is_a_dir(
         self, fs_storage: FileSystemStorage, file_factory: FileFactory
     ):
         await file_factory("user/a/f.txt")
         with pytest.raises(File.NotFound):
-            fs_storage.download("user", "a")
+            await anext(fs_storage.download("user", "a"))
 
-    @pytest.mark.skip("figure out how to handle errors in the async iterator")
     async def test_when_file_does_not_exist(self, fs_storage: FileSystemStorage):
         with pytest.raises(File.NotFound):
-            fs_storage.download("user", "f.txt")
+            await anext(fs_storage.download("user", "f.txt"))
 
 
 class TestDownloadDir:

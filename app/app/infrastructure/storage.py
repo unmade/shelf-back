@@ -53,11 +53,11 @@ class IStorage(Protocol):
 
     @abc.abstractmethod
     async def __aenter__(self) -> Self:
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     @abc.abstractmethod
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     @abc.abstractmethod
     async def delete(self, ns_path: AnyPath, path: AnyPath) -> None:

@@ -96,7 +96,7 @@ class FileSystemStorage(IStorage):
         if file.is_dir():
             raise File.NotFound()
 
-        with open(str(fullpath), "rb", buffering=4096) as f:
+        with open(fullpath, "rb", buffering=4096) as f:
             for chunk in f:
                 yield chunk
 

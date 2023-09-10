@@ -21,6 +21,10 @@ class S3Error(Exception):
     pass
 
 
+class AccessDenied(S3Error):
+    pass
+
+
 class BucketAlreadyExists(S3Error):
     pass
 
@@ -38,6 +42,7 @@ class ResourceNotFound(S3Error):
 
 
 ERROR_CODES = {
+    "AccessDenied": AccessDenied,
     "BucketAlreadyOwnedByYou": BucketAlreadyOwnedByYou,
     "BucketAlreadyExists": BucketAlreadyExists,
     "NoSuchKey": NoSuchKey,

@@ -75,8 +75,11 @@ class S3Storage(IStorage):
 
     async def download(self, ns_path: AnyPath, path: AnyPath) -> AsyncIterator[bytes]:
         key = self._joinpath(ns_path, path)
-        async for chunk in self.s3.iter_download(self.bucket, key):
-            yield chunk
+        try:
+            async for chunk in self.s3.iter_download(self.bucket, key):
+                yield chunk
+        except NoSuchKey as exc:
+            raise File.NotFound() from exc
 
     def downloaddir(self, ns_path: AnyPath, path: AnyPath) -> Iterator[bytes]:
         prefix = self._joinpath(ns_path, path)
