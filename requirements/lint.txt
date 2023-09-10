@@ -63,12 +63,12 @@ hiredis==2.2.3
     # via
     #   -c requirements/base.txt
     #   redis
-httpcore==0.16.3
+httpcore==0.17.3
     # via
     #   -c requirements/base.txt
     #   -c requirements/test.txt
     #   httpx
-httpx==0.23.3
+httpx==0.24.1
     # via
     #   -c requirements/base.txt
     #   -c requirements/test.txt
@@ -80,7 +80,7 @@ idna==3.4
     #   -c requirements/base.txt
     #   -c requirements/test.txt
     #   anyio
-    #   rfc3986
+    #   httpx
 iniconfig==2.0.0
     # via
     #   -c requirements/test.txt
@@ -133,11 +133,6 @@ redis[hiredis]==5.0.0
     # via
     #   -c requirements/base.txt
     #   arq
-rfc3986[idna2008]==1.5.0
-    # via
-    #   -c requirements/base.txt
-    #   -c requirements/test.txt
-    #   httpx
 sentry-sdk[fastapi]==1.9.4
     # via
     #   -c requirements/base.txt

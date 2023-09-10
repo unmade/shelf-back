@@ -105,9 +105,9 @@ class TestEmptydir:
 class TestDownload:
     async def test(self, s3_storage: S3Storage, file_factory: FileFactory):
         # GIVEN
-        await file_factory("user/f.txt")
+        await file_factory("user/This ?test=folder/f.txt")
         # WHEN
-        chunks = s3_storage.download("user", "f.txt")
+        chunks = s3_storage.download("user", "This ?test=folder/f.txt")
         # THEN
         content = BytesIO(b"".join([chunk async for chunk in chunks]))
         assert content.read() == b"I'm Dummy File!"
@@ -162,12 +162,12 @@ class TestDownloadDir:
 
 class TestIterdir:
     async def test(self, s3_storage: S3Storage, file_factory: FileFactory):
-        await file_factory("user/a/x.txt")
-        await file_factory("user/a/y.txt")
-        await file_factory("user/a/c/f.txt")
+        await file_factory("user/a b/x.txt")
+        await file_factory("user/a b/y.txt")
+        await file_factory("user/a b/c/f.txt")
         await file_factory("user/b/z.txt")
 
-        items = [item async for item in s3_storage.iterdir("user", "a")]
+        items = [item async for item in s3_storage.iterdir("user", "a b")]
         c, x, y = sorted(
             items,
             key=operator.attrgetter("path")
@@ -175,21 +175,21 @@ class TestIterdir:
 
         assert c.name == "c"
         assert c.ns_path == "user"
-        assert c.path == "a/c"
+        assert c.path == "a b/c"
         assert c.mtime == 0
         assert c.size == 0
         assert c.is_dir()
 
         assert x.name == "x.txt"
         assert x.ns_path == "user"
-        assert x.path == "a/x.txt"
+        assert x.path == "a b/x.txt"
         assert x.mtime > 0
         assert x.size == 15
         assert x.is_dir() is False
 
         assert y.name == "y.txt"
         assert y.ns_path == "user"
-        assert y.path == "a/y.txt"
+        assert y.path == "a b/y.txt"
         assert y.mtime > 0
         assert y.size == 15
         assert y.is_dir() is False

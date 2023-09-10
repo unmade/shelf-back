@@ -5,6 +5,7 @@ from typing import (
     Iterator,
     overload,
 )
+from urllib.parse import quote
 from xml.etree import ElementTree
 
 from httpx import Client
@@ -40,7 +41,7 @@ class S3Client:
         )
 
     def _url(self, path: str) -> str:
-        return f"{self.base_url}{path}"
+        return f"{self.base_url}{quote(path)}"
 
     def iter_download(self, bucket: str, key: str) -> Iterator[bytes]:
         url = self._url(f"{bucket}/{key}")
@@ -79,9 +80,9 @@ class S3Client:
             # WARNING! order is important here, params need to be in alphabetical order
             params = {
                 "continuation-token": continuation_token,
-                "delimiter": delimiter,
+                "delimiter": quote(delimiter, safe="") if delimiter else None,
                 "list-type": 2,
-                "prefix": prefix,
+                "prefix": quote(prefix, safe="") if prefix else None,
             }
             params = {k: v for k, v in params.items() if v is not None}
             url = self._url(bucket)

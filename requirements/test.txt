@@ -21,11 +21,11 @@ h11==0.14.0
     # via
     #   -c requirements/base.txt
     #   httpcore
-httpcore==0.16.3
+httpcore==0.17.3
     # via
     #   -c requirements/base.txt
     #   httpx
-httpx==0.23.3
+httpx==0.24.1
     # via
     #   -c requirements/base.txt
     #   -r requirements/test.in
@@ -33,7 +33,7 @@ idna==3.4
     # via
     #   -c requirements/base.txt
     #   anyio
-    #   rfc3986
+    #   httpx
 iniconfig==2.0.0
     # via pytest
 packaging==23.1
@@ -53,10 +53,6 @@ python-dateutil==2.8.2
     # via
     #   -c requirements/base.txt
     #   faker
-rfc3986[idna2008]==1.5.0
-    # via
-    #   -c requirements/base.txt
-    #   httpx
 six==1.16.0
     # via
     #   -c requirements/base.txt
