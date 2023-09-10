@@ -1,6 +1,7 @@
 .venv*
 
 .env.local
+.env.prod
 
 __pycache__
 .cache

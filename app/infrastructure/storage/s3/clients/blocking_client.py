@@ -5,6 +5,7 @@ from typing import (
     Iterator,
     overload,
 )
+from urllib.parse import quote
 from xml.etree import ElementTree
 
 from httpx import Client
@@ -79,9 +80,9 @@ class S3Client:
             # WARNING! order is important here, params need to be in alphabetical order
             params = {
                 "continuation-token": continuation_token,
-                "delimiter": delimiter,
+                "delimiter": quote(delimiter, safe="") if delimiter else None,
                 "list-type": 2,
-                "prefix": prefix,
+                "prefix": quote(prefix, safe="") if prefix else None,
             }
             params = {k: v for k, v in params.items() if v is not None}
             url = self._url(bucket)

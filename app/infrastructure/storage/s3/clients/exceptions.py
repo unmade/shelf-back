@@ -41,11 +41,16 @@ class ResourceNotFound(S3Error):
     pass
 
 
+class SignatureDoesNotMatch(S3Error):
+    pass
+
+
 ERROR_CODES = {
     "AccessDenied": AccessDenied,
     "BucketAlreadyOwnedByYou": BucketAlreadyOwnedByYou,
     "BucketAlreadyExists": BucketAlreadyExists,
     "NoSuchKey": NoSuchKey,
+    "SignatureDoesNotMatch": SignatureDoesNotMatch,
 }
 
 

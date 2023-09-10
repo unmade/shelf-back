@@ -60,11 +60,11 @@ hiredis==2.2.3
     # via redis
 hpack==4.0.0
     # via h2
-httpcore==0.16.3
+httpcore==0.17.3
     # via httpx
 httptools==0.6.0
     # via uvicorn
-httpx[http2]==0.23.3
+httpx[http2]==0.24.1
     # via -r requirements/base.in
 hyperframe==6.0.1
     # via h2
@@ -72,7 +72,7 @@ idna==3.4
     # via
     #   anyio
     #   email-validator
-    #   rfc3986
+    #   httpx
 orjson==3.9.7
     # via -r requirements/base.in
 passlib==1.7.4
@@ -118,8 +118,6 @@ redis[hiredis]==5.0.0
     # via
     #   arq
     #   cashews
-rfc3986[idna2008]==1.5.0
-    # via httpx
 rsa==4.9
     # via python-jose
 sentry-sdk==1.9.4

@@ -13,6 +13,7 @@ from typing import (
     TypeVar,
     overload,
 )
+from urllib.parse import quote
 from xml.etree import ElementTree
 
 from httpx import AsyncClient
@@ -86,7 +87,7 @@ class AsyncS3Client:
         await self._stack.aclose()
 
     def _url(self, path: str) -> str:
-        return f"{self.base_url}{path}"
+        return f"{self.base_url}{quote(path)}"
 
     async def copy_object(
         self, bucket: str, from_key: str | S3File, to_key: str | S3File
@@ -209,17 +210,16 @@ class AsyncS3Client:
         )
 
         continuation_token = None
-
         while True:
             # WARNING! order is important here, params need to be in alphabetical order
             params = {
                 "continuation-token": continuation_token,
-                "delimiter": delimiter,
+                "delimiter": quote(delimiter, safe="") if delimiter else None,
                 "list-type": 2,
-                "prefix": prefix,
+                "prefix": quote(prefix, safe="") if prefix else None,
             }
-            url = self._url(bucket)
             params = {k: v for k, v in params.items() if v is not None}
+            url = self._url(bucket)
             r = await self.client.get(url, params=params)
             xml_root = ElementTree.fromstring(xmlns_re.sub(b"", r.content))
             for c in xml_root.findall("CommonPrefixes"):
