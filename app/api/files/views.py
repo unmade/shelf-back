@@ -171,10 +171,7 @@ def download_folder(
 
     A `key` is obtained by calling `get_download_url` endpoint.
     """
-    try:
-        content = usecases.namespace.download_folder(file.ns_path, file.path)
-    except File.NotFound as exc:
-        raise exceptions.PathNotFound(path=file.path) from exc
+    content = usecases.namespace.download_folder(file.ns_path, file.path)
 
     filename = file.name.encode("utf-8").decode("latin-1")
     headers = {

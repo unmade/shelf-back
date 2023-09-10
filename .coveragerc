@@ -14,8 +14,11 @@ show_missing = true
 exclude_lines =
     pragma: no cover
     TYPE_CHECKING
+    @overload
     from __future__ import annotations
     assert_never
 omit =
+    app/contrib/aws_v4_auth.py
+    app/infrastructure/storage/s3/clients/*
     app/typedefs.py
     tests/example_fixture_tests/*
