@@ -194,7 +194,7 @@ class AppConfig(BaseSettings):
     worker: WorkerConfig
 
     model_config = SettingsConfigDict(
-        env_file=(".env", ".env.prod"),
+        env_file=(".env", ".env.prod", ".env.local"),
         env_file_encoding="utf-8",
         env_nested_delimiter="__",
         extra="allow",

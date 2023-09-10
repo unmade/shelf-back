@@ -8,7 +8,6 @@ from zipfile import ZipFile
 import pytest
 
 from app.app.files.domain.file import File
-from app.infrastructure.storage.s3.clients.exceptions import AccessDenied
 
 if TYPE_CHECKING:
     from app.app.files.domain import AnyPath, IFileContent
@@ -252,11 +251,14 @@ class TestMove:
     async def test_when_destination_is_not_a_dir(
         self, s3_storage: S3Storage, file_factory: FileFactory
     ):
+        # GIVEN
         await file_factory("user/x.txt")
         await file_factory("user/y.txt")
-
-        with pytest.raises(AccessDenied):
-            await s3_storage.move(at=("user", "x.txt"), to=("user", "y.txt/x.txt"))
+        # WHEN
+        await s3_storage.move(at=("user", "x.txt"), to=("user", "y.txt/x.txt"))
+        # THEN
+        assert not await s3_storage.exists("user", "x.txt")
+        assert await s3_storage.exists("user", "y.txt/x.txt")
 
 
 class TestMoveDir:
@@ -307,16 +309,15 @@ class TestMoveDir:
     async def test_when_destination_is_not_a_dir(
         self, s3_storage: S3Storage, file_factory: FileFactory
     ):
+        # GIVEN
         await file_factory("user/a/f.txt")
         await file_factory("user/y.txt")
-
-        with pytest.raises(ExceptionGroup) as excinfo:
-            await s3_storage.movedir(at=("user", "a"), to=("user", "y.txt/a"))
-
-        eg = excinfo.value
-        match, rest = eg.split(AccessDenied)
-        assert match is not None
-        assert rest is None
+        # WHEN
+        await s3_storage.movedir(at=("user", "a"), to=("user", "y.txt/a"))
+        # THEN
+        assert not await s3_storage.exists("user", "a/f.txt")
+        assert await s3_storage.exists("user", "y.txt")
+        assert await s3_storage.exists("user", "y.txt/a/f.txt")
 
 
 class TestSave:
@@ -340,8 +341,9 @@ class TestSave:
         self, s3_storage: S3Storage, file_factory: FileFactory, content: IFileContent
     ):
         await file_factory("user/f.txt")
-        with pytest.raises(AccessDenied):
-            await s3_storage.save("user", "f.txt/f.txt", content=content)
+        await s3_storage.save("user", "f.txt/f.txt", content=content)
+        await s3_storage.exists("user", "f.txt")
+        await s3_storage.exists("user", "f.txt/f.txt")
 
     async def test_when_overrides_existing_file(
         self, s3_storage: S3Storage, file_factory: FileFactory, content: IFileContent

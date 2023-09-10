@@ -81,11 +81,12 @@ async def teardown_s3_files(s3_client: AsyncS3Client, s3_bucket: str):
 
 
 @pytest.fixture
-def s3_storage(
+async def s3_storage(
     setup_s3_bucket,
     teardown_s3_bucket,
     teardown_s3_files,
     s3_storage_config: S3StorageConfig
-) -> S3Storage:
+):
     """An instance of `S3Storage` created with a `s3_storage_config`."""
-    return S3Storage(s3_storage_config)
+    async with S3Storage(s3_storage_config) as storage:
+        yield storage
