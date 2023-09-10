@@ -18,16 +18,17 @@ services:
       - "6379:6379"
 
   minio:
-    image: fdooch/minio:RELEASE.2022-05-26T05-48-41Z
+    image: minio/minio
     environment:
       - MINIO_ROOT_USER=AKIAIOSFODNN7EXAMPLE
       - MINIO_ROOT_PASSWORD=wJalrXUtnFEMIK7MDENGbPxRfiCYEXAMPLEKEY
+      - MINIO_VOLUMES="/mnt/data"
     volumes:
-      - shelf-minio-volume:/data
+      - shelf-minio-volume:/mnt/data
     ports:
       - "9000:9000"
-      - "9001:9001"
-    command: server /data --console-address ":9001"
+      - "9090:9090"
+    command: server /data --console-address ":9090"
 
 volumes:
   dbvolume: {}
