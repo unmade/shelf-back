@@ -89,9 +89,12 @@ class TestTrack:
         dupefinder: DuplicateFinderService,
         image_content: IFileContent,
     ):
+        # GIVEN
         file_id = uuid.uuid4()
         dhash.return_value = 0
-        await dupefinder.track(file_id, image_content)
+        # WHEN
+        await dupefinder.track(file_id, image_content.file)
+        # THEN
         dhash.assert_awaited_once_with(image_content.file)
         db: MagicMock = cast(mock.MagicMock, dupefinder.db)
         db.fingerprint.save.assert_awaited_once_with(
@@ -104,9 +107,12 @@ class TestTrack:
         dupefinder: DuplicateFinderService,
         image_content: IFileContent,
     ):
+        # GIVEN
         file_id = uuid.uuid4()
         dhash.return_value = None
-        await dupefinder.track(file_id, image_content)
+        # WHEN
+        await dupefinder.track(file_id, image_content.file)
+        # THEN
         dhash.assert_awaited_once_with(image_content.file)
         db: MagicMock = cast(mock.MagicMock, dupefinder.db)
         db.fingerprint.save.assert_not_awaited()
@@ -126,9 +132,9 @@ class TestTrackBatch:
         dhash.side_effect = [123, None, 456]
         # WHEN
         async with dupefinder.track_batch() as tracker:
-            await tracker.add(file_ids[0], image_content)
-            await tracker.add(file_ids[1], image_content)
-            await tracker.add(file_ids[2], image_content)
+            await tracker.add(file_ids[0], image_content.file)
+            await tracker.add(file_ids[1], image_content.file)
+            await tracker.add(file_ids[2], image_content.file)
         # THEN
         items = [
             Fingerprint(file_ids[0], value=123),

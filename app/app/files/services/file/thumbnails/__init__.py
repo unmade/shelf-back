@@ -51,8 +51,7 @@ async def thumbnail(content: IO[bytes], *, size: int) -> bytes:
     Returns:
         bytes: Generated thumbnail as bytes.
     """
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, _thumbnail, content, size)
+    return await asyncio.to_thread(_thumbnail, content, size)
 
 
 def _thumbnail(content: IO[bytes], size: int) -> bytes:

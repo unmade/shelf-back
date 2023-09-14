@@ -69,8 +69,8 @@ class TestAddFile:
         # THEN
         assert result == file_service.create_file.return_value
         file_service.create_file.assert_awaited_once_with(ns_path, path, content)
-        dupefinder.track.assert_awaited_once_with(result.id, content)
-        metadata.track.assert_awaited_once_with(result.id, content)
+        dupefinder.track.assert_awaited_once_with(result.id, content.file)
+        metadata.track.assert_awaited_once_with(result.id, content.file)
 
         owner_id = ns_service.get_by_path.return_value.owner_id
         user_service.get_account.assert_awaited_once_with(owner_id)
@@ -98,8 +98,8 @@ class TestAddFile:
         # THEN
         assert result == file_service.create_file.return_value
         file_service.create_file.assert_awaited_once_with(ns_path, path, content)
-        dupefinder.track.assert_awaited_once_with(result.id, content)
-        metadata.track.assert_awaited_once_with(result.id, content)
+        dupefinder.track.assert_awaited_once_with(result.id, content.file)
+        metadata.track.assert_awaited_once_with(result.id, content.file)
 
         owner_id = ns_service.get_by_path.return_value.owner_id
         user_service.get_account.assert_awaited_once_with(owner_id)

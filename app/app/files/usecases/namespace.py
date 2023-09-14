@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import itertools
 from io import BytesIO
-from typing import TYPE_CHECKING, AsyncIterator, Iterator, cast
+from typing import IO, TYPE_CHECKING, AsyncIterator, Iterator, Protocol, cast
 
 from app.app.files.domain import AnyFile, File, Path
 from app.app.files.domain.file import ThumbnailUnavailable
@@ -24,6 +24,10 @@ if TYPE_CHECKING:
         NamespaceService,
     )
     from app.app.users.services import UserService
+
+    class ITracker(Protocol):
+        async def add(self, file_id: UUID, content: IO[bytes]) -> None:
+            ...
 
 __all__ = ["NamespaceUseCase"]
 
@@ -87,8 +91,8 @@ class NamespaceUseCase:
                 raise Account.StorageQuotaExceeded()
 
         file = await self.file.create_file(ns_path, path, content)
-        await self.dupefinder.track(file.id, content)
-        await self.metadata.track(file.id, content)
+        await self.dupefinder.track(file.id, content.file)
+        await self.metadata.track(file.id, content.file)
 
         taskgroups.schedule(self.audit_trail.file_added(file))
         return file
@@ -324,7 +328,7 @@ class NamespaceUseCase:
                     for file in files
                 ))
 
-    async def _reindex_content(self, file: File, trackers) -> None:
+    async def _reindex_content(self, file: File, trackers: list[ITracker]) -> None:
         _, chunks = await self.file.filecore.download(file.id)
         content = BytesIO(b"".join([chunk async for chunk in chunks]))
         for tracker in trackers:

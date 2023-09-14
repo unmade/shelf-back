@@ -42,7 +42,7 @@ class TestTrack:
         db = cast(mock.MagicMock, metadata_service.db)
         load_metadata.return_value = Exif(width=1280, height=800)
         # WHEN
-        await metadata_service.track(file_id, image_content)
+        await metadata_service.track(file_id, image_content.file)
         # THEN
         load_metadata.assert_awaited_once_with(image_content.file)
         db.metadata.save.assert_awaited_once_with(
@@ -60,7 +60,7 @@ class TestTrack:
         db = cast(mock.MagicMock, metadata_service.db)
         load_metadata.return_value = None
         # WHEN
-        await metadata_service.track(file_id, image_content)
+        await metadata_service.track(file_id, image_content.file)
         # THEN
         load_metadata.assert_awaited_once_with(image_content.file)
         db.metadata.save.assert_not_awaited()
@@ -84,9 +84,9 @@ class TestTrackBatch:
         ]
         # WHEN
         async with metadata_service.track_batch() as tracker:
-            await tracker.add(file_ids[0], image_content)
-            await tracker.add(file_ids[1], image_content)
-            await tracker.add(file_ids[2], image_content)
+            await tracker.add(file_ids[0], image_content.file)
+            await tracker.add(file_ids[1], image_content.file)
+            await tracker.add(file_ids[2], image_content.file)
         # THEN
         items = [
             ContentMetadata(file_id=file_ids[0], data=Exif(width=1280, height=800)),
