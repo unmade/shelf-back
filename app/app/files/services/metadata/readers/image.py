@@ -55,13 +55,16 @@ def load_image_data(content: IO[bytes]) -> Exif | None:
 def _get_str_or_none(value) -> str | None:
     if not value:
         return None
-    return str(value).strip("\x00")
+    return str(value).strip("\x00").strip()
 
 
 def _get_timestamp(value: str | None) -> float | None:
     if not value:
         return None
-    return datetime.strptime(value.strip("\x00"), "%Y:%m:%d %H:%M:%S").timestamp()
+    try:
+        return datetime.strptime(value.strip("\x00"), "%Y:%m:%d %H:%M:%S").timestamp()
+    except ValueError:
+        return None
 
 
 def _get_exposure(value: IFDRational | None) -> str | None:

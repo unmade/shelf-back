@@ -77,7 +77,21 @@ class TestLoadImageData:
                 width=1,
             ),
         ),
-
+        (
+            "exif_broken_timestamp.jpg",
+            Exif(
+                type="exif",
+                make="OLYMPUS IMAGING CORP.",
+                model="E-M5",
+                fnumber="4.0",
+                exposure="1/160",
+                iso=None,
+                dt_original=None,
+                dt_digitized=None,
+                height=1,
+                width=1,
+            ),
+        ),
     ])
     def test(self, name: str, expected: Exif):
         pkg = resources.files("tests.data.images")
