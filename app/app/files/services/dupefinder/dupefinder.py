@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import contextlib
 from collections import defaultdict
-from typing import TYPE_CHECKING, AsyncIterator, Protocol
+from typing import IO, TYPE_CHECKING, AsyncIterator, Protocol
 
 from app.app.files.domain import Fingerprint
 
@@ -11,7 +11,7 @@ from . import dhash
 if TYPE_CHECKING:
     from uuid import UUID
 
-    from app.app.files.domain import AnyPath, IFileContent
+    from app.app.files.domain import AnyPath
     from app.app.files.repositories import IFingerprintRepository
     from app.app.files.repositories.fingerprint import MatchResult
 
@@ -80,7 +80,7 @@ class DuplicateFinderService:
         )
         return self._group(intersection, max_distance=max_distance)
 
-    async def track(self, file_id: UUID, content: IFileContent) -> None:
+    async def track(self, file_id: UUID, content: IO[bytes]) -> None:
         """
         Tracks fingerprints for a given file content.
 
@@ -88,7 +88,7 @@ class DuplicateFinderService:
             Fingerprint.AlreadyExists: If fingerprint for a file already exists.
             File.NotFound: If a file with specified file ID doesn't exist.
         """
-        value = await dhash.dhash(content.file)
+        value = await dhash.dhash(content)
         if value is None:
             return
 
@@ -115,8 +115,8 @@ class _Tracker:
     def items(self) -> list[Fingerprint]:
         return self._items
 
-    async def add(self, file_id: UUID, content: IFileContent) -> None:
-        value = await dhash.dhash(content.file)
+    async def add(self, file_id: UUID, content: IO[bytes]) -> None:
+        value = await dhash.dhash(content)
         if value is None:
             return
 
