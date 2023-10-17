@@ -335,7 +335,7 @@ class MultipartUpload:
             key=xml_root.find("Key").text,  # type: ignore[union-attr, arg-type]
             last_modified=parsedate_to_datetime(r.headers["Date"]),
             size=sum(v[1] for v in self._parts.values()),
-            etag=r.headers["ETag"],
+            etag=xml_root.find("ETag").text,  # type: ignore[union-attr, arg-type]
         )
 
     async def create(self) -> None:
