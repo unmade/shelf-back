@@ -16,7 +16,7 @@ from typing import (
 from urllib.parse import quote
 from xml.etree import ElementTree
 
-from httpx import AsyncClient
+from httpx import AsyncClient, Headers
 
 from app.contrib.aws_v4_auth import AWSV4AuthFlow
 
@@ -96,7 +96,7 @@ class AsyncS3Client:
         https://docs.aws.amazon.com/AmazonS3/latest/API/API_CopyObject.html
         """
         url = self._url(f"{bucket}/{to_key}")
-        headers = {"x-amz-copy-source": f"/{bucket}/{from_key}"}
+        headers = Headers({"x-amz-copy-source": f"/{bucket}/{from_key}"}, "utf-8")
         await self.client.put(url, headers=headers)
 
     async def create_bucket(self, name: str) -> None:

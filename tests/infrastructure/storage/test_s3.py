@@ -226,6 +226,17 @@ class TestMove:
         assert not await s3_storage.exists("user", "x.txt")
         assert await s3_storage.exists("user", "y.txt")
 
+    async def test_on_non_ascii_path(
+        self, s3_storage: S3Storage, file_factory: FileFactory
+    ):
+        # GIVEN
+        await file_factory("user/файл.txt")
+        # WHEN
+        await s3_storage.move(at=("user", "файл.txt"), to=("user", "file.txt"))
+        # THEN
+        assert not await s3_storage.exists("user", "файл.txt")
+        assert await s3_storage.exists("user", "file.txt")
+
     async def test_when_it_is_a_dir(
         self, s3_storage: S3Storage, file_factory: FileFactory
     ):
