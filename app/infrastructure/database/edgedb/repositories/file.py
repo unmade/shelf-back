@@ -428,7 +428,7 @@ class FileRepository(IFileRepository):
             SET {
                 namespace := next_namespace,
                 path := re_replace(
-                    str_lower(<str>$at_prefix), <str>$to_prefix, str_lower(.path)
+                    <str>$at_prefix, <str>$to_prefix, .path
                 ),
             }
         """

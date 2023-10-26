@@ -389,7 +389,6 @@ class TestReplacePathPrefix:
         assert results[0].path == "d/d/f.txt"
         assert results[1].path == "d/f.txt"
 
-    @pytest.mark.database(transaction=True)
     async def test_changing_prefix_with_namesace(
         self,
         file_repo: FileRepository,
@@ -413,19 +412,6 @@ class TestReplacePathPrefix:
         assert len(results) == 2
         assert results[0].path == "d/d/f.txt"
         assert results[1].path == "d/f.txt"
-
-    async def test_case_insensitiveness(
-        self, file_repo: FileRepository, file_factory: FileFactory, namespace: Namespace
-    ):
-        # GIVEN
-        ns_path = namespace.path
-        await file_factory(ns_path, "A/b/C/f.txt")
-        await file_factory(ns_path, "a/B/c/d/f.txt")
-        # WHEN
-        await file_repo.replace_path_prefix(at=(ns_path, "a/b/C"), to=(ns_path, "d"))
-        # THEN
-        results = await file_repo.get_by_path_batch(ns_path, ["d/f.txt", "d/d/f.txt"])
-        assert len(results) == 2
 
     async def test_replacing_only_the_first_occurence(
         self, file_repo: FileRepository, file_factory: FileFactory, namespace: Namespace
