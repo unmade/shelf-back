@@ -682,7 +682,7 @@ class TestMoveV2:
         )
         # THEN
         assert moved_file.name == "File.txt"
-        assert moved_file.path == "File.txt"
+        assert str(moved_file.path) == "File.txt"
         assert await filecore.storage.exists(ns_path, "File.txt")
         assert await filecore.db.file.exists_at_path(ns_path, "File.txt")
 
@@ -696,20 +696,23 @@ class TestMoveV2:
         # GIVEN
         ns_path = namespace.path
         await folder_factory(namespace.path, "a")
+        await folder_factory(namespace.path, "a/C")
         await folder_factory(namespace.path, "a/B")
-        await file_factory(namespace.path, "a/f")
-        # WHEN: move file from 'a/f' to 'a/B/F.TXT'
+        await folder_factory(namespace.path, "a/B/C")
+        await file_factory(namespace.path, "a/B/C/f.txt")
+        # WHEN: move file from 'a/B' to folder 'a/C'
         moved_file = await filecore.move(
-            at=(ns_path, "A/F"),
-            to=(ns_path, "A/b/F.TXT"),
+            at=(ns_path, "a/b"),
+            to=(ns_path, "a/c/B"),
         )
         # THEN
-        assert moved_file.name == "F.TXT"
-        assert moved_file.path == "a/B/F.TXT"
+        assert moved_file.name == "B"
+        assert str(moved_file.path) == "a/C/B"
 
-        f = await filecore.db.file.get_by_path(ns_path, "a/b/f.txt")
-        assert f.name == "F.TXT"
-        assert f.path == "a/B/F.TXT"
+        # nested files preserves casing
+        f = await filecore.db.file.get_by_path(ns_path, "a/c/b/c/f.txt")
+        assert f.name == "f.txt"
+        assert str(f.path) == "a/C/B/C/f.txt"
 
     async def test_when_path_does_not_exist(
         self, filecore: FileCoreService, namespace: Namespace
