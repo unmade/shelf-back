@@ -209,11 +209,11 @@ class AsyncS3Client:
             'the prefix to filter by should not start with "/"'
         )
 
-        continuation_token = None
+        contoken: str | None = None
         while True:
             # WARNING! order is important here, params need to be in alphabetical order
             params = {
-                "continuation-token": continuation_token,
+                "continuation-token": quote(contoken, safe="") if contoken else None,
                 "delimiter": quote(delimiter, safe="") if delimiter else None,
                 "list-type": 2,
                 "prefix": quote(prefix, safe="") if prefix else None,
@@ -232,7 +232,7 @@ class AsyncS3Client:
                 break
 
             if (t := xml_root.find("NextContinuationToken")) is not None:
-                continuation_token = t.text
+                contoken = t.text
             else:
                 raise RuntimeError(
                     f"unexpected response from S3:\n{r.content.decode()}"
