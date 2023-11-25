@@ -52,11 +52,19 @@ class SharingUseCase:
             File.MissingParent: If folder does not exist.
             File.NotFound: If file with a given ID does not exist.
             FileMember.AlreadyExists: If user already a member of the target file.
+            Namespace.NotFound: If namespace given namespace does not exist.
             User.NotFound: If User with a target username does not exist.
         """
         file = await self.file.get_by_id(ns_path, file_id)
         if not file.can_reshare():
             raise File.ActionNotAllowed()
+
+        if ns_path == file.ns_path:
+            namespace = await self.namespace.get_by_path(ns_path)
+            with contextlib.suppress(FileMember.AlreadyExists):
+                await self.file_member.add(
+                    file_id, namespace.owner_id, actions=FileMember.OWNER
+                )
 
         user = await self.user.get_by_username(username)
         member = await self.file_member.add(file_id, user.id, actions=FileMember.EDITOR)

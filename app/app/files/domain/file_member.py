@@ -24,6 +24,7 @@ class FileMemberActions(BaseModel):
     can_download: bool = False
     can_move: bool = False
     can_reshare: bool = False
+    can_unshare: bool = False
     can_upload: bool = False
     can_view: bool = False
 
@@ -34,11 +35,21 @@ class FileMemberUser(BaseModel):
 
 
 class FileMember(BaseModel):
+    OWNER: ClassVar[FileMemberActions] = FileMemberActions(
+        can_delete=True,
+        can_download=True,
+        can_move=True,
+        can_reshare=True,
+        can_upload=True,
+        can_unshare=True,
+        can_view=True,
+    )
     EDITOR: ClassVar[FileMemberActions] = FileMemberActions(
         can_delete=True,
         can_download=True,
         can_move=True,
         can_reshare=True,
+        can_unshare=False,
         can_upload=True,
         can_view=True,
     )
@@ -59,9 +70,12 @@ class FileMember(BaseModel):
 
     file_id: UUID
     actions: FileMemberActions
-    owner: bool = False
     user: FileMemberUser
 
     @property
     def display_name(self) -> str:
         return self.user.username
+
+    @property
+    def owner(self) -> bool:
+        return self.actions == self.OWNER

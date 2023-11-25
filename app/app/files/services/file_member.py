@@ -11,11 +11,9 @@ if TYPE_CHECKING:
     from app.app.files.domain.file_member import FileMemberActions
     from app.app.files.repositories import IFileMemberRepository
     from app.app.files.services.file import FileCoreService
-    from app.app.users.repositories import IUserRepository
 
     class IServiceDatabase(Protocol):
         file_member: IFileMemberRepository
-        user: IUserRepository
 
 __all__ = ["FileMemberService"]
 
@@ -41,11 +39,6 @@ class FileMemberService:
             FileMember.AlreadyExists: If user already a member of the target file.
             User.NotFound: If user with a given username does not exist.
         """
-        file = await self.filecore.get_by_id(file_id)
-        user = await self.db.user.get_by_username(file.ns_path)
-        if user.id == user_id:
-            raise FileMember.AlreadyExists() from None
-
         return await self.db.file_member.save(
             FileMember(
                 file_id=file_id,
@@ -67,27 +60,8 @@ class FileMemberService:
         return await self.db.file_member.get(file_id, user_id)
 
     async def list_all(self, file_id: UUID) -> list[FileMember]:
-        """
-        List all file members for a file with a given ID.
-
-        Raises:
-            File.NotFound: If file with a target ID does not exist.
-        """
-        file = await self.filecore.get_by_id(file_id)
-        user = await self.db.user.get_by_username(file.ns_path)
-        members = await self.db.file_member.list_all(file_id)
-        return [
-            FileMember(
-                file_id=file_id,
-                owner=True,
-                actions=FileMember.EDITOR,
-                user=FileMember.User(
-                    id=user.id,
-                    username=user.username,
-                ),
-            ),
-            *members,
-        ]
+        """List all file members for a file with a given ID."""
+        return await self.db.file_member.list_all(file_id)
 
     async def remove(self, file_id: UUID, user_id: UUID) -> None:
         """Removes a file member."""
