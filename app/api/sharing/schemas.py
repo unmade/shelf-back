@@ -23,7 +23,7 @@ class FileMemberAccessLevel(str, enum.Enum):
 
     @classmethod
     def from_entity(cls, entity: FileMember) -> FileMemberAccessLevel:
-        if entity.owner:
+        if entity.actions == FileMember.OWNER:
             return cls.owner
         if entity.actions == FileMember.EDITOR:
             return cls.editor

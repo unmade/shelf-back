@@ -20,12 +20,14 @@ __all__ = ["FileMemberRepository"]
 
 
 class ActionFlag(enum.IntFlag):
+    # new values should be added stricly to the end
     can_view = enum.auto()
     can_download = enum.auto()
     can_upload = enum.auto()
     can_move = enum.auto()
     can_delete = enum.auto()
     can_reshare = enum.auto()
+    can_unshare = enum.auto()
 
     @classmethod
     def dump(cls, value: FileMemberActions) -> Self:
@@ -42,6 +44,8 @@ class ActionFlag(enum.IntFlag):
             flag |= cls.can_delete
         if value.can_reshare:
             flag |= cls.can_reshare
+        if value.can_unshare:
+            flag |= cls.can_unshare
         return flag
 
     @classmethod
@@ -53,6 +57,7 @@ class ActionFlag(enum.IntFlag):
             can_move=bool(cls.can_move & value),
             can_delete=bool(cls.can_delete & value),
             can_reshare=bool(cls.can_reshare & value),
+            can_unshare=bool(cls.can_unshare & value),
         )
 
 

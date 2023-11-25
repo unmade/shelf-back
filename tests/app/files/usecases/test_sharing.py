@@ -71,18 +71,45 @@ class TestAddMember:
         # GIVEN
         file, username = _make_file("admin", "f.txt"), "user"
         user_service = cast(mock.MagicMock, sharing_use_case.user)
+        ns_service = cast(mock.MagicMock, sharing_use_case.namespace)
         file_service = cast(mock.MagicMock, sharing_use_case.file)
         file_service.get_by_id.return_value = file
         file_member_service = cast(mock.MagicMock, sharing_use_case.file_member)
         # WHEN
         member = await sharing_use_case.add_member(file.ns_path, file.id, username)
-        # THEN
+        # THEN: both owner and a member are added
         assert member == file_member_service.add.return_value
         file_service.get_by_id.assert_awaited_once_with(file.ns_path, file.id)
         user_service.get_by_username.assert_awaited_once_with(username)
         user = user_service.get_by_username.return_value
+        ns_service.get_by_path.assert_awaited_once_with(file.ns_path)
+        namespace = ns_service.get_by_path.return_value
+        file_member_service.add.assert_has_awaits([
+            mock.call(file.id, namespace.owner_id, actions=FileMember.OWNER),
+            mock.call(file.id, user.id, actions=FileMember.EDITOR),
+        ])
+        file_service.mount.assert_awaited_once_with(
+            file.id, at_folder=(user.username, ".")
+        )
+
+    async def test_is_not_added(self, sharing_use_case: SharingUseCase):
+        # GIVEN
+        file, username = _make_file("admin", "f.txt"), "user"
+        user_service = cast(mock.MagicMock, sharing_use_case.user)
+        ns_service = cast(mock.MagicMock, sharing_use_case.namespace)
+        file_service = cast(mock.MagicMock, sharing_use_case.file)
+        file_service.get_by_id.return_value = file
+        file_member_service = cast(mock.MagicMock, sharing_use_case.file_member)
+        # WHEN
+        member = await sharing_use_case.add_member("user", file.id, username)
+        # THEN: both owner and a member are added
+        assert member == file_member_service.add.return_value
+        file_service.get_by_id.assert_awaited_once_with("user", file.id)
+        user_service.get_by_username.assert_awaited_once_with(username)
+        user = user_service.get_by_username.return_value
+        ns_service.get_by_path.assert_not_awaited()
         file_member_service.add.assert_awaited_once_with(
-            file.id, user.id, actions=FileMember.EDITOR
+            file.id, user.id, actions=FileMember.EDITOR,
         )
         file_service.mount.assert_awaited_once_with(
             file.id, at_folder=(user.username, ".")

@@ -27,16 +27,14 @@ def _make_file(ns_path: str, path: AnyPath, mediatype: str = "plain/text") -> Fi
 
 
 class TestFileMemberAccessLevel:
-    @pytest.mark.parametrize(["actions", "owner", "expected_level"], [
-        (FileMember.EDITOR, False, FileMemberAccessLevel.editor),
-        (FileMember.EDITOR, True, FileMemberAccessLevel.owner),
-        (FileMember.VIEWER, False, FileMemberAccessLevel.viewer),
-        (FileMember.VIEWER, True, FileMemberAccessLevel.owner),
+    @pytest.mark.parametrize(["actions", "expected_level"], [
+        (FileMember.EDITOR, FileMemberAccessLevel.editor),
+        (FileMember.OWNER, FileMemberAccessLevel.owner),
+        (FileMember.VIEWER, FileMemberAccessLevel.viewer),
     ])
     def test_from_entity(
         self,
         actions: FileMemberActions,
-        owner: bool,
         expected_level: FileMemberAccessLevel,
     ):
         # GIVEN
@@ -47,7 +45,6 @@ class TestFileMemberAccessLevel:
                 id=uuid.uuid4(),
                 username="admin",
             ),
-            owner=owner,
         )
         # WHEN
         access_level = FileMemberAccessLevel.from_entity(member)
