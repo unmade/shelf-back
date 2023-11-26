@@ -106,6 +106,24 @@ class TestListAll:
         db.file_member.list_all.assert_awaited_once_with(file.id)
 
 
+class TestListByUserID:
+    async def test(self, file_member_service: FileMemberService):
+        # GIVEN
+        user, limit = _make_user("admin"), 10
+        file_a, file_b = _make_file("admin", "f.txt"), _make_file("user", "f.txt")
+        expected_members = [
+            _make_file_member(file_a, user, actions=FileMember.OWNER),
+            _make_file_member(file_b, user, actions=FileMember.EDITOR),
+        ]
+        db = cast(mock.MagicMock, file_member_service.db)
+        db.file_member.list_by_user_id.return_value = expected_members
+        # WHEN
+        members = await file_member_service.list_by_user_id(user.id, limit=limit)
+        # THEN
+        assert members == expected_members
+        db.file_member.list_by_user_id.assert_awaited_once_with(user.id, limit=limit)
+
+
 class TestRemove:
     async def test(self, file_member_service: FileMemberService):
         # GIVEN

@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Request, Response
 
 from app.api import exceptions, shortcuts
-from app.api.deps import NamespaceDeps, UseCasesDeps
+from app.api.deps import CurrentUserDeps, NamespaceDeps, UseCasesDeps
 from app.api.files.exceptions import FileActionNotAllowed, PathNotFound
 from app.api.files.schemas import PathRequest, ThumbnailSize
 from app.app.files.domain import File, FileMember, SharedLink, mediatypes
@@ -20,9 +20,11 @@ from .schemas import (
     GetSharedLinkResponse,
     ListFileMembersRequest,
     ListFileMembersResponse,
+    ListSharedFilesResponse,
     RemoveMemberRequest,
     RevokeSharedLinkRequest,
     SetMemberAccessLevelRequest,
+    SharedFileSchema,
     SharedLinkFileSchema,
 )
 
@@ -163,6 +165,23 @@ async def list_members(
     )
 
 
+@router.get("/list_shared_files")
+async def list_shared_files(
+    request: Request,
+    namespace: NamespaceDeps,
+    user: CurrentUserDeps,
+    usecases: UseCasesDeps,
+) -> ListSharedFilesResponse:
+    """List recent files shared with a given user including the ones user owns."""
+    files = await usecases.sharing.list_shared_files(namespace.path, user.id)
+    return ListSharedFilesResponse(
+        items=[
+            SharedFileSchema.from_entity(file, request)
+            for file in files
+        ]
+    )
+
+
 @router.post("/remove_member")
 async def remove_member(
     payload: RemoveMemberRequest,
@@ -194,7 +213,7 @@ async def set_member_access_level(
     payload: SetMemberAccessLevelRequest,
     namespace: NamespaceDeps,
     usecases: UseCasesDeps,
-):
+) -> None:
     """Set file member access level."""
     try:
         await usecases.sharing.set_member_actions(
