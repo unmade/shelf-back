@@ -133,6 +133,27 @@ class FileMemberRepository(IFileMemberRepository):
         objs = await self.conn.query(query, file_id=file_id)
         return [_from_db(obj) for obj in objs]
 
+    async def list_by_user_id(
+        self, user_id: UUID, *, offset: int = 0, limit: int = 25
+    ) -> list[FileMember]:
+        query = """
+            SELECT
+                FileMember {
+                    actions,
+                    file: { id },
+                    user: { id, username },
+                }
+            FILTER
+                .user.id = <uuid>$user_id
+            OFFSET
+                <int64>$offset
+            LIMIT
+                <int64>$limit
+        """
+
+        objs = await self.conn.query(query, user_id=user_id, offset=offset, limit=limit)
+        return [_from_db(obj) for obj in objs]
+
     async def save(self, entity: FileMember) -> FileMember:
         query = """
             WITH

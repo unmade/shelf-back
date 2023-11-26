@@ -34,6 +34,11 @@ class IFileMemberRepository(Protocol):
     async def list_all(self, file_id: UUID) -> list[FileMember]:
         """Returns a list of all file members for a file with a given ID."""
 
+    async def list_by_user_id(
+        self, user_id: UUID, *, offset: int = 0, limit: int = 25
+    ) -> list[FileMember]:
+        """Lists all files shared with a given user including the ones user owns."""
+
     async def save(self, entity: FileMember) -> FileMember:
         """
         Saves a new file member to the database.

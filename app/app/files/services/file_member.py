@@ -63,6 +63,12 @@ class FileMemberService:
         """List all file members for a file with a given ID."""
         return await self.db.file_member.list_all(file_id)
 
+    async def list_by_user_id(
+        self, user_id: UUID, *, limit: int = 25
+    ) -> list[FileMember]:
+        """Lists all files shared with a given user including the ones user owns."""
+        return await self.db.file_member.list_by_user_id(user_id, limit=limit)
+
     async def remove(self, file_id: UUID, user_id: UUID) -> None:
         """Removes a file member."""
         await self.db.file_member.delete(file_id, user_id)

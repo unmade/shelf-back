@@ -364,6 +364,30 @@ class TestListMembers:
         sharing_use_case.list_members.assert_awaited_once_with(namespace.path, file_id)
 
 
+class TestListSharedFiles:
+    url = "/sharing/list_shared_files"
+
+    async def test(
+        self,
+        client: TestClient,
+        namespace: Namespace,
+        user: User,
+        sharing_use_case: MagicMock,
+    ):
+        # GIVEN
+        files = [_make_file(namespace.path, "f.txt"), _make_file("user", "f.txt")]
+        sharing_use_case.list_shared_files.return_value = files
+        # WHEN
+        client.mock_user(user).mock_namespace(namespace)
+        response = await client.get(self.url)
+        # THEN
+        assert len(response.json()["items"]) == 2
+        assert response.status_code == 200
+        sharing_use_case.list_shared_files.assert_awaited_once_with(
+            namespace.path, user.id
+        )
+
+
 class TestRemoveMember:
     url = "/sharing/remove_member"
 

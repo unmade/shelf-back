@@ -12,7 +12,7 @@ from app.app.files.services.file import thumbnails
 if TYPE_CHECKING:
     from fastapi import Request
 
-    from app.app.files.domain import File
+    from app.app.files.domain import AnyFile, File
     from app.app.files.domain.file_member import FileMemberActions
 
 
@@ -66,6 +66,36 @@ class FileMemberSchema(BaseModel):
                 can_remove=not entity.owner,
             ),
         )
+
+
+class SharedFileSchema(BaseModel):
+    id: UUID
+    name: str
+    path: str
+    size: int
+    mtime: float
+    mediatype: str
+    hidden: bool = False
+    thumbnail_url: str | None
+
+    @classmethod
+    def from_entity(cls, file: AnyFile, request: Request) -> Self:
+        return cls(
+            id=file.id,
+            name=file.name,
+            path=str(file.path),
+            size=file.size,
+            mtime=file.mtime,
+            mediatype=file.mediatype,
+            hidden=file.name.startswith('.'),
+            thumbnail_url=cls._make_thumbnail_url(request, file),
+        )
+
+    @staticmethod
+    def _make_thumbnail_url(request: Request, file: AnyFile) -> str | None:
+        if thumbnails.is_supported(file.mediatype):
+            return str(request.url_for("get_thumbnail", file_id=file.id))
+        return None
 
 
 class SharedLinkFileSchema(BaseModel):
@@ -129,6 +159,10 @@ class ListFileMembersRequest(BaseModel):
 
 class ListFileMembersResponse(BaseModel):
     members: list[FileMemberSchema]
+
+
+class ListSharedFilesResponse(BaseModel):
+    items: list[SharedFileSchema]
 
 
 class RemoveMemberRequest(BaseModel):

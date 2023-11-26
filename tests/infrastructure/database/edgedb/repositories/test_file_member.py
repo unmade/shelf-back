@@ -171,6 +171,54 @@ class TestListAll:
         assert result == []
 
 
+class TestListByUserID:
+    async def test(
+        self,
+        file_member_repo: FileMemberRepository,
+        file_factory: FileFactory,
+        file_member_factory: FileMemberFactory,
+        user_factory: UserFactory,
+        namespace: Namespace,
+    ):
+        # GIVEN
+        files = [await file_factory(namespace.path), await file_factory(namespace.path)]
+        users = [await user_factory(), await user_factory()]
+        members = [
+            await file_member_factory(file_id=files[0].id, user_id=users[0].id),
+            await file_member_factory(file_id=files[0].id, user_id=users[1].id),
+            await file_member_factory(file_id=files[1].id, user_id=users[0].id),
+        ]
+        # WHEN
+        result = await file_member_repo.list_by_user_id(users[0].id)
+        # THEN
+        assert result == [members[0], members[2]]
+
+        # WHEN
+        result = await file_member_repo.list_by_user_id(users[1].id)
+        # THEN
+        assert result == [members[1]]
+
+    async def test_when_no_members(
+        self,
+        file_member_repo: FileMemberRepository,
+        file_factory: FileFactory,
+        namespace: Namespace,
+        user: User,
+    ):
+        await file_factory(namespace.path)
+        result = await file_member_repo.list_by_user_id(user.id)
+        assert result == []
+
+    async def test_when_user_does_not_exist(
+        self,
+        file_member_repo: FileMemberRepository,
+    ):
+        user_id = uuid.uuid4()
+        result = await file_member_repo.list_by_user_id(user_id)
+        assert result == []
+
+
+
 class TestSave:
     async def test(
         self, file_member_repo: FileMemberRepository, file: File, user: User

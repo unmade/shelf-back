@@ -88,6 +88,10 @@ class SharingUseCase:
             await self.file.thumbnail(link.file_id, size=size)
         )
 
+    async def get_shared_item(self, token: str) -> File:
+        link = await self.sharing.get_link_by_token(token)
+        return await self.file.filecore.get_by_id(link.file_id)
+
     async def list_members(self, ns_path: str, file_id: UUID) -> list[FileMember]:
         """
         Lists all file members including file owner for a given file.
@@ -112,9 +116,11 @@ class SharingUseCase:
 
         return [member]
 
-    async def get_shared_item(self, token: str) -> File:
-        link = await self.sharing.get_link_by_token(token)
-        return await self.file.filecore.get_by_id(link.file_id)
+    async def list_shared_files(self, ns_path: str, user_id: UUID) -> list[AnyFile]:
+        """Lists all files shared with a given user including the ones user owns."""
+        members = await self.file_member.list_by_user_id(user_id, limit=50)
+        file_ids = [member.file_id for member in members]
+        return await self.file.get_by_id_batch(ns_path, ids=file_ids)
 
     async def remove_member(self, ns_path: str, file_id: UUID, user_id: UUID) -> None:
         """
