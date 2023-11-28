@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import enum
-from typing import TYPE_CHECKING, Literal, Self, assert_never
+from typing import TYPE_CHECKING, ClassVar, Literal, Self, assert_never
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -159,6 +159,21 @@ class ListFileMembersRequest(BaseModel):
 
 class ListFileMembersResponse(BaseModel):
     members: list[FileMemberSchema]
+
+
+class ListFileMembersBatchRequest(BaseModel):
+    ids: list[UUID]
+
+
+class ListFileMemberBatchItem(BaseModel):
+    file_id: UUID
+    members: list[FileMemberSchema]
+
+
+class ListFileMembersBatchResponse(BaseModel):
+    Item: ClassVar[type[ListFileMemberBatchItem]] = ListFileMemberBatchItem
+
+    items: list[ListFileMemberBatchItem]
 
 
 class ListSharedFilesResponse(BaseModel):

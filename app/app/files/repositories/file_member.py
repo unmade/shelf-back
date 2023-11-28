@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Protocol, TypedDict
 from app.app.files.domain.file_member import FileMemberActions
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from uuid import UUID
 
     from app.app.files.domain import FileMember
@@ -31,8 +32,8 @@ class IFileMemberRepository(Protocol):
             FileMember.NotFound: If file member does not exist.
         """
 
-    async def list_all(self, file_id: UUID) -> list[FileMember]:
-        """Returns a list of all file members for a file with a given ID."""
+    async def list_by_file_id_batch(self, file_ids: Iterable[UUID]) -> list[FileMember]:
+        """Returns a list of all file members for a given file IDs."""
 
     async def list_by_user_id(
         self, user_id: UUID, *, offset: int = 0, limit: int = 25

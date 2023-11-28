@@ -18,6 +18,8 @@ from .schemas import (
     GetSharedLinkDownloadUrlResponse,
     GetSharedLinkFileRequest,
     GetSharedLinkResponse,
+    ListFileMembersBatchRequest,
+    ListFileMembersBatchResponse,
     ListFileMembersRequest,
     ListFileMembersResponse,
     ListSharedFilesResponse,
@@ -149,7 +151,7 @@ async def list_members(
     namespace: NamespaceDeps,
     usecases: UseCasesDeps,
 ) -> ListFileMembersResponse:
-    """List item members at a given path."""
+    """List members of a file with a given ID."""
     try:
         members = await usecases.sharing.list_members(namespace.path, payload.id)
     except File.ActionNotAllowed as exc:
@@ -161,6 +163,28 @@ async def list_members(
         members=[
             FileMemberSchema.from_entity(member)
             for member in members
+        ]
+    )
+
+
+@router.post("/list_members_batch")
+async def list_members_batch(
+    payload: ListFileMembersBatchRequest,
+    namespace: NamespaceDeps,
+    usecases: UseCasesDeps,
+) -> ListFileMembersBatchResponse:
+    """List members of multiple files at once."""
+    result = await usecases.sharing.list_members_batch(namespace.path, payload.ids)
+    return ListFileMembersBatchResponse(
+        items=[
+            ListFileMembersBatchResponse.Item(
+                file_id=file_id,
+                members=[
+                    FileMemberSchema.from_entity(member)
+                    for member in members
+                ],
+            )
+            for file_id, members in result.items()
         ]
     )
 

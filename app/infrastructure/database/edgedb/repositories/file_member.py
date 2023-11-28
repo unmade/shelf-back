@@ -11,6 +11,7 @@ from app.app.files.repositories.file_member import FileMemberUpdate
 from app.app.users.domain import User
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from uuid import UUID
 
     from app.app.files.domain.file_member import FileMemberActions
@@ -118,7 +119,7 @@ class FileMemberRepository(IFileMemberRepository):
 
         return _from_db(obj)
 
-    async def list_all(self, file_id: UUID) -> list[FileMember]:
+    async def list_by_file_id_batch(self, file_ids: Iterable[UUID]) -> list[FileMember]:
         query = """
             SELECT
                 FileMember {
@@ -127,10 +128,10 @@ class FileMemberRepository(IFileMemberRepository):
                     user: { id, username },
                 }
             FILTER
-                .file.id = <uuid>$file_id
+                .file.id IN {array_unpack(<array<uuid>>$file_ids)}
         """
 
-        objs = await self.conn.query(query, file_id=file_id)
+        objs = await self.conn.query(query, file_ids=list(file_ids))
         return [_from_db(obj) for obj in objs]
 
     async def list_by_user_id(

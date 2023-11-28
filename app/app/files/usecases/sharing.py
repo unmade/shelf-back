@@ -116,6 +116,13 @@ class SharingUseCase:
 
         return [member]
 
+    async def list_members_batch(
+        self, ns_path: str, file_ids: list[UUID]
+    ) -> dict[UUID, list[FileMember]]:
+        """Lists members of multiple files at once."""
+        files = await self.file.get_by_id_batch(ns_path, ids=file_ids)
+        return await self.file_member.list_by_file_id_batch([file.id for file in files])
+
     async def list_shared_files(self, ns_path: str, user_id: UUID) -> list[AnyFile]:
         """Lists all files shared with a given user including the ones user owns."""
         members = await self.file_member.list_by_user_id(user_id, limit=50)

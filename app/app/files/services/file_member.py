@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import itertools
+import operator
 from typing import TYPE_CHECKING, Protocol
 
 from app.app.files.domain import FileMember
@@ -61,7 +63,16 @@ class FileMemberService:
 
     async def list_all(self, file_id: UUID) -> list[FileMember]:
         """List all file members for a file with a given ID."""
-        return await self.db.file_member.list_all(file_id)
+        return await self.db.file_member.list_by_file_id_batch([file_id])
+
+    async def list_by_file_id_batch(
+        self, file_ids: list[UUID]
+    ) -> dict[UUID, list[FileMember]]:
+        """Lists members of multiple files at once."""
+        members = await self.db.file_member.list_by_file_id_batch(file_ids)
+        keyfunc = operator.attrgetter("file_id")
+        result = itertools.groupby(sorted(members, key=keyfunc), key=keyfunc)
+        return {file_id: list(members) for file_id, members in result}
 
     async def list_by_user_id(
         self, user_id: UUID, *, limit: int = 25
