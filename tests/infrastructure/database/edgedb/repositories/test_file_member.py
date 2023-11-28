@@ -131,7 +131,7 @@ class TestGet:
             await file_member_repo.get(file_id, user_id)
 
 
-class TestListAll:
+class TestListByFileIdBatch:
     async def test(
         self,
         file_member_repo: FileMemberRepository,
@@ -141,14 +141,15 @@ class TestListAll:
         namespace: Namespace,
     ):
         # GIVEN
-        file = await file_factory(namespace.path)
+        files = [await file_factory(namespace.path), await file_factory(namespace.path)]
         users = [await user_factory(), await user_factory()]
         members = [
-            await file_member_factory(file_id=file.id, user_id=user.id)
-            for user in users
+            await file_member_factory(file_id=files[0].id, user_id=users[0].id),
+            await file_member_factory(file_id=files[0].id, user_id=users[1].id),
+            await file_member_factory(file_id=files[1].id, user_id=users[0].id),
         ]
         # WHEN
-        result = await file_member_repo.list_all(file.id)
+        result = await file_member_repo.list_by_file_id_batch(file.id for file in files)
         # THEN
         assert result == members
 
@@ -159,7 +160,7 @@ class TestListAll:
         namespace: Namespace,
     ):
         file = await file_factory(namespace.path)
-        result = await file_member_repo.list_all(file.id)
+        result = await file_member_repo.list_by_file_id_batch([file.id])
         assert result == []
 
     async def test_when_file_does_not_exist(
@@ -167,7 +168,7 @@ class TestListAll:
         file_member_repo: FileMemberRepository,
     ):
         file_id = uuid.uuid4()
-        result = await file_member_repo.list_all(file_id)
+        result = await file_member_repo.list_by_file_id_batch([file_id])
         assert result == []
 
 

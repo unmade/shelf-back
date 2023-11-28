@@ -98,12 +98,32 @@ class TestListAll:
             _make_file_member(file, _make_user("user")),
         ]
         db = cast(mock.MagicMock, file_member_service.db)
-        db.file_member.list_all.return_value = expected_members
+        db.file_member.list_by_file_id_batch.return_value = expected_members
         # WHEN
         members = await file_member_service.list_all(file.id)
         # THEN
         assert members == expected_members
-        db.file_member.list_all.assert_awaited_once_with(file.id)
+        db.file_member.list_by_file_id_batch.assert_awaited_once_with([file.id])
+
+
+class TestListByFileIdBatch:
+    async def test(self, file_member_service: FileMemberService):
+        # GIVEN
+        admin, user = _make_user("admin"), _make_user("user")
+        files = [_make_file("admin", "f.txt"), _make_file("user", "f.txt")]
+        file_ids = [file.id for file in files]
+        members = [
+            _make_file_member(files[0], admin, actions=FileMember.OWNER),
+            _make_file_member(files[1], user, actions=FileMember.OWNER),
+            _make_file_member(files[1], admin, actions=FileMember.EDITOR),
+        ]
+        db = cast(mock.MagicMock, file_member_service.db)
+        db.file_member.list_by_file_id_batch.return_value = members
+        # WHEN
+        result = await file_member_service.list_by_file_id_batch(file_ids)
+        # THEN
+        assert result == {files[0].id: members[:1], files[1].id: members[1:]}
+        db.file_member.list_by_file_id_batch.assert_awaited_once_with(file_ids)
 
 
 class TestListByUserID:

@@ -364,6 +364,45 @@ class TestListMembers:
         sharing_use_case.list_members.assert_awaited_once_with(namespace.path, file_id)
 
 
+class TestListMembersBatch:
+    url = "/sharing/list_members_batch"
+
+    async def test(
+        self,
+        client: TestClient,
+        namespace: Namespace,
+        sharing_use_case: MagicMock,
+    ):
+        # GIVEN
+        users = [_make_user("user_a"), _make_user("user_b")]
+        files = [
+            _make_file(namespace.path, "f.txt"),
+            _make_file(namespace.path, "folder"),
+        ]
+        members = [
+            _make_file_member(files[0], users[0]),
+            _make_file_member(files[0], users[1]),
+            _make_file_member(files[1], users[0]),
+        ]
+        sharing_use_case.list_members_batch.return_value = {
+            files[0].id: members[:2],
+            files[1].id: members[2:],
+        }
+        payload = {"ids": [str(file.id) for file in files]}
+        # WHEN
+        client.mock_namespace(namespace)
+        response = await client.post(self.url, json=payload)
+        # THEN
+        items = sorted(response.json()["items"], key=lambda x: len(x["members"]))
+        assert len(items) == 2
+        assert items[0]["file_id"] == str(files[1].id)
+        assert items[1]["file_id"] == str(files[0].id)
+        assert response.status_code == 200
+        sharing_use_case.list_members_batch.assert_awaited_once_with(
+            namespace.path, [file.id for file in files]
+        )
+
+
 class TestListSharedFiles:
     url = "/sharing/list_shared_files"
 

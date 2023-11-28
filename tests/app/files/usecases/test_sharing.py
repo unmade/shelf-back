@@ -267,6 +267,23 @@ class TestListMember:
         file_member_service.get.assert_awaited_once_with(file.id, ns.owner_id)
 
 
+class TestListMemberBatch:
+    async def test(self, sharing_use_case: SharingUseCase):
+        # GIVEN
+        ns_path, file_ids = "admin", [uuid.uuid4(), uuid.uuid4()]
+        file_service = cast(mock.MagicMock, sharing_use_case.file)
+        file_member_service = cast(mock.MagicMock, sharing_use_case.file_member)
+        # WHEN
+        result = await sharing_use_case.list_members_batch(ns_path, file_ids)
+        # THEN
+        assert result == file_member_service.list_by_file_id_batch.return_value
+        file_service.get_by_id_batch.assert_awaited_once_with(ns_path, ids=file_ids)
+        files = file_service.get_by_id_batch.return_value
+        file_member_service.list_by_file_id_batch.assert_awaited_once_with(
+            [file.id for file in files]
+        )
+
+
 class TestListSharedFiles:
     async def test(self, sharing_use_case: SharingUseCase):
         # GIVEN
