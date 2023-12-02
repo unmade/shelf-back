@@ -129,6 +129,10 @@ class SharingUseCase:
         file_ids = [member.file_id for member in members]
         return await self.file.get_by_id_batch(ns_path, ids=file_ids)
 
+    async def list_shared_links(self, ns_path: str) -> list[SharedLink]:
+        """List recent shared links in the given namespace."""
+        return await self.sharing.list_links_by_ns(ns_path, limit=50)
+
     async def remove_member(self, ns_path: str, file_id: UUID, user_id: UUID) -> None:
         """
         Removes given file member from a file.

@@ -427,6 +427,32 @@ class TestListSharedFiles:
         )
 
 
+class TestListSharedLinks:
+    url = "/sharing/list_shared_links"
+
+    async def test(
+        self,
+        client: TestClient,
+        namespace: Namespace,
+        sharing_use_case: MagicMock,
+    ):
+        # GIVEN
+        ns_path = str(namespace.path)
+        links = [
+            _make_sharing_link(),
+            _make_sharing_link(),
+        ]
+        sharing_use_case.list_shared_links.return_value = links
+        # WHEN
+        client.mock_namespace(namespace)
+        response = await client.get(self.url)
+        # THEN
+        items = response.json()["items"]
+        assert len(items) == 2
+        assert response.status_code == 200
+        sharing_use_case.list_shared_links.assert_awaited_once_with(ns_path)
+
+
 class TestRemoveMember:
     url = "/sharing/remove_member"
 

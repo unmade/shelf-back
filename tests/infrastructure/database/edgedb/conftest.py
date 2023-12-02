@@ -272,6 +272,20 @@ def mount_factory(mount_repo: IMountRepository) -> MountFactory:
 
 
 @pytest.fixture
+def shared_link_factory(shared_link_repo: ISharedLinkRepository) -> SharedLinkFactory:
+    """A factory to persist SharedLink to the EdgeDB."""
+    async def factory(file_id: UUID) -> SharedLink:
+        return await shared_link_repo.save(
+            SharedLink(
+                id=SENTINEL_ID,
+                file_id=file_id,
+                token=uuid.uuid4().hex,
+            )
+        )
+    return factory
+
+
+@pytest.fixture
 def user_factory(user_repo: IUserRepository):
     """A factory to persist User to the EdgeDB."""
     async def factory(username: str | None = None, password: str | None = None):
@@ -324,18 +338,10 @@ async def namespace(namespace_a: Namespace):
     return namespace_a
 
 
-
-
 @pytest.fixture
-async def shared_link(shared_link_repo: ISharedLinkRepository, file: File):
+async def shared_link(shared_link_factory: SharedLinkFactory, file: File):
     """A SharedLink instance saved to the EdgeDB."""
-    return await shared_link_repo.save(
-        SharedLink(
-            id=SENTINEL_ID,
-            file_id=file.id,
-            token="ec67376f",
-        )
-    )
+    return await shared_link_factory(file.id)
 
 
 @pytest.fixture

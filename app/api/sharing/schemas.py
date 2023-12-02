@@ -98,6 +98,11 @@ class SharedFileSchema(BaseModel):
         return None
 
 
+class SharedLinkSchema(BaseModel):
+    file_id: UUID
+    token: str
+
+
 class SharedLinkFileSchema(BaseModel):
     id: UUID
     name: str
@@ -178,6 +183,10 @@ class ListFileMembersBatchResponse(BaseModel):
 
 class ListSharedFilesResponse(BaseModel):
     items: list[SharedFileSchema]
+
+
+class ListSharedLinksResponse(BaseModel):
+    items: list[SharedLinkSchema]
 
 
 class RemoveMemberRequest(BaseModel):

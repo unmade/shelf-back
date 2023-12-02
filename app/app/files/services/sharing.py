@@ -42,14 +42,8 @@ class SharingService:
         """
         Returns shared link by a given file ID.
 
-        Args:
-            file_id (UUID): File ID.
-
         Raises:
             SharedLink.NotFound: If file/folder with a given path does not exist.
-
-        Returns:
-            SharedLink: A SharedLink.
         """
         return await self.db.shared_link.get_by_file_id(file_id)
 
@@ -57,22 +51,17 @@ class SharingService:
         """
         Returns shared link by a given token.
 
-        Args:
-            token (str): Target shared link token.
-
         Raises:
             SharedLink.NotFound: If a link with a given token does not exist.
-
-        Returns:
-            SharedLink: A SharedLink.
         """
         return await self.db.shared_link.get_by_token(token)
 
-    async def revoke_link(self, token: str) -> None:
-        """
-        Revokes shared link token.
+    async def list_links_by_ns(
+        self, ns_path: str, *, offset: int = 0, limit: int = 25
+    ) -> list[SharedLink]:
+        """List all shared links in the given namespace."""
+        return await self.db.shared_link.list_by_ns(ns_path, offset=offset, limit=limit)
 
-        Args:
-            token (str): Shared link token to revoke.
-        """
+    async def revoke_link(self, token: str) -> None:
+        """Revokes shared link token."""
         await self.db.shared_link.delete(token)
