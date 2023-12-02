@@ -68,6 +68,19 @@ class SharedLinkRepository(ISharedLinkRepository):
 
         return _from_db(link)
 
+    async def list_by_ns(
+        self, ns_path: str, *, offset: int = 0, limit: int = 25
+    ) -> list[SharedLink]:
+        query = """
+            SELECT
+                SharedLink { id, token, file: { id } }
+            FILTER
+                .file.namespace.path = <str>$ns_path
+        """
+
+        objs = await self.conn.query(query, ns_path=ns_path)
+        return [_from_db(obj) for obj in objs]
+
     async def save(self, shared_link: SharedLink) -> SharedLink:
         query = """
             SELECT (

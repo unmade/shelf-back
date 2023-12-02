@@ -23,11 +23,13 @@ from .schemas import (
     ListFileMembersRequest,
     ListFileMembersResponse,
     ListSharedFilesResponse,
+    ListSharedLinksResponse,
     RemoveMemberRequest,
     RevokeSharedLinkRequest,
     SetMemberAccessLevelRequest,
     SharedFileSchema,
     SharedLinkFileSchema,
+    SharedLinkSchema,
 )
 
 router = APIRouter()
@@ -202,6 +204,24 @@ async def list_shared_files(
         items=[
             SharedFileSchema.from_entity(file, request)
             for file in files
+        ]
+    )
+
+
+@router.get("/list_shared_links")
+async def list_shared_links(
+    namespace: NamespaceDeps,
+    usecases: UseCasesDeps,
+) -> ListSharedLinksResponse:
+    """List recent shared links."""
+    links = await usecases.sharing.list_shared_links(namespace.path)
+    return ListSharedLinksResponse(
+        items=[
+            SharedLinkSchema(
+                file_id=link.file_id,
+                token=link.token,
+            )
+            for link in links
         ]
     )
 

@@ -10,7 +10,12 @@ from app.app.infrastructure.database import SENTINEL_ID
 from app.infrastructure.database.edgedb.db import db_context
 
 if TYPE_CHECKING:
+    from app.app.files.domain import Namespace
     from app.infrastructure.database.edgedb.repositories import SharedLinkRepository
+    from tests.infrastructure.database.edgedb.conftest import (
+        FileFactory,
+        SharedLinkFactory,
+    )
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.database]
 
@@ -73,6 +78,33 @@ class TestGetByToken:
         token = "shared-link-token"
         with pytest.raises(SharedLink.NotFound):
             await shared_link_repo.get_by_token(token)
+
+
+class TestListByNS:
+    async def test(
+        self,
+        shared_link_repo: SharedLinkRepository,
+        file_factory: FileFactory,
+        shared_link_factory: SharedLinkFactory,
+        namespace_a: Namespace,
+        namespace_b: Namespace,
+    ):
+        # GIVEN
+        files = [
+            await file_factory(ns_path=namespace_a.path, path="f (1).txt"),
+            await file_factory(ns_path=namespace_a.path, path="f (2).txt"),
+            await file_factory(ns_path=namespace_b.path, path="x-1.txt"),
+            await file_factory(ns_path=namespace_b.path, path="x-2.txt"),
+        ]
+        links = [await shared_link_factory(file.id) for file in files]
+        # WHEN
+        result = await shared_link_repo.list_by_ns(namespace_a.path)
+        # THEN
+        assert result == links[:2]
+        # WHEN
+        result = await shared_link_repo.list_by_ns(namespace_b.path)
+        # THEN
+        assert result == links[2:]
 
 
 class TestSave:

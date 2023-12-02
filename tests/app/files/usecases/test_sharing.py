@@ -300,6 +300,18 @@ class TestListSharedFiles:
         file_service.get_by_id_batch.assert_awaited_once_with(ns_path, ids=ids)
 
 
+class TestListSharedLinks:
+    async def test(self, sharing_use_case: SharingUseCase):
+        # GIVEN
+        ns_path = "admin"
+        sharing = cast(mock.MagicMock, sharing_use_case.sharing)
+        # WHEN
+        result = await sharing_use_case.list_shared_links(ns_path)
+        # THEN
+        assert result == sharing.list_links_by_ns.return_value
+        sharing.list_links_by_ns.assert_awaited_once_with(ns_path, limit=50)
+
+
 class TestRemoveFileMember:
     async def test(self, sharing_use_case: SharingUseCase):
         # GIVEN

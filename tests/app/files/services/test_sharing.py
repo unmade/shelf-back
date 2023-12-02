@@ -61,6 +61,18 @@ class TestGetLinkByToken:
         assert link == db.shared_link.get_by_token.return_value
 
 
+class TestListLinksByNS:
+    async def test(self, sharing_service: SharingService):
+        # GIVEN
+        ns_path = "admin"
+        # WHEN
+        result = await sharing_service.list_links_by_ns(ns_path, offset=25, limit=10)
+        # THEN
+        db = cast(mock.MagicMock, sharing_service.db)
+        db.shared_link.list_by_ns.assert_awaited_once_with(ns_path, offset=25, limit=10)
+        assert result == db.shared_link.list_by_ns.return_value
+
+
 class TestRevokeLink:
     async def test(self, sharing_service: SharingService):
         token = "ec67376f"
