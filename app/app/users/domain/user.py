@@ -31,7 +31,7 @@ class UserNotFound(Exception):
 
 
 class Account(BaseModel):
-    StorageQuotaExceeded: ClassVar[type[StorageQuotaExceeded]] = StorageQuotaExceeded
+    StorageQuotaExceeded: ClassVar[type[Exception]] = StorageQuotaExceeded
 
     id: UUID
     username: str
