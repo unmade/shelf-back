@@ -12,12 +12,10 @@ from app.app.users.domain import User
 from .exceptions import FileMemberAlreadyExists, SharedLinkNotFound
 from .schemas import (
     AddFileMemberRequest,
-    CreateSharedLinkResponse,
     FileMemberSchema,
     GetSharedLinkDownloadUrlRequest,
     GetSharedLinkDownloadUrlResponse,
     GetSharedLinkFileRequest,
-    GetSharedLinkResponse,
     ListFileMembersBatchRequest,
     ListFileMembersBatchResponse,
     ListFileMembersRequest,
@@ -63,7 +61,7 @@ async def create_shared_link(
     payload: PathRequest,
     namespace: NamespaceDeps,
     usecases: UseCasesDeps,
-) -> CreateSharedLinkResponse:
+) -> SharedLinkSchema:
     """Create a shared link for a file at a given path."""
     ns_path = str(namespace.path)
     try:
@@ -71,7 +69,7 @@ async def create_shared_link(
     except File.NotFound as exc:
         raise PathNotFound(path=payload.path) from exc
 
-    return CreateSharedLinkResponse(token=link.token)
+    return SharedLinkSchema.from_entity(link)
 
 
 @router.post("/get_shared_link")
@@ -79,7 +77,7 @@ async def get_shared_link(
     payload: PathRequest,
     namespace: NamespaceDeps,
     usecases: UseCasesDeps,
-) -> GetSharedLinkResponse:
+) -> SharedLinkSchema:
     """Return shared link for a file at a given path."""
     ns_path = str(namespace.path)
     try:
@@ -89,7 +87,7 @@ async def get_shared_link(
     except SharedLink.NotFound as exc:
         raise SharedLinkNotFound() from exc
 
-    return GetSharedLinkResponse(token=link.token)
+    return SharedLinkSchema.from_entity(link)
 
 
 @router.post("/get_shared_link_download_url")
@@ -217,10 +215,7 @@ async def list_shared_links(
     links = await usecases.sharing.list_shared_links(namespace.path)
     return ListSharedLinksResponse(
         items=[
-            SharedLinkSchema(
-                file_id=link.file_id,
-                token=link.token,
-            )
+            SharedLinkSchema.from_entity(link)
             for link in links
         ]
     )

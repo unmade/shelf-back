@@ -66,6 +66,7 @@ def _from_db(obj) -> FileMember:
     return FileMember(
         file_id=obj.file.id,
         actions=ActionFlag.load(obj.actions),
+        created_at=obj.created_at,
         user=FileMember.User(
             id=obj.user.id,
             username=obj.user.username,
@@ -98,6 +99,7 @@ class FileMemberRepository(IFileMemberRepository):
             SELECT
                 FileMember {
                     actions,
+                    created_at,
                     file: { id },
                     user: { id, username },
                 }
@@ -124,6 +126,7 @@ class FileMemberRepository(IFileMemberRepository):
             SELECT
                 FileMember {
                     actions,
+                    created_at,
                     file: { id },
                     user: { id, username },
                 }
@@ -141,6 +144,7 @@ class FileMemberRepository(IFileMemberRepository):
             SELECT
                 FileMember {
                     actions,
+                    created_at,
                     file: { id },
                     user: { id, username },
                 }
@@ -165,8 +169,9 @@ class FileMemberRepository(IFileMemberRepository):
                     file := file,
                     user := user,
                     actions := <int16>$actions,
+                    created_at := <datetime>$created_at,
                 }
-            ) { actions, file: { id }, user: { id, username } }
+            ) { actions, created_at, file: { id }, user: { id, username } }
         """
 
         try:
@@ -175,6 +180,7 @@ class FileMemberRepository(IFileMemberRepository):
                 file_id=entity.file_id,
                 user_id=entity.user.id,
                 actions=ActionFlag.dump(entity.actions).value,
+                created_at=entity.created_at,
             )
         except edgedb.MissingRequiredError as exc:
             if "missing value for required link 'user'" in str(exc):
@@ -198,7 +204,7 @@ class FileMemberRepository(IFileMemberRepository):
                 SET {
                     actions := <int16>$actions
                 }
-            ) { actions, file: { id }, user: { id, username } }
+            ) { actions, created_at, file: { id }, user: { id, username } }
         """
 
         try:

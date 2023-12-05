@@ -26,14 +26,14 @@ pytestmark = [pytest.mark.asyncio]
 _FILE_ID = uuid.uuid4()
 
 
-def _make_file(ns_path: str, path: AnyPath) -> File:
+def _make_file(ns_path: str, path: AnyPath, mediatype: str = "plain/text") -> File:
     return File(
         id=uuid.uuid4(),
         ns_path=ns_path,
         name=Path(path).name,
         path=Path(path),
         size=10,
-        mediatype="plain/text",
+        mediatype=mediatype,
     )
 
 
@@ -414,7 +414,10 @@ class TestListSharedFiles:
         sharing_use_case: MagicMock,
     ):
         # GIVEN
-        files = [_make_file(namespace.path, "f.txt"), _make_file("user", "f.txt")]
+        files = [
+            _make_file(namespace.path, "f.txt"),
+            _make_file("user", "im.jpeg", mediatype="image/jpeg")
+        ]
         sharing_use_case.list_shared_files.return_value = files
         # WHEN
         client.mock_user(user).mock_namespace(namespace)

@@ -35,11 +35,16 @@ async def _exists_by_token(token: str) -> bool:
 
 async def _get_by_token(token: str) -> SharedLink:
     query = """
-        SELECT SharedLink { id, token, file: { id } }
+        SELECT SharedLink { id, token, created_at, file: { id } }
         FILTER .token = <str>$token
     """
     obj = await db_context.get().query_required_single(query, token=token)
-    return SharedLink(id=obj.id, file_id=obj.file.id, token=obj.token)
+    return SharedLink(
+        id=obj.id,
+        file_id=obj.file.id,
+        token=obj.token,
+        created_at=obj.created_at,
+    )
 
 
 class TestDelete:

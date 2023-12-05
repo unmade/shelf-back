@@ -250,6 +250,7 @@ def mount_factory(mount_repo: IMountRepository) -> MountFactory:
                     member := (
                         INSERT FileMember {
                             actions := 0,
+                            created_at := std::datetime_current(),
                             user := target_folder.namespace.owner,
                             file := source,
                         }

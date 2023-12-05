@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import enum
+from datetime import datetime
 from typing import TYPE_CHECKING, ClassVar, Literal, Self, assert_never
 from uuid import UUID
 
@@ -12,7 +13,7 @@ from app.app.files.services.file import thumbnails
 if TYPE_CHECKING:
     from fastapi import Request
 
-    from app.app.files.domain import AnyFile, File
+    from app.app.files.domain import AnyFile, File, SharedLink
     from app.app.files.domain.file_member import FileMemberActions
 
 
@@ -101,6 +102,15 @@ class SharedFileSchema(BaseModel):
 class SharedLinkSchema(BaseModel):
     file_id: UUID
     token: str
+    created_at: datetime
+
+    @classmethod
+    def from_entity(cls, entity: SharedLink) -> Self:
+        return cls(
+            file_id=entity.file_id,
+            token=entity.token,
+            created_at=entity.created_at,
+        )
 
 
 class SharedLinkFileSchema(BaseModel):
@@ -134,14 +144,6 @@ class SharedLinkFileSchema(BaseModel):
 class AddFileMemberRequest(BaseModel):
     file_id: UUID
     username: str
-
-
-class CreateSharedLinkResponse(BaseModel):
-    token: str
-
-
-class GetSharedLinkResponse(BaseModel):
-    token: str
 
 
 class GetSharedLinkDownloadUrlRequest(BaseModel):
