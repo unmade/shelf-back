@@ -16,7 +16,12 @@ __all__ = ["SharedLinkRepository"]
 
 
 def _from_db(obj) -> SharedLink:
-    return SharedLink(id=obj.id, file_id=obj.file.id, token=obj.token)
+    return SharedLink(
+        id=obj.id,
+        file_id=obj.file.id,
+        token=obj.token,
+        created_at=obj.created_at,
+    )
 
 
 class SharedLinkRepository(ISharedLinkRepository):
@@ -40,7 +45,7 @@ class SharedLinkRepository(ISharedLinkRepository):
     async def get_by_file_id(self, file_id: UUID) -> SharedLink:
         query = """
             SELECT
-                SharedLink { id, token, file: { id } }
+                SharedLink { id, token, created_at, file: { id } }
             FILTER
                 .file.id = <uuid>$file_id
             LIMIT 1
@@ -56,7 +61,7 @@ class SharedLinkRepository(ISharedLinkRepository):
     async def get_by_token(self, token: str) -> SharedLink:
         query = """
             SELECT
-                SharedLink { id, token, file: { id } }
+                SharedLink { id, token, created_at, file: { id } }
             FILTER
                 .token = <str>$token
         """
@@ -73,7 +78,7 @@ class SharedLinkRepository(ISharedLinkRepository):
     ) -> list[SharedLink]:
         query = """
             SELECT
-                SharedLink { id, token, file: { id } }
+                SharedLink { id, token, created_at, file: { id } }
             FILTER
                 .file.namespace.path = <str>$ns_path
         """
@@ -91,7 +96,8 @@ class SharedLinkRepository(ISharedLinkRepository):
                             File
                         FILTER
                             .id = <uuid>$file_id
-                    )
+                    ),
+                    created_at := <datetime>$created_at
                 }
                 UNLESS CONFLICT ON .file
                 ELSE (
@@ -106,6 +112,7 @@ class SharedLinkRepository(ISharedLinkRepository):
                 query,
                 file_id=shared_link.file_id,
                 token=shared_link.token,
+                created_at=shared_link.created_at,
             )
         except edgedb.MissingRequiredError as exc:
             raise File.NotFound() from exc

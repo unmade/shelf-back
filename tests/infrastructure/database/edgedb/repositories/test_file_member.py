@@ -30,6 +30,7 @@ async def _get(file_id: UUID, user_id: UUID) -> FileMember:
         SELECT
             FileMember {
                 actions,
+                created_at,
                 file: { id },
                 user: { id, username },
             }
@@ -47,6 +48,7 @@ async def _get(file_id: UUID, user_id: UUID) -> FileMember:
     return FileMember(
         file_id=obj.file.id,
         actions=ActionFlag.load(obj.actions),
+        created_at=obj.created_at,
         user=FileMember.User(
             id=obj.user.id,
             username=obj.user.username,
@@ -59,6 +61,7 @@ async def _list_members(file_id: UUID):
         SELECT
             FileMember {
                 actions,
+                created_at,
                 file: { id },
                 user: { id, username },
             }
@@ -70,6 +73,7 @@ async def _list_members(file_id: UUID):
         FileMember(
             file_id=obj.file.id,
             actions=ActionFlag.load(obj.actions),
+            created_at=obj.created_at,
             user=FileMember.User(
                 id=obj.user.id,
                 username=obj.user.username,

@@ -50,6 +50,8 @@ module default {
 
     type FileMember {
         required property actions -> int16;
+        required property created_at -> datetime;
+
         required link file -> File {
             on target delete DELETE SOURCE;
         };
@@ -116,6 +118,7 @@ module default {
         required property token  -> str {
             constraint exclusive;
         }
+        required property created_at -> datetime;
         required link file -> File {
             constraint exclusive;
             on target delete DELETE SOURCE;

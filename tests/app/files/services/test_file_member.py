@@ -65,9 +65,10 @@ class TestAdd:
         # THEN
         assert member == db.file_member.save.return_value
         db.file_member.save.assert_awaited_once_with(
-            FileMember(
+            FileMember.model_construct(
                 file_id=file.id,
                 actions=FileMember.EDITOR,
+                created_at=mock.ANY,
                 user=FileMember.User(
                     id=user.id,
                     username="",

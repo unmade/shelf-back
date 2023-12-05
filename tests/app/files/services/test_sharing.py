@@ -28,10 +28,11 @@ class TestCreateLink:
         # THEN
         db = cast(mock.MagicMock, sharing_service.db)
         db.shared_link.save.assert_awaited_once_with(
-            SharedLink(
+            SharedLink.model_construct(
                 id=SENTINEL_ID,
                 file_id=file_id,
                 token=token_mock.return_value,
+                created_at=mock.ANY,
             )
         )
         assert link == db.shared_link.save.return_value

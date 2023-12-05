@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import ClassVar
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from app.toolkit import timezone
 
 __all__ = [
     "FileMember",
@@ -65,12 +68,13 @@ class FileMember(BaseModel):
     Actions: ClassVar[type[FileMemberActions]] = FileMemberActions
     User: ClassVar[type[FileMemberUser]] = FileMemberUser
 
-    AlreadyExists: ClassVar[type[Exception]] = FileMemberAlreadyExists
-    NotFound: ClassVar[type[Exception]] = FileMemberNotFound
+    AlreadyExists: ClassVar[type[FileMemberAlreadyExists]] = FileMemberAlreadyExists
+    NotFound: ClassVar[type[FileMemberNotFound]] = FileMemberNotFound
 
     file_id: UUID
     actions: FileMemberActions
     user: FileMemberUser
+    created_at: datetime = Field(default_factory=timezone.now)
 
     @property
     def display_name(self) -> str:
