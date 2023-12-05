@@ -5,7 +5,7 @@ from fastapi import APIRouter
 from app.api.deps import CurrentUserDeps, UseCasesDeps
 
 from .schemas import (
-    AccountSchema,
+    CurrentAccountSchema,
     GetAccountSpaceUsageResponse,
 )
 
@@ -16,13 +16,12 @@ router = APIRouter()
 async def get_current(
     user: CurrentUserDeps,
     usecases: UseCasesDeps,
-) -> AccountSchema:
+) -> CurrentAccountSchema:
     """Get account information for a current user."""
     # normally, we would re-raised UserNotFound error, but if some user,
     # doesn't have an account, then it is data integrity error, so fail miserably.
-    return AccountSchema.from_entity(
-        await usecases.user.get_account(user.id)
-    )
+    account = await usecases.user.get_account(user.id)
+    return CurrentAccountSchema.from_entity(account, user=user)
 
 
 @router.get("/get_space_usage")
