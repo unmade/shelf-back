@@ -88,9 +88,20 @@ class TestActionFlag:
         (FileMember.Actions(), 0),
         (FileMember.VIEWER, 3),
         (FileMember.EDITOR, 63),
+        (FileMember.OWNER, -1),
     ])
-    async def test(self, given: FileMemberActions, expected: int):
+    async def test_dump(self, given: FileMemberActions, expected: int):
         assert ActionFlag.dump(given) == expected
+
+    @pytest.mark.parametrize(["given", "expected"], [
+        (0, FileMember.Actions()),
+        (3, FileMember.VIEWER),
+        (63, FileMember.EDITOR),
+        (-1, FileMember.OWNER),
+        (127, FileMember.OWNER),
+    ])
+    async def test_load(self, given: int, expected: FileMemberActions):
+        assert ActionFlag.load(given) == expected
 
 
 class TestDelete:
