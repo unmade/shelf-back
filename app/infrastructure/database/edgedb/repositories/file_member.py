@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import enum
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING
 
 import edgedb
 
@@ -31,7 +31,7 @@ class ActionFlag(enum.IntFlag):
     can_unshare = enum.auto()
 
     @classmethod
-    def dump(cls, value: FileMemberActions) -> Self:
+    def dump(cls, value: FileMemberActions) -> int:
         flag = cls(0)
         if value.can_view:
             flag |= cls.can_view
@@ -47,10 +47,16 @@ class ActionFlag(enum.IntFlag):
             flag |= cls.can_reshare
         if value.can_unshare:
             flag |= cls.can_unshare
-        return flag
+
+        if flag == cls(-1):
+            return -1
+        return flag.value
 
     @classmethod
     def load(cls, value: int) -> FileMemberActions:
+        if value == -1:
+            return FileMember.OWNER
+
         return FileMember.Actions(
             can_view=bool(cls.can_view & value),
             can_download=bool(cls.can_download & value),
@@ -179,7 +185,7 @@ class FileMemberRepository(IFileMemberRepository):
                 query,
                 file_id=entity.file_id,
                 user_id=entity.user.id,
-                actions=ActionFlag.dump(entity.actions).value,
+                actions=ActionFlag.dump(entity.actions),
                 created_at=entity.created_at,
             )
         except edgedb.MissingRequiredError as exc:
