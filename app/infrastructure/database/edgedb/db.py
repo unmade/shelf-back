@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import AsyncExitStack
 from contextvars import ContextVar
 from pathlib import Path
 from typing import TYPE_CHECKING, AsyncIterator, Self
@@ -40,9 +41,25 @@ from .repositories import (
 )
 
 if TYPE_CHECKING:
+
+
+    from app.app.infrastructure.database import ITransaction
+
     from .typedefs import EdgeDBContext
 
 db_context: EdgeDBContext = ContextVar("db_context")
+
+
+class Transaction(AsyncExitStack):
+    def __init__(self, tx: AsyncIOIteration) -> None:
+        super().__init__()
+        self._tx = tx
+
+    async def __aenter__(self) -> Self:
+        await super().__aenter__()
+        if not self._tx._managed:
+            await self.enter_async_context(self._tx)
+        return self
 
 
 class EdgeDBDatabase(IDatabase):
@@ -59,6 +76,8 @@ class EdgeDBDatabase(IDatabase):
     user: IUserRepository
 
     def __init__(self, config: EdgeDBConfig) -> None:
+        self._stack = AsyncExitStack()
+
         self.config = config
         self.client = edgedb.create_async_client(
             dsn=str(config.dsn),
@@ -81,22 +100,22 @@ class EdgeDBDatabase(IDatabase):
         self.user = UserRepository(db_context=db_context)
 
     async def __aenter__(self) -> Self:
-        await self.client.__aenter__()
+        await self._stack.enter_async_context(self.client)
         return self
 
-    async def atomic(self, attempts: int = 3) -> AsyncIterator[None]:
-        if isinstance(db_context.get(), AsyncIOIteration):
-            yield
+    async def atomic(self, attempts: int = 3) -> AsyncIterator[ITransaction]:
+        value = db_context.get()
+        if isinstance(value, AsyncIOIteration):
+            yield Transaction(value)
             return
 
         tx_client = self.client.with_retry_options(edgedb.RetryOptions(attempts))
         async for tx in tx_client.transaction():
-            async with tx:
-                token = db_context.set(tx)
-                try:
-                    yield
-                finally:
-                    db_context.reset(token)
+            token = db_context.set(tx)
+            try:
+                yield Transaction(tx)
+            finally:
+                db_context.reset(token)
 
     async def migrate(self) -> None:
         schema = Path(self.config.edgedb_schema).read_text()
@@ -111,4 +130,4 @@ class EdgeDBDatabase(IDatabase):
                 """)
 
     async def shutdown(self) -> None:
-        await self.client.aclose()
+        await self._stack.aclose()

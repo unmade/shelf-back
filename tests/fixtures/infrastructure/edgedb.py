@@ -8,12 +8,13 @@ import pytest
 
 from app.config import EdgeDBConfig, config
 from app.infrastructure.database.edgedb import EdgeDBDatabase
-from app.infrastructure.database.edgedb.db import db_context
+from app.infrastructure.database.edgedb.db import Transaction, db_context
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     from pytest import FixtureRequest
 
-    from app.infrastructure.database.edgedb.typedefs import EdgeDBTransaction
 
 
 @pytest.fixture(scope="session")
@@ -23,7 +24,7 @@ def edgedb_config():
     return config.database.model_copy(
         update={
             "dsn": config.database.dsn.with_name(db_name),
-            "edgedb_max_concurrency": 1
+            "edgedb_max_concurrency": 4
         }
     )
 
@@ -87,7 +88,7 @@ def flush_edgedb_database_if_needed(request: FixtureRequest):
 def _session_sync_client(edgedb_config: EdgeDBConfig):
     with edgedb.create_client(
         str(edgedb_config.dsn),
-        max_concurrency=1,
+        max_concurrency=4,
         tls_ca_file=edgedb_config.edgedb_tls_ca_file,
         tls_security=edgedb_config.edgedb_tls_security,
     ) as client:
@@ -101,22 +102,23 @@ def _database(edgedb_config: EdgeDBConfig):
 
 
 @pytest.fixture
-async def _tx(_database: EdgeDBDatabase):
+async def _tx(_database: EdgeDBDatabase) -> AsyncIterator[Transaction]:
     """Yields a transaction and rollback it after each test."""
     async for transaction in _database.client.transaction():
+        # async with transaction:
         transaction._managed = True
         try:
-            yield transaction
+            yield Transaction(transaction)
         finally:
             await transaction._exit(Exception, None)
 
 
 @pytest.fixture
-def _tx_database(_database: EdgeDBDatabase, _tx: EdgeDBTransaction):
+def _tx_database(_database: EdgeDBDatabase, _tx: Transaction):
     """EdgeDBDatabase instance running all queries in the same transaction."""
     # pytest-asyncio doesn't support contextvars properly, so set the context manually
     # in a regular non-async fixture.
-    token = db_context.set(_tx)
+    token = db_context.set(_tx._tx)
     try:
         yield _database
     finally:
