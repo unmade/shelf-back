@@ -71,18 +71,19 @@ class FileCoreService:
 
         storage_file = await self.storage.save(ns_path, next_path, content)
 
-        async for _ in self.db.atomic(attempts=10):
-            file = await self.db.file.save(
-                File(
-                    id=SENTINEL_ID,
-                    ns_path=str(ns_path),
-                    name=next_path.name,
-                    path=next_path,
-                    size=storage_file.size,
-                    mediatype=mediatype,
-                ),
-            )
-            await self.db.file.incr_size_batch(ns_path, path.parents, file.size)
+        async for tx in self.db.atomic(attempts=10):
+            async with tx:
+                file = await self.db.file.save(
+                    File(
+                        id=SENTINEL_ID,
+                        ns_path=str(ns_path),
+                        name=next_path.name,
+                        path=next_path,
+                        size=storage_file.size,
+                        mediatype=mediatype,
+                    ),
+                )
+                await self.db.file.incr_size_batch(ns_path, path.parents, file.size)
 
         return file
 
@@ -133,12 +134,14 @@ class FileCoreService:
         Raises:
             File.NotFound: If a file/folder with a given path does not exists.
         """
-        async for _ in self.db.atomic():
-            file = await self.db.file.delete(ns_path, path)
-            if file.is_folder():
-                await self.db.file.delete_all_with_prefix(ns_path, prefix=f"{path}/")
-            parents = file.path.parents
-            await self.db.file.incr_size_batch(ns_path, parents, value=-file.size)
+        async for tx in self.db.atomic():
+            async with tx:
+                file = await self.db.file.delete(ns_path, path)
+                if file.is_folder():
+                    prefix = f"{path}/"
+                    await self.db.file.delete_all_with_prefix(ns_path, prefix=prefix)
+                parents = file.path.parents
+                await self.db.file.incr_size_batch(ns_path, parents, value=-file.size)
 
         storage = self.storage
         delete_from_storage = storage.deletedir if file.is_folder() else storage.delete
@@ -180,9 +183,10 @@ class FileCoreService:
             return
 
         paths = [*file.path.parents, path]
-        async for _ in self.db.atomic():
-            await self.db.file.delete_all_with_prefix(ns_path, f"{path}/")
-            await self.db.file.incr_size_batch(ns_path, paths, value=-file.size)
+        async for tx in self.db.atomic():
+            async with tx:
+                await self.db.file.delete_all_with_prefix(ns_path, f"{path}/")
+                await self.db.file.incr_size_batch(ns_path, paths, value=-file.size)
         await self.storage.emptydir(ns_path, path)
 
     async def exists_with_id(self, ns_path: AnyPath, file_id: UUID) -> bool:
@@ -331,15 +335,16 @@ class FileCoreService:
 
         move_storage = self.storage.movedir if file.is_folder() else self.storage.move
         await move_storage(at=(at_ns_path, file.path), to=(to_ns_path, to_path))
-        async for _ in self.db.atomic():
-            updated_file = await self.db.file.update(file, file_update)
-            if file.is_folder():
-                await self.db.file.replace_path_prefix(
-                    at=(at_ns_path, at_path),
-                    to=(to_ns_path, to_path),
-                )
-            await self.db.file.incr_size_batch(at_ns_path, to_decrease, value=-size)
-            await self.db.file.incr_size_batch(to_ns_path, to_increase, value=size)
+        async for tx in self.db.atomic():
+            async with tx:
+                updated_file = await self.db.file.update(file, file_update)
+                if file.is_folder():
+                    await self.db.file.replace_path_prefix(
+                        at=(at_ns_path, at_path),
+                        to=(to_ns_path, to_path),
+                    )
+                await self.db.file.incr_size_batch(at_ns_path, to_decrease, value=-size)
+                await self.db.file.incr_size_batch(to_ns_path, to_increase, value=size)
         return updated_file
 
     async def reindex(self, ns_path: AnyPath, path: AnyPath) -> None:

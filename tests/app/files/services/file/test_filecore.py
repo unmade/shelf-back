@@ -13,6 +13,7 @@ from app.toolkit import taskgroups
 if TYPE_CHECKING:
     from app.app.files.domain import AnyPath, IFileContent, Namespace
     from app.app.files.services.file import FileCoreService
+    from tests.fixtures.app.files import ContentFactory
 
     from ..conftest import (
         BookmarkFactory,
@@ -83,14 +84,18 @@ class TestCreateFile:
         assert a.size == b.size
         assert home.size == a.size
 
+    @pytest.mark.slow
     @pytest.mark.database(transaction=True)
     async def test_saving_files_concurrently(
-        self, filecore: FileCoreService, namespace: Namespace, content: IFileContent
+        self,
+        filecore: FileCoreService,
+        namespace: Namespace,
+        content_factory: ContentFactory,
     ):
         CONCURRENCY = 50
         parent = Path("a/b/c")
         paths = [parent / str(name) for name in range(CONCURRENCY)]
-        contents = [content for _ in range(CONCURRENCY)]
+        contents = [content_factory() for _ in range(CONCURRENCY)]
 
         await filecore.create_folder(namespace.path, parent)
 
@@ -104,7 +109,7 @@ class TestCreateFile:
         assert count == CONCURRENCY
 
         home = await db.file.get_by_path(namespace.path, ".")
-        assert home.size == content.size * CONCURRENCY
+        assert home.size == sum(content.size for content in contents)
 
     async def test_when_file_path_already_taken(
         self, filecore: FileCoreService, namespace: Namespace, content: IFileContent

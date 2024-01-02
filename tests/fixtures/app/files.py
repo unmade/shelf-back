@@ -2,13 +2,17 @@ from __future__ import annotations
 
 from importlib import resources
 from io import BytesIO
-from typing import IO, TYPE_CHECKING, BinaryIO, Self
+from typing import IO, TYPE_CHECKING, BinaryIO, Protocol, Self
 
 import pytest
 from PIL import Image
 
 if TYPE_CHECKING:
     from app.app.files.domain import IFileContent
+
+    class ContentFactory(Protocol):
+        def __call__(self, value: bytes = b"I'm Dummy File!") -> IFileContent:
+            ...
 
 
 class FileContent:
@@ -34,9 +38,17 @@ class FileContent:
 
 
 @pytest.fixture
-def content() -> IFileContent:
+def content_factory() -> ContentFactory:
+    """A FileContent factory."""
+    def factory(value: bytes = b"I'm a Dummy File!") -> IFileContent:
+        return FileContent(value)
+    return factory
+
+
+@pytest.fixture
+def content(content_factory: ContentFactory) -> IFileContent:
     """A sample file content."""
-    return FileContent(b"I'm a Dummy File!")
+    return content_factory()
 
 
 @pytest.fixture
