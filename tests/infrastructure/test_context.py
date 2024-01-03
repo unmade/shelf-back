@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from unittest import mock
 
 import pytest
 
-from app.infrastructure.context import Infrastructure
+from app.infrastructure.context import Infrastructure, Services
 from app.infrastructure.database.edgedb import EdgeDBDatabase
 from app.infrastructure.storage import FileSystemStorage, S3Storage
 
@@ -38,3 +39,14 @@ class TestInfrastructure:
         config = request.getfixturevalue(config_name)
         storage = Infrastructure._get_storage(config)
         assert isinstance(storage, storage_cls)
+
+
+class TestServices:
+    def test_atomic(self):
+        # GIVEN
+        database, storage = mock.MagicMock(), mock.MagicMock()
+        services = Services(database=database, storage=storage)
+        # WHEN
+        services.atomic(attempts=5)
+        # THEN
+        database.atomic.assert_called_once_with(attempts=5)

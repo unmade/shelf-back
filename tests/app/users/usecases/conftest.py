@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import AsyncExitStack
 from unittest import mock
 
 import pytest
@@ -9,11 +10,17 @@ from app.app.users.services import BookmarkService, UserService
 from app.app.users.usecases import UserUseCase
 
 
+async def _atomic():
+    yield AsyncExitStack()
+
+
 @pytest.fixture
 def user_use_case():
-    return UserUseCase(
-        bookmark_service=mock.MagicMock(BookmarkService),
-        file_service=mock.MagicMock(FileService),
-        namespace_service=mock.MagicMock(NamespaceService),
-        user_service=mock.MagicMock(UserService),
+    services = mock.MagicMock(
+        bookmark=mock.MagicMock(BookmarkService),
+        file=mock.MagicMock(FileService),
+        namespace=mock.MagicMock(NamespaceService),
+        user=mock.MagicMock(UserService),
+        atomic=_atomic,
     )
+    return UserUseCase(services=services)

@@ -14,6 +14,7 @@ __all__ = [
 
 SENTINEL_ID = uuid.UUID("00000000-0000-0000-0000-000000000000")
 
+
 class ITransaction(Protocol):
     async def __aenter__(self) -> Self:
         ...  # pragma: no cover
@@ -27,13 +28,7 @@ class ITransaction(Protocol):
         ...  # pragma: no cover
 
 
-class IDatabase(Protocol):
-    async def __aenter__(self) -> Self:
-        return self  # pragma: no cover
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        await self.shutdown()
-
+class IAtomic(Protocol):
     def atomic(self, *, attempts: int = 3) -> AsyncIterator[ITransaction]:
         """
         Opens a retryable atomic block.
@@ -44,6 +39,14 @@ class IDatabase(Protocol):
 
         Nested atomic blocks are allowed, but they will act as no-op.
         """
+
+
+class IDatabase(IAtomic, Protocol):
+    async def __aenter__(self) -> Self:
+        return self  # pragma: no cover
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        await self.shutdown()
 
     async def migrate(self) -> None:
         """Migrates database to the latest schema."""

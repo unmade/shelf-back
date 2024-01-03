@@ -1,12 +1,19 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING, NamedTuple, Protocol
 from uuid import UUID
 
 if TYPE_CHECKING:
     from app.app.files.services import FileService, NamespaceService
+    from app.app.infrastructure.database import IAtomic
     from app.app.users.domain import Account, Bookmark, User
     from app.app.users.services import BookmarkService, UserService
+
+    class IUseCaseServices(IAtomic, Protocol):
+        bookmark: BookmarkService
+        file: FileService
+        namespace: NamespaceService
+        user: UserService
 
 
 class AccountSpaceUsage(NamedTuple):
@@ -16,20 +23,15 @@ class AccountSpaceUsage(NamedTuple):
 
 class UserUseCase:
     __slots__ = [
-        "bookmark_service", "file_service", "ns_service", "user_service"
+        "_services", "bookmark_service", "file_service", "ns_service", "user_service"
     ]
 
-    def __init__(
-        self,
-        bookmark_service: BookmarkService,
-        file_service: FileService,
-        namespace_service: NamespaceService,
-        user_service: UserService,
-    ):
-        self.bookmark_service = bookmark_service
-        self.file_service = file_service
-        self.ns_service = namespace_service
-        self.user_service = user_service
+    def __init__(self, services: IUseCaseServices):
+        self._services = services
+        self.bookmark_service = services.bookmark
+        self.file_service = services.file
+        self.ns_service = services.namespace
+        self.user_service = services.user
 
     async def add_bookmark(
         self, user_id: UUID, file_id: UUID, ns_path: str
@@ -52,8 +54,10 @@ class UserUseCase:
             NamespaceAlreadyExists: If namespace with a given `path` already exists.
             UserAlreadyExists: If user with a username already exists.
         """
-        user = await self.user_service.create(username, password)
-        await self.ns_service.create(user.username, owner_id=user.id)
+        async for tx in self._services.atomic():
+            async with tx:
+                user = await self.user_service.create(username, password)
+                await self.ns_service.create(user.username, owner_id=user.id)
         return user
 
     async def get_account(self, user_id: UUID) -> Account:
