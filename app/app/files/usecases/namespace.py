@@ -23,35 +23,44 @@ if TYPE_CHECKING:
         MetadataService,
         NamespaceService,
     )
+    from app.app.infrastructure.database import IAtomic
     from app.app.users.services import UserService
 
     class ITracker(Protocol):
         async def add(self, file_id: UUID, content: IO[bytes]) -> None:
             ...
 
+    class IUseCaseServices(IAtomic, Protocol):
+        audit_trail: AuditTrailService
+        dupefinder: DuplicateFinderService
+        file: FileService
+        metadata: MetadataService
+        namespace: NamespaceService
+        user: UserService
+
+
 __all__ = ["NamespaceUseCase"]
 
 
 class NamespaceUseCase:
     __slots__ = [
-        "audit_trail", "dupefinder", "file", "metadata", "namespace", "user"
+        "_services",
+        "audit_trail",
+        "dupefinder",
+        "file",
+        "metadata",
+        "namespace",
+        "user",
     ]
 
-    def __init__(
-        self,
-        audit_trail: AuditTrailService,
-        dupefinder: DuplicateFinderService,
-        file: FileService,
-        metadata: MetadataService,
-        namespace: NamespaceService,
-        user: UserService,
-    ):
-        self.audit_trail = audit_trail
-        self.dupefinder = dupefinder
-        self.file = file
-        self.metadata = metadata
-        self.namespace = namespace
-        self.user = user
+    def __init__(self, services: IUseCaseServices):
+        self._services = services
+        self.audit_trail = services.audit_trail
+        self.dupefinder = services.dupefinder
+        self.file = services.file
+        self.metadata = services.metadata
+        self.namespace = services.namespace
+        self.user = services.user
 
     async def add_file(
         self, ns_path: AnyPath, path: AnyPath, content: IFileContent

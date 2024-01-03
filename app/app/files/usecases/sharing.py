@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import contextlib
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Protocol, cast
 
 from app.app.files.domain import AnyFile, File, FileMember
 
@@ -16,27 +16,29 @@ if TYPE_CHECKING:
         NamespaceService,
         SharingService,
     )
+    from app.app.infrastructure.database import IAtomic
     from app.app.users.services import UserService
+
+    class IUseCaseServices(IAtomic, Protocol):
+        file: FileService
+        file_member: FileMemberService
+        namespace: NamespaceService
+        sharing: SharingService
+        user: UserService
 
 __all__ = ["SharingUseCase"]
 
 
 class SharingUseCase:
-    __slots__ = ["file", "file_member", "namespace", "sharing", "user"]
+    __slots__ = ["_services", "file", "file_member", "namespace", "sharing", "user"]
 
-    def __init__(
-        self,
-        file_service: FileService,
-        file_member: FileMemberService,
-        namespace: NamespaceService,
-        sharing: SharingService,
-        user: UserService,
-    ):
-        self.file = file_service
-        self.file_member = file_member
-        self.namespace = namespace
-        self.sharing = sharing
-        self.user = user
+    def __init__(self, services: IUseCaseServices):
+        self._services = services
+        self.file = services.file
+        self.file_member = services.file_member
+        self.namespace = services.namespace
+        self.sharing = services.sharing
+        self.user = services.user
 
     async def add_member(
         self, ns_path: str, file_id: UUID, username: str
@@ -66,9 +68,13 @@ class SharingUseCase:
                     file_id, namespace.owner_id, actions=FileMember.OWNER
                 )
 
-        user = await self.user.get_by_username(username)
-        member = await self.file_member.add(file_id, user.id, actions=FileMember.EDITOR)
-        await self.file.mount(file_id, at_folder=(user.username, "."))
+        async for tx in self._services.atomic():
+            async with tx:
+                user = await self.user.get_by_username(username)
+                member = await self.file_member.add(
+                    file_id, user.id, actions=FileMember.EDITOR
+                )
+                await self.file.mount(file_id, at_folder=(user.username, "."))
         return member
 
     async def create_link(self, ns_path: str, path: AnyPath) -> SharedLink:

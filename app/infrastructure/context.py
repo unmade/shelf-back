@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING, Self, assert_never
 
@@ -33,6 +34,7 @@ from app.toolkit import taskgroups
 
 if TYPE_CHECKING:
     from app.app.infrastructure import IStorage, IWorker
+    from app.app.infrastructure.database import ITransaction
 
 __all__ = [
     "AppContext",
@@ -107,6 +109,7 @@ class Infrastructure:
 
 class Services:
     __slots__ = [
+        "_database",
         "audit_trail",
         "bookmark",
         "dupefinder",
@@ -121,6 +124,8 @@ class Services:
     ]
 
     def __init__(self, database: EdgeDBDatabase, storage: IStorage):
+        self._database = database
+
         self.audit_trail = AuditTrailService(database=database)
         self.bookmark = BookmarkService(database=database)
         self.filecore = FileCoreService(database=database, storage=storage)
@@ -136,35 +141,15 @@ class Services:
         self.token = TokenService(token_repo=cache)
         self.user = UserService(database=database)
 
+    def atomic(self, *, attempts: int = 3) -> AsyncIterator[ITransaction]:
+        return self._database.atomic(attempts=attempts)
+
 
 class UseCases:
     __slots__ = ["auth", "namespace", "sharing", "user"]
 
     def __init__(self, services: Services):
-        self.auth = AuthUseCase(
-            audit_trail=services.audit_trail,
-            namespace_service=services.namespace,
-            token_service=services.token,
-            user_service=services.user,
-        )
-        self.namespace = NamespaceUseCase(
-            audit_trail=services.audit_trail,
-            dupefinder=services.dupefinder,
-            file=services.file,
-            metadata=services.metadata,
-            namespace=services.namespace,
-            user=services.user,
-        )
-        self.sharing = SharingUseCase(
-            file_service=services.file,
-            file_member=services.file_member,
-            namespace=services.namespace,
-            sharing=services.sharing,
-            user=services.user,
-        )
-        self.user = UserUseCase(
-            bookmark_service=services.bookmark,
-            file_service=services.file,
-            namespace_service=services.namespace,
-            user_service=services.user,
-        )
+        self.auth = AuthUseCase(services=services)
+        self.namespace = NamespaceUseCase(services=services)
+        self.sharing = SharingUseCase(services=services)
+        self.user = UserUseCase(services=services)
