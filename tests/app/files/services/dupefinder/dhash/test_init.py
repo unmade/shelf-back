@@ -7,7 +7,7 @@ import pytest
 
 from app.app.files.services.dupefinder import dhash
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.anyio]
 
 
 class TestDHash:

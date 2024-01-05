@@ -22,7 +22,7 @@ if TYPE_CHECKING:
         ) -> Path:
             ...
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.anyio]
 
 
 @pytest.fixture

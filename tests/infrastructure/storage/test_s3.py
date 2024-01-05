@@ -20,7 +20,7 @@ if TYPE_CHECKING:
         ):
             ...
 
-pytestmark = [pytest.mark.asyncio, pytest.mark.storage_s3]
+pytestmark = [pytest.mark.anyio, pytest.mark.storage_s3]
 
 
 @pytest.fixture

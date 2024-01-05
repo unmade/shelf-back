@@ -17,7 +17,7 @@ if TYPE_CHECKING:
         MountFactory,
     )
 
-pytestmark = [pytest.mark.asyncio, pytest.mark.database]
+pytestmark = [pytest.mark.anyio, pytest.mark.database]
 
 
 class TestCountByPattern:

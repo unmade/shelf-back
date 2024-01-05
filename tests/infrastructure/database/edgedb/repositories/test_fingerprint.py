@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
     from ..conftest import FileFactory, FingerprintFactory
 
-pytestmark = [pytest.mark.asyncio, pytest.mark.database]
+pytestmark = [pytest.mark.anyio, pytest.mark.database]
 
 
 async def _get_by_file_id(file_id: UUID):

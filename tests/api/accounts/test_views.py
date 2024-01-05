@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from app.app.users.domain import Account, User
     from tests.api.conftest import TestClient
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.anyio]
 
 
 class TestGetCurrent:

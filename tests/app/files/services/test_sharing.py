@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
     from app.app.files.services import SharingService
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.anyio]
 
 
 @mock.patch("secrets.token_urlsafe")

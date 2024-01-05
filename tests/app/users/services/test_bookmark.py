@@ -11,7 +11,7 @@ from app.app.users.domain import Bookmark
 if TYPE_CHECKING:
     from app.app.users.services import BookmarkService
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.anyio]
 
 
 class TestAddBookmark:

@@ -9,7 +9,7 @@ import pytest
 if TYPE_CHECKING:
     from app.app.users.usecases import UserUseCase
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.anyio]
 
 
 class TestAddBookmark:

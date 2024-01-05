@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 
 class TestInfrastructure:
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_as_context_manager(
         self, edgedb_config, fs_storage_config, arq_worker_config
     ):

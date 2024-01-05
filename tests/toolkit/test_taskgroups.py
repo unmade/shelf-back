@@ -6,7 +6,7 @@ import pytest
 
 from app.toolkit import taskgroups
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.anyio]
 
 
 async def coro(value: int) -> int:

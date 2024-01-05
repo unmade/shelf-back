@@ -8,7 +8,7 @@ from app.app.infrastructure.worker import JobStatus
 from app.config import config
 from app.infrastructure.worker.arq import ARQWorker
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.anyio]
 
 
 async def ping(ctx):

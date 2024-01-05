@@ -13,7 +13,7 @@ from app.app.users.domain import Account, User
 if TYPE_CHECKING:
     from app.app.users.repositories import IAccountRepository
 
-pytestmark = [pytest.mark.asyncio, pytest.mark.database]
+pytestmark = [pytest.mark.anyio, pytest.mark.database]
 
 
 class TestGetByUserID:

@@ -12,7 +12,7 @@ from app.app.infrastructure.database import SENTINEL_ID
 if TYPE_CHECKING:
     from app.app.files.services import NamespaceService
 
-pytestmark = [pytest.mark.asyncio, pytest.mark.database]
+pytestmark = [pytest.mark.anyio, pytest.mark.database]
 
 
 @pytest.fixture

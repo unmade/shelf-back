@@ -10,7 +10,7 @@ from app.app.infrastructure.database import SENTINEL_ID
 from app.app.users.domain import Account, User
 from app.app.users.services import UserService
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.anyio]
 
 
 class TestCreate:

@@ -50,7 +50,7 @@ class TestClient(AsyncClient):
 
 
 @pytest.fixture(scope="session")
-def app():
+async def app():
     """Application fixture."""
     return create_app(lifespan=mock.MagicMock())
 
@@ -98,7 +98,7 @@ def user_use_case(_usecases: UseCases):
 
 
 @pytest.fixture(autouse=True)
-def mock_usecases_deps(app: FastAPI, _usecases: UseCases):
+async def mock_usecases_deps(app: FastAPI, _usecases: UseCases):
     async def get_usecases():
         return _usecases
     app.dependency_overrides[deps.usecases] = get_usecases
@@ -110,7 +110,7 @@ def worker_mock():
 
 
 @pytest.fixture(autouse=True)
-def mock_worker_deps(app: FastAPI, worker_mock: mock.MagicMock):
+async def mock_worker_deps(app: FastAPI, worker_mock: mock.MagicMock):
     async def get_worker():
         return worker_mock
     app.dependency_overrides[deps.worker] = get_worker

@@ -44,7 +44,7 @@ class TestSetupEdgeDBDatabase:
         result.assert_outcomes(passed=1)
 
 
-@pytest.mark.usefixtures("event_loop")
+@pytest.mark.usefixtures("anyio_backend")
 class TestEdgeDBDatabase:
     def test_accessing_without_marker(self, request: FixtureRequest):
         with pytest.raises(RuntimeError) as excinfo:
