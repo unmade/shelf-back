@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from app.app.files.domain.file_member import FileMemberActions
     from app.app.files.services import FileMemberService
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.anyio]
 
 
 def _make_file(

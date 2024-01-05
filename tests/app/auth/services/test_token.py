@@ -12,7 +12,7 @@ from app.app.auth.domain.tokens import InvalidToken, ReusedToken
 if TYPE_CHECKING:
     from app.app.auth.services import TokenService
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.anyio]
 
 
 class TestCreate:

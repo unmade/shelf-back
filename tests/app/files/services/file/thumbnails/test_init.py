@@ -16,7 +16,7 @@ class TestIsSupported:
         assert thumbnails.is_supported(mediatype) is supported
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestThumbnail:
     async def test_text(self):
         # GIVEN

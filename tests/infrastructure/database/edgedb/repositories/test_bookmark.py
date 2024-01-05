@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
     from ..conftest import FileFactory
 
-pytestmark = [pytest.mark.asyncio, pytest.mark.database]
+pytestmark = [pytest.mark.anyio, pytest.mark.database]
 
 
 async def _save_bookmark(user_id: UUID, file_id: UUID) -> Bookmark:

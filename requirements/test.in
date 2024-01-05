@@ -1,7 +1,7 @@
 -c base.txt
 
+anyio>=3.7.1,<5
 faker>=18.3,<19
 httpx>=0.23,<1
 pytest>=7.2.2,<8
-pytest-asyncio>=0.21.0,<1
 pytest-cov>=4,<5

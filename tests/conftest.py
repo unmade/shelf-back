@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import asyncio
-
 import pytest
 from faker import Faker
 
@@ -30,13 +28,8 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture(scope="session")
-def event_loop():
-    """Redefine pytest-asyncio event_loop fixture with 'session' scope."""
-    loop = asyncio.get_event_loop_policy().get_event_loop()
-    try:
-        yield loop
-    finally:
-        loop.close()
+def anyio_backend():
+    return "asyncio"
 
 
 @pytest.fixture(scope="session")

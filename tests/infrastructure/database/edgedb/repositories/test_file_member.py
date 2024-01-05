@@ -22,7 +22,7 @@ if TYPE_CHECKING:
         UserFactory,
     )
 
-pytestmark = [pytest.mark.asyncio, pytest.mark.database]
+pytestmark = [pytest.mark.anyio, pytest.mark.database]
 
 
 async def _get(file_id: UUID, user_id: UUID) -> FileMember:

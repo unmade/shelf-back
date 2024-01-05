@@ -13,7 +13,7 @@ from app.app.files.repositories.mount import MountPointUpdate
 from app.app.files.services.file import MountService
 from app.app.files.services.file.mount import FullyQualifiedPath
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.anyio]
 
 
 def _make_file(ns_path: str, path: AnyPath, mediatype: str = "plain/text") -> File:

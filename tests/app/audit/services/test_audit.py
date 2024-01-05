@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from app.app.audit.services import AuditTrailService
     from app.app.files.domain import AnyPath
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.anyio]
 
 now = datetime.datetime(2023, 4, 15, 22, 51)
 

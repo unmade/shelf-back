@@ -6,7 +6,7 @@ from arq.worker import Worker
 
 from app.worker.main import WorkerSettings
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.anyio]
 
 
 @pytest.fixture(scope="module")

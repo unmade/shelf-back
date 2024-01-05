@@ -10,7 +10,7 @@ from app.infrastructure.context import UseCases
 
 
 class TestLifeSpan:
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_as_context_manager(self):
         app = mock.MagicMock(FastAPI)
         with mock.patch("app.infrastructure.context.Infrastructure"):

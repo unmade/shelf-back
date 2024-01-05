@@ -12,7 +12,7 @@ from app.cache import cache
 if TYPE_CHECKING:
     from app.app.files.domain import AnyPath
 
-pytestmark = [pytest.mark.asyncio, pytest.mark.database]
+pytestmark = [pytest.mark.anyio, pytest.mark.database]
 
 
 def _make_file(

@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from app.app.users.repositories import IUserRepository
     from app.infrastructure.database.edgedb.repositories import UserRepository
 
-pytestmark = [pytest.mark.asyncio, pytest.mark.database]
+pytestmark = [pytest.mark.anyio, pytest.mark.database]
 
 
 class TestGetByID:

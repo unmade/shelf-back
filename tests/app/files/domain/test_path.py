@@ -1,15 +1,11 @@
 from __future__ import annotations
 
 from pathlib import PurePath
-from typing import TYPE_CHECKING
 
 import pytest
 from pydantic import BaseModel
 
 from app.app.files.domain import Path
-
-if TYPE_CHECKING:
-    pass
 
 
 class TestInit:

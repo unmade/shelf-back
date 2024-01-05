@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from app.app.users.domain import User
 
 
-pytestmark = [pytest.mark.asyncio, pytest.mark.database]
+pytestmark = [pytest.mark.anyio, pytest.mark.database]
 
 
 def _make_namespace(path: str, owner_id: UUID) -> Namespace:

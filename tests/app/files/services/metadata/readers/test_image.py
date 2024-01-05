@@ -14,7 +14,6 @@ if TYPE_CHECKING:
     from app.app.files.domain import IFileContent
 
 
-
 class TestLoadImageData:
     @pytest.mark.parametrize(["name", "expected"], [
         (

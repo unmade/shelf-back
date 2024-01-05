@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from app.app.files.domain import AnyPath, Namespace
     from tests.api.conftest import TestClient
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.anyio]
 
 _FILE_ID = uuid.uuid4()
 

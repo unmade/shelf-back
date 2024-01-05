@@ -91,6 +91,11 @@ if TYPE_CHECKING:
 fake = Faker()
 
 
+# pytestmark = [
+#     pytest.mark.usefixtures('anyio_backend'),
+# ]
+
+
 @pytest.fixture
 def account_repo(edgedb_database: EdgeDBDatabase):
     """An EdgeDB instance of IAccountRepository"""

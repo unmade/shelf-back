@@ -10,7 +10,7 @@ from app.app.users.domain import User
 if TYPE_CHECKING:
     from app.app.auth.usecases import AuthUseCase
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.anyio]
 
 
 class TestSignIn:

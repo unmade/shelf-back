@@ -186,7 +186,7 @@ class TestResolveFile:
         )
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestCreateFile:
     @mock.patch("app.app.files.services.file.FileService.get_available_path")
     async def test(
@@ -238,7 +238,7 @@ class TestCreateFile:
         filecore.create_file.assert_not_awaited()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestCreateFolder:
     async def test(self, file_service: FileService):
         # GIVEN
@@ -278,7 +278,7 @@ class TestCreateFolder:
         filecore.create_folder.assert_not_awaited()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestDelete:
     async def test(self, file_service: FileService):
         # GIVEN
@@ -341,7 +341,7 @@ class TestDelete:
         filecore.delete.assert_not_called()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestDownload:
     async def test(self, file_service: FileService):
         # GIVEN
@@ -384,6 +384,7 @@ class TestDownload:
         filecore.download.assert_not_called()
 
 
+@pytest.mark.anyio
 class TestDownloadByID:
     async def test(self, file_service: FileService):
         # GIVEN
@@ -409,7 +410,7 @@ class TestDownloadFolder:
         filecore.download_folder.assert_called_once_with(ns_path, path)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestEmptyFolder:
     async def test(self, file_service: FileService):
         # GIVEN
@@ -447,7 +448,7 @@ class TestEmptyFolder:
         filecore.empty_folder.assert_not_called()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestExistsAtPath:
     async def test(self, file_service: FileService):
         # GIVEN
@@ -485,7 +486,7 @@ class TestExistsAtPath:
         filecore.exists_at_path.assert_not_called()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestGetAtPath:
     async def test(self, file_service: FileService):
         # GIVEN
@@ -525,7 +526,7 @@ class TestGetAtPath:
         filecore.get_by_path.assert_not_called()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestGetAvailablePath:
     async def test_when_path_is_not_taken(self, file_service: FileService):
         # GIVEN
@@ -584,7 +585,7 @@ class TestGetAvailablePath:
         mount_service.get_available_path.assert_awaited_once_with(ns_path, path)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestGetByID:
     async def test(self, file_service: FileService):
         # GIVEN
@@ -660,7 +661,7 @@ class TestGetByID:
         )
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestGetByIDBatch:
     async def test(self, file_service: FileService):
         # GIVEN
@@ -743,7 +744,7 @@ class TestGetByIDBatch:
         )
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestListFolder:
     async def test(self, file_service: FileService):
         # GIVEN
@@ -781,7 +782,7 @@ class TestListFolder:
         filecore.list_folder.assert_not_awaited()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestMount:
     async def test(self, file_service: FileService):
         # GIVEN
@@ -888,7 +889,7 @@ class TestMount:
         mount_service.assert_not_called()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestMove:
     async def test_moving_regular_files(self, file_service: FileService):
         # GIVEN
@@ -1182,7 +1183,7 @@ class TestMove:
         filecore.move.assert_not_awaited()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestReindex:
     async def test(self, file_service: FileService):
         # GIVEN
@@ -1196,7 +1197,7 @@ class TestReindex:
         filecore.reindex.assert_awaited_once_with(ns_path, path)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestThumbnail:
     @mock.patch("app.app.files.services.file.file.thumbnails.thumbnail")
     async def test(

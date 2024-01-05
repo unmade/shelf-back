@@ -17,7 +17,7 @@ if TYPE_CHECKING:
         SharedLinkFactory,
     )
 
-pytestmark = [pytest.mark.asyncio, pytest.mark.database]
+pytestmark = [pytest.mark.anyio, pytest.mark.database]
 
 
 async def _exists_by_token(token: str) -> bool:

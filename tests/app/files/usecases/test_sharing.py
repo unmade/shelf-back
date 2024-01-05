@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from app.app.files.domain import AnyPath
     from app.app.files.usecases import SharingUseCase
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.anyio]
 
 
 def _make_file(

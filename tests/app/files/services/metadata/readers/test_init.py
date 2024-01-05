@@ -8,7 +8,7 @@ import pytest
 
 from app.app.files.services.metadata import readers
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.anyio]
 
 
 class TestLoad:

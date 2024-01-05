@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from app.app.files.domain import AnyPath, IFileContent
     from app.app.files.usecases import NamespaceUseCase
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.anyio]
 
 
 async def _aiter(content: IO[bytes]) -> AsyncIterator[bytes]:

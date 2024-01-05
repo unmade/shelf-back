@@ -16,7 +16,6 @@ if TYPE_CHECKING:
     from pytest import FixtureRequest
 
 
-
 @pytest.fixture(scope="session")
 def edgedb_config():
     assert config.database.dsn is not None
@@ -96,16 +95,25 @@ def _session_sync_client(edgedb_config: EdgeDBConfig):
 
 
 @pytest.fixture(scope="session")
-def _database(edgedb_config: EdgeDBConfig):
-    """Returns an EdgeDBDatabase instance."""
+def _db(edgedb_config: EdgeDBConfig):
+    """
+    Creates EdgeDBDatabase instance in a sync fixture to correctly set context vars.
+    """
     return EdgeDBDatabase(edgedb_config)
+
+
+@pytest.fixture(scope="session")
+async def _database(_db):
+    """
+    Returns an EdgeDBDatabase instance as async fixture to correctly manage event loop.
+    """
+    return _db
 
 
 @pytest.fixture
 async def _tx(_database: EdgeDBDatabase) -> AsyncIterator[Transaction]:
     """Yields a transaction and rollback it after each test."""
     async for transaction in _database.client.transaction():
-        # async with transaction:
         transaction._managed = True
         try:
             yield Transaction(transaction)

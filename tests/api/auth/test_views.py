@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
     from tests.api.conftest import TestClient
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.anyio]
 
 
 class TestSignIn:

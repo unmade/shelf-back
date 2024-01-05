@@ -35,21 +35,21 @@ def usecases():
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestUseCases:
     async def test(self):
         request = mock.MagicMock(Request)
         assert await deps.usecases(request) == request.state.usecases
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestWorker:
     async def test(self):
         request = mock.MagicMock(Request)
         assert await deps.worker(request) == request.state.worker
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestCurrentUserContext:
     @pytest.fixture
     def payload(self, user: User):
@@ -58,13 +58,17 @@ class TestCurrentUserContext:
     async def test(self, payload: AccessToken, usecases: MagicMock, user: User):
         # GIVEN
         usecases.user.user_service.get_by_id.return_value = user
+        gen = deps.current_user_ctx(payload=payload, usecases=usecases)
         # WHEN
-        result = await anext(deps.current_user_ctx(payload=payload, usecases=usecases))
+        result = await anext(gen)
         # THEN
         current_user = CurrentUserContext.User(id=user.id, username=user.username)
         assert result.user == current_user
         assert result._token is not None
         usecases.user.user_service.get_by_id.assert_awaited_once_with(payload.sub)
+        # anyio cleans up context vars incorrectly, so clean up manually
+        with pytest.raises(StopAsyncIteration):
+            await anext(gen)
 
     async def test_when_user_not_found(self, payload: AccessToken, usecases: MagicMock):
         # GIVEN
@@ -75,7 +79,7 @@ class TestCurrentUserContext:
         usecases.user.user_service.get_by_id.assert_awaited_once_with(payload.sub)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestCurrentUser:
     async def test(self, user: User):
         # GIVEN
@@ -87,7 +91,7 @@ class TestCurrentUser:
         assert result == ctx.user
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestNamespace:
     async def test(self, user: User, usecases: MagicMock):
         current_user = CurrentUserContext.User(id=user.id, username=user.username)

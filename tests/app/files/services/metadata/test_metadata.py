@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from app.app.files.domain import IFileContent
     from app.app.files.services import MetadataService
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.anyio]
 
 
 class TestGetByFileID:

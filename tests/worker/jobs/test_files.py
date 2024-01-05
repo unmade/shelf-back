@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from app.app.files.domain import AnyPath
     from app.worker.main import ARQContext
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.anyio]
 
 
 def _make_file(ns_path: str, path: AnyPath):

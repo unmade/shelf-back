@@ -9,7 +9,7 @@ from dateutil import tz
 from app.app.audit.domain import AuditTrail
 from app.app.infrastructure.database import SENTINEL_ID
 
-pytestmark = [pytest.mark.database]
+pytestmark = [pytest.mark.anyio, pytest.mark.database]
 
 
 if TYPE_CHECKING:

@@ -24,7 +24,7 @@ if TYPE_CHECKING:
         UserFactory,
     )
 
-pytestmark = [pytest.mark.asyncio, pytest.mark.database]
+pytestmark = [pytest.mark.anyio, pytest.mark.database]
 
 
 async def _exists_with_id(file_id: UUID) -> bool:
