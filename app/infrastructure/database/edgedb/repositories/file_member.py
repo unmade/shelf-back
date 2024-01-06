@@ -138,6 +138,8 @@ class FileMemberRepository(IFileMemberRepository):
                 }
             FILTER
                 .file.id IN {array_unpack(<array<uuid>>$file_ids)}
+            ORDER BY
+                .created_at
         """
 
         objs = await self.conn.query(query, file_ids=list(file_ids))

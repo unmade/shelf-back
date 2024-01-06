@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import itertools
 from io import BytesIO
-from typing import IO, TYPE_CHECKING, AsyncIterator, Iterator, Protocol, cast
+from typing import IO, TYPE_CHECKING, AsyncIterator, Iterator, Protocol
 
 from app.app.files.domain import AnyFile, File, Path
 from app.app.files.domain.file import ThumbnailUnavailable
@@ -221,10 +221,7 @@ class NamespaceUseCase:
         file = await self.file.get_by_id(ns_path, file_id)
         if file.size > config.features.max_file_size_to_thumbnail:
             raise ThumbnailUnavailable() from None
-        return cast(
-            tuple[AnyFile, bytes],
-            await self.file.thumbnail(file_id, size=size, ns_path=ns_path)
-        )
+        return await self.file.thumbnail(file_id, size=size, ns_path=str(ns_path))
 
     async def get_item_at_path(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:
         """

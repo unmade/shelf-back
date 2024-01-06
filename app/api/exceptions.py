@@ -1,8 +1,11 @@
 from __future__ import annotations
 
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict, cast
 
 from fastapi.responses import JSONResponse
+
+if TYPE_CHECKING:
+    from fastapi import Request, Response
 
 
 class APIErrorDict(TypedDict):
@@ -31,7 +34,8 @@ class APIError(Exception):
         }
 
 
-async def api_error_exception_handler(_, exc: APIError):
+async def api_error_exception_handler(_: Request, exc: Exception) -> Response:
+    exc = cast(APIError, exc)
     return JSONResponse(exc.as_dict(), status_code=exc.status_code)
 
 

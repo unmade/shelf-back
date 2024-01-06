@@ -8,7 +8,7 @@ import pytest
 
 from app.config import EdgeDBConfig, config
 from app.infrastructure.database.edgedb import EdgeDBDatabase
-from app.infrastructure.database.edgedb.db import Transaction, db_context
+from app.infrastructure.database.edgedb.db import db_context
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -95,42 +95,22 @@ def _session_sync_client(edgedb_config: EdgeDBConfig):
 
 
 @pytest.fixture(scope="session")
-def _db(edgedb_config: EdgeDBConfig):
-    """
-    Creates EdgeDBDatabase instance in a sync fixture to correctly set context vars.
-    """
+async def _database(edgedb_config: EdgeDBConfig):
+    """Returns an EdgeDBDatabase instance."""
     return EdgeDBDatabase(edgedb_config)
 
 
-@pytest.fixture(scope="session")
-async def _database(_db):
-    """
-    Returns an EdgeDBDatabase instance as async fixture to correctly manage event loop.
-    """
-    return _db
-
-
 @pytest.fixture
-async def _tx(_database: EdgeDBDatabase) -> AsyncIterator[Transaction]:
+async def _tx_database(_database: EdgeDBDatabase) -> AsyncIterator[EdgeDBDatabase]:
     """Yields a transaction and rollback it after each test."""
     async for transaction in _database.client.transaction():
         transaction._managed = True
+        token = db_context.set(transaction)
         try:
-            yield Transaction(transaction)
+            yield _database
         finally:
+            db_context.reset(token)
             await transaction._exit(Exception, None)
-
-
-@pytest.fixture
-def _tx_database(_database: EdgeDBDatabase, _tx: Transaction):
-    """EdgeDBDatabase instance running all queries in the same transaction."""
-    # pytest-asyncio doesn't support contextvars properly, so set the context manually
-    # in a regular non-async fixture.
-    token = db_context.set(_tx._tx)
-    try:
-        yield _database
-    finally:
-        db_context.reset(token)
 
 
 @pytest.fixture

@@ -57,7 +57,7 @@ jobs:
     - name: Set up Python 3.11
       uses: actions/setup-python@master
       with:
-        python-version: "3.11"
+        python-version: "3.11.7"
 
     - name: Cache pip dependencies
       uses: actions/cache@master
