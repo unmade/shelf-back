@@ -74,6 +74,7 @@ def _from_db_v2(ns_path: str, obj) -> AnyFile:
         size=obj.size,
         mtime=obj.mtime,
         mediatype=obj.mediatype.name,
+        shared=True,
         mount_point=mount_point,
     )
 
