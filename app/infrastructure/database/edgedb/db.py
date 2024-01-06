@@ -59,6 +59,8 @@ class Transaction(AsyncExitStack):
         await super().__aenter__()
         if not self._tx._managed:
             await self.enter_async_context(self._tx)
+            token = db_context.set(self._tx)
+            self.callback(db_context.reset, token)
         return self
 
 
@@ -111,11 +113,10 @@ class EdgeDBDatabase(IDatabase):
 
         tx_client = self.client.with_retry_options(edgedb.RetryOptions(attempts))
         async for tx in tx_client.transaction():
-            token = db_context.set(tx)
-            try:
-                yield Transaction(tx)
-            finally:
-                db_context.reset(token)
+            # try:
+            yield Transaction(tx)
+            # finally:
+                # db_context.reset(token)
 
     async def migrate(self) -> None:
         schema = Path(self.config.edgedb_schema).read_text()

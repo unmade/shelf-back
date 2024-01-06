@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, AsyncIterator, Iterator
 
 from app.app.files.domain import File, MountedFile, MountPoint, Path
 from app.cache import disk_cache
-from app.toolkit import taskgroups
 
 from . import thumbnails
 
@@ -200,10 +199,10 @@ class FileService:
         For example, if path 'a/f.tar.gz' exists, then the next path will be as follows
         'a/f (1).tar.gz'.
         """
-        paths: list[Path] = await taskgroups.gather(
-            self.filecore.get_available_path(ns_path, path),
-            self.mount_service.get_available_path(ns_path, path),
-        )
+        paths = [
+            await self.filecore.get_available_path(ns_path, path),
+            await self.mount_service.get_available_path(ns_path, path),
+        ]
         if paths[0] == path:
             return paths[1]
         if paths[1] == path:
