@@ -44,7 +44,7 @@ class TestSetupEdgeDBDatabase:
         result.assert_outcomes(passed=1)
 
 
-@pytest.mark.usefixtures("anyio_backend")
+@pytest.mark.anyio
 class TestEdgeDBDatabase:
     def test_accessing_without_marker(self, request: FixtureRequest):
         with pytest.raises(RuntimeError) as excinfo:
@@ -52,13 +52,13 @@ class TestEdgeDBDatabase:
         assert str(excinfo.value) == "Access to the database without `database` marker!"
 
     @pytest.mark.database
-    def test_database_marker(self, request: FixtureRequest):
-        database = request.getfixturevalue("edgedb_database")
-        assert isinstance(database, EdgeDBDatabase)
+    async def test_database_marker(self, edgedb_database: EdgeDBDatabase):
+        assert isinstance(edgedb_database, EdgeDBDatabase)
         assert isinstance(db_context.get(), AsyncIOIteration)
 
     @pytest.mark.database(transaction=True)
-    def test_when_database_marker_has_transaction(self, request: FixtureRequest):
-        database = request.getfixturevalue("edgedb_database")
-        assert isinstance(database, EdgeDBDatabase)
+    async def test_when_database_marker_has_transaction(
+        self, edgedb_database: EdgeDBDatabase
+    ):
+        assert isinstance(edgedb_database, EdgeDBDatabase)
         assert isinstance(db_context.get(), AsyncIOClient)

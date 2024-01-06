@@ -1321,7 +1321,13 @@ class TestThumbnail:
             # WHEN hits for the second time
             result2 = await file_service.thumbnail(file.id, size=64, ns_path=ns_path)
             # THEN cache hit
-            call = [{'ttl': 604800, 'name': 'simple', 'template': '{file_id}:{size}'}]
+            call = [
+                {
+                    'ttl': _make_thumbnail_ttl,
+                    'name': 'simple',
+                    'template': '{file_id}:{size}',
+                },
+            ]
             assert list(detector.calls.values()) == [call]
             assert result1 == result2
             filecore.download.assert_called_once_with(file.id)

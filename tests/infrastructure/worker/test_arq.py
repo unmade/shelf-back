@@ -24,7 +24,7 @@ async def worker_cli():
 @pytest.fixture(scope="module")
 async def worker(worker_cli: ARQWorker):
     return Worker(
-        functions=[ping],  # type: ignore[list-item]
+        functions=[ping],
         redis_pool=worker_cli.pool,
         poll_delay=0.01,
         burst=True,

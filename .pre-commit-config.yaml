@@ -11,7 +11,6 @@ repos:
       - id: mypy
         name: mypy
         entry: python3 -m mypy
-        args: ["--new-type-inference"]
         language: system
         types: [python]
 -   repo: https://github.com/pre-commit/pre-commit-hooks

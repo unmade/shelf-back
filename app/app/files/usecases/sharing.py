@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import contextlib
-from typing import TYPE_CHECKING, Protocol, cast
+from typing import TYPE_CHECKING, Protocol
 
 from app.app.files.domain import AnyFile, File, FileMember
 
@@ -89,10 +89,7 @@ class SharingUseCase:
         self, token: str, *, size: int
     ) -> tuple[AnyFile, bytes]:
         link = await self.sharing.get_link_by_token(token)
-        return cast(
-            tuple[AnyFile, bytes],
-            await self.file.thumbnail(link.file_id, size=size)
-        )
+        return await self.file.thumbnail(link.file_id, size=size)
 
     async def get_shared_item(self, token: str) -> File:
         link = await self.sharing.get_link_by_token(token)
