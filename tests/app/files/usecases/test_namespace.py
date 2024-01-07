@@ -428,6 +428,19 @@ class TestReindex:
         # THEN
         ns_service.get_by_path.assert_awaited_once_with("admin")
         file_service.reindex.assert_awaited_once_with("admin", ".")
+        file_service.filecore.create_folder.assert_awaited_once_with("admin", "Trash")
+
+    async def test_when_trash_folder_was_created(self, ns_use_case: NamespaceUseCase):
+        # GIVEN
+        ns_service = cast(mock.MagicMock, ns_use_case.namespace)
+        file_service = cast(mock.MagicMock, ns_use_case.file)
+        file_service.filecore.create_folder.side_effect = File.AlreadyExists
+        # WHEN
+        await ns_use_case.reindex("admin")
+        # THEN
+        ns_service.get_by_path.assert_awaited_once_with("admin")
+        file_service.reindex.assert_awaited_once_with("admin", ".")
+        file_service.filecore.create_folder.assert_awaited_once_with("admin", "Trash")
 
 
 class TestReindexContents:

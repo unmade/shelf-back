@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import itertools
 from io import BytesIO
 from typing import IO, TYPE_CHECKING, AsyncIterator, Iterator, Protocol
@@ -305,9 +306,12 @@ class NamespaceUseCase:
             File.NotADirectory: If given path does not exist.
             Namespace.NotFound: If namespace does not exist.
         """
-        # ensure namespace exists
-        await self.namespace.get_by_path(str(ns_path))
+        await self.namespace.get_by_path(str(ns_path))  # ensures namespace exists
         await self.file.reindex(ns_path, ".")
+        # s3-compatible storage stores only files and empty folders are not re-created
+        # as a result. Therefore create Trash folder manually
+        with contextlib.suppress(File.AlreadyExists):
+            await self.file.filecore.create_folder(ns_path, "Trash")
 
     async def reindex_contents(self, ns_path: AnyPath) -> None:
         """
