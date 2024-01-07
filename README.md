@@ -131,7 +131,8 @@ superuser on the first image run:
 |DATABASE__DSN                 | - | -      | Database DSN. If not set, then fallback to EdgeDB envs |
 |DATABASE__EDGEDB_TLS_CA_FILE  | - | -      | Path to TLS Certificate file to connect to the database. If not set, then fallback to EDGEDB_TLS_CA |
 |DATABASE__EDGEDB_TLS_SECURITY | - | -      | Set the TLS security mode |
-|FEATURES__MAX_FILE_SIZE_TO_THUMBNAIL | - | 20MB | Thumbnails won't be generated for files larger than specified size. Default to 20 MB |
+|FEATURES__MAX_FILE_SIZE_TO_THUMBNAIL | - | 20MB | Thumbnails won't be generated for files larger than specified size. |
+|FEATURES__MAX_IMAGE_PIXELS | - | 89_478_485 | Don't process images if the number of pixels in an image is over limit. |
 |FEATURES__SIGN_UP_DISABLED    | - | False  | Whether sign up is disabled or not |
 |FEATURES__UPLOAD_FILE_MAX     | - | 100MB | Maximum upload file size. Default to 100 MB |
 |SENTRY__DSN                   | - | None   | Sentry DSN |
