@@ -54,10 +54,10 @@ jobs:
           -v /tmp/config:/root/.minio \
           minio/minio server /data
 
-    - name: Set up Python 3.11
+    - name: Set up Python 3.12
       uses: actions/setup-python@master
       with:
-        python-version: "3.11.7"
+        python-version: "3.12"
 
     - name: Cache pip dependencies
       uses: actions/cache@master
