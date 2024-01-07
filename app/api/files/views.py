@@ -23,6 +23,7 @@ from .schemas import (
     AsyncTaskID,
     AsyncTaskResult,
     AsyncTaskStatus,
+    CreateFolderRequest,
     DeleteImmediatelyBatchCheckResponse,
     DeleteImmediatelyBatchRequest,
     EmptyTrashCheckResponse,
@@ -49,7 +50,7 @@ router = APIRouter()
 @router.post("/create_folder")
 async def create_folder(
     request: Request,
-    payload: PathRequest,
+    payload: CreateFolderRequest,
     namespace: NamespaceDeps,
     usecases: UseCasesDeps,
 ) -> FileSchema:
