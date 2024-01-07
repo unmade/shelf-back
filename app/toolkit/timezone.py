@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from dateutil import tz
 
 
 def now() -> datetime:
     """Return an aware datetime."""
-    return datetime.utcnow().replace(tzinfo=tz.UTC)
+    return datetime.now(UTC).replace(tzinfo=tz.UTC)

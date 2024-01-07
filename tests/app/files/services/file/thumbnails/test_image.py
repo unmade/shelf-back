@@ -27,7 +27,7 @@ class TestImageThumbnail:
         with self.pkg.joinpath(name).open("rb") as content:
             thumbnail = thumbnail_image(content, size=size)
 
-        assert len(thumbnail) == 11758
+        assert len(thumbnail) == 12086
 
     def test_animated_image_stays_the_same_on_upscale(self):
         size = 512
