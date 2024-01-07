@@ -26,7 +26,7 @@ import base64
 import hashlib
 import hmac
 from binascii import hexlify
-from datetime import datetime
+from datetime import UTC, datetime
 from functools import reduce
 from typing import TYPE_CHECKING, AsyncGenerator, Generator, Literal, TypeAlias
 from urllib.parse import quote as url_quote
@@ -66,7 +66,7 @@ class AWSv4Auth:
         data: bytes | None = None,
         content_type: str | None = None,
     ) -> dict[str, str]:
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         data = data or b""
         content_type = content_type or _CONTENT_TYPE
 

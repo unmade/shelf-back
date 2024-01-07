@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import functools
 
 import typer
@@ -12,13 +11,11 @@ from app.infrastructure.context import AppContext
 
 cli = typer.Typer()
 
-uvloop.install()
-
 
 def async_to_sync(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        return asyncio.run(func(*args, **kwargs))
+        return uvloop.run(func(*args, **kwargs))
     return wrapper
 
 
