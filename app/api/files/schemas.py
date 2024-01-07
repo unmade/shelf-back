@@ -122,6 +122,19 @@ class AsyncTaskResult(BaseModel):
         )
 
 
+class CreateFolderRequest(PathRequest):
+    @field_validator("path")
+    @classmethod
+    def check_path_is_not_special(cls, value: str):
+        if value.casefold() in {".", "trash"}:
+            message = f"Path '{value}' is a special path and can't be created"
+            raise MalformedPath(message)
+        if value.casefold().startswith("trash/"):
+            message = "Can't create folders in the Trash"
+            raise MalformedPath(message)
+        return value
+
+
 class DeleteImmediatelyRequest(PathRequest):
     @field_validator("path")
     @classmethod

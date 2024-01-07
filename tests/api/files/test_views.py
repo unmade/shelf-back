@@ -14,7 +14,6 @@ from app.api import shortcuts
 from app.api.files.exceptions import (
     DownloadNotFound,
     FileActionNotAllowed,
-    FileAlreadyExists,
     FileContentMetadataNotFound,
     IsADirectory,
     MalformedPath,
@@ -105,9 +104,30 @@ class TestCreateFolder:
             namespace.path, expected_path
         )
 
+    @pytest.mark.parametrize(["path", "expected_error"], [
+        ("Trash", MalformedPath("Path 'Trash' is a special path and can't be created")),
+        ("Trash/folder", MalformedPath("Can't create folders in the Trash")),
+    ])
+    async def test_when_creating_in_special_path(
+        self,
+        client: TestClient,
+        namespace: Namespace,
+        ns_use_case: MagicMock,
+        path: str,
+        expected_error: APIError,
+    ):
+        # GIVEN
+        payload = {"path": path}
+        # WHEN
+        client.mock_namespace(namespace)
+        response = await client.post("/files/create_folder", json=payload)
+        # THEN
+        assert response.json() == expected_error.as_dict()
+        assert response.status_code == expected_error.status_code
+        ns_use_case.create_folder.assert_not_awaited()
+
     @pytest.mark.parametrize(["path", "error", "expected_error"], [
         ("teamfolder/f.txt", File.ActionNotAllowed(), FileActionNotAllowed()),
-        ("Trash", File.AlreadyExists(), FileAlreadyExists(path="Trash")),
         ("file/folder", File.NotADirectory(), NotADirectory(path="file/folder")),
     ])
     async def test_reraising_app_errors_to_api_errors(
