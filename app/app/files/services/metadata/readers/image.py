@@ -4,7 +4,7 @@ from datetime import datetime
 from fractions import Fraction
 from typing import IO, TYPE_CHECKING
 
-from PIL import ExifTags, Image, UnidentifiedImageError
+from PIL import ExifTags, Image
 
 from app.app.files.domain import Exif
 
@@ -26,7 +26,7 @@ def load_image_data(content: IO[bytes]) -> Exif | None:
         with Image.open(content) as im:
             raw_exif = im.getexif()
             width, height = im.size
-    except UnidentifiedImageError:
+    except (Image.DecompressionBombError, Image.UnidentifiedImageError):
         return None
 
     if not raw_exif:

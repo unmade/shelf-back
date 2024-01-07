@@ -4,7 +4,7 @@ from collections.abc import Iterator
 from io import BytesIO
 from typing import IO, TYPE_CHECKING
 
-from PIL import Image, ImageSequence, UnidentifiedImageError
+from PIL import Image, ImageSequence
 from PIL.ImageOps import exif_transpose
 
 from app.app.files.domain import File, mediatypes
@@ -63,7 +63,7 @@ def thumbnail_image(content: IO[bytes], *, size: int) -> bytes:
             else:
                 im.thumbnail((size, size))
                 exif_transpose(im).save(buffer, "webp", method=method, quality=quality)
-    except UnidentifiedImageError as exc:
+    except (Image.DecompressionBombError, Image.UnidentifiedImageError) as exc:
         msg = "Can't generate thumbnail for a file"
         raise File.ThumbnailUnavailable(msg) from exc
 
