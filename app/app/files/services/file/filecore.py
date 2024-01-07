@@ -187,7 +187,7 @@ class FileCoreService:
             async with tx:
                 await self.db.file.delete_all_with_prefix(ns_path, f"{path}/")
                 await self.db.file.incr_size_batch(ns_path, paths, value=-file.size)
-        await self.storage.emptydir(ns_path, path)
+        await self.storage.emptydir(ns_path, file.path)
 
     async def exists_with_id(self, ns_path: AnyPath, file_id: UUID) -> bool:
         """Returns True if file exists with a given ID, False otherwise"""
