@@ -182,6 +182,8 @@ class DataExif(BaseModel):
     type: Literal["exif"] = "exif"
     make: str | None = None
     model: str | None = None
+    focal_length: int | None = None
+    focal_length_35mm: int | None = None
     fnumber: str | None = None
     exposure: str | None = None
     iso: str | None = None
@@ -203,6 +205,8 @@ class GetContentMetadataResponse(BaseModel):
                 type=entity.data.type,
                 make=entity.data.make,
                 model=entity.data.model,
+                focal_length=entity.data.focal_length,
+                focal_length_35mm=entity.data.focal_length_35mm,
                 fnumber=entity.data.fnumber,
                 exposure=entity.data.exposure,
                 iso=entity.data.iso,

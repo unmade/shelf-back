@@ -38,10 +38,17 @@ def load_image_data(content: IO[bytes]) -> Exif | None:
         if k in ExifTags.TAGS
     }
 
+    focal_length = None
+    focal_length_35mm = _get_int_or_none(exif.get("FocalLengthIn35mmFilm"))
+    if not focal_length_35mm:
+        focal_length = _get_int_or_none(exif.get("FocalLength"))
+
     return Exif(
         type="exif",
         make=_get_str_or_none(exif.get("Make")),
         model=_get_str_or_none(exif.get("Model")),
+        focal_length=focal_length,
+        focal_length_35mm=focal_length_35mm,
         fnumber=_get_str_or_none(exif.get("FNumber")),
         exposure=_get_exposure(exif.get("ExposureTime")),
         iso=_get_str_or_none(exif.get("ISOSpeedRatings")),
@@ -50,6 +57,12 @@ def load_image_data(content: IO[bytes]) -> Exif | None:
         height=width,
         width=height,
     )
+
+
+def _get_int_or_none(value) -> int | None:
+    if not value:
+        return None
+    return int(value)
 
 
 def _get_str_or_none(value) -> str | None:

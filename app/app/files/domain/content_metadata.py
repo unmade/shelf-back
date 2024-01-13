@@ -19,6 +19,8 @@ class Exif(BaseModel):
     type: Literal["exif"] = "exif"
     make: str | None = None
     model: str | None = None
+    focal_length: int | None = None
+    focal_length_35mm: int | None = None
     fnumber: str | None = None
     exposure: str | None = None
     iso: str | None = None
