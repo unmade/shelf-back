@@ -4,6 +4,7 @@ from .bookmark import BookmarkRepository
 from .file import FileRepository
 from .file_member import FileMemberRepository
 from .fingerprint import FingerprintRepository
+from .media_item import MediaItemRepository
 from .metadata import ContentMetadataRepository
 from .mount import MountRepository
 from .namespace import NamespaceRepository
@@ -18,6 +19,7 @@ __all__ = [
     "FileRepository",
     "FileMemberRepository",
     "FingerprintRepository",
+    "MediaItemRepository",
     "MountRepository",
     "NamespaceRepository",
     "SharedLinkRepository",
