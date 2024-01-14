@@ -17,6 +17,8 @@ from app.app.files.services import (
 from app.app.files.services.file import FileCoreService, MountService
 from app.app.files.services.file_member import FileMemberService
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
+from app.app.photos.services import MediaItemService
+from app.app.photos.usecases import PhotosUseCase
 from app.app.users.services import BookmarkService, UserService
 from app.app.users.usecases import UserUseCase
 from app.cache import cache
@@ -116,6 +118,7 @@ class Services:
         "file",
         "filecore",
         "file_member",
+        "media_item",
         "metadata",
         "namespace",
         "sharing",
@@ -135,6 +138,7 @@ class Services:
         )
         self.file_member = FileMemberService(database=database, filecore=self.filecore)
         self.dupefinder = DuplicateFinderService(database=database)
+        self.media_item = MediaItemService(database=database)
         self.metadata = MetadataService(database=database)
         self.namespace = NamespaceService(database=database, filecore=self.filecore)
         self.sharing = SharingService(database=database)
@@ -146,10 +150,11 @@ class Services:
 
 
 class UseCases:
-    __slots__ = ["auth", "namespace", "sharing", "user"]
+    __slots__ = ["auth", "namespace", "photos", "sharing", "user"]
 
     def __init__(self, services: Services):
         self.auth = AuthUseCase(services=services)
         self.namespace = NamespaceUseCase(services=services)
         self.sharing = SharingUseCase(services=services)
+        self.photos = PhotosUseCase(services=services)
         self.user = UserUseCase(services=services)

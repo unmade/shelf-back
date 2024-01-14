@@ -14,6 +14,7 @@ from app.app.auth.usecases import AuthUseCase
 from app.app.files.domain import Namespace
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
 from app.app.infrastructure.worker import IWorker
+from app.app.photos.usecases.photos import PhotosUseCase
 from app.app.users.domain import Account, User
 from app.app.users.usecases import UserUseCase
 from app.infrastructure.context import UseCases
@@ -68,6 +69,7 @@ def _usecases():
         UseCases,
         auth=mock.MagicMock(AuthUseCase),
         namespace=mock.MagicMock(NamespaceUseCase),
+        photos=mock.MagicMock(PhotosUseCase),
         sharing=mock.MagicMock(SharingUseCase),
         user=mock.MagicMock(UserUseCase),
     )
@@ -83,6 +85,12 @@ def auth_use_case(_usecases: UseCases):
 def ns_use_case(_usecases: UseCases):
     """A mocked instance of a NamespaceUseCase."""
     return _usecases.namespace
+
+
+@pytest.fixture
+def photos_use_case(_usecases: UseCases):
+    """A mocked instance of PhotosUseCase."""
+    return _usecases.photos
 
 
 @pytest.fixture

@@ -8,16 +8,6 @@ from typing import TYPE_CHECKING, AsyncIterator, Self
 import edgedb
 from edgedb.asyncio_client import AsyncIOIteration
 
-from app.app.audit.repositories import IAuditTrailRepository
-from app.app.files.repositories import (
-    IContentMetadataRepository,
-    IFileMemberRepository,
-    IFileRepository,
-    IFingerprintRepository,
-    IMountRepository,
-    INamespaceRepository,
-    ISharedLinkRepository,
-)
 from app.app.infrastructure import IDatabase
 from app.app.users.repositories import (
     IAccountRepository,
@@ -34,6 +24,7 @@ from .repositories import (
     FileMemberRepository,
     FileRepository,
     FingerprintRepository,
+    MediaItemRepository,
     MountRepository,
     NamespaceRepository,
     SharedLinkRepository,
@@ -41,9 +32,18 @@ from .repositories import (
 )
 
 if TYPE_CHECKING:
-
-
+    from app.app.audit.repositories import IAuditTrailRepository
+    from app.app.files.repositories import (
+        IContentMetadataRepository,
+        IFileMemberRepository,
+        IFileRepository,
+        IFingerprintRepository,
+        IMountRepository,
+        INamespaceRepository,
+        ISharedLinkRepository,
+    )
     from app.app.infrastructure.database import ITransaction
+    from app.app.photos.repositories import IMediaItemRepository
 
     from .typedefs import EdgeDBContext
 
@@ -71,6 +71,7 @@ class EdgeDBDatabase(IDatabase):
     file: IFileRepository
     file_member: IFileMemberRepository
     fingerprint: IFingerprintRepository
+    media_item: IMediaItemRepository
     metadata: IContentMetadataRepository
     mount: IMountRepository
     namespace: INamespaceRepository
@@ -95,6 +96,7 @@ class EdgeDBDatabase(IDatabase):
         self.file = FileRepository(db_context=db_context)
         self.file_member = FileMemberRepository(db_context=db_context)
         self.fingerprint = FingerprintRepository(db_context=db_context)
+        self.media_item = MediaItemRepository(db_context=db_context)
         self.metadata = ContentMetadataRepository(db_context=db_context)
         self.mount = MountRepository(db_context=db_context)
         self.namespace = NamespaceRepository(db_context=db_context)

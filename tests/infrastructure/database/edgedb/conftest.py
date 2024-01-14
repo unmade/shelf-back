@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os.path
 import uuid
 from typing import TYPE_CHECKING
 
@@ -20,11 +21,15 @@ from app.app.files.domain import (
 )
 from app.app.files.repositories import IFileMemberRepository
 from app.app.infrastructure.database import SENTINEL_ID
+from app.app.photos.domain import MediaItem
+from app.app.photos.domain.media_item import IMediaItemType
 from app.app.users.domain import (
     Account,
     User,
 )
 from app.app.users.domain.bookmark import Bookmark
+from app.config import config
+from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
     from typing import Protocol
@@ -65,6 +70,15 @@ if TYPE_CHECKING:
         async def __call__(self, ns_path: str, path: AnyPath | None = None) -> File:
             ...
 
+    class MediaItemFactory(Protocol):
+        async def __call__(
+            self,
+            user_id: UUID,
+            name: str | None = None,
+            mediatype: IMediaItemType = MediaType.IMAGE_JPEG,
+        ) -> MediaItem:
+            ...
+
     class MountFactory(Protocol):
         async def __call__(
             self,
@@ -89,11 +103,6 @@ if TYPE_CHECKING:
             ...
 
 fake = Faker()
-
-
-# pytestmark = [
-#     pytest.mark.usefixtures('anyio_backend'),
-# ]
 
 
 @pytest.fixture
@@ -130,6 +139,12 @@ def file_member_repo(edgedb_database: EdgeDBDatabase):
 def fingerprint_repo(edgedb_database: EdgeDBDatabase):
     """An EdgeDB instance of IFingerprintRepository"""
     return edgedb_database.fingerprint
+
+
+@pytest.fixture
+def media_item_repo(edgedb_database: EdgeDBDatabase):
+    """An EdgeDB instance of IMediaTypeRepository"""
+    return edgedb_database.media_item
 
 
 @pytest.fixture
@@ -222,6 +237,30 @@ def folder_factory(file_repo: IFileRepository) -> FolderFactory:
                 size=0,
                 mediatype=mediatypes.FOLDER,
             )
+        )
+    return factory
+
+
+@pytest.fixture
+def media_item_factory(
+    namespace_repo: INamespaceRepository, file_factory: FileFactory,
+) -> MediaItemFactory:
+    """A factory to create a saved MediaItem to the EdgeDB."""
+    async def factory(
+        user_id: UUID,
+        name: str | None = None,
+        mediatype: IMediaItemType = MediaType.IMAGE_JPEG,
+    ) -> MediaItem:
+        namespace = await namespace_repo.get_by_owner_id(user_id)
+        name = name or fake.unique.file_name(category="image")
+        path = os.path.join(config.features.photos_library_path, name)
+        file = await file_factory(namespace.path, path, mediatype=mediatype)
+        return MediaItem(
+            file_id=file.id,
+            name=file.name,
+            size=file.size,
+            mtime=file.mtime,
+            mediatype=mediatype,
         )
     return factory
 
