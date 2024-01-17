@@ -34,6 +34,7 @@ from .schemas import (
     GetBatchResponse,
     GetContentMetadataResponse,
     GetDownloadUrlResponse,
+    IDRequest,
     ListFolderResponse,
     MoveBatchCheckResponse,
     MoveBatchRequest,
@@ -279,19 +280,19 @@ async def get_download_url(
 
 @router.post("/get_content_metadata")
 async def get_content_metadata(
-    payload: PathRequest,
+    payload: IDRequest,
     namespace: NamespaceDeps,
     usecases: UseCasesDeps,
 ) -> GetContentMetadataResponse:
     """Return content metadata for a given file."""
     try:
-        meta = await usecases.namespace.get_file_metadata(namespace.path, payload.path)
+        meta = await usecases.namespace.get_file_metadata(namespace.path, payload.id)
     except File.ActionNotAllowed as exc:
         raise exceptions.FileActionNotAllowed() from exc
     except File.NotFound as exc:
-        raise exceptions.PathNotFound(path=payload.path) from exc
+        raise exceptions.PathNotFound(path=str(payload.id)) from exc
     except ContentMetadata.NotFound as exc:
-        raise exceptions.FileContentMetadataNotFound(path=payload.path) from exc
+        raise exceptions.FileContentMetadataNotFound(path=str(payload.id)) from exc
     return GetContentMetadataResponse.from_entity(meta)
 
 

@@ -97,6 +97,10 @@ class PathRequest(BaseModel):
     path: Annotated[str, AfterValidator(_normalize)]
 
 
+class IDRequest(BaseModel):
+    id: UUID
+
+
 class AsyncTaskID(BaseModel):
     async_task_id: str
 

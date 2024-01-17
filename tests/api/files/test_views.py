@@ -639,11 +639,11 @@ class TestGetContentMetadata:
         namespace: Namespace,
     ):
         # GIVEN
-        file_id, path = uuid.uuid4(), "img.jpeg"
+        file_id = uuid.uuid4()
         exif = Exif(width=1280, height=800)
         metadata = ContentMetadata(file_id=file_id, data=exif)
         ns_use_case.get_file_metadata.return_value = metadata
-        payload = {"path": path}
+        payload = {"id": str(file_id)}
         # WHEN
         client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
@@ -651,31 +651,31 @@ class TestGetContentMetadata:
         assert response.json()["file_id"] == str(file_id)
         assert response.json()["data"] == exif.model_dump()
         assert response.status_code == 200
-        ns_use_case.get_file_metadata.assert_awaited_once_with(namespace.path, path)
+        ns_use_case.get_file_metadata.assert_awaited_once_with(namespace.path, file_id)
 
-    @pytest.mark.parametrize(["path", "error", "expected_error"], [
-        ("i.jpg", ContentMetadata.NotFound, FileContentMetadataNotFound(path="i.jpg")),
-        ("teamfolder/f.txt", File.ActionNotAllowed(), FileActionNotAllowed()),
-        ("path/not/found", File.NotFound(), PathNotFound(path="path/not/found")),
+    @pytest.mark.parametrize(["error", "expected_error_cls"], [
+        (ContentMetadata.NotFound, FileContentMetadataNotFound),
+        (File.ActionNotAllowed(), FileActionNotAllowed),
+        (File.NotFound(), PathNotFound),
     ])
     async def test_reraising_app_errors_to_api_errors(
         self,
         client: TestClient,
         namespace: Namespace,
         ns_use_case: MagicMock,
-        path: str,
         error: Exception,
-        expected_error: APIError,
+        expected_error_cls: APIError,
     ):
         # GIVEN
+        file_id = uuid.uuid4()
         ns_use_case.get_file_metadata.side_effect = error
-        payload = {"path": path}
+        payload = {"id": str(file_id)}
         # WHEN
         client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
-        assert response.json() == expected_error.as_dict()
-        assert response.status_code == expected_error.status_code
+        assert response.json()["code"] == expected_error_cls.code
+        assert response.status_code == expected_error_cls.status_code
 
 
 class TestGetThumbnail:

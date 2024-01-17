@@ -6,13 +6,12 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from app.app.photos.domain import MediaItem
 from app.config import config
 from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
 
-    from app.app.files.domain import File, Namespace
+    from app.app.files.domain import Namespace
     from app.app.users.domain import User
     from app.infrastructure.database.edgedb.repositories import MediaItemRepository
     from tests.infrastructure.database.edgedb.conftest import (
@@ -21,16 +20,6 @@ if TYPE_CHECKING:
     )
 
 pytestmark = [pytest.mark.anyio, pytest.mark.database]
-
-
-def _from_file(file: File) -> MediaItem:
-    return MediaItem(
-        file_id=file.id,
-        name=file.name,
-        size=file.size,
-        mtime=file.mtime,
-        mediatype=file.mediatype,  # type: ignore
-    )
 
 
 class TestListByUserID:

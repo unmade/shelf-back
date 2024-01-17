@@ -192,9 +192,8 @@ class NamespaceUseCase:
             for group in groups
         ]
 
-
     async def get_file_metadata(
-        self, ns_path: AnyPath, path: AnyPath
+        self, ns_path: AnyPath, file_id: UUID
     ) -> ContentMetadata:
         """
         Returns a file content metadata.
@@ -204,7 +203,7 @@ class NamespaceUseCase:
             File.NotFound: If file with target ID does not exist.
             ContentMetadata.NotFound: If file metadata does not exist.
         """
-        file = await self.file.get_at_path(ns_path, path)
+        file = await self.file.get_by_id(ns_path, file_id)
         return await self.metadata.get_by_file_id(file.id)
 
     async def get_file_thumbnail(
