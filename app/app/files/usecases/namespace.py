@@ -39,7 +39,6 @@ if TYPE_CHECKING:
         namespace: NamespaceService
         user: UserService
 
-
 __all__ = ["NamespaceUseCase"]
 
 

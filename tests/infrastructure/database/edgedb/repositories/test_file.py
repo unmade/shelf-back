@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import operator
 import uuid
+from io import BytesIO
 from typing import TYPE_CHECKING, cast
 
 import pytest
@@ -10,6 +11,7 @@ from app.app.files.domain import File, Path
 from app.app.files.repositories.file import FileUpdate
 from app.app.infrastructure.database import SENTINEL_ID
 from app.infrastructure.database.edgedb.db import db_context
+from app.toolkit import chash
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -39,7 +41,9 @@ async def _get_by_id(file_id: UUID) -> File:
     query = """
         SELECT
             File {
-                id, name, path, size, mtime, mediatype: { name }, namespace: { path }
+                id, name, path, chash, size, mtime,
+                mediatype: { name },
+                namespace: { path },
             }
         FILTER
             .id = <uuid>$file_id
@@ -50,6 +54,7 @@ async def _get_by_id(file_id: UUID) -> File:
         name=obj.name,
         ns_path=obj.namespace.path,
         path=obj.path,
+        chash=obj.chash,
         size=obj.size,
         mtime=obj.mtime,
         mediatype=obj.mediatype.name,
@@ -60,7 +65,9 @@ async def _get_by_path(ns_path: AnyPath, path: AnyPath) -> File:
     query = """
         SELECT
             File {
-                id, name, path, size, mtime, mediatype: { name }, namespace: { path }
+                id, name, path, chash, size, mtime,
+                mediatype: { name },
+                namespace: { path },
             }
         FILTER
             .path = <str>$path
@@ -74,6 +81,7 @@ async def _get_by_path(ns_path: AnyPath, path: AnyPath) -> File:
         id=obj.id,
         name=obj.name,
         ns_path=obj.namespace.path,
+        chash=obj.chash,
         path=obj.path,
         size=obj.size,
         mtime=obj.mtime,
@@ -434,6 +442,7 @@ class TestSave:
                 name="f.txt",
                 ns_path=namespace.path,
                 path=Path("folder/f.txt"),
+                chash=chash.chash(BytesIO(b"Dummy Content!")),
                 size=10,
                 mtime=12.34,
                 mediatype="plain/text",
@@ -452,6 +461,7 @@ class TestSave:
             name=file.name,
             ns_path=file.ns_path,
             path=file.path,
+            chash=uuid.uuid4().hex,
             size=10,
             mtime=12.34,
             mediatype="plain/text",
@@ -468,6 +478,7 @@ class TestSaveBatch:
                 name="folder",
                 ns_path=namespace.path,
                 path=Path("folder"),
+                chash=chash.EMPTY_CONTENT_HASH,
                 size=10,
                 mtime=12.34,
                 mediatype="application/directory",
@@ -477,6 +488,7 @@ class TestSaveBatch:
                 name="f.txt",
                 ns_path=namespace.path,
                 path=Path("folder/f.txt"),
+                chash=chash.chash(BytesIO(b"Dummy Content!")),
                 size=10,
                 mtime=12.35,
                 mediatype="plain/text",
@@ -498,6 +510,7 @@ class TestSaveBatch:
             name=file.name,
             ns_path=file.ns_path,
             path=file.path,
+            chash=chash.chash(BytesIO(b"Dummy Content!")),
             size=10,
             mtime=12.34,
             mediatype="plain/text",

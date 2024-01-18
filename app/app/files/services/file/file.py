@@ -38,6 +38,7 @@ def _resolve_file(file: AnyFile, mount_point: MountPoint | None) -> AnyFile:
         ns_path=mount_point.folder.ns_path,
         name=path.name,
         path=path,
+        chash=file.chash,
         size=file.size,
         mtime=file.mtime,
         mediatype=file.mediatype,

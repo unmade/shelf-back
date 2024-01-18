@@ -9,6 +9,7 @@ import pytest
 
 from app.app.audit.domain import CurrentUserContext
 from app.app.files.domain import File, Path
+from app.toolkit import chash
 from app.worker.jobs import files
 from app.worker.jobs.files import ErrorCode, RelocationPath
 
@@ -27,6 +28,7 @@ def _make_file(ns_path: str, path: AnyPath):
         ns_path=ns_path,
         name=Path(path).name,
         path=Path(path),
+        chash=chash.EMPTY_CONTENT_HASH,
         size=10,
         mediatype="plain/text",
     )

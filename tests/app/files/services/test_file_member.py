@@ -27,6 +27,7 @@ def _make_file(
         ns_path=ns_path,
         name=path.name,
         path=path,
+        chash=uuid.uuid4().hex,
         size=size,
         mediatype=mediatype,
     )

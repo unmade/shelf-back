@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import itertools
 from collections import deque
@@ -8,7 +9,8 @@ from typing import TYPE_CHECKING, Iterator
 from app.app.files.domain import File, Path, mediatypes
 from app.app.files.repositories.file import FileUpdate
 from app.app.infrastructure.database import SENTINEL_ID
-from app.toolkit import taskgroups
+from app.toolkit import chash, taskgroups
+from app.toolkit.chash import EMPTY_CONTENT_HASH
 
 if TYPE_CHECKING:
     from typing import (
@@ -68,6 +70,7 @@ class FileCoreService:
 
         next_path = await self.get_available_path(ns_path, path)
         mediatype = mediatypes.guess(content.file, name=path.name)
+        content_hash = await asyncio.to_thread(chash.chash, content.file)
 
         storage_file = await self.storage.save(ns_path, next_path, content)
 
@@ -79,6 +82,7 @@ class FileCoreService:
                         ns_path=str(ns_path),
                         name=next_path.name,
                         path=next_path,
+                        chash=content_hash,
                         size=storage_file.size,
                         mediatype=mediatype,
                     ),
@@ -118,6 +122,7 @@ class FileCoreService:
                     ns_path=str(ns_path),
                     name=p.name,
                     path=p,
+                    chash=EMPTY_CONTENT_HASH,
                     size=0,
                     mediatype=mediatypes.FOLDER,
                 )
@@ -353,6 +358,7 @@ class FileCoreService:
         removes files that are present in the database, but missing in the storage
         at a given path.
 
+        The method doesn't re-calculate file content hash.
         The method doesn't guarantee to accurately re-calculate path parents sizes.
 
         Raises:
@@ -393,6 +399,7 @@ class FileCoreService:
                     ns_path=ns_path,
                     name=file.name,
                     path=file.path,  # type: ignore
+                    chash=chash.EMPTY_CONTENT_HASH,
                     size=size,
                     mtime=file.mtime,
                     mediatype=mediatype,

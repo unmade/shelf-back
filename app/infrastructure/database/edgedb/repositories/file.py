@@ -34,6 +34,7 @@ def _from_db(ns_path: str | None, obj) -> File:
         ns_path=ns_path or obj.namespace.path,
         name=obj.name,
         path=obj.path,
+        chash=obj.chash,
         size=obj.size,
         mtime=obj.mtime,
         mediatype=obj.mediatype.name,
@@ -47,6 +48,7 @@ def _from_db_v2(ns_path: str, obj) -> AnyFile:
             ns_path=ns_path,
             name=obj.name,
             path=obj.path,
+            chash=obj.chash,
             size=obj.size,
             mtime=obj.mtime,
             shared=obj.shared,
@@ -71,6 +73,7 @@ def _from_db_v2(ns_path: str, obj) -> AnyFile:
         ns_path=mount_point.folder.ns_path,
         name=mount_point.display_path.name,
         path=mount_point.display_path,
+        chash=obj.chash,
         size=obj.size,
         mtime=obj.mtime,
         mediatype=obj.mediatype.name,
@@ -105,12 +108,7 @@ class FileRepository(IFileRepository):
         )
 
     async def _create_missing_mediatypes(self, names: Iterable[str]) -> None:
-        """
-        Create all mediatypes that do not exist in the database.
-
-        Args:
-            names (Iterable[str]): Media types names to create.
-        """
+        """Create all mediatypes that do not exist in the database."""
         query = """
             WITH
                 mediatypes := {DISTINCT array_unpack(<array<str>>$names)},
@@ -140,7 +138,7 @@ class FileRepository(IFileRepository):
                     AND
                     .namespace.path = <str>$ns_path
                 LIMIT 1
-            ) { id, name, path, size, mtime, mediatype: { name } }
+            ) { id, name, path, chash, size, mtime, mediatype: { name } }
         """
 
         try:
@@ -204,7 +202,7 @@ class FileRepository(IFileRepository):
         query = """
             SELECT
                 File {
-                    id, name, path, size, mtime, mediatype: { name },
+                    id, name, path, chash, size, mtime, mediatype: { name },
                     namespace: { path }
                 }
             FILTER
@@ -223,6 +221,7 @@ class FileRepository(IFileRepository):
                     id,
                     name,
                     path,
+                    chash,
                     size,
                     mtime,
                     mediatype: {
@@ -244,7 +243,7 @@ class FileRepository(IFileRepository):
         query = """
             SELECT
                 File {
-                    id, name, path, size, mtime, mediatype: { name }
+                    id, name, path, chash, size, mtime, mediatype: { name }
                 }
             FILTER
                 str_lower(.path) = str_lower(<str>$path)
@@ -267,7 +266,7 @@ class FileRepository(IFileRepository):
         query = """
             SELECT
                 File {
-                    id, name, path, size, mtime, mediatype: { name },
+                    id, name, path, chash, size, mtime, mediatype: { name },
                 }
             FILTER
                 str_lower(.path) IN {array_unpack(<array<str>>$paths)}
@@ -319,7 +318,7 @@ class FileRepository(IFileRepository):
         query = """
             SELECT
                 File {
-                    id, name, path, size, mtime, mediatype: { name },
+                    id, name, path, chash, size, mtime, mediatype: { name },
                 }
             FILTER
                 .namespace.path = <str>$namespace
@@ -376,6 +375,7 @@ class FileRepository(IFileRepository):
                     id,
                     name,
                     path,
+                    chash,
                     size,
                     mtime,
                     mediatype := .mediatype { name },
@@ -447,6 +447,7 @@ class FileRepository(IFileRepository):
                 INSERT File {
                     name := <str>$name,
                     path := <str>$path,
+                    chash := <str>$chash,
                     size := <int64>$size,
                     mtime := <float64>$mtime,
                     mediatype := (
@@ -469,12 +470,13 @@ class FileRepository(IFileRepository):
                         LIMIT 1
                     ),
                 }
-            ) { id, name, path, size, mtime, mediatype: { name } }
+            ) { id, name, path, chash, size, mtime, mediatype: { name } }
         """
 
         params = {
             "name": file.name,
             "path": str(file.path),
+            "chash": str(file.chash),
             "size": file.size,
             "mtime": file.mtime,
             "mediatype": file.mediatype,
@@ -497,6 +499,7 @@ class FileRepository(IFileRepository):
                 INSERT File {
                     name := <str>file['name'],
                     path := <str>file['path'],
+                    chash := <str>file['chash'],
                     size := <int64>file['size'],
                     mtime := <float64>file['mtime'],
                     mediatype := (
@@ -546,7 +549,7 @@ class FileRepository(IFileRepository):
                     {','.join(statements)}
                 }}
             ) {{
-                id, name, path, size, mtime,
+                id, name, path, chash, size, mtime,
                 mediatype: {{ name }},
                 namespace: {{ path }}
             }}
