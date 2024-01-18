@@ -23,7 +23,8 @@ from app.api.files.exceptions import (
     ThumbnailUnavailable,
     UploadFileTooLarge,
 )
-from app.api.files.schemas import MoveBatchRequest
+from app.api.files.schemas import MoveBatchRequest, ThumbnailSize
+from app.api.files.views import _make_thumbnail_ttl
 from app.app.files.domain import (
     ContentMetadata,
     Exif,
@@ -35,6 +36,7 @@ from app.app.files.domain import (
 )
 from app.app.infrastructure.worker import Job, JobStatus
 from app.app.users.domain import Account
+from app.cache import disk_cache
 from app.worker.jobs.files import ErrorCode as TaskErrorCode
 from app.worker.jobs.files import FileTaskResult
 
@@ -708,6 +710,47 @@ class TestGetThumbnail:
         ns_use_case.get_file_thumbnail.assert_awaited_once_with(
             namespace.path, file.id, size=64
         )
+
+    async def test_cache_hits(
+        self,
+        client: TestClient,
+        ns_use_case: MagicMock,
+        namespace: Namespace,
+        image_content: IFileContent,
+    ):
+        # GIVEN
+        ns_path, path = namespace.path, "im.jpeg"
+        file, thumbnail = _make_file(ns_path, path), image_content.file.read()
+        ns_use_case.get_file_thumbnail.return_value = file, thumbnail
+
+        client.mock_namespace(namespace)
+        with disk_cache.detect as detector:
+            # WHEN hits for the first time
+            response_1 = await client.get(self.url(file.id))
+            # THEN cache miss
+            assert response_1.status_code == 200
+            assert detector.calls == {}
+            # WHEN hits for the second time
+            response_2 = await client.get(self.url(file.id))
+            # THEN cache hit
+            call = [
+                {
+                    'ttl': _make_thumbnail_ttl,
+                    'name': 'simple',
+                    'template': '{file_id}:{size}',
+                },
+            ]
+            assert list(detector.calls.values()) == [call]
+            assert response_1.status_code == response_2.status_code
+            assert response_1.content == response_2.content
+            ns_use_case.get_file_thumbnail.assert_awaited_once()
+
+    @pytest.mark.parametrize(["size", "ttl"], [
+        (ThumbnailSize.xs, "7d"),
+        (ThumbnailSize.md, "24h")],
+    )
+    async def test_ttl_depends_on_size(self, size: ThumbnailSize, ttl: str):
+        assert _make_thumbnail_ttl(size=size) == ttl
 
     async def test_when_path_has_non_latin_characters(
         self,
