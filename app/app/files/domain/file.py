@@ -79,6 +79,7 @@ class _BaseFile(BaseModel):
     ns_path: str
     name: str
     path: Path
+    chash: str
     size: int
     mtime: float = Field(default_factory=mtime_factory)
     mediatype: str

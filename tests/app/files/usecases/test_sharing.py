@@ -15,6 +15,7 @@ from app.app.files.domain import (
     Path,
     mediatypes,
 )
+from app.toolkit import chash
 
 if TYPE_CHECKING:
     from app.app.files.domain import AnyPath
@@ -32,6 +33,7 @@ def _make_file(
         ns_path=ns_path,
         name=path.name,
         path=path,
+        chash=chash.EMPTY_CONTENT_HASH,
         size=size,
         mediatype=mediatype,
     )
@@ -48,6 +50,7 @@ def _make_mounted_file(source_file: File, ns_path: str, path: AnyPath) -> Mounte
             ns_path=ns_path,
             name=path.name,
             path=path,
+            chash=source_file.chash,
             size=10,
             mtime=source_file.mtime,
             mediatype="plain/text",

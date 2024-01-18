@@ -7,6 +7,7 @@ import pytest
 
 from app.app.files.domain import File, Namespace, Path, mediatypes
 from app.app.infrastructure.database import SENTINEL_ID
+from app.toolkit import chash
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -53,6 +54,7 @@ class TestGetSpaceUsedByOwnerID:
             ns_path=ns_path,
             name=path.name,
             path=path,
+            chash=chash.EMPTY_CONTENT_HASH,
             size=size,
             mediatype=mediatypes.FOLDER,
         )

@@ -12,6 +12,7 @@ from app.app.files.repositories import IMountRepository
 from app.app.files.repositories.mount import MountPointUpdate
 from app.app.files.services.file import MountService
 from app.app.files.services.file.mount import FullyQualifiedPath
+from app.toolkit import chash
 
 pytestmark = [pytest.mark.anyio]
 
@@ -22,6 +23,7 @@ def _make_file(ns_path: str, path: AnyPath, mediatype: str = "plain/text") -> Fi
         ns_path=ns_path,
         name=Path(path).name,
         path=Path(path),
+        chash=chash.EMPTY_CONTENT_HASH,
         size=10,
         mediatype=mediatype,
     )

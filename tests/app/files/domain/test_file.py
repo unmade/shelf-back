@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from typing import TYPE_CHECKING
 
 import pytest
@@ -25,6 +26,7 @@ def _make_file(
         ns_path=ns_path or fake.file_path(depth=1),
         name=Path(pathname).name,
         path=Path(pathname),
+        chash=uuid.uuid4().hex,
         size=fake.pyint(),
         mtime=fake.pyfloat(positive=True),
         mediatype=mediatype or fake.mime_type(),

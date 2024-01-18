@@ -8,7 +8,7 @@ from unittest import mock
 import pytest
 
 from app.app.files.domain import File, Path, mediatypes
-from app.toolkit import taskgroups
+from app.toolkit import chash, taskgroups
 
 if TYPE_CHECKING:
     from app.app.files.domain import AnyPath, IFileContent, Namespace
@@ -35,6 +35,7 @@ def _make_file(
         ns_path=ns_path,
         name=path.name,
         path=path,
+        chash=chash.EMPTY_CONTENT_HASH,
         size=size,
         mediatype=mediatype,
     )

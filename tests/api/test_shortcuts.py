@@ -23,6 +23,7 @@ def _make_file(
         ns_path=str(ns_path),
         name=Path(path).name,
         path=Path(path),
+        chash=uuid.uuid4().hex,
         size=size,
         mediatype=mediatype,
     )

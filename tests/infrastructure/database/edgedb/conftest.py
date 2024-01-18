@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import os.path
 import uuid
 from typing import TYPE_CHECKING
@@ -29,6 +30,7 @@ from app.app.users.domain import (
 )
 from app.app.users.domain.bookmark import Bookmark
 from app.config import config
+from app.toolkit import chash
 from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
@@ -191,6 +193,7 @@ def file_factory(file_repo: IFileRepository) -> FileFactory:
                 ns_path=ns_path,
                 name=Path(path).name,
                 path=Path(path),
+                chash=hashlib.sha256().hexdigest(),
                 size=10,
                 mediatype=mediatype,
             )
@@ -234,6 +237,7 @@ def folder_factory(file_repo: IFileRepository) -> FolderFactory:
                 ns_path=ns_path,
                 name=Path(path).name,
                 path=Path(path),
+                chash=chash.EMPTY_CONTENT_HASH,
                 size=0,
                 mediatype=mediatypes.FOLDER,
             )

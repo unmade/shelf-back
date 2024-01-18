@@ -39,6 +39,7 @@ module default {
     type File extending Auditable {
         required property name -> str;
         required property path -> str;
+        required property chash -> str;
         required property size -> int64;
         required property mtime -> float64;
 
@@ -46,6 +47,7 @@ module default {
         required link namespace -> Namespace;
 
         constraint exclusive on ((.path, .namespace));
+        index on ((.chash, .namespace));
     }
 
     type FileMember {
