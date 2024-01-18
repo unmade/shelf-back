@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from uuid import UUID
 
 from fastapi import APIRouter, Form, Request
@@ -17,6 +15,7 @@ from app.api.deps import (
 from app.app.files.domain import ContentMetadata, File, mediatypes
 from app.app.infrastructure.worker import JobStatus
 from app.app.users.domain import Account
+from app.cache import disk_cache
 
 from . import exceptions
 from .schemas import (
@@ -46,6 +45,12 @@ from .schemas import (
 )
 
 router = APIRouter()
+
+
+def _make_thumbnail_ttl(*args, size: ThumbnailSize, **kwargs) -> str:
+    if size.asint() < ThumbnailSize.sm.asint():
+        return "7d"
+    return "24h"
 
 
 @router.post("/create_folder")
@@ -297,6 +302,11 @@ async def get_content_metadata(
 
 
 @router.get("/get_thumbnail/{file_id}")
+@disk_cache(
+    key="{file_id}:{size}",
+    ttl=_make_thumbnail_ttl,
+    tags=["thumbnails:{file_id}"],
+)
 async def get_thumbnail(
     file_id: UUID,
     size: ThumbnailSize,

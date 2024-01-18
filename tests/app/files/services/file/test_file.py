@@ -7,9 +7,8 @@ from unittest import mock
 import pytest
 
 from app.app.files.domain import File, FileMember, MountedFile, MountPoint, Path
-from app.app.files.services.file.file import _make_thumbnail_ttl, _resolve_file
+from app.app.files.services.file.file import _resolve_file
 from app.app.files.services.file.mount import FullyQualifiedPath
-from app.cache import disk_cache
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
@@ -1303,43 +1302,3 @@ class TestThumbnail:
             source.ns_path, source.path, target_ns_path=file.ns_path
         )
         thumbnail_mock.assert_not_called()
-
-    @mock.patch("app.app.files.services.file.file.thumbnails.thumbnail")
-    async def test_cache_hits(
-        self,
-        thumbnail_mock: MagicMock,
-        file_service: FileService,
-        image_content: IFileContent,
-    ):
-        # GIVEN
-        ns_path = "admin"
-        file = _make_file(ns_path, "im.jpeg")
-        filecore = cast(mock.AsyncMock, file_service.filecore)
-        filecore.download.return_value = file, _aiter(image_content.file)
-        thumbnail_mock.return_value = b"dummy-image-content"
-        with disk_cache.detect as detector:
-            # WHEN hits for the first time
-            result1 = await file_service.thumbnail(file.id, size=64, ns_path=ns_path)
-            # THEN cache miss
-            assert detector.calls == {}
-            # WHEN hits for the second time
-            result2 = await file_service.thumbnail(file.id, size=64, ns_path=ns_path)
-            # THEN cache hit
-            call = [
-                {
-                    'ttl': _make_thumbnail_ttl,
-                    'name': 'simple',
-                    'template': '{file_id}:{size}',
-                },
-            ]
-            assert list(detector.calls.values()) == [call]
-            assert result1 == result2
-            filecore.download.assert_called_once_with(file.id)
-            thumbnail_mock.assert_called_once()
-
-    @pytest.mark.parametrize(["size", "ttl"], [
-        (64, "7d"),
-        (256, "24h")],
-    )
-    async def test_ttl_depends_on_size(self, size: int, ttl: str):
-        assert _make_thumbnail_ttl(size=size) == ttl

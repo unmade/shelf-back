@@ -4,7 +4,6 @@ from io import BytesIO
 from typing import TYPE_CHECKING, AsyncIterator, Iterator
 
 from app.app.files.domain import File, MountedFile, MountPoint, Path
-from app.cache import disk_cache
 
 from . import thumbnails
 
@@ -14,12 +13,6 @@ if TYPE_CHECKING:
 
     from app.app.files.domain import AnyFile, AnyPath, IFileContent
     from app.app.files.services.file import FileCoreService, MountService
-
-
-def _make_thumbnail_ttl(*args, size: int, **kwargs) -> str:
-    if size < 128:
-        return "7d"
-    return "24h"
 
 
 def _resolve_file(file: AnyFile, mount_point: MountPoint | None) -> AnyFile:
@@ -363,7 +356,6 @@ class FileService:
         """
         await self.filecore.reindex(ns_path, path)
 
-    @disk_cache(key="{file_id}:{size}", ttl=_make_thumbnail_ttl)
     async def thumbnail(
         self, file_id: UUID, *, size: int, ns_path: str | None = None
     ) -> tuple[AnyFile, bytes]:
