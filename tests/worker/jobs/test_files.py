@@ -110,6 +110,18 @@ class TestEmptyTrash:
         assert caplog.record_tuples == [log_record]
 
 
+class TestGenerateFileThumbnails:
+    async def test(self, arq_context: ARQContext):
+        # GIVEN
+        file_id, sizes = uuid.uuid4(), [64, 512]
+        usecases = cast(mock.MagicMock, arq_context["usecases"])
+        thumbnailer = usecases.namespace.thumbnailer
+        # WHEN
+        await files.generate_file_thumbnails(arq_context, file_id, sizes=sizes)
+        # THEN
+        thumbnailer.generate_thumbnails.assert_awaited_once_with(file_id, sizes)
+
+
 class TestMoveBatch:
     async def test(self, caplog: LogCaptureFixture, arq_context: ARQContext):
         # GIVEN

@@ -6,6 +6,7 @@ from unittest import mock
 import pytest
 from faker import Faker
 
+from app.app.files.domain.content import InMemoryFileContent
 from app.app.files.repositories import (
     IContentMetadataRepository,
     IFileMemberRepository,
@@ -19,8 +20,10 @@ from app.app.files.services import (
     MetadataService,
     NamespaceService,
     SharingService,
+    ThumbnailService,
 )
 from app.app.files.services.file import FileCoreService, MountService
+from app.app.infrastructure import IStorage, IWorker
 from app.app.users.repositories import IUserRepository
 from app.app.users.services import BookmarkService, UserService
 from app.toolkit import security
@@ -30,7 +33,6 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from app.app.files.domain import AnyPath, File, IFileContent, Namespace
-    from app.app.infrastructure import IStorage
     from app.app.users.domain import User
     from app.infrastructure.database.edgedb import EdgeDBDatabase
     from app.typedefs import StrOrUUID
@@ -89,8 +91,7 @@ def file_member_service():
         file_member=mock.AsyncMock(IFileMemberRepository),
         user=mock.AsyncMock(IUserRepository),
     )
-    filecore = mock.MagicMock(FileCoreService)
-    return FileMemberService(database=database, filecore=filecore)
+    return FileMemberService(database=database)
 
 
 @pytest.fixture
@@ -111,6 +112,15 @@ def sharing_service():
     """A sharing service instance."""
     database = mock.MagicMock(shared_link=mock.AsyncMock(ISharedLinkRepository))
     return SharingService(database=database)
+
+
+@pytest.fixture
+def thumbnailer():
+    """A thumbnail service instance."""
+    filecore = mock.MagicMock(FileCoreService)
+    storage = mock.AsyncMock(IStorage)
+    worker = mock.AsyncMock(IWorker)
+    return ThumbnailService(filecore=filecore, storage=storage, worker=worker)
 
 
 @pytest.fixture
@@ -139,9 +149,7 @@ def file_factory(filecore: FileCoreService) -> FileFactory:
     async def factory(
         ns_path: str, path: str, content: IFileContent | None = None
     ):
-        from tests.fixtures.app.files import FileContent
-
-        content = content or FileContent(b"Dummy file")
+        content = content or InMemoryFileContent(b"Dummy file")
         return await filecore.create_file(ns_path, path, content)
     return factory
 

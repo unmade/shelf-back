@@ -13,6 +13,7 @@ from app.app.files.services import (
     MetadataService,
     NamespaceService,
     SharingService,
+    ThumbnailService,
 )
 from app.app.files.services.file import FileCoreService, MountService
 from app.app.files.services.file_member import FileMemberService
@@ -55,7 +56,7 @@ class AppContext:
     ):
         self._stack = AsyncExitStack()
         self._infra = Infrastructure(db_config, storage_config, worker_config)
-        services = Services(self._infra.database, self._infra.storage)
+        services = Services(self._infra)
         self.usecases = UseCases(services)
 
     async def __aenter__(self) -> Self:
@@ -122,11 +123,16 @@ class Services:
         "metadata",
         "namespace",
         "sharing",
+        "thumbnailer",
         "token",
         "user",
     ]
 
-    def __init__(self, database: EdgeDBDatabase, storage: IStorage):
+    def __init__(self, infra: Infrastructure):
+        database = infra.database
+        storage = infra.storage
+        worker = infra.worker
+
         self._database = database
 
         self.audit_trail = AuditTrailService(database=database)
@@ -136,12 +142,17 @@ class Services:
             filecore=self.filecore,
             mount_service=MountService(database=database),
         )
-        self.file_member = FileMemberService(database=database, filecore=self.filecore)
+        self.file_member = FileMemberService(database=database)
         self.dupefinder = DuplicateFinderService(database=database)
         self.media_item = MediaItemService(database=database)
         self.metadata = MetadataService(database=database)
         self.namespace = NamespaceService(database=database, filecore=self.filecore)
         self.sharing = SharingService(database=database)
+        self.thumbnailer = ThumbnailService(
+            filecore=self.filecore,
+            storage=storage,
+            worker=worker,
+        )
         self.token = TokenService(token_repo=cache)
         self.user = UserService(database=database)
 

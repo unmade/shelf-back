@@ -13,6 +13,7 @@ from app.app.files.services import (
     MetadataService,
     NamespaceService,
     SharingService,
+    ThumbnailService,
 )
 from app.app.files.services.file import FileCoreService
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
@@ -32,6 +33,7 @@ def ns_use_case():
         file=mock.MagicMock(spec=FileService, filecore=mock.MagicMock(FileCoreService)),
         metadata=mock.MagicMock(spec=MetadataService),
         namespace=mock.MagicMock(spec=NamespaceService),
+        thumbnailer=mock.MagicMock(spec=ThumbnailService),
         user=mock.MagicMock(spec=UserService),
     )
     return NamespaceUseCase(services=services)
@@ -48,6 +50,7 @@ def sharing_use_case():
         file_member=mock.MagicMock(spec=FileMemberService),
         namespace=mock.MagicMock(spec=NamespaceService),
         sharing=mock.MagicMock(spec=SharingService),
+        thumbnailer=mock.MagicMock(spec=ThumbnailService),
         user=mock.MagicMock(spec=UserService),
         atomic=_atomic,
     )

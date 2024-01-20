@@ -41,7 +41,7 @@ _THUMBNAIL_SIZES = {
     ThumbnailSize.md: 256,
     ThumbnailSize.lg: 512,
     ThumbnailSize.xl: 1024,
-    ThumbnailSize.xxl: 2048,
+    ThumbnailSize.xxl: 2304,
     ThumbnailSize.xxxl: 4096,
 }
 

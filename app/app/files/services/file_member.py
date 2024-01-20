@@ -12,7 +12,6 @@ if TYPE_CHECKING:
 
     from app.app.files.domain.file_member import FileMemberActions
     from app.app.files.repositories import IFileMemberRepository
-    from app.app.files.services.file import FileCoreService
 
     class IServiceDatabase(Protocol):
         file_member: IFileMemberRepository
@@ -21,11 +20,10 @@ __all__ = ["FileMemberService"]
 
 
 class FileMemberService:
-    __slots__ = ("db", "filecore")
+    __slots__ = ("db", )
 
-    def __init__(self, database: IServiceDatabase, filecore: FileCoreService) -> None:
+    def __init__(self, database: IServiceDatabase) -> None:
         self.db = database
-        self.filecore = filecore
 
     async def add(
         self,
