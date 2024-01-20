@@ -6,7 +6,7 @@ from io import BytesIO
 import pytest
 from PIL import Image
 
-from app.app.files.services.file.thumbnails.pdf import thumbnail_pdf
+from app.app.files.services.thumbnailer.thumbnails.pdf import thumbnail_pdf
 
 
 class TestPDFThumbnail:

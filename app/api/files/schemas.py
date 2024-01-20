@@ -9,7 +9,7 @@ from fastapi import UploadFile
 from pydantic import BaseModel, RootModel, field_validator, model_validator
 from pydantic.functional_validators import AfterValidator
 
-from app.app.files.services.file import thumbnails
+from app.app.files.services.thumbnailer import thumbnails
 from app.worker.jobs.files import ErrorCode as TaskErrorCode
 
 from .exceptions import FileAlreadyDeleted, MalformedPath

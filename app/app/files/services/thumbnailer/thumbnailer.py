@@ -6,9 +6,10 @@ from typing import TYPE_CHECKING
 
 from app.app.files.domain import File
 from app.app.files.domain.content import InMemoryFileContent
-from app.app.files.services.file import thumbnails
 from app.cache import cache
 from app.config import config
+
+from . import thumbnails
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -50,7 +51,7 @@ class ThumbnailService:
         if file.size > config.features.max_file_size_to_thumbnail:
             return
 
-        if file.mediatype not in thumbnails.SUPPORTED_TYPES:
+        if not thumbnails.is_supported(file.mediatype):
             return
 
         content: BytesIO | None = None
