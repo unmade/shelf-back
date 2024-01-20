@@ -142,6 +142,7 @@ class FeatureConfig(BaseModel):
     max_file_size_to_thumbnail: BytesSize = 20 * BytesSizeMultipliers.mb
     max_image_pixels: int = 89_478_485
     photos_library_path: str = "Photos/Library"
+    pre_generated_thumbnail_sizes: set[Literal[72, 768, 2880]] = {72, 768, 2880}
     sign_up_disabled: bool = False
     upload_file_max_size: BytesSize = 100 * BytesSizeMultipliers.mb
 

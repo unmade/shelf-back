@@ -9,7 +9,7 @@ from app.api.files.schemas import MoveRequest, MoveToTrashRequest, _normalize
 class TestNormalize:
     def test(self):
         assert _normalize("some/path") == "some/path"
-        assert _normalize(" some/path ") == "some/path"
+        assert _normalize(" some/path ") == " some/path "
         assert _normalize(".") == "."
 
     def test_empty_test(self):

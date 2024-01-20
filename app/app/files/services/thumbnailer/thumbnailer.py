@@ -84,6 +84,7 @@ class ThumbnailService:
         self, file_id: UUID, sizes: Iterable[int]
     ) -> None:
         """Generates a set of thumbnails in a worker."""
+        sizes = list(sizes)
         await self.worker.enqueue("generate_file_thumbnails", file_id, sizes)
 
     @cache.lock(_LOCK_KEY, expire=30)
