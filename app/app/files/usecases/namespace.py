@@ -6,7 +6,6 @@ from io import BytesIO
 from typing import IO, TYPE_CHECKING, AsyncIterator, Iterator, Protocol
 
 from app.app.files.domain import AnyFile, File, Path
-from app.app.files.domain.file import ThumbnailUnavailable
 from app.app.files.services.dupefinder import dhash
 from app.app.files.services.metadata import readers as metadata_readers
 from app.app.users.domain import Account
@@ -23,6 +22,7 @@ if TYPE_CHECKING:
         FileService,
         MetadataService,
         NamespaceService,
+        ThumbnailService,
     )
     from app.app.infrastructure.database import IAtomic
     from app.app.users.services import UserService
@@ -37,6 +37,7 @@ if TYPE_CHECKING:
         file: FileService
         metadata: MetadataService
         namespace: NamespaceService
+        thumbnailer: ThumbnailService
         user: UserService
 
 __all__ = ["NamespaceUseCase"]
@@ -50,6 +51,7 @@ class NamespaceUseCase:
         "file",
         "metadata",
         "namespace",
+        "thumbnailer",
         "user",
     ]
 
@@ -60,6 +62,7 @@ class NamespaceUseCase:
         self.file = services.file
         self.metadata = services.metadata
         self.namespace = services.namespace
+        self.thumbnailer = services.thumbnailer
         self.user = services.user
 
     async def add_file(
@@ -102,6 +105,7 @@ class NamespaceUseCase:
         file = await self.file.create_file(ns_path, path, content)
         await self.dupefinder.track(file.id, content.file)
         await self.metadata.track(file.id, content.file)
+        await self.thumbnailer.generate_thumbnails_async(file.id, sizes=[64, 512, 2304])
 
         taskgroups.schedule(self.audit_trail.file_added(file))
         return file
@@ -155,7 +159,8 @@ class NamespaceUseCase:
             File.IsADirectory: If file is a directory.
             File.NotFound: If a file with the given ID does not exist.
         """
-        return await self.file.download_by_id(file_id)
+        _, chunks = await self.file.download_by_id(file_id)
+        return chunks
 
     def download_folder(self, ns_path: AnyPath, path: AnyPath) -> Iterator[bytes]:
         """Downloads a folder as a ZIP archive."""
@@ -215,12 +220,11 @@ class NamespaceUseCase:
             File.ActionNotAllowed: If thumbnailing a file is not allowed.
             File.NotFound: If file with target ID does not exist.
             File.IsADirectory: If file is a directory.
-            ThumbnailUnavailable: If file is not an image.
+            File.ThumbnailUnavailable: If file is not an image.
         """
         file = await self.file.get_by_id(ns_path, file_id)
-        if file.size > config.features.max_file_size_to_thumbnail:
-            raise ThumbnailUnavailable() from None
-        return await self.file.thumbnail(file_id, size=size, ns_path=str(ns_path))
+        thumbnail = await self.thumbnailer.thumbnail(file_id, file.chash, size)
+        return file, thumbnail
 
     async def get_item_at_path(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:
         """

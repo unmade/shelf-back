@@ -167,15 +167,18 @@ class TestGetLinkThumbnail:
         # GIVEN
         token = "shared-link-token"
         file_service = cast(mock.MagicMock, sharing_use_case.file)
+        file = file_service.filecore.get_by_id.return_value
         sharing_service = cast(mock.MagicMock, sharing_use_case.sharing)
+        link = sharing_service.get_link_by_token.return_value
+        thumbnailer = cast(mock.MagicMock, sharing_use_case.thumbnailer)
+        thumbnail = thumbnailer.thumbnail.return_value
         # WHEN
         result = await sharing_use_case.get_link_thumbnail(token, size=32)
         # THEN
+        assert result == (file, thumbnail)
         sharing_service.get_link_by_token.assert_awaited_once_with(token)
-        file_service.thumbnail.assert_awaited_once_with(
-            sharing_service.get_link_by_token.return_value.file_id, size=32
-        )
-        assert result == file_service.thumbnail.return_value
+        file_service.filecore.get_by_id.assert_awaited_once_with(link.file_id)
+        thumbnailer.thumbnail.assert_awaited_once_with(file.id, file.chash, 32)
 
 
 class TestGetSharedItem:

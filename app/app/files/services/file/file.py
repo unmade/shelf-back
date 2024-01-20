@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from io import BytesIO
 from typing import TYPE_CHECKING, AsyncIterator, Iterator
 
 from app.app.files.domain import File, MountedFile, MountPoint, Path
-
-from . import thumbnails
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -126,7 +123,7 @@ class FileService:
         _, content = await self.filecore.download(file.id)
         return _resolve_file(file, fq_path.mount_point), content
 
-    async def download_by_id(self, file_id: UUID) -> AsyncIterator[bytes]:
+    async def download_by_id(self, file_id: UUID) -> tuple[File, AsyncIterator[bytes]]:
         """
         Downloads a file with the given ID.
 
@@ -134,8 +131,8 @@ class FileService:
             File.IsADirectory: If file is a directory.
             File.NotFound: If a file with the given ID does not exist.
         """
-        _, content = await self.filecore.download(file_id)
-        return content
+        file, content = await self.filecore.download(file_id)
+        return file, content
 
     def download_folder(self, ns_path: AnyPath, path: AnyPath) -> Iterator[bytes]:
         """
@@ -355,33 +352,3 @@ class FileService:
             File.NotADirectory: If given path does not exist.
         """
         await self.filecore.reindex(ns_path, path)
-
-    async def thumbnail(
-        self, file_id: UUID, *, size: int, ns_path: str | None = None
-    ) -> tuple[AnyFile, bytes]:
-        """
-        Generate in-memory thumbnail with preserved aspect ratio.
-
-        If an optional `ns_path` argument is provided, then file ID must exist in that
-        namespace.
-
-        Raises:
-            File.ActionNotAllowed: If thumbnailing a file is not allowed.
-            File.NotFound: If file with this path does not exists.
-            File.IsADirectory: If file is a directory.
-            ThumbnailUnavailable: If file is not an image.
-        """
-        file, chunks = await self.filecore.download(file_id)
-        mount_point = None
-        if ns_path and file.ns_path != ns_path:
-            mount_point = await self.mount_service.get_closest_by_source(
-                file.ns_path, file.path, target_ns_path=ns_path
-            )
-            if mount_point is None:
-                raise File.NotFound() from None
-            if not mount_point.can_view():
-                raise File.ActionNotAllowed() from None
-
-        content = BytesIO(b"".join([chunk async for chunk in chunks]))
-        thumbnail = await thumbnails.thumbnail(content, size=size)
-        return _resolve_file(file, mount_point), thumbnail

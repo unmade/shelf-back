@@ -44,9 +44,9 @@ class TestInfrastructure:
 class TestServices:
     def test_atomic(self):
         # GIVEN
-        database, storage = mock.MagicMock(), mock.MagicMock()
-        services = Services(database=database, storage=storage)
+        infra = mock.MagicMock(Infrastructure)
+        services = Services(infra)
         # WHEN
         services.atomic(attempts=5)
         # THEN
-        database.atomic.assert_called_once_with(attempts=5)
+        infra.database.atomic.assert_called_once_with(attempts=5)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import IO, TYPE_CHECKING, AsyncIterator, cast
+from typing import TYPE_CHECKING, cast
 from unittest import mock
 
 import pytest
@@ -16,11 +16,6 @@ if TYPE_CHECKING:
     from app.app.files.domain import AnyPath, IFileContent
     from app.app.files.domain.file_member import FileMemberActions
     from app.app.files.services import FileService
-
-
-async def _aiter(content: IO[bytes]) -> AsyncIterator[bytes]:
-    for chunk in content:
-        yield chunk
 
 
 def _make_file(
@@ -397,7 +392,7 @@ class TestDownloadByID:
         # WHEN
         result = await file_service.download_by_id(file.id)
         # THEN
-        assert result == content
+        assert result == (file, content)
         filecore.download.assert_awaited_once_with(file.id)
 
 
@@ -1198,107 +1193,3 @@ class TestReindex:
         # THEN
         mount_service.resolve_path.assert_not_called()
         filecore.reindex.assert_awaited_once_with(ns_path, path)
-
-
-@pytest.mark.anyio
-class TestThumbnail:
-    @mock.patch("app.app.files.services.file.file.thumbnails.thumbnail")
-    async def test(
-        self,
-        thumbnail_mock: MagicMock,
-        file_service: FileService,
-        image_content: IFileContent,
-    ):
-        # GIVEN
-        file = _make_file("admin", "im.jpeg")
-        filecore = cast(mock.AsyncMock, file_service.filecore)
-        filecore.download.return_value = file, _aiter(image_content.file)
-        mount_service = cast(mock.AsyncMock, file_service.mount_service)
-        thumbnail_mock.return_value = b"dummy-image-content"
-        # WHEN
-        result = await file_service.thumbnail(file.id, size=64, ns_path=file.ns_path)
-        # THEN
-        assert result == (file, thumbnail_mock.return_value)
-        filecore.download.assert_awaited_once_with(file.id)
-        mount_service.get_closest_by_source.assert_not_awaited()
-        thumbnail_mock.assert_awaited_once()
-
-    @mock.patch("app.app.files.services.file.file.thumbnails.thumbnail")
-    async def test_mounted_file(
-        self,
-        thumbnail_mock: MagicMock,
-        file_service: FileService,
-        image_content: IFileContent,
-    ):
-        # GIVEN
-        source = _make_file("user", "Folder/SharedFolder/f.txt")
-        file = _make_mounted_file(source, "admin", "Sharing/TeamFolder/f.txt")
-        filecore = cast(mock.AsyncMock, file_service.filecore)
-        filecore.download.return_value = source, _aiter(image_content.file)
-        mount_service = cast(mock.AsyncMock, file_service.mount_service)
-        mount_service.get_closest_by_source.return_value = file.mount_point
-        thumbnail_mock.return_value = b"dummy-image-content"
-        # WHEN
-        result = await file_service.thumbnail(file.id, size=64, ns_path=file.ns_path)
-        # THEN
-        expected_file = _resolve_file(source, file.mount_point)
-        assert result == (expected_file, thumbnail_mock.return_value)
-        filecore.download.assert_awaited_once_with(source.id)
-        mount_service.get_closest_by_source.assert_awaited_once_with(
-            source.ns_path, source.path, target_ns_path=file.ns_path
-        )
-        thumbnail_mock.assert_awaited_once()
-
-    @mock.patch("app.app.files.services.file.file.thumbnails.thumbnail")
-    async def test_when_file_in_the_other_namespace(
-        self,
-        thumbnail_mock: MagicMock,
-        file_service: FileService,
-        image_content: IFileContent,
-    ):
-        # GIVEN
-        file = _make_file("user", "Folder/SharedFolder/f.txt")
-        filecore = cast(mock.AsyncMock, file_service.filecore)
-        filecore.download.return_value = file, _aiter(image_content.file)
-        mount_service = cast(mock.AsyncMock, file_service.mount_service)
-        mount_service.get_closest_by_source.return_value = None
-        thumbnail_mock.return_value = b"dummy-image-content"
-        # WHEN
-        with pytest.raises(File.NotFound):
-            await file_service.thumbnail(file.id, size=64, ns_path="admin")
-        # THEN
-        filecore.download.assert_awaited_once_with(file.id)
-        mount_service.get_closest_by_source.assert_awaited_once_with(
-            file.ns_path, file.path, target_ns_path="admin"
-        )
-        thumbnail_mock.assert_not_called()
-
-    @mock.patch("app.app.files.services.file.file.thumbnails.thumbnail")
-    async def test_when_not_allowed(
-        self,
-        thumbnail_mock: MagicMock,
-        file_service: FileService,
-        image_content: IFileContent,
-    ):
-        # GIVEN
-        source = _make_file("user", "Folder/SharedFolder/f.txt")
-        file = _make_mounted_file(
-            source,
-            "admin",
-            "Sharing/TeamFolder/f.txt",
-            actions=MountPoint.Actions(can_view=False),
-        )
-        filecore = cast(mock.AsyncMock, file_service.filecore)
-        filecore.download.return_value = source, _aiter(image_content.file)
-        mount_service = cast(mock.AsyncMock, file_service.mount_service)
-        mount_service.get_closest_by_source.return_value = file.mount_point
-        thumbnail_mock.return_value = b"dummy-image-content"
-        # WHEN
-        with pytest.raises(File.ActionNotAllowed):
-            await file_service.thumbnail(file.id, size=64, ns_path="admin")
-        # THEN
-        filecore.download.assert_awaited_once_with(source.id)
-        mount_service.get_closest_by_source.assert_awaited_once_with(
-            source.ns_path, source.path, target_ns_path=file.ns_path
-        )
-        thumbnail_mock.assert_not_called()

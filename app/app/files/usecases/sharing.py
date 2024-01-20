@@ -15,6 +15,7 @@ if TYPE_CHECKING:
         FileService,
         NamespaceService,
         SharingService,
+        ThumbnailService,
     )
     from app.app.infrastructure.database import IAtomic
     from app.app.users.services import UserService
@@ -24,13 +25,22 @@ if TYPE_CHECKING:
         file_member: FileMemberService
         namespace: NamespaceService
         sharing: SharingService
+        thumbnailer: ThumbnailService
         user: UserService
 
 __all__ = ["SharingUseCase"]
 
 
 class SharingUseCase:
-    __slots__ = ["_services", "file", "file_member", "namespace", "sharing", "user"]
+    __slots__ = (
+        "_services",
+        "file",
+        "file_member",
+        "namespace",
+        "sharing",
+        "thumbnailer",
+        "user",
+    )
 
     def __init__(self, services: IUseCaseServices):
         self._services = services
@@ -38,6 +48,7 @@ class SharingUseCase:
         self.file_member = services.file_member
         self.namespace = services.namespace
         self.sharing = services.sharing
+        self.thumbnailer = services.thumbnailer
         self.user = services.user
 
     async def add_member(
@@ -87,9 +98,11 @@ class SharingUseCase:
 
     async def get_link_thumbnail(
         self, token: str, *, size: int
-    ) -> tuple[AnyFile, bytes]:
+    ) -> tuple[File, bytes]:
         link = await self.sharing.get_link_by_token(token)
-        return await self.file.thumbnail(link.file_id, size=size)
+        file = await self.file.filecore.get_by_id(link.file_id)
+        thumbnail = await self.thumbnailer.thumbnail(file.id, file.chash, size)
+        return file, thumbnail
 
     async def get_shared_item(self, token: str) -> File:
         link = await self.sharing.get_link_by_token(token)

@@ -37,6 +37,7 @@ class WorkerSettings:
         ping,
         files.delete_immediately_batch,
         files.empty_trash,
+        files.generate_file_thumbnails,
         files.move_batch,
         files.move_to_trash_batch,
     ]

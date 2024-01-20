@@ -1,0 +1,109 @@
+from __future__ import annotations
+
+import os.path
+from io import BytesIO
+from typing import TYPE_CHECKING
+
+from app.app.files.domain import File
+from app.app.files.domain.content import InMemoryFileContent
+from app.app.files.services.file import thumbnails
+from app.cache import cache
+from app.config import config
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+    from uuid import UUID
+
+    from app.app.files.services.file import FileCoreService
+    from app.app.infrastructure import IStorage, IWorker
+
+__all__ = ["ThumbnailService"]
+
+_PREFIX = "thumbs"
+
+
+class ThumbnailService:
+    __slots__ = ("filecore", "storage", "worker")
+
+    def __init__(self, filecore: FileCoreService, storage: IStorage, worker: IWorker):
+        self.filecore = filecore
+        self.storage = storage
+        self.worker = worker
+
+    @staticmethod
+    def _lock_id(content_hash: str, size: int) -> str:
+        return f"generate_thumbnails:{content_hash}:{size}"
+
+    @staticmethod
+    def _make_path(content_hash: str, size: int) -> str:
+        parts = [
+            content_hash[:2],
+            content_hash[2:4],
+            content_hash[4:6],
+            f"{content_hash}_{size}.webp"
+        ]
+        return "/".join(parts)
+
+    async def generate_thumbnails(self, file_id: UUID, sizes: Iterable[int]) -> None:
+        """Generates a set of thumbnails for the specified sizes."""
+        file = await self.filecore.get_by_id(file_id)
+        if file.size > config.features.max_file_size_to_thumbnail:
+            return
+
+        if file.mediatype not in thumbnails.SUPPORTED_TYPES:
+            return
+
+        content: BytesIO | None = None
+        for size in sizes:
+            path = self._make_path(file.chash, size)
+            lock_id = self._lock_id(file.chash, size)
+
+            async with cache.lock(lock_id, expire=30, wait=True):
+                if await self.storage.exists(_PREFIX, path):
+                    continue
+
+                if not content:
+                    _, chunks = await self.filecore.download(file_id)
+                    content = BytesIO(b"".join([chunk async for chunk in chunks]))
+
+                # try:
+                content.seek(0)
+                thumbnail = await thumbnails.thumbnail(content, size=size)
+                # except File.ThumbnailUnavailable:
+                    # return
+
+                await self.storage.makedirs(_PREFIX, os.path.dirname(path))
+                await self.storage.save(_PREFIX, path, InMemoryFileContent(thumbnail))
+
+    async def generate_thumbnails_async(
+        self, file_id: UUID, sizes: Iterable[int]
+    ) -> None:
+        """Generates a set of thumbnails in a worker."""
+        await self.worker.enqueue("generate_file_thumbnails", file_id, sizes)
+
+    async def thumbnail(self, file_id: UUID, content_hash: str, size: int) -> bytes:
+        """
+        Returns a thumbnail for a given file ID. If thumbnail doesn't exist,
+        it will be created and put to storage.
+
+        Raises:
+            File.IsADirectory: If file is a directory.
+            File.NotFound: If file with this ID does not exist.
+            File.ThumbnailUnavailable: If thumbnail can't be generated for a file.
+        """
+        path = self._make_path(content_hash, size)
+        if await self.storage.exists(_PREFIX, path):
+            chunks = self.storage.download(_PREFIX, path)
+            return b"".join([chunk async for chunk in chunks])
+
+        file, chunks = await self.filecore.download(file_id)
+        if file.size > config.features.max_file_size_to_thumbnail:
+            raise File.ThumbnailUnavailable() from None
+
+        lock_id = self._lock_id(content_hash, size)
+        async with cache.lock(lock_id, expire=30, wait=True):
+            content = BytesIO(b"".join([chunk async for chunk in chunks]))
+            thumb = await thumbnails.thumbnail(content, size=size)
+            await self.storage.makedirs(_PREFIX, os.path.dirname(path))
+            await self.storage.save(_PREFIX, path, InMemoryFileContent(thumb))
+            return thumb

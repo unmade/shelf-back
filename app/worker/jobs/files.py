@@ -10,6 +10,7 @@ from app.app.files.domain import File
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+    from uuid import UUID
 
     from app.app.audit.domain import CurrentUserContext
     from app.app.files.domain import AnyFile, AnyPath
@@ -72,14 +73,6 @@ async def delete_immediately_batch(
     """
     Permanently deletes a file at given paths. If some file is a folder, then it will be
     deleted with all of its contents.
-
-    Args:
-        ns_path (AnyPath): Namespace path where file/folder should be deleted.
-        paths (Iterable[AnyPath]): Iterable of pathnames to delete.
-
-    Returns:
-        list[FileTaskResult]: List, where each item contains either a moved file
-            or an error code.
     """
 
     results = []
@@ -104,17 +97,20 @@ async def empty_trash(
     *,
     context: CurrentUserContext,
 ) -> None:
-    """
-    Deletes all files and folders in the Trash folder within a target Namespace.
-
-    Args:
-        namespace (Namespace): Namespace where Trash should be emptied.
-    """
+    """Deletes all files and folders in the Trash folder within a target Namespace."""
     with context:
         try:
             await ctx["usecases"].namespace.empty_trash(ns_path)
         except Exception:
             logger.exception("Unexpectedly failed to empty trash folder")
+
+
+async def generate_file_thumbnails(
+    ctx: ARQContext, file_id: UUID, sizes: Iterable[int]
+) -> None:
+    """Pre-generates thumbnails for the given file in the specified sizes."""
+    thumbnailer = ctx["usecases"].namespace.thumbnailer
+    await thumbnailer.generate_thumbnails(file_id, sizes)
 
 
 async def move_batch(
@@ -124,18 +120,7 @@ async def move_batch(
     *,
     context: CurrentUserContext,
 ) -> list[FileTaskResult]:
-    """
-    Moves several files/folders to a different locations
-
-    Args:
-        ns_path (AnyPath): Namespace, where files should be moved.
-        relocations (Iterable[RelocationPath]): Iterable, where each item contains
-            current file path and path to move file to.
-
-    Returns:
-        list[FileTaskResult]: List, where each item contains either a moved file
-            or an error code.
-    """
+    """Moves several files/folders to a different locations."""
     results = []
     move_item = ctx["usecases"].namespace.move_item
     with context:
@@ -162,17 +147,7 @@ async def move_to_trash_batch(
     *,
     context: CurrentUserContext,
 ) -> list[FileTaskResult]:
-    """
-    Moves several files to trash asynchronously.
-
-    Args:
-        ns_path (AnyPath): Namespace, where files should be moved to trash
-        paths (Iterable[AnyPath]): Iterable of pathnames to move to trash.
-
-    Returns:
-        list[FileTaskResult]: List, where each item contains either a moved file
-            or an error code.
-    """
+    """Moves several files to trash asynchronously."""
     results = []
     move_item_to_trash = ctx["usecases"].namespace.move_item_to_trash
     with context:

@@ -7,6 +7,7 @@ from zipfile import ZipFile
 
 import pytest
 
+from app.app.files.domain.content import InMemoryFileContent
 from app.app.files.domain.file import File
 
 if TYPE_CHECKING:
@@ -35,12 +36,10 @@ def file_factory(s3_bucket: str, s3_client: AsyncS3Client) -> FileFactory:
         path: AnyPath,
         content: bytes | BytesIO = b"I'm Dummy File!",
     ) -> None:
-        from tests.fixtures.app.files import FileContent
-
         if isinstance(content, bytes):
-            _content = FileContent(content)
+            _content = InMemoryFileContent(content)
         else:
-            _content = FileContent.from_buffer(content)
+            _content = InMemoryFileContent.from_buffer(content)
 
         await s3_client.upload_obj(s3_bucket, str(path), _content)
 

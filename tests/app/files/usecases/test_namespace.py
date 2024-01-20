@@ -8,7 +8,6 @@ from unittest import mock
 import pytest
 
 from app.app.files.domain import File, Fingerprint, Path
-from app.app.files.domain.file import ThumbnailUnavailable
 from app.app.users.domain import Account
 from app.config import config
 
@@ -59,6 +58,7 @@ class TestAddFile:
         dupefinder = cast(mock.MagicMock, ns_use_case.dupefinder)
         metadata = cast(mock.MagicMock, ns_use_case.metadata)
         ns_service = cast(mock.MagicMock, ns_use_case.namespace)
+        thumbnailer = cast(mock.MagicMock, ns_use_case.thumbnailer)
         user_service = cast(mock.MagicMock, ns_use_case.user)
         user_service.get_account.return_value = _make_account(storage_quota=None)
 
@@ -72,6 +72,9 @@ class TestAddFile:
         file_service.create_file.assert_awaited_once_with(ns_path, path, content)
         dupefinder.track.assert_awaited_once_with(result.id, content.file)
         metadata.track.assert_awaited_once_with(result.id, content.file)
+        thumbnailer.generate_thumbnails_async.assert_awaited_once_with(
+            result.id, sizes=[64, 512, 2304]
+        )
 
         owner_id = ns_service.get_by_path.return_value.owner_id
         user_service.get_account.assert_awaited_once_with(owner_id)
@@ -88,6 +91,7 @@ class TestAddFile:
         metadata = cast(mock.MagicMock, ns_use_case.metadata)
         ns_service = cast(mock.MagicMock, ns_use_case.namespace)
         ns_service.get_space_used_by_owner_id = mock.AsyncMock(return_value=512)
+        thumbnailer = cast(mock.MagicMock, ns_use_case.thumbnailer)
         user_service = cast(mock.MagicMock, ns_use_case.user)
         user_service.get_account.return_value = _make_account(storage_quota=1024)
 
@@ -101,6 +105,9 @@ class TestAddFile:
         file_service.create_file.assert_awaited_once_with(ns_path, path, content)
         dupefinder.track.assert_awaited_once_with(result.id, content.file)
         metadata.track.assert_awaited_once_with(result.id, content.file)
+        thumbnailer.generate_thumbnails_async.assert_awaited_once_with(
+            result.id, sizes=[64, 512, 2304]
+        )
 
         owner_id = ns_service.get_by_path.return_value.owner_id
         user_service.get_account.assert_awaited_once_with(owner_id)
@@ -134,6 +141,7 @@ class TestAddFile:
         metadata = cast(mock.MagicMock, ns_use_case.metadata)
         ns_service = cast(mock.MagicMock, ns_use_case.namespace)
         ns_service.get_space_used_by_owner_id = mock.AsyncMock(return_value=1024)
+        thumbnailer = cast(mock.MagicMock, ns_use_case.thumbnailer)
         user_service = cast(mock.MagicMock, ns_use_case.user)
         user_service.get_account.return_value = _make_account(storage_quota=1024)
 
@@ -146,6 +154,7 @@ class TestAddFile:
         file_service.create_file.assert_not_awaited()
         dupefinder.track.assert_not_awaited()
         metadata.track.assert_not_awaited()
+        thumbnailer.generate_thumbnails_async.assert_not_awaited()
 
         owner_id = ns_service.get_by_path.return_value.owner_id
         user_service.get_account.assert_awaited_once_with(owner_id)
@@ -203,11 +212,13 @@ class TestDownloadByID:
     async def test(self, ns_use_case: NamespaceUseCase):
         # GIVEN
         file_id = uuid.uuid4()
+        file, chunks = mock.MagicMock(), mock.MagicMock()
         file_service = cast(mock.MagicMock, ns_use_case.file)
+        file_service.download_by_id.return_value = file, chunks
         # WHEN
         result = await ns_use_case.download_by_id(file_id)
         # THEN
-        assert result == file_service.download_by_id.return_value
+        assert result == chunks
         file_service.download_by_id.assert_awaited_once_with(file_id)
 
 
@@ -296,31 +307,17 @@ class TestGetFileThumbnail:
     async def test(self, ns_use_case: NamespaceUseCase):
         # GIVEN
         ns_path, path = "admin", "img.jpeg"
-        file, thumbnail = _make_file(ns_path, path), mock.ANY
+        file = _make_file(ns_path, path)
         file_service = cast(mock.MagicMock, ns_use_case.file)
         file_service.get_by_id.return_value = file
-        file_service.thumbnail.return_value = file, thumbnail
+        thumbnailer = cast(mock.MagicMock, ns_use_case.thumbnailer)
+        thumbnail = thumbnailer.thumbnail.return_value
         # WHEN
         result = await ns_use_case.get_file_thumbnail(ns_path, file.id, size=32)
         # THEN
-        assert result == file_service.thumbnail.return_value
+        assert result == (file, thumbnail)
         file_service.get_by_id.assert_awaited_once_with(ns_path, file.id)
-        file_service.thumbnail.assert_awaited_once_with(
-            file.id, size=32, ns_path=ns_path
-        )
-
-    async def test_when_file_size_exceeds_limit(self, ns_use_case: NamespaceUseCase):
-        # GIVEN
-        ns_path, path = "admin", "img.jpeg"
-        file = _make_file(ns_path, path, size=30 * 2**20)  # 30 MB
-        file_service = cast(mock.MagicMock, ns_use_case.file)
-        file_service.get_by_id.return_value = file
-        # WHEN
-        with pytest.raises(ThumbnailUnavailable):
-            await ns_use_case.get_file_thumbnail(ns_path, file.id, size=32)
-        # THEN
-        file_service.get_by_id.assert_awaited_once_with(ns_path, file.id)
-        file_service.thumbnail.assert_not_awaited()
+        thumbnailer.thumbnail.assert_awaited_once_with(file.id, file.chash, 32)
 
 
 class TestGetItemAtPath:
