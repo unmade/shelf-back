@@ -14,6 +14,7 @@ from app.config import config
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
+    from unittest.mock import MagicMock
 
     from app.app.files.domain import AnyPath, IFileContent
     from app.app.files.services import ThumbnailService
@@ -39,7 +40,7 @@ def _make_file(
         ns_path=ns_path,
         name=path.name,
         path=path,
-        chash=chash or uuid.uuid4().hex,
+        chash=chash if chash is not None else uuid.uuid4().hex,
         size=size,
         mediatype=mediatype,
     )
@@ -83,6 +84,31 @@ class TestGenerateThumbnails:
         ])
         assert storage.save.await_count == 2
 
+    @mock.patch("app.app.files.services.thumbnailer.thumbnails.thumbnail")
+    async def test_when_file_not_thumbnailable(
+        self,
+        thumbnail_mock: MagicMock,
+        thumbnailer: ThumbnailService,
+        image_content: IFileContent,
+    ):
+        # GIVEN
+        sizes = [32, 64, 128]
+        file = _make_file("admin", "im.jpeg", chash="abcdef")
+        filecore = cast(mock.MagicMock, thumbnailer.filecore)
+        filecore.get_by_id.return_value = file
+        filecore.download.return_value = file, _aiter(image_content.file)
+        storage = cast(mock.MagicMock, thumbnailer.storage)
+        storage.exists.return_value = False
+        thumbnail_mock.side_effect = File.ThumbnailUnavailable
+        # WHEN
+        await thumbnailer.generate_thumbnails(file.id, sizes=sizes)
+        # THEN
+        filecore.get_by_id.assert_awaited_once_with(file.id)
+        storage.exists.assert_awaited_once_with(_PREFIX, "ab/cd/ef/abcdef_32.webp")
+        filecore.download.assert_awaited_once_with(file.id)
+        storage.makedirs.assert_not_called()
+        storage.save.assert_not_called()
+
     async def test_when_file_size_exceed_limits(
         self,
         thumbnailer: ThumbnailService,
@@ -111,6 +137,23 @@ class TestGenerateThumbnails:
         # GIVEN
         sizes = [32, 64, 128]
         file = _make_file("admin", "f.txt", mediatype="plain/text")
+        filecore = cast(mock.AsyncMock, thumbnailer.filecore)
+        filecore.get_by_id.return_value = file
+        storage = cast(mock.MagicMock, thumbnailer.storage)
+        # WHEN
+        await thumbnailer.generate_thumbnails(file.id, sizes=sizes)
+        # THEN
+        filecore.get_by_id.assert_awaited_once_with(file.id)
+        storage.exists.assert_not_called()
+        storage.download.assert_not_called()
+        filecore.download.assert_not_called()
+        storage.makedirs.assert_not_called()
+        storage.save.assert_not_called()
+
+    async def test_when_chash_is_empty(self, thumbnailer: ThumbnailService):
+        # GIVEN
+        sizes = [32, 64, 128]
+        file = _make_file("admin", "im.jpeg", chash="")
         filecore = cast(mock.AsyncMock, thumbnailer.filecore)
         filecore.get_by_id.return_value = file
         storage = cast(mock.MagicMock, thumbnailer.storage)
@@ -199,5 +242,20 @@ class TestThumbnail:
         storage.exists.assert_awaited_once()
         storage.download.assert_not_called()
         filecore.download.assert_awaited_once_with(file.id)
+        storage.makedirs.assert_not_called()
+        storage.save.assert_not_called()
+
+    async def test_when_chash_is_empty(self, thumbnailer: ThumbnailService):
+        # GIVEN
+        file, size = _make_file("admin", "im.jpeg", chash=""), 32
+        filecore = cast(mock.AsyncMock, thumbnailer.filecore)
+        storage = cast(mock.MagicMock, thumbnailer.storage)
+        # WHEN
+        with pytest.raises(File.ThumbnailUnavailable):
+            await thumbnailer.thumbnail(file.id, file.chash, size)
+        # THEN
+        storage.exists.assert_not_called()
+        storage.download.assert_not_called()
+        filecore.download.assert_not_called()
         storage.makedirs.assert_not_called()
         storage.save.assert_not_called()

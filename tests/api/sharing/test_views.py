@@ -206,7 +206,7 @@ class TestGetSharedLinkDownloadUrl:
     @mock.patch("app.api.shortcuts.create_download_cache")
     async def test(
         self,
-        download_cache_mock,
+        download_cache_mock: MagicMock,
         client: TestClient,
         sharing_use_case: MagicMock,
     ):
