@@ -8,7 +8,7 @@ from unittest import mock
 import pytest
 
 from app.app.files.domain import File, Path
-from app.app.files.services.file import thumbnails
+from app.app.files.services.thumbnailer import thumbnails
 from app.app.files.services.thumbnailer.thumbnailer import _PREFIX
 from app.config import config
 

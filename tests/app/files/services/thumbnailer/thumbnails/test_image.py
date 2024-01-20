@@ -8,7 +8,7 @@ import pytest
 from PIL import Image
 
 from app.app.files.domain.file import File
-from app.app.files.services.file.thumbnails.image import thumbnail_image
+from app.app.files.services.thumbnailer.thumbnails.image import thumbnail_image
 
 if TYPE_CHECKING:
     from app.app.files.domain import IFileContent

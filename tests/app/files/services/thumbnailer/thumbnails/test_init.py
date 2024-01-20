@@ -4,7 +4,7 @@ from unittest import mock
 
 import pytest
 
-from app.app.files.services.file import thumbnails
+from app.app.files.services.thumbnailer import thumbnails
 
 
 class TestIsSupported:
@@ -22,7 +22,7 @@ class TestThumbnail:
         # GIVEN
         content = mock.MagicMock()
         target_guess = "app.app.files.domain.mediatypes.guess"
-        target_image = "app.app.files.services.file.thumbnails.thumbnail_image"
+        target_image = "app.app.files.services.thumbnailer.thumbnails.thumbnail_image"
         # WHEN
         with (
             mock.patch(target_guess, return_value="plain/text") as guess_mock,
@@ -38,7 +38,7 @@ class TestThumbnail:
         # GIVEN
         content = mock.MagicMock()
         target_guess = "app.app.files.domain.mediatypes.guess"
-        target_image = "app.app.files.services.file.thumbnails.thumbnail_image"
+        target_image = "app.app.files.services.thumbnailer.thumbnails.thumbnail_image"
         # WHEN
         with (
             mock.patch(target_guess, return_value="image/jpeg") as guess_mock,
@@ -54,7 +54,7 @@ class TestThumbnail:
         # GIVEN
         content = mock.MagicMock()
         target_guess = "app.app.files.domain.mediatypes.guess"
-        target_pdf = "app.app.files.services.file.thumbnails.thumbnail_pdf"
+        target_pdf = "app.app.files.services.thumbnailer.thumbnails.thumbnail_pdf"
         # WHEN
         with (
             mock.patch(target_guess, return_value="application/pdf"),
