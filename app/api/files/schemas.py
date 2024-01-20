@@ -23,12 +23,8 @@ if TYPE_CHECKING:
 
 class ThumbnailSize(str, Enum):
     xs = "xs"
-    sm = "sm"
-    md = "md"
     lg = "lg"
-    xl = "xl"
     xxl = "2xl"
-    xxxl = "3xl"
 
     def asint(self) -> int:
         """Return integer representation of a size."""
@@ -36,13 +32,9 @@ class ThumbnailSize(str, Enum):
 
 
 _THUMBNAIL_SIZES = {
-    ThumbnailSize.xs: 64,
-    ThumbnailSize.sm: 128,
-    ThumbnailSize.md: 256,
-    ThumbnailSize.lg: 512,
-    ThumbnailSize.xl: 1024,
-    ThumbnailSize.xxl: 2304,
-    ThumbnailSize.xxxl: 4096,
+    ThumbnailSize.xs: 72,
+    ThumbnailSize.lg: 768,
+    ThumbnailSize.xxl: 2880,
 }
 
 

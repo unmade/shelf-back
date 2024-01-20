@@ -105,7 +105,8 @@ class NamespaceUseCase:
         file = await self.file.create_file(ns_path, path, content)
         await self.dupefinder.track(file.id, content.file)
         await self.metadata.track(file.id, content.file)
-        await self.thumbnailer.generate_thumbnails_async(file.id, sizes=[64, 512, 2304])
+        sizes = config.features.pre_generated_thumbnail_sizes
+        await self.thumbnailer.generate_thumbnails_async(file.id, sizes=sizes)
 
         taskgroups.schedule(self.audit_trail.file_added(file))
         return file

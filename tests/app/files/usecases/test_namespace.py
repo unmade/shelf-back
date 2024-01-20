@@ -73,7 +73,7 @@ class TestAddFile:
         dupefinder.track.assert_awaited_once_with(result.id, content.file)
         metadata.track.assert_awaited_once_with(result.id, content.file)
         thumbnailer.generate_thumbnails_async.assert_awaited_once_with(
-            result.id, sizes=[64, 512, 2304]
+            result.id, sizes=config.features.pre_generated_thumbnail_sizes
         )
 
         owner_id = ns_service.get_by_path.return_value.owner_id
@@ -106,7 +106,7 @@ class TestAddFile:
         dupefinder.track.assert_awaited_once_with(result.id, content.file)
         metadata.track.assert_awaited_once_with(result.id, content.file)
         thumbnailer.generate_thumbnails_async.assert_awaited_once_with(
-            result.id, sizes=[64, 512, 2304]
+            result.id, sizes=config.features.pre_generated_thumbnail_sizes
         )
 
         owner_id = ns_service.get_by_path.return_value.owner_id

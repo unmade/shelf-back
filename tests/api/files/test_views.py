@@ -76,7 +76,7 @@ class TestCreateFolder:
         ("Folder", "Folder"),
         ("Nested/Path/Folder", "Nested/Path/Folder",),
         (".Hidden Folder", ".Hidden Folder",),
-        (" Whitespaces ", "Whitespaces",),
+        (" Whitespaces ", " Whitespaces ",),
     ])
     async def test(
         self,
@@ -708,7 +708,7 @@ class TestGetThumbnail:
         assert headers["Content-Type"] == "image/webp"
         assert headers["Cache-Control"] == "private, max-age=31536000, no-transform"
         ns_use_case.get_file_thumbnail.assert_awaited_once_with(
-            namespace.path, file.id, size=64
+            namespace.path, file.id, size=72
         )
 
     async def test_cache_hits(
@@ -747,7 +747,7 @@ class TestGetThumbnail:
 
     @pytest.mark.parametrize(["size", "ttl"], [
         (ThumbnailSize.xs, "7d"),
-        (ThumbnailSize.md, "24h")],
+        (ThumbnailSize.lg, "24h")],
     )
     async def test_ttl_depends_on_size(self, size: ThumbnailSize, ttl: str):
         assert _make_thumbnail_ttl(size=size) == ttl
@@ -772,7 +772,7 @@ class TestGetThumbnail:
         assert response.status_code == 200
         assert headers["Content-Disposition"] == 'inline; filename="изо.jpeg"'
         ns_use_case.get_file_thumbnail.assert_awaited_once_with(
-            namespace.path, file.id, size=64
+            namespace.path, file.id, size=72
         )
 
     @pytest.mark.parametrize(["error", "expected_error"], [

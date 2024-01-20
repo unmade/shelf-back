@@ -48,7 +48,7 @@ router = APIRouter()
 
 
 def _make_thumbnail_ttl(*args, size: ThumbnailSize, **kwargs) -> str:
-    if size.asint() < ThumbnailSize.sm.asint():
+    if size.asint() == ThumbnailSize.xs.asint():
         return "7d"
     return "24h"
 
