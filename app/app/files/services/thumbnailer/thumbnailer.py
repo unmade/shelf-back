@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 __all__ = ["ThumbnailService"]
 
+_LOCK_KEY = "generate_thumbnails:{content_hash}:{size}"
 _PREFIX = "thumbs"
 
 
@@ -33,7 +34,7 @@ class ThumbnailService:
 
     @staticmethod
     def _lock_id(content_hash: str, size: int) -> str:
-        return f"generate_thumbnails:{content_hash}:{size}"
+        return _LOCK_KEY.format(content_hash=content_hash, size=size)
 
     @staticmethod
     def _make_path(content_hash: str, size: int) -> str:
@@ -49,6 +50,9 @@ class ThumbnailService:
         """Generates a set of thumbnails for the specified sizes."""
         file = await self.filecore.get_by_id(file_id)
         if file.size > config.features.max_file_size_to_thumbnail:
+            return
+
+        if not file.chash:
             return
 
         if not thumbnails.is_supported(file.mediatype):
@@ -67,11 +71,11 @@ class ThumbnailService:
                     _, chunks = await self.filecore.download(file_id)
                     content = BytesIO(b"".join([chunk async for chunk in chunks]))
 
-                # try:
                 content.seek(0)
-                thumbnail = await thumbnails.thumbnail(content, size=size)
-                # except File.ThumbnailUnavailable:
-                    # return
+                try:
+                    thumbnail = await thumbnails.thumbnail(content, size=size)
+                except File.ThumbnailUnavailable:
+                    return
 
                 await self.storage.makedirs(_PREFIX, os.path.dirname(path))
                 await self.storage.save(_PREFIX, path, InMemoryFileContent(thumbnail))
@@ -82,6 +86,7 @@ class ThumbnailService:
         """Generates a set of thumbnails in a worker."""
         await self.worker.enqueue("generate_file_thumbnails", file_id, sizes)
 
+    @cache.lock(_LOCK_KEY, expire=30)
     async def thumbnail(self, file_id: UUID, content_hash: str, size: int) -> bytes:
         """
         Returns a thumbnail for a given file ID. If thumbnail doesn't exist,
@@ -93,6 +98,9 @@ class ThumbnailService:
             File.ThumbnailUnavailable: If thumbnail can't be generated for a file.
         """
         path = self._make_path(content_hash, size)
+        if not content_hash:
+            raise File.ThumbnailUnavailable() from None
+
         if await self.storage.exists(_PREFIX, path):
             chunks = self.storage.download(_PREFIX, path)
             return b"".join([chunk async for chunk in chunks])
@@ -101,10 +109,8 @@ class ThumbnailService:
         if file.size > config.features.max_file_size_to_thumbnail:
             raise File.ThumbnailUnavailable() from None
 
-        lock_id = self._lock_id(content_hash, size)
-        async with cache.lock(lock_id, expire=30, wait=True):
-            content = BytesIO(b"".join([chunk async for chunk in chunks]))
-            thumb = await thumbnails.thumbnail(content, size=size)
-            await self.storage.makedirs(_PREFIX, os.path.dirname(path))
-            await self.storage.save(_PREFIX, path, InMemoryFileContent(thumb))
-            return thumb
+        content = BytesIO(b"".join([chunk async for chunk in chunks]))
+        thumb = await thumbnails.thumbnail(content, size=size)
+        await self.storage.makedirs(_PREFIX, os.path.dirname(path))
+        await self.storage.save(_PREFIX, path, InMemoryFileContent(thumb))
+        return thumb

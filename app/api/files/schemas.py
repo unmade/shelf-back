@@ -47,8 +47,7 @@ _THUMBNAIL_SIZES = {
 
 
 def _normalize(path: str) -> str:
-    path = path.strip()
-    if not path:
+    if not path.strip():
         raise MalformedPath("Path should not be empty")
     symbols = ["..", "~", "/"]
     for symbol in symbols:
