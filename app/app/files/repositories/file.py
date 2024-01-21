@@ -80,15 +80,16 @@ class IFileRepository(Protocol):
     ) -> None:
         """Increments size for specified paths."""
 
-    async def list_by_mediatypes(
+    async def list_files(
         self,
         ns_path: AnyPath,
-        mediatypes: Sequence[str],
         *,
+        included_mediatypes: Sequence[str] | None = None,
+        excluded_mediatypes: Sequence[str] | None = None,
         offset: int,
         limit: int = 25,
     ) -> list[File]:
-        """Lists all files of a given mediatypes."""
+        """Lists all files in the given namespace."""
 
     async def list_with_prefix(
         self, ns_path: AnyPath, prefix: AnyPath

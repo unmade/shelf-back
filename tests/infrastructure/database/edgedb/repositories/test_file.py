@@ -269,32 +269,47 @@ class TestIncrSizeBatch:
         await file_repo.incr_size_batch("namespace", paths=["a/b"], value=0)
 
 
-class TestListByMediatypes:
-    async def test_list_by_mediatypes(
+class TestListFiles:
+    async def test(
         self, file_repo: FileRepository, file_factory: FileFactory, namespace: Namespace
     ):
+        # GIVEN
         ns_path = namespace.path
-        await file_factory(ns_path, "f.txt", mediatype="plain/text")
+        txt = await file_factory(ns_path, "f.txt", mediatype="plain/text")
         jpg = await file_factory(ns_path, "jpgs/img.jpg", mediatype="image/jpeg")
         png = await file_factory(ns_path, "pngs/img.png", mediatype="image/png")
-        mediatypes = ["image/jpeg", "image/png"]
-        files = await file_repo.list_by_mediatypes(ns_path, mediatypes, offset=0)
+        mediatypes = ["plain/text"]
+        # WHEN
+        files = await file_repo.list_files(ns_path, offset=0)
+        # THEN
+        assert len(files) == 3
+        assert sorted(files, key=operator.attrgetter("mtime")) == [txt, jpg, png]
+
+        # WHEN
+        files = await file_repo.list_files(
+            ns_path, included_mediatypes=mediatypes, offset=0
+        )
+        # THEN
+        assert len(files) == 1
+        assert sorted(files, key=operator.attrgetter("mtime")) == [txt]
+
+        # WHEN
+        files = await file_repo.list_files(
+            ns_path, excluded_mediatypes=mediatypes, offset=0
+        )
+        # THEN
+        assert len(files) == 2
         assert sorted(files, key=operator.attrgetter("mtime")) == [jpg, png]
 
-    async def test_list_by_mediatypes_with_limit_offset(
+    async def test_limit_offset(
         self, file_repo: FileRepository, file_factory: FileFactory, namespace: Namespace
     ):
         ns_path = namespace.path
         jpg = await file_factory(ns_path, "jpgs/img.jpg", mediatype="image/jpeg")
         png = await file_factory(ns_path, "pngs/img.png", mediatype="image/png")
 
-        mediatypes = ["image/jpeg", "image/png"]
-        files_a = await file_repo.list_by_mediatypes(
-            ns_path, mediatypes, offset=0, limit=1,
-        )
-        files_b = await file_repo.list_by_mediatypes(
-            ns_path, mediatypes, offset=1, limit=1,
-        )
+        files_a = await file_repo.list_files(ns_path, offset=0, limit=1)
+        files_b = await file_repo.list_files(ns_path, offset=1, limit=1)
         assert len(files_a) == 1
         assert len(files_b) == 1
         actual = sorted([files_a[0], files_b[0]], key=operator.attrgetter("mtime"))

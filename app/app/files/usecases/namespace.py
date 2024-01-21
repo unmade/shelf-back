@@ -11,6 +11,7 @@ from app.app.files.services.metadata import readers as metadata_readers
 from app.app.users.domain import Account
 from app.config import config
 from app.toolkit import taskgroups, timezone
+from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -321,22 +322,28 @@ class NamespaceUseCase:
         Restores additional information about files, such as fingerprint and content
         metadata.
         """
+        def get_trackers(mediatype):
+            if mediatype in types:
+                return [dupefinder_tracker, metadata_tracker, chasher]
+            return [chasher]
+
+        types = tuple(dhash.SUPPORTED_TYPES | metadata_readers.SUPPORTED_TYPES)
         ns_path = str(ns_path)
         batch_size = 500
-        types = tuple(dhash.SUPPORTED_TYPES | metadata_readers.SUPPORTED_TYPES)
-        batches = self.file.filecore.iter_by_mediatypes(
-            ns_path, mediatypes=types, batch_size=batch_size
+        batches = self.file.filecore.iter_files(
+            ns_path, excluded_mediatypes=[MediaType.FOLDER], batch_size=batch_size
         )
 
         async for files in batches:
             async with (
                 self.dupefinder.track_batch() as dupefinder_tracker,
                 self.metadata.track_batch() as metadata_tracker,
+                self.file.filecore.chash_batch() as chasher,
             ):
                 await taskgroups.gather(*(
                     self._reindex_content(
                         file,
-                        trackers=[dupefinder_tracker, metadata_tracker],
+                        trackers=get_trackers(file.mediatype),
                     )
                     for file in files
                 ))

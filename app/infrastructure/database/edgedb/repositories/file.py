@@ -308,36 +308,49 @@ class FileRepository(IFileRepository):
             size=value,
         )
 
-    async def list_by_mediatypes(
+    async def list_files(
         self,
         ns_path: AnyPath,
-        mediatypes: Sequence[str],
         *,
+        included_mediatypes: Sequence[str] | None = None,
+        excluded_mediatypes: Sequence[str] | None = None,
         offset: int,
         limit: int = 25,
     ) -> list[File]:
-        query = """
+        """Lists all files in the given namespace."""
+        kwargs = {
+            "namespace": str(ns_path),
+            "offset": offset,
+            "limit": limit,
+        }
+
+        filter_clauses = [".namespace.path = <str>$namespace"]
+        if included_mediatypes:
+            filter_clauses.append(
+                ".mediatype.name IN {array_unpack(<array<str>>$included_types)}"
+            )
+            kwargs["included_types"] = included_mediatypes
+
+        if excluded_mediatypes:
+            filter_clauses.append(
+                ".mediatype.name NOT IN {array_unpack(<array<str>>$excluded_types)}"
+            )
+            kwargs["excluded_types"] = excluded_mediatypes
+
+        query = f"""
             SELECT
-                File {
-                    id, name, path, chash, size, mtime, mediatype: { name },
-                }
+                File {{
+                    id, name, path, chash, size, mtime, mediatype: {{ name }},
+                }}
             FILTER
-                .namespace.path = <str>$namespace
-                AND
-                .mediatype.name IN {array_unpack(<array<str>>$mediatypes)}
+                {" AND ".join(filter_clauses)}
             OFFSET
                 <int64>$offset
             LIMIT
                 <int64>$limit
         """
 
-        files = await self.conn.query(
-            query,
-            namespace=str(ns_path),
-            mediatypes=mediatypes,
-            offset=offset,
-            limit=limit,
-        )
+        files = await self.conn.query(query, **kwargs)
         return [_from_db(str(ns_path), file) for file in files]
 
     async def list_with_prefix(
