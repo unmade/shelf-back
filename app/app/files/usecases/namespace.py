@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import itertools
-from io import BytesIO
+from tempfile import SpooledTemporaryFile
 from typing import IO, TYPE_CHECKING, AsyncIterator, Iterator, Protocol
 
 from app.app.files.domain import AnyFile, File, Path
@@ -343,6 +343,9 @@ class NamespaceUseCase:
 
     async def _reindex_content(self, file: File, trackers: list[ITracker]) -> None:
         _, chunks = await self.file.filecore.download(file.id)
-        content = BytesIO(b"".join([chunk async for chunk in chunks]))
-        for tracker in trackers:
-            await tracker.add(file.id, content)
+        with SpooledTemporaryFile() as content:
+            async for chunk in chunks:
+                content.write(chunk)
+
+            for tracker in trackers:
+                await tracker.add(file.id, content)
