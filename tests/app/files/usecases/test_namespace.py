@@ -25,7 +25,9 @@ async def _aiter(content: IO[bytes]) -> AsyncIterator[bytes]:
         yield chunk
 
 
-def _make_file(ns_path: str, path: AnyPath, size: int = 10) -> File:
+def _make_file(
+    ns_path: str, path: AnyPath, size: int = 10, mediatype: str = "image/jpeg"
+) -> File:
     return File(
         id=uuid.uuid4(),
         ns_path=ns_path,
@@ -33,7 +35,7 @@ def _make_file(ns_path: str, path: AnyPath, size: int = 10) -> File:
         path=Path(path),
         chash=uuid.uuid4().hex,
         size=size,
-        mediatype="image/jpeg",
+        mediatype=mediatype,
     )
 
 
@@ -445,17 +447,20 @@ class TestReindexContents:
     async def test(self, ns_use_case: NamespaceUseCase, image_content: IFileContent):
         # GIVEN
         ns_path = "admin"
-        jpg_1 = _make_file(ns_path, "a/b/img (1).jpeg")
-        jpg_2 = _make_file(ns_path, "a/b/img (2).jpeg")
+        txt = _make_file(ns_path, "f.txt", mediatype="plain/text")
+        jpg_1 = _make_file(ns_path, "a/b/img (1).jpeg", mediatype="image/jpeg")
+        jpg_2 = _make_file(ns_path, "a/b/img (2).jpeg", mediatype="image/jpeg")
 
-        async def iter_by_mediatypes_result():
+        async def iter_files_result():
+            yield [txt]
             yield [jpg_1]
             yield [jpg_2]
 
         file_service = cast(mock.MagicMock, ns_use_case.file)
         filecore = file_service.filecore
-        filecore.iter_by_mediatypes.return_value = iter_by_mediatypes_result()
+        filecore.iter_files.return_value = iter_files_result()
         filecore.download.side_effect = [
+            (txt, _aiter(image_content.file)),
             (jpg_1, _aiter(image_content.file)),
             (jpg_2, _aiter(image_content.file)),
         ]
@@ -466,8 +471,10 @@ class TestReindexContents:
         await ns_use_case.reindex_contents(ns_path)
 
         # THEN
-        filecore.iter_by_mediatypes.assert_called_once()
+        filecore.iter_files.assert_called_once()
         dupefinder_tracker = dupefinder.track_batch.return_value.__aenter__.return_value
         assert len(dupefinder_tracker.mock_calls) == 2
         metadata_tracker = meta_service.track_batch.return_value.__aenter__.return_value
         assert len(metadata_tracker.mock_calls) == 2
+        chasher = filecore.chash_batch.return_value.__aenter__.return_value
+        assert len(chasher.mock_calls) == 3

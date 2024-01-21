@@ -11,6 +11,8 @@ from app.app.files.domain import File, Path, mediatypes
 from app.toolkit import chash, taskgroups
 
 if TYPE_CHECKING:
+    from unittest.mock import MagicMock
+
     from app.app.files.domain import AnyPath, IFileContent, Namespace
     from app.app.files.services.file import FileCoreService
     from tests.fixtures.app.files import ContentFactory
@@ -39,6 +41,34 @@ def _make_file(
         size=size,
         mediatype=mediatype,
     )
+
+
+@mock.patch("app.app.files.services.file.filecore.chash.chash")
+class TestCHashBatch:
+    async def test(
+        self,
+        chash: MagicMock,
+        filecore: FileCoreService,
+        image_content: IFileContent,
+    ):
+        # GIVEN
+        file_ids = [uuid.uuid4() for _ in range(3)]
+        chahes = [uuid.uuid4().hex, "", uuid.uuid4().hex]
+        chash.side_effect = chahes
+        # WHEN
+        with mock.patch.object(filecore.db.file, "set_chash_batch") as db_mock:
+            async with filecore.chash_batch() as chasher:
+                await chasher.add(file_ids[0], image_content.file)
+                await chasher.add(file_ids[1], image_content.file)
+                await chasher.add(file_ids[2], image_content.file)
+        # THEN
+        items = list(zip(file_ids, chahes, strict=False))
+        db_mock.assert_awaited_once_with(items)
+        chash.assert_has_calls([
+            mock.call(image_content.file),
+            mock.call(image_content.file),
+            mock.call(image_content.file),
+        ])
 
 
 class TestCreateFile:
@@ -453,8 +483,8 @@ class TestGetByPath:
         db.file.get_by_path.assert_awaited_once_with(ns_path, path)
 
 
-class TestIterByMediatypes:
-    async def test_iter_by_mediatypes(
+class TestIterFiles:
+    async def test(
         self,
         filecore: FileCoreService,
         file_factory: FileFactory,
@@ -468,21 +498,25 @@ class TestIterByMediatypes:
         jpg_2 = await file_factory(ns_path, "img (2).jpg", content=image_content)
         mediatypes = ["image/jpeg"]
         # WHEN
-        batches = filecore.iter_by_mediatypes(ns_path, mediatypes, batch_size=1)
+        batches = filecore.iter_files(
+            ns_path, included_mediatypes=mediatypes, batch_size=1
+        )
         result = [files async for files in batches]
         # THEN
         assert len(result) == 2
         actual = [*result[0], *result[1]]
         assert sorted(actual, key=operator.attrgetter("mtime")) == [jpg_1, jpg_2]
 
-    async def test_iter_by_mediatypes_when_no_files(
+    async def test_when_no_files(
         self, filecore: FileCoreService, namespace: Namespace
     ):
         # GIVEN
         ns_path = namespace.path
         mediatypes = ["image/jpeg", "image/png"]
         # WHEN
-        batches = filecore.iter_by_mediatypes(ns_path, mediatypes, batch_size=1)
+        batches = filecore.iter_files(
+            ns_path, included_mediatypes=mediatypes, batch_size=1
+        )
         result = [files async for files in batches]
         # THEN
         assert result == []

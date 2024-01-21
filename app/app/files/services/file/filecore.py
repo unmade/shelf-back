@@ -4,7 +4,7 @@ import asyncio
 import contextlib
 import itertools
 from collections import deque
-from typing import TYPE_CHECKING, Iterator
+from typing import IO, TYPE_CHECKING, Iterator
 
 from app.app.files.domain import File, Path, mediatypes
 from app.app.files.repositories.file import FileUpdate
@@ -32,6 +32,21 @@ if TYPE_CHECKING:
 __all__ = ["FileCoreService"]
 
 
+class _ContentHashTracker:
+    __slots__ = ["_items"]
+
+    def __init__(self):
+        self._items: list[tuple[UUID, str]] = []
+
+    @property
+    def items(self) -> list[tuple[UUID, str]]:
+        return self._items
+
+    async def add(self, file_id: UUID, content: IO[bytes]) -> None:
+        content_hash = chash.chash(content)
+        self._items.append((file_id, content_hash))
+
+
 class FileCoreService:
     """
     A service with file manipulation primitives.
@@ -44,6 +59,18 @@ class FileCoreService:
     def __init__(self, database: IServiceDatabase, storage: IStorage):
         self.db = database
         self.storage = storage
+
+    @contextlib.asynccontextmanager
+    async def chash_batch(self) -> AsyncIterator[_ContentHashTracker]:
+        """
+        A context manager to calculate content hash for multiple files and update it
+        in bulk.
+        """
+        tracker = _ContentHashTracker()
+        try:
+            yield tracker
+        finally:
+            await self.db.file.set_chash_batch(tracker.items)
 
     async def create_file(
         self, ns_path: AnyPath, path: AnyPath, content: IFileContent
@@ -240,21 +267,26 @@ class FileCoreService:
         """
         return await self.db.file.get_by_path(ns_path, path)
 
-    async def iter_by_mediatypes(
+    async def iter_files(
         self,
         ns_path: AnyPath,
-        mediatypes: Sequence[str],
         *,
+        included_mediatypes: Sequence[str] | None = None,
+        excluded_mediatypes: Sequence[str] | None = None,
         batch_size: int = 25,
     ) -> AsyncIterator[list[File]]:
-        """Iterates through all files of a given mediatypes in batches."""
+        """Iterates through all files in batches in the specified namespace."""
         limit = batch_size
         offset = -limit
 
         while True:
             offset += limit
-            files = await self.db.file.list_by_mediatypes(
-                ns_path, mediatypes, offset=offset, limit=limit
+            files = await self.db.file.list_files(
+                ns_path,
+                included_mediatypes=included_mediatypes,
+                excluded_mediatypes=excluded_mediatypes,
+                offset=offset,
+                limit=limit,
             )
             if not files:
                 return
