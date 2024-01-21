@@ -521,6 +521,32 @@ class TestSaveBatch:
         await file_repo.save_batch([])
 
 
+class TestSetCHashBatch:
+    async def test(
+        self,
+        file_repo: FileRepository,
+        file_factory: FileFactory,
+        namespace: Namespace,
+    ):
+        # GIVEN
+        files = [
+            await file_factory(namespace.path),
+            await file_factory(namespace.path),
+        ]
+        chashes = [uuid.uuid4().hex, uuid.uuid4().hex]
+        items = [
+            (files[0].id, chashes[0]),
+            (files[1].id, chashes[1]),
+        ]
+        # WHEN
+        await file_repo.set_chash_batch(items)
+        # THEN
+        file = await _get_by_id(files[0].id)
+        assert file.chash == chashes[0]
+        file = await _get_by_id(files[1].id)
+        assert file.chash == chashes[1]
+
+
 class TestUpdate:
     async def test(self, file_repo: FileRepository, file: File):
         file_update = FileUpdate(

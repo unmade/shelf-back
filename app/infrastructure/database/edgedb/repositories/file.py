@@ -17,6 +17,7 @@ from app.app.files.domain.path import Path
 from app.app.files.repositories import IFileRepository
 from app.app.files.repositories.file import FileUpdate
 from app.infrastructure.database.edgedb import autocast
+from app.toolkit import json_
 
 from .file_member import ActionFlag
 
@@ -528,6 +529,32 @@ class FileRepository(IFileRepository):
         mediatypes = [file.mediatype for file in files]
         await self._create_missing_mediatypes(mediatypes)
         await self.conn.query(query, files=data)
+
+    async def set_chash_batch(self, items: Iterable[tuple[UUID, str]]) -> None:
+        query = """
+            WITH
+                entries := array_unpack(<array<json>>$entries),
+            FOR entry IN {entries}
+            UNION (
+                UPDATE File
+                FILTER
+                    .id = <uuid>entry['file_id']
+                SET {
+                    chash := <str>entry['chash'],
+                }
+            )
+        """
+
+        await self.conn.query(
+            query,
+            entries=[
+                json_.dumps({
+                    "file_id": str(file_id),
+                    "chash": chash,
+                })
+                for file_id, chash in items
+            ],
+        )
 
     async def update(self, file: File, fields: FileUpdate) -> File:
         ns_path = fields.pop("ns_path", file.ns_path)
