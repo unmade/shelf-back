@@ -24,7 +24,7 @@ from app.app.files.services import (
     ThumbnailService,
 )
 from app.app.files.services.file import FileCoreService, MountService
-from app.app.infrastructure import IStorage, IWorker
+from app.app.infrastructure import IIndexerClient, IStorage, IWorker
 from app.app.users.repositories import IUserRepository
 from app.app.users.services import BookmarkService, UserService
 from app.toolkit import security
@@ -70,6 +70,7 @@ def content_service():
     return ContentService(
         dupefinder=mock.MagicMock(DuplicateFinderService),
         filecore=mock.MagicMock(FileCoreService),
+        indexer=mock.MagicMock(IIndexerClient),
         metadata=mock.MagicMock(MetadataService),
         thumbnailer=mock.MagicMock(ThumbnailService),
         worker=mock.MagicMock(IWorker),

@@ -164,6 +164,11 @@ class FileSystemStorageConfig(BaseModel):
     fs_location: str
 
 
+class IndexerClientConfig(BaseModel):
+    url: AnyHttpUrl | None = None
+    timeout: float = 10.0
+
+
 class S3StorageConfig(BaseModel):
     type: Literal[StorageType.s3] = StorageType.s3
     quota: BytesSize | None = None
@@ -203,6 +208,7 @@ class AppConfig(BaseSettings):
     cors: CORSConfig
     database: DatabaseConfig
     features: FeatureConfig = FeatureConfig()
+    indexer: IndexerClientConfig = IndexerClientConfig()
     sentry: SentryConfig = SentryConfig()
     storage: StorageConfig
     worker: WorkerConfig

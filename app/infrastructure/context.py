@@ -24,21 +24,23 @@ from app.app.photos.usecases import PhotosUseCase
 from app.app.users.services import BookmarkService, UserService
 from app.app.users.usecases import UserUseCase
 from app.cache import cache
-from app.config import (
-    DatabaseConfig,
-    FileSystemStorageConfig,
-    S3StorageConfig,
-    StorageConfig,
-    WorkerConfig,
-)
+from app.config import FileSystemStorageConfig, S3StorageConfig
+from app.infrastructure.clients.indexer import IndexerClient
 from app.infrastructure.database.edgedb import EdgeDBDatabase
 from app.infrastructure.storage import FileSystemStorage, S3Storage
 from app.infrastructure.worker import ARQWorker
 from app.toolkit import taskgroups
 
 if TYPE_CHECKING:
-    from app.app.infrastructure import IStorage, IWorker
+    from app.app.infrastructure import IIndexerClient, IStorage, IWorker
     from app.app.infrastructure.database import ITransaction
+    from app.config import (
+        AppConfig,
+        DatabaseConfig,
+        IndexerClientConfig,
+        StorageConfig,
+        WorkerConfig,
+    )
 
 __all__ = [
     "AppContext",
@@ -49,14 +51,9 @@ __all__ = [
 class AppContext:
     __slots__ = ["usecases", "_infra", "_stack"]
 
-    def __init__(
-        self,
-        db_config: DatabaseConfig,
-        storage_config: StorageConfig,
-        worker_config: WorkerConfig,
-    ):
+    def __init__(self, config: AppConfig):
         self._stack = AsyncExitStack()
-        self._infra = Infrastructure(db_config, storage_config, worker_config)
+        self._infra = Infrastructure(config)
         services = Services(self._infra)
         self.usecases = UseCases(services)
 
@@ -70,25 +67,25 @@ class AppContext:
 
 
 class Infrastructure:
-    __slots__ = ["database", "storage", "worker", "_stack"]
+    __slots__ = ["database", "indexer", "storage", "worker", "_stack"]
 
-    def __init__(
-        self,
-        db_config: DatabaseConfig,
-        storage_config: StorageConfig,
-        worker_config: WorkerConfig,
-    ):
-        self.database = self._get_database(db_config)
-        self.storage = self._get_storage(storage_config)
-        self.worker = self._get_worker(worker_config)
+    def __init__(self, config: AppConfig):
+        self.database = self._get_database(config.database)
+        self.storage = self._get_storage(config.storage)
+        self.indexer = self._get_indexer(config.indexer)
+        self.worker = self._get_worker(config.worker)
         self._stack = AsyncExitStack()
 
     async def __aenter__(self) -> Self:
-        await taskgroups.gather(
+        ctx = [
             self._stack.enter_async_context(self.database),
             self._stack.enter_async_context(self.storage),
             self._stack.enter_async_context(self.worker),
-        )
+        ]
+        if self.indexer is not None:
+            ctx.append(self._stack.enter_async_context(self.indexer))
+
+        await taskgroups.gather(*ctx)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -97,6 +94,12 @@ class Infrastructure:
     @staticmethod
     def _get_database(db_config: DatabaseConfig) -> EdgeDBDatabase:
         return EdgeDBDatabase(db_config)
+
+    @staticmethod
+    def _get_indexer(indexer_config: IndexerClientConfig) -> IIndexerClient | None:
+        if indexer_config.url is None:
+            return None
+        return IndexerClient(indexer_config)
 
     @staticmethod
     def _get_storage(storage_config: StorageConfig) -> IStorage:
@@ -157,6 +160,7 @@ class Services:
         self.content = ContentService(
             dupefinder=self.dupefinder,
             filecore=self.filecore,
+            indexer=infra.indexer,
             metadata=self.metadata,
             thumbnailer=self.thumbnailer,
             worker=worker,

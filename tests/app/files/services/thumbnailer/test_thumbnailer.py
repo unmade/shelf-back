@@ -54,6 +54,13 @@ async def image_thumbnail(image_content: IFileContent) -> bytes:
     return thumbnail
 
 
+class TestGetStoragePath:
+    async def test(self, thumbnailer: ThumbnailService):
+        chash, size = "abcdef", 72
+        path = thumbnailer.get_storage_path(chash, size)
+        assert path == "thumbs/ab/cd/ef/abcdef_72.webp"
+
+
 class TestGenerateThumbnails:
     async def test(
         self,

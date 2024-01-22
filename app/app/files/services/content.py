@@ -5,7 +5,7 @@ from typing import IO, TYPE_CHECKING, Protocol
 
 from app.app.files.services.dupefinder import dhash
 from app.app.files.services.metadata import readers as metadata_readers
-from app.config import config
+from app.config import ThumbnailSize, config
 from app.toolkit import taskgroups
 from app.toolkit.mediatypes import MediaType
 
@@ -19,6 +19,7 @@ if TYPE_CHECKING:
         ThumbnailService,
     )
     from app.app.files.services.file import FileCoreService
+    from app.app.infrastructure import IIndexerClient
     from app.app.infrastructure.worker import IWorker
 
     class ITracker(Protocol):
@@ -27,12 +28,15 @@ if TYPE_CHECKING:
 
 
 class ContentService:
-    __slots__ = ("dupefinder", "filecore", "metadata", "thumbnailer", "worker")
+    __slots__ = (
+        "dupefinder", "filecore", "indexer", "metadata", "thumbnailer", "worker"
+    )
 
     def __init__(
         self,
         dupefinder: DuplicateFinderService,
         filecore: FileCoreService,
+        indexer: IIndexerClient | None,
         metadata: MetadataService,
         thumbnailer: ThumbnailService,
         worker: IWorker,
@@ -40,6 +44,7 @@ class ContentService:
         self.dupefinder = dupefinder
         self.filecore = filecore
         self.metadata = metadata
+        self.indexer = indexer
         self.thumbnailer = thumbnailer
         self.worker = worker
 
@@ -57,6 +62,11 @@ class ContentService:
                 file_id,
                 sizes=config.features.pre_generated_thumbnail_sizes,
             )
+            if self.indexer is not None:
+                size = ThumbnailSize.lg
+                storage_path = self.thumbnailer.get_storage_path(file.chash, size)
+                taskgroups.schedule(self.indexer.track(file.id, storage_path))
+
             await self.dupefinder.track(file.id, content)
             await self.metadata.track(file.id, content)
 

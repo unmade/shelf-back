@@ -18,9 +18,12 @@ class TestInfrastructure:
     async def test_as_context_manager(
         self, edgedb_config, fs_storage_config, arq_worker_config
     ):
-        async with Infrastructure(
-            edgedb_config, fs_storage_config, arq_worker_config
-        ) as infra:
+        config = mock.MagicMock(
+            database=edgedb_config,
+            storage=fs_storage_config,
+            worker=arq_worker_config,
+        )
+        async with Infrastructure(config) as infra:
             assert isinstance(infra, Infrastructure)
 
     @pytest.mark.parametrize(["config_name", "database_cls"], [

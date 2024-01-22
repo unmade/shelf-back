@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 
 async def startup(ctx: ARQContext):
-    app_ctx = AppContext(config.database, config.storage, config.worker)
+    app_ctx = AppContext(config)
     ctx["_stack"] = AsyncExitStack()
     await ctx["_stack"].enter_async_context(app_ctx)
     ctx["usecases"] = app_ctx.usecases

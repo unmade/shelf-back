@@ -31,7 +31,7 @@ class Lifespan:
 
     def __init__(self):
         # instantiate database synchronously to correctly set context vars
-        self.ctx = AppContext(config.database, config.storage, config.worker)
+        self.ctx = AppContext(config)
 
     @contextlib.asynccontextmanager
     async def __call__(self, app: FastAPI) -> AsyncIterator[State]:

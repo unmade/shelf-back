@@ -43,6 +43,8 @@ class NamespaceUseCase:
         "_services",
         "_worker",
 
+        "_imagesearch",
+
         "audit_trail",
         "content",
         "dupefinder",
