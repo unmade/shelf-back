@@ -45,6 +45,10 @@ class ThumbnailService:
         ]
         return "/".join(parts)
 
+    @classmethod
+    def get_storage_path(cls, content_hash: str, size: int) -> str:
+        return f"{_PREFIX}/{cls._make_path(content_hash, size)}"
+
     async def generate_thumbnails(self, file_id: UUID, sizes: Iterable[int]) -> None:
         """Generates a set of thumbnails for the specified sizes."""
         file = await self.filecore.get_by_id(file_id)
@@ -79,7 +83,7 @@ class ThumbnailService:
                 await self.storage.makedirs(_PREFIX, os.path.dirname(path))
                 await self.storage.save(_PREFIX, path, InMemoryFileContent(thumbnail))
 
-    @cache.lock(_LOCK_KEY, expire=30)
+    @cache.locked(key=_LOCK_KEY, ttl=30)
     async def thumbnail(self, file_id: UUID, content_hash: str, size: int) -> bytes:
         """
         Returns a thumbnail for a given file ID. If thumbnail doesn't exist,
