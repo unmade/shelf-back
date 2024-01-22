@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from enum import Enum
+import enum
 from os.path import normpath
 from typing import TYPE_CHECKING, Annotated, Literal, Self
 from uuid import UUID
@@ -10,6 +10,7 @@ from pydantic import BaseModel, RootModel, field_validator, model_validator
 from pydantic.functional_validators import AfterValidator
 
 from app.app.files.services.thumbnailer import thumbnails
+from app.config import ThumbnailSize as AppThumbnailSize
 from app.worker.jobs.files import ErrorCode as TaskErrorCode
 
 from .exceptions import FileAlreadyDeleted, MalformedPath
@@ -21,10 +22,10 @@ if TYPE_CHECKING:
     from app.worker.jobs.files import FileTaskResult
 
 
-class ThumbnailSize(str, Enum):
-    xs = "xs"
-    lg = "lg"
-    xxl = "2xl"
+class ThumbnailSize(enum.StrEnum):
+    xs = enum.auto()
+    lg = enum.auto()
+    xxl = enum.auto()
 
     def asint(self) -> int:
         """Return integer representation of a size."""
@@ -32,9 +33,9 @@ class ThumbnailSize(str, Enum):
 
 
 _THUMBNAIL_SIZES = {
-    ThumbnailSize.xs: 72,
-    ThumbnailSize.lg: 768,
-    ThumbnailSize.xxl: 2880,
+    ThumbnailSize.xs: AppThumbnailSize.xs,
+    ThumbnailSize.lg: AppThumbnailSize.lg,
+    ThumbnailSize.xxl: AppThumbnailSize.xxl,
 }
 
 
@@ -96,9 +97,9 @@ class AsyncTaskID(BaseModel):
     async_task_id: str
 
 
-class AsyncTaskStatus(str, Enum):
-    pending = "pending"
-    completed = "completed"
+class AsyncTaskStatus(enum.StrEnum):
+    pending = enum.auto()
+    completed = enum.auto()
 
 
 class AsyncTaskResult(BaseModel):

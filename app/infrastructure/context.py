@@ -15,6 +15,7 @@ from app.app.files.services import (
     SharingService,
     ThumbnailService,
 )
+from app.app.files.services.content import ContentService
 from app.app.files.services.file import FileCoreService, MountService
 from app.app.files.services.file_member import FileMemberService
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
@@ -115,6 +116,7 @@ class Services:
         "_database",
         "audit_trail",
         "bookmark",
+        "content",
         "dupefinder",
         "file",
         "filecore",
@@ -148,13 +150,17 @@ class Services:
         self.metadata = MetadataService(database=database)
         self.namespace = NamespaceService(database=database, filecore=self.filecore)
         self.sharing = SharingService(database=database)
-        self.thumbnailer = ThumbnailService(
-            filecore=self.filecore,
-            storage=storage,
-            worker=worker,
-        )
+        self.thumbnailer = ThumbnailService(filecore=self.filecore, storage=storage)
         self.token = TokenService(token_repo=cache)
         self.user = UserService(database=database)
+
+        self.content = ContentService(
+            dupefinder=self.dupefinder,
+            filecore=self.filecore,
+            metadata=self.metadata,
+            thumbnailer=self.thumbnailer,
+            worker=worker,
+        )
 
     def atomic(self, *, attempts: int = 3) -> AsyncIterator[ITransaction]:
         return self._database.atomic(attempts=attempts)

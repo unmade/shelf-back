@@ -7,6 +7,7 @@ import pytest
 
 from app.app.audit.services import AuditTrailService
 from app.app.files.services import (
+    ContentService,
     DuplicateFinderService,
     FileMemberService,
     FileService,
@@ -28,6 +29,7 @@ async def _atomic():
 def ns_use_case():
     """A mocked NamespaceUseCase instance."""
     services = mock.MagicMock(
+        content=mock.MagicMock(spec=ContentService),
         audit_trail=mock.MagicMock(spec=AuditTrailService),
         dupefinder=mock.MagicMock(spec=DuplicateFinderService),
         file=mock.MagicMock(spec=FileService, filecore=mock.MagicMock(FileCoreService)),

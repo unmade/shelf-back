@@ -105,14 +105,6 @@ async def empty_trash(
             logger.exception("Unexpectedly failed to empty trash folder")
 
 
-async def generate_file_thumbnails(
-    ctx: ARQContext, file_id: UUID, sizes: Iterable[int]
-) -> None:
-    """Pre-generates thumbnails for the given file in the specified sizes."""
-    thumbnailer = ctx["usecases"].namespace.thumbnailer
-    await thumbnailer.generate_thumbnails(file_id, sizes)
-
-
 async def move_batch(
     ctx: ARQContext,
     ns_path: AnyPath,
@@ -164,3 +156,8 @@ async def move_to_trash_batch(
             result = FileTaskResult(file=file, err_code=err_code)
             results.append(result)
     return results
+
+
+async def process_file_content(ctx: ARQContext, file_id: UUID) -> None:
+    content_service = ctx["usecases"].namespace.content
+    await content_service.process(file_id)

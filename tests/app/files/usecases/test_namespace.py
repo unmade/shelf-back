@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import IO, TYPE_CHECKING, AsyncIterator, cast
+from typing import TYPE_CHECKING, cast
 from unittest import mock
 
 import pytest
@@ -18,11 +18,6 @@ if TYPE_CHECKING:
     from app.app.files.usecases import NamespaceUseCase
 
 pytestmark = [pytest.mark.anyio]
-
-
-async def _aiter(content: IO[bytes]) -> AsyncIterator[bytes]:
-    for chunk in content:
-        yield chunk
 
 
 def _make_file(
@@ -56,11 +51,9 @@ class TestAddFile:
     ):
         # GIVEN
         audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
+        content_service = cast(mock.MagicMock, ns_use_case.content)
         file_service = cast(mock.MagicMock, ns_use_case.file)
-        dupefinder = cast(mock.MagicMock, ns_use_case.dupefinder)
-        metadata = cast(mock.MagicMock, ns_use_case.metadata)
         ns_service = cast(mock.MagicMock, ns_use_case.namespace)
-        thumbnailer = cast(mock.MagicMock, ns_use_case.thumbnailer)
         user_service = cast(mock.MagicMock, ns_use_case.user)
         user_service.get_account.return_value = _make_account(storage_quota=None)
 
@@ -72,11 +65,7 @@ class TestAddFile:
         # THEN
         assert result == file_service.create_file.return_value
         file_service.create_file.assert_awaited_once_with(ns_path, path, content)
-        dupefinder.track.assert_awaited_once_with(result.id, content.file)
-        metadata.track.assert_awaited_once_with(result.id, content.file)
-        thumbnailer.generate_thumbnails_async.assert_awaited_once_with(
-            result.id, sizes=config.features.pre_generated_thumbnail_sizes
-        )
+        content_service.process_async.assert_awaited_once_with(result.id)
 
         owner_id = ns_service.get_by_path.return_value.owner_id
         user_service.get_account.assert_awaited_once_with(owner_id)
@@ -88,12 +77,10 @@ class TestAddFile:
     ):
         # GIVEN
         audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
+        content_service = cast(mock.MagicMock, ns_use_case.content)
         file_service = cast(mock.MagicMock, ns_use_case.file)
-        dupefinder = cast(mock.MagicMock, ns_use_case.dupefinder)
-        metadata = cast(mock.MagicMock, ns_use_case.metadata)
         ns_service = cast(mock.MagicMock, ns_use_case.namespace)
         ns_service.get_space_used_by_owner_id = mock.AsyncMock(return_value=512)
-        thumbnailer = cast(mock.MagicMock, ns_use_case.thumbnailer)
         user_service = cast(mock.MagicMock, ns_use_case.user)
         user_service.get_account.return_value = _make_account(storage_quota=1024)
 
@@ -105,11 +92,7 @@ class TestAddFile:
         # THEN
         assert result == file_service.create_file.return_value
         file_service.create_file.assert_awaited_once_with(ns_path, path, content)
-        dupefinder.track.assert_awaited_once_with(result.id, content.file)
-        metadata.track.assert_awaited_once_with(result.id, content.file)
-        thumbnailer.generate_thumbnails_async.assert_awaited_once_with(
-            result.id, sizes=config.features.pre_generated_thumbnail_sizes
-        )
+        content_service.process_async.assert_awaited_once_with(result.id)
 
         owner_id = ns_service.get_by_path.return_value.owner_id
         user_service.get_account.assert_awaited_once_with(owner_id)
@@ -138,12 +121,10 @@ class TestAddFile:
     ):
         # GIVEN
         audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
+        content_service = cast(mock.MagicMock, ns_use_case.content)
         file_service = cast(mock.MagicMock, ns_use_case.file)
-        dupefinder = cast(mock.MagicMock, ns_use_case.dupefinder)
-        metadata = cast(mock.MagicMock, ns_use_case.metadata)
         ns_service = cast(mock.MagicMock, ns_use_case.namespace)
         ns_service.get_space_used_by_owner_id = mock.AsyncMock(return_value=1024)
-        thumbnailer = cast(mock.MagicMock, ns_use_case.thumbnailer)
         user_service = cast(mock.MagicMock, ns_use_case.user)
         user_service.get_account.return_value = _make_account(storage_quota=1024)
 
@@ -154,9 +135,7 @@ class TestAddFile:
 
         # THEN
         file_service.create_file.assert_not_awaited()
-        dupefinder.track.assert_not_awaited()
-        metadata.track.assert_not_awaited()
-        thumbnailer.generate_thumbnails_async.assert_not_awaited()
+        content_service.process_async.assert_not_awaited()
 
         owner_id = ns_service.get_by_path.return_value.owner_id
         user_service.get_account.assert_awaited_once_with(owner_id)
@@ -444,37 +423,11 @@ class TestReindex:
 
 
 class TestReindexContents:
-    async def test(self, ns_use_case: NamespaceUseCase, image_content: IFileContent):
+    async def test(self, ns_use_case: NamespaceUseCase):
         # GIVEN
         ns_path = "admin"
-        txt = _make_file(ns_path, "f.txt", mediatype="plain/text")
-        jpg_1 = _make_file(ns_path, "a/b/img (1).jpeg", mediatype="image/jpeg")
-        jpg_2 = _make_file(ns_path, "a/b/img (2).jpeg", mediatype="image/jpeg")
-
-        async def iter_files_result():
-            yield [txt]
-            yield [jpg_1]
-            yield [jpg_2]
-
-        file_service = cast(mock.MagicMock, ns_use_case.file)
-        filecore = file_service.filecore
-        filecore.iter_files.return_value = iter_files_result()
-        filecore.download.side_effect = [
-            (txt, _aiter(image_content.file)),
-            (jpg_1, _aiter(image_content.file)),
-            (jpg_2, _aiter(image_content.file)),
-        ]
-        dupefinder = cast(mock.MagicMock, ns_use_case.dupefinder)
-        meta_service = cast(mock.MagicMock, ns_use_case.metadata)
-
+        content_service = cast(mock.MagicMock, ns_use_case.content)
         # WHEN
         await ns_use_case.reindex_contents(ns_path)
-
         # THEN
-        filecore.iter_files.assert_called_once()
-        dupefinder_tracker = dupefinder.track_batch.return_value.__aenter__.return_value
-        assert len(dupefinder_tracker.mock_calls) == 2
-        metadata_tracker = meta_service.track_batch.return_value.__aenter__.return_value
-        assert len(metadata_tracker.mock_calls) == 2
-        chasher = filecore.chash_batch.return_value.__aenter__.return_value
-        assert len(chasher.mock_calls) == 3
+        content_service.reindex_contents.assert_awaited_once_with(ns_path)
