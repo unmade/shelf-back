@@ -2,16 +2,12 @@ from __future__ import annotations
 
 import contextlib
 import itertools
-from tempfile import SpooledTemporaryFile
-from typing import IO, TYPE_CHECKING, AsyncIterator, Iterator, Protocol
+from typing import TYPE_CHECKING, AsyncIterator, Iterator, Protocol
 
 from app.app.files.domain import AnyFile, File, Path
-from app.app.files.services.dupefinder import dhash
-from app.app.files.services.metadata import readers as metadata_readers
 from app.app.users.domain import Account
 from app.config import config
 from app.toolkit import taskgroups, timezone
-from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -19,6 +15,7 @@ if TYPE_CHECKING:
     from app.app.audit.services import AuditTrailService
     from app.app.files.domain import AnyPath, ContentMetadata, IFileContent
     from app.app.files.services import (
+        ContentService,
         DuplicateFinderService,
         FileService,
         MetadataService,
@@ -28,12 +25,9 @@ if TYPE_CHECKING:
     from app.app.infrastructure.database import IAtomic
     from app.app.users.services import UserService
 
-    class ITracker(Protocol):
-        async def add(self, file_id: UUID, content: IO[bytes]) -> None:
-            ...
-
     class IUseCaseServices(IAtomic, Protocol):
         audit_trail: AuditTrailService
+        content: ContentService
         dupefinder: DuplicateFinderService
         file: FileService
         metadata: MetadataService
@@ -47,7 +41,10 @@ __all__ = ["NamespaceUseCase"]
 class NamespaceUseCase:
     __slots__ = [
         "_services",
+        "_worker",
+
         "audit_trail",
+        "content",
         "dupefinder",
         "file",
         "metadata",
@@ -58,7 +55,9 @@ class NamespaceUseCase:
 
     def __init__(self, services: IUseCaseServices):
         self._services = services
+
         self.audit_trail = services.audit_trail
+        self.content = services.content
         self.dupefinder = services.dupefinder
         self.file = services.file
         self.metadata = services.metadata
@@ -104,10 +103,7 @@ class NamespaceUseCase:
                 raise Account.StorageQuotaExceeded()
 
         file = await self.file.create_file(ns_path, path, content)
-        await self.dupefinder.track(file.id, content.file)
-        await self.metadata.track(file.id, content.file)
-        sizes = config.features.pre_generated_thumbnail_sizes
-        await self.thumbnailer.generate_thumbnails_async(file.id, sizes=sizes)
+        await self.content.process_async(file.id)
 
         taskgroups.schedule(self.audit_trail.file_added(file))
         return file
@@ -322,37 +318,4 @@ class NamespaceUseCase:
         Restores additional information about files, such as fingerprint and content
         metadata.
         """
-        def get_trackers(mediatype):
-            if mediatype in types:
-                return [dupefinder_tracker, metadata_tracker, chasher]
-            return [chasher]
-
-        types = tuple(dhash.SUPPORTED_TYPES | metadata_readers.SUPPORTED_TYPES)
-        ns_path = str(ns_path)
-        batch_size = 500
-        batches = self.file.filecore.iter_files(
-            ns_path, excluded_mediatypes=[MediaType.FOLDER], batch_size=batch_size
-        )
-
-        async for files in batches:
-            async with (
-                self.dupefinder.track_batch() as dupefinder_tracker,
-                self.metadata.track_batch() as metadata_tracker,
-                self.file.filecore.chash_batch() as chasher,
-            ):
-                await taskgroups.gather(*(
-                    self._reindex_content(
-                        file,
-                        trackers=get_trackers(file.mediatype),
-                    )
-                    for file in files
-                ))
-
-    async def _reindex_content(self, file: File, trackers: list[ITracker]) -> None:
-        _, chunks = await self.file.filecore.download(file.id)
-        with SpooledTemporaryFile() as content:
-            async for chunk in chunks:
-                content.write(chunk)
-
-            for tracker in trackers:
-                await tracker.add(file.id, content)
+        await self.content.reindex_contents(ns_path)

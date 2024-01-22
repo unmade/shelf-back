@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from app.app.files.services.file import FileCoreService
-    from app.app.infrastructure import IStorage, IWorker
+    from app.app.infrastructure import IStorage
 
 __all__ = ["ThumbnailService"]
 
@@ -25,12 +25,11 @@ _PREFIX = "thumbs"
 
 
 class ThumbnailService:
-    __slots__ = ("filecore", "storage", "worker")
+    __slots__ = ("filecore", "storage")
 
-    def __init__(self, filecore: FileCoreService, storage: IStorage, worker: IWorker):
+    def __init__(self, filecore: FileCoreService, storage: IStorage):
         self.filecore = filecore
         self.storage = storage
-        self.worker = worker
 
     @staticmethod
     def _lock_id(content_hash: str, size: int) -> str:
@@ -79,13 +78,6 @@ class ThumbnailService:
 
                 await self.storage.makedirs(_PREFIX, os.path.dirname(path))
                 await self.storage.save(_PREFIX, path, InMemoryFileContent(thumbnail))
-
-    async def generate_thumbnails_async(
-        self, file_id: UUID, sizes: Iterable[int]
-    ) -> None:
-        """Generates a set of thumbnails in a worker."""
-        sizes = list(sizes)
-        await self.worker.enqueue("generate_file_thumbnails", file_id, sizes)
 
     @cache.lock(_LOCK_KEY, expire=30)
     async def thumbnail(self, file_id: UUID, content_hash: str, size: int) -> bytes:

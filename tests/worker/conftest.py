@@ -6,7 +6,7 @@ from unittest import mock
 
 import pytest
 
-from app.app.files.services import ThumbnailService
+from app.app.files.services import ContentService
 from app.app.files.usecases.namespace import NamespaceUseCase
 from app.infrastructure.context import UseCases
 
@@ -21,7 +21,7 @@ def arq_context() -> ARQContext:
             UseCases,
             namespace=mock.MagicMock(
                 NamespaceUseCase,
-                thumbnailer=mock.MagicMock(ThumbnailService),
+                content=mock.MagicMock(ContentService),
             ),
         ),
         "_stack": AsyncExitStack(),

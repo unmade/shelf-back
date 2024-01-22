@@ -14,6 +14,7 @@ from app.app.files.repositories import (
     ISharedLinkRepository,
 )
 from app.app.files.services import (
+    ContentService,
     DuplicateFinderService,
     FileMemberService,
     FileService,
@@ -61,6 +62,18 @@ if TYPE_CHECKING:
 
 
 fake = Faker()
+
+
+@pytest.fixture
+def content_service():
+    """A content service instance."""
+    return ContentService(
+        dupefinder=mock.MagicMock(DuplicateFinderService),
+        filecore=mock.MagicMock(FileCoreService),
+        metadata=mock.MagicMock(MetadataService),
+        thumbnailer=mock.MagicMock(ThumbnailService),
+        worker=mock.MagicMock(IWorker),
+    )
 
 
 @pytest.fixture
@@ -119,8 +132,7 @@ def thumbnailer():
     """A thumbnail service instance."""
     filecore = mock.MagicMock(FileCoreService)
     storage = mock.AsyncMock(IStorage)
-    worker = mock.AsyncMock(IWorker)
-    return ThumbnailService(filecore=filecore, storage=storage, worker=worker)
+    return ThumbnailService(filecore=filecore, storage=storage)
 
 
 @pytest.fixture

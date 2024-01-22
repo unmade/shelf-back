@@ -168,20 +168,6 @@ class TestGenerateThumbnails:
         storage.save.assert_not_called()
 
 
-class TestGenerateThumbnailsAsync:
-    async def test(self, thumbnailer: ThumbnailService):
-        # GIVEN
-        sizes = [32, 64, 128]
-        file = _make_file("admin", "im.jpeg")
-        worker = cast(mock.MagicMock, thumbnailer.worker)
-        # WHEN
-        await thumbnailer.generate_thumbnails_async(file.id, sizes=sizes)
-        # THEN
-        worker.enqueue.assert_awaited_once_with(
-            "generate_file_thumbnails", file.id, sizes
-        )
-
-
 class TestThumbnail:
     async def test_thumbnail_retrieved_from_storage(
         self,
