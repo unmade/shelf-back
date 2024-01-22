@@ -112,6 +112,7 @@ class EdgeDBDSN(str):
 
 class AuthConfig(BaseModel):
     secret_key: str
+    service_token: str | None = None
     access_token_ttl: TTL = TTL(minutes=15)
     refresh_token_ttl: TTL = TTL(days=3)
 

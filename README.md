@@ -122,8 +122,9 @@ superuser on the first image run:
 |APP_NAME                      | - | Shelf  | Application name |
 |APP_DEBUG                     | - | False  | Whether to run app in debug mode |
 |APP_VERSION                   | - | dev    | Application version. Normally, this env is set during build |
-|AUTH__SECRET_KEY              | + | -      | Application secret key. This is used to provide cryptographic signing, and should be set to a unique, unpredictable value |
 |AUTH__ACCESS_TOKEN_TTL        | - | 15m    | A time-to-live of the access token. |
+|AUTH__SECRET_KEY              | + | -      | Application secret key. This is used to provide cryptographic signing, and should be set to a unique, unpredictable value |
+|AUTH__SERVICE_TOKEN           | - | None   | A service token that is used to authorize external services in internal API. |
 |AUTH__REFRESH_TOKEN_TTL       | - | 3d     | A time-to-live of the refresh token. |
 |CACHE__BACKEND_DSN            | - | mem:// | Cache backend DSN. See options [here](https://github.com/Krukov/cashews) |
 |CACHE__DISK_CACHE_MAX_SIZE    | - | -      | Client cache size limit in bytes. Can be set in a format like "512MB", "1GB" |

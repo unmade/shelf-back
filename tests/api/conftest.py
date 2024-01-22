@@ -42,6 +42,13 @@ class TestClient(AsyncClient):
         self.app.dependency_overrides[deps.namespace] = get_namespace
         return self
 
+    def mock_service_token(self) -> Self:
+        async def require_service_token():
+            return None
+
+        self.app.dependency_overrides[deps.service_token] = require_service_token
+        return self
+
     def mock_user(self, user: User) -> Self:
         async def get_current_user():
             return CurrentUserContext.User(id=user.id, username=user.username)

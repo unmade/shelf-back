@@ -46,8 +46,19 @@ module default {
         required mediatype: MediaType;
         required namespace: Namespace;
 
+        multi categories: FileCategory {
+            origin: int16;
+            probability: int16;
+        };
+
         constraint exclusive on ((.path, .namespace));
         index on ((.chash, .namespace));
+    }
+
+    type FileCategory {
+        required name: str {
+            constraint exclusive;
+        };
     }
 
     type FileMember {
@@ -117,7 +128,7 @@ module default {
     }
 
     type SharedLink {
-        required token : str {
+        required token: str {
             constraint exclusive;
         }
         required created_at: datetime;

@@ -6,10 +6,29 @@ from unittest import mock
 
 import pytest
 
+from app.app.photos.domain import MediaItem
+
 if TYPE_CHECKING:
     from app.app.photos.usecases import PhotosUseCase
 
 pytestmark = [pytest.mark.anyio]
+
+
+class TestAutoAddCategoryBatch:
+    async def test(self, photos_use_case: PhotosUseCase):
+        # GIVEN
+        file_id = uuid.uuid4()
+        categories = [
+            (MediaItem.Category.Name.ANIMALS, 92),
+            (MediaItem.Category.Name.PETS, 94),
+        ]
+        media_item_service = cast(mock.MagicMock, photos_use_case.media_item)
+        # WHEN
+        await photos_use_case.auto_add_category_batch(file_id, categories)
+        # THEN
+        media_item_service.auto_add_category_batch.assert_awaited_once_with(
+            file_id, categories=categories
+        )
 
 
 class TestListMediaItems:

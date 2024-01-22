@@ -12,6 +12,7 @@ from app.app.auth.domain import AccessToken, TokenError
 from app.app.files.domain import AnyFile, Namespace
 from app.app.infrastructure.worker import IWorker
 from app.app.users.domain import User
+from app.config import config
 from app.infrastructure.context import UseCases
 
 from . import exceptions, shortcuts
@@ -20,6 +21,7 @@ __all__ = [
     "CurrentUserDeps",
     "CurrentUserContextDeps",
     "NamespaceDeps",
+    "ServiceTokenDeps",
     "UseCasesDeps",
     "WorkerDeps",
 ]
@@ -84,11 +86,21 @@ async def namespace(
     return await usecases.namespace.namespace.get_by_owner_id(user.id)
 
 
+async def service_token(token: str | None = Depends(reusable_oauth2)):
+    """Requires a service token."""
+    if not token:
+        raise exceptions.MissingToken() from None
+
+    if token != config.auth.service_token:
+        raise exceptions.InvalidToken() from None
+
+
 CurrentUserDeps: TypeAlias = Annotated[CurrentUser, Depends(current_user)]
 CurrentUserContextDeps: TypeAlias = Annotated[
     CurrentUserContext, Depends(current_user_ctx)
 ]
 DownloadCacheDeps: TypeAlias = Annotated[AnyFile, Depends(download_cache)]
 NamespaceDeps: TypeAlias = Annotated[Namespace, Depends(namespace)]
+ServiceTokenDeps: TypeAlias = Annotated[None, Depends(service_token)]
 UseCasesDeps: TypeAlias = Annotated[UseCases, Depends(usecases)]
 WorkerDeps: TypeAlias = Annotated[IWorker, Depends(worker)]
