@@ -55,3 +55,44 @@ class TestListForUser:
         db.media_item.list_by_user_id.assert_awaited_once_with(
             user_id, offset=100, limit=50
         )
+
+
+class TestListCategories:
+    async def test(self, media_item_service: MediaItemService):
+        # GIVEN
+        file_id = uuid.uuid4()
+        db = cast(mock.AsyncMock, media_item_service.db)
+        # WHEN
+        result = await media_item_service.list_categories(file_id)
+        # THEN
+        assert result == db.media_item.list_categories.return_value
+        db.media_item.list_categories.assert_awaited_once_with(file_id)
+
+
+class TestSetCategories:
+    async def test(self, media_item_service: MediaItemService):
+        # GIVEN
+        file_id = uuid.uuid4()
+        categories = [
+            MediaItem.Category.Name.ANIMALS,
+            MediaItem.Category.Name.PETS,
+        ]
+        db = cast(mock.MagicMock, media_item_service.db)
+        # WHEN
+        await media_item_service.set_categories(file_id, categories)
+        # THEN
+        db.media_item.set_categories.assert_awaited_once_with(
+            file_id,
+            categories=[
+                MediaItem.Category(
+                    name=MediaItem.Category.Name.ANIMALS,
+                    origin=MediaItem.Category.Origin.USER,
+                    probability=100,
+                ),
+                MediaItem.Category(
+                    name=MediaItem.Category.Name.PETS,
+                    origin=MediaItem.Category.Origin.USER,
+                    probability=100,
+                ),
+            ]
+        )

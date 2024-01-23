@@ -16,6 +16,14 @@ class IMediaItemRepository(Protocol):
     ) -> None:
         """Adds multiple categories at once for the specified media item."""
 
+    async def get_by_user_id(self, user_id: UUID, file_id: UUID) -> MediaItem:
+        """
+        Gets MediaItem with given file ID for the specified user ID.
+
+        Raises:
+            MediaItem.NotFound: If MediaItem does not exist.
+        """
+
     async def list_by_user_id(
         self,
         user_id: UUID,
@@ -24,3 +32,21 @@ class IMediaItemRepository(Protocol):
         limit: int = 25,
     ) -> list[MediaItem]:
         """Lists all media items for given user."""
+
+    async def list_categories(self, file_id: UUID) -> list[MediaItemCategory]:
+        """
+        Lists categories of the MediaItem with specified file ID.
+
+        Raises:
+            MediaItem.NotFound: If MediaItem does not exist.
+        """
+
+    async def set_categories(
+        self, file_id: UUID, categories: Sequence[MediaItemCategory]
+    ) -> None:
+        """
+        Clears existing and sets specified categories for MediaItem with given file ID.
+
+        Raises:
+            MediaItem.NotFound: If MediaItem does not exist.
+        """

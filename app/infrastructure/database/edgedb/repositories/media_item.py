@@ -104,6 +104,25 @@ class MediaItemRepository(IMediaItemRepository):
         except edgedb.NoDataError as exc:
             raise MediaItem.NotFound() from exc
 
+    async def get_by_user_id(self, user_id: UUID, file_id: UUID) -> MediaItem:
+        query = """
+            SELECT
+                File { id, name, size, mtime, mediatype: { name } }
+            FILTER
+                .id = <uuid>$file_id
+                AND
+                .namespace.owner.id = <uuid>$user_id
+        """
+
+        try:
+            obj = await self.conn.query_required_single(
+                query, user_id=user_id, file_id=file_id
+            )
+        except edgedb.NoDataError as exc:
+            raise MediaItem.NotFound() from exc
+
+        return _from_db(obj)
+
     async def list_by_user_id(
         self,
         user_id: UUID,
@@ -151,3 +170,68 @@ class MediaItemRepository(IMediaItemRepository):
             limit=limit,
         )
         return [_from_db(obj) for obj in objs]
+
+    async def list_categories(self, file_id: UUID) -> list[MediaItemCategory]:
+        query = """
+            SELECT
+                File {
+                    categories: {
+                        name,
+                        @origin,
+                        @probability,
+                    }
+                }
+            FILTER
+                .id = <uuid>$file_id
+        """
+
+        try:
+            obj = await self.conn.query_required_single(query, file_id=file_id)
+        except edgedb.NoDataError as exc:
+            raise MediaItem.NotFound() from exc
+
+        return [_load_category(category) for category in obj.categories]
+
+    async def set_categories(
+        self, file_id: UUID, categories: Sequence[MediaItemCategory]
+    ) -> None:
+        query = """
+            WITH
+                categories := (
+                    FOR category in {array_unpack(<array<json>>$categories)}
+                    UNION (
+                        INSERT FileCategory {
+                            name := <str>category['name']
+                        }
+                        UNLESS CONFLICT on .name
+                        ELSE FileCategory
+                    )
+                )
+            UPDATE
+                File
+            FILTER
+                .id = <uuid>$file_id
+            SET {
+                categories := assert_distinct((
+                    FOR category in {array_unpack(<array<json>>$categories)}
+                    UNION (
+                        SELECT categories {
+                            name,
+                            @origin := <int16>category['origin'],
+                            @probability := <int16>category['probability'],
+                        }
+                        FILTER
+                            .name = <str>category['name']
+                    )
+                ))
+            }
+        """
+
+        try:
+            await self.conn.query_required_single(
+                query,
+                file_id=file_id,
+                categories=[_dump_category(category) for category in categories],
+            )
+        except edgedb.NoDataError as exc:
+            raise MediaItem.NotFound() from exc
