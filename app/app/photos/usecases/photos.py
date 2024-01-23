@@ -7,7 +7,10 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from app.app.photos.domain import MediaItem
-    from app.app.photos.domain.media_item import MediaItemCategoryName
+    from app.app.photos.domain.media_item import (
+        MediaItemCategory,
+        MediaItemCategoryName,
+    )
     from app.app.photos.services import MediaItemService
 
     class IUseCaseServices(Protocol):
@@ -41,3 +44,27 @@ class PhotosUseCase:
     ) -> list[MediaItem]:
         """Lists media items for a given user."""
         return await self.media_item.list_for_user(user_id, offset=offset, limit=limit)
+
+    async def list_media_item_categories(
+        self, user_id: UUID, file_id: UUID
+    ) -> list[MediaItemCategory]:
+        """
+        Lists categories of the user MediaItem with given ID.
+
+        Raises:
+            MediaItem.NotFound: If MediaItem does not exist.
+        """
+        item = await self.media_item.get_for_user(user_id, file_id)
+        return await self.media_item.list_categories(item.file_id)
+
+    async def set_media_item_categories(
+        self, user_id: UUID, file_id: UUID, categories: Sequence[MediaItemCategoryName]
+    ) -> None:
+        """
+        Clears existing and sets specified categories for MediaItem with given file ID.
+
+        Raises:
+            MediaItem.NotFound: If MediaItem does not exist.
+        """
+        item = await self.media_item.get_for_user(user_id, file_id)
+        return await self.media_item.set_categories(item.file_id, categories)

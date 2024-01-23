@@ -43,3 +43,35 @@ class TestListMediaItems:
         media_item_service.list_for_user.assert_awaited_once_with(
             user_id, offset=0, limit=25
         )
+
+
+class TestListMediaItemCategories:
+    async def test(self, photos_use_case: PhotosUseCase):
+        # GIVEN
+        user_id, file_id = uuid.uuid4(), uuid.uuid4()
+        media_item_service = cast(mock.MagicMock, photos_use_case.media_item)
+        # WHEN
+        result = await photos_use_case.list_media_item_categories(user_id, file_id)
+        # THEN
+        assert result == media_item_service.list_categories.return_value
+        media_item_service.get_for_user.assert_awaited_once_with(user_id, file_id)
+        item = media_item_service.get_for_user.return_value
+        media_item_service.list_categories.assert_awaited_once_with(item.file_id)
+
+
+class TestSetCategories:
+    async def test(self, photos_use_case: PhotosUseCase):
+        # GIVEN
+        user_id, file_id = uuid.uuid4(), uuid.uuid4()
+        media_item_service = cast(mock.MagicMock, photos_use_case.media_item)
+        categories = [MediaItem.Category.Name.ANIMALS, MediaItem.Category.Name.PETS]
+        # WHEN
+        await photos_use_case.set_media_item_categories(
+            user_id, file_id, categories=categories
+        )
+        # THEN
+        media_item_service.get_for_user.assert_awaited_once_with(user_id, file_id)
+        item = media_item_service.get_for_user.return_value
+        media_item_service.set_categories.assert_awaited_once_with(
+            item.file_id, categories
+        )

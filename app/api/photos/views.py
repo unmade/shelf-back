@@ -6,8 +6,16 @@ from fastapi import APIRouter, Query, Request
 
 from app.api.deps import CurrentUserDeps, UseCasesDeps
 from app.api.paginator import Page, get_offset
+from app.api.photos import exceptions
+from app.app.photos.domain import MediaItem
 
-from .schemas import MediaItemSchema
+from .schemas import (
+    FileIDRequest,
+    ListMediaItemCategoriesResponse,
+    MediaItemCategorySchema,
+    MediaItemSchema,
+    SetMediaItemCategoriesRequest,
+)
 
 router = APIRouter()
 
@@ -31,3 +39,41 @@ async def list_media_items(
         page=page,
         items=[MediaItemSchema.from_entity(item, request) for item in items],
     )
+
+
+@router.post("/list_media_item_categories")
+async def list_media_item_categories(
+    payload: FileIDRequest,
+    current_user: CurrentUserDeps,
+    usecases: UseCasesDeps,
+) -> ListMediaItemCategoriesResponse:
+    try:
+        categories = await usecases.photos.list_media_item_categories(
+            current_user.id, payload.file_id
+        )
+    except MediaItem.NotFound as exc:
+        raise exceptions.MediaItemNotFound() from exc
+
+    return ListMediaItemCategoriesResponse(
+        file_id=payload.file_id,
+        categories=[
+            MediaItemCategorySchema.from_entity(category)
+            for category in categories
+        ]
+    )
+
+
+@router.post("/set_media_item_categories")
+async def set_media_item_categories(
+    payload: SetMediaItemCategoriesRequest,
+    current_user: CurrentUserDeps,
+    usecases: UseCasesDeps,
+) -> None:
+    try:
+        await usecases.photos.set_media_item_categories(
+            current_user.id,
+            payload.file_id,
+            categories=payload.categories,
+        )
+    except MediaItem.NotFound as exc:
+        raise exceptions.MediaItemNotFound() from exc

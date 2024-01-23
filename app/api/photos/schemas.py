@@ -7,7 +7,11 @@ from fastapi import Request
 from pydantic import BaseModel, Field
 
 from app.app.photos.domain import MediaItem
-from app.app.photos.domain.media_item import MediaItemCategoryName
+from app.app.photos.domain.media_item import (
+    MediaItemCategory,
+    MediaItemCategoryName,
+    MediaItemCategoryOrigin,
+)
 
 
 class MediaItemSchema(BaseModel):
@@ -34,6 +38,24 @@ class MediaItemSchema(BaseModel):
         return str(request.url_for("get_thumbnail", file_id=entity.file_id))
 
 
+class MediaItemCategorySchema(BaseModel):
+    name: MediaItemCategoryName
+    origin: MediaItemCategoryOrigin
+    probability: int
+
+    @classmethod
+    def from_entity(cls, entity: MediaItemCategory) -> Self:
+        return cls(
+            name=entity.name,
+            origin=entity.origin,
+            probability=entity.probability,
+        )
+
+
+class FileIDRequest(BaseModel):
+    file_id: UUID
+
+
 class AddCategoryRequest(BaseModel):
     class _Category(BaseModel):
         name: MediaItemCategoryName
@@ -42,6 +64,21 @@ class AddCategoryRequest(BaseModel):
     Categories: ClassVar[TypeAlias] = Annotated[
         list[_Category],
         Field(min_length=1, max_length=len(MediaItemCategoryName))
+    ]
+
+    file_id: UUID
+    categories: Categories
+
+
+class ListMediaItemCategoriesResponse(BaseModel):
+    file_id: UUID
+    categories: list[MediaItemCategorySchema]
+
+
+class SetMediaItemCategoriesRequest(BaseModel):
+    Categories: ClassVar[TypeAlias] = Annotated[
+        list[MediaItemCategoryName],
+        Field(max_length=len(MediaItemCategoryName))
     ]
 
     file_id: UUID

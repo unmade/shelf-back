@@ -10,7 +10,10 @@ import pytest
 from app.app.photos.domain import MediaItem
 from app.config import config
 from app.infrastructure.database.edgedb.db import db_context
-from app.infrastructure.database.edgedb.repositories.media_item import _load_category
+from app.infrastructure.database.edgedb.repositories.media_item import (
+    _dump_category,
+    _load_category,
+)
 from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
@@ -26,6 +29,32 @@ if TYPE_CHECKING:
     )
 
 pytestmark = [pytest.mark.anyio, pytest.mark.database]
+
+
+async def _add_category(file_id: UUID, category: MediaItemCategory) -> None:
+    query = """
+        WITH
+            category := <json>$category
+        UPDATE
+            File
+        FILTER
+            .id = <uuid>$file_id
+        SET {
+            categories += (
+                INSERT FileCategory {
+                    name := <str>category['name'],
+                    @origin := <int16>category['origin'],
+                    @probability := <int16>category['probability'],
+                }
+            )
+        }
+    """
+
+    await db_context.get().query_required_single(
+        query,
+        file_id=file_id,
+        category=_dump_category(category),
+    )
 
 
 async def _list_categories_by_id(file_id: UUID) -> list[MediaItemCategory]:
@@ -81,6 +110,7 @@ class TestAddCategoryBatch:
                 probability=33,
             ),
         ]
+
         # WHEN: adding categories for the first time
         await media_item_repo.add_category_batch(item_1.file_id, categories_1)
         # THEN
@@ -102,6 +132,30 @@ class TestAddCategoryBatch:
         # WHEN / THEN
         with pytest.raises(MediaItem.NotFound):
             await media_item_repo.add_category_batch(file_id, categories=[])
+
+
+class TestGetByUserID:
+    @pytest.mark.usefixtures("namespace")
+    async def test(
+        self,
+        media_item_repo: MediaItemRepository,
+        media_item_factory: MediaItemFactory,
+        user: User,
+    ):
+        # GIVEN
+        media_item = await media_item_factory(user.id)
+        # WHEN
+        result = await media_item_repo.get_by_user_id(user.id, media_item.file_id)
+        # THEN
+        assert result == media_item
+
+    async def test_when_media_item_does_not_exist(
+        self, media_item_repo: MediaItemRepository, user: User,
+    ):
+        file_id = uuid.uuid4()
+        with pytest.raises(MediaItem.NotFound):
+            await media_item_repo.get_by_user_id(user.id, file_id)
+
 
 class TestListByUserID:
     async def test(
@@ -125,3 +179,101 @@ class TestListByUserID:
         result = await media_item_repo.list_by_user_id(user.id, offset=0)
         # THEN
         assert result == sorted(items, key=operator.attrgetter("mtime"), reverse=True)
+
+
+class TestListCategories:
+    @pytest.mark.usefixtures("namespace")
+    async def test(
+        self,
+        media_item_repo: MediaItemRepository,
+        media_item_factory: MediaItemFactory,
+        user: User,
+    ):
+        # GIVEN
+        item = await media_item_factory(user.id)
+        categories = [
+            MediaItem.Category(
+                name=MediaItem.Category.Name.ANIMALS,
+                origin=MediaItem.Category.Origin.USER,
+                probability=100,
+            ),
+            MediaItem.Category(
+                name=MediaItem.Category.Name.PETS,
+                origin=MediaItem.Category.Origin.USER,
+                probability=100,
+            ),
+        ]
+        await _add_category(item.file_id, categories[0])
+        await _add_category(item.file_id, categories[1])
+        # WHEN
+        result = await media_item_repo.list_categories(item.file_id)
+        # THEN
+        assert result == categories
+
+    async def test_when_media_item_does_not_exist(
+        self, media_item_repo: MediaItemRepository,
+    ):
+        file_id = uuid.uuid4()
+        with pytest.raises(MediaItem.NotFound):
+            await media_item_repo.list_categories(file_id)
+
+
+class TestSetCategories:
+    @pytest.mark.usefixtures("namespace")
+    async def test(
+        self,
+        media_item_repo: MediaItemRepository,
+        media_item_factory: MediaItemFactory,
+        user: User,
+    ):
+        # GIVEN
+        item = await media_item_factory(user.id)
+        categories_1 = [
+            MediaItem.Category(
+                name=MediaItem.Category.Name.ANIMALS,
+                origin=MediaItem.Category.Origin.USER,
+                probability=100,
+            ),
+            MediaItem.Category(
+                name=MediaItem.Category.Name.PETS,
+                origin=MediaItem.Category.Origin.USER,
+                probability=100,
+            ),
+        ]
+        categories_2 = [
+            MediaItem.Category(
+                name=MediaItem.Category.Name.PETS,
+                origin=MediaItem.Category.Origin.USER,
+                probability=100,
+            ),
+            MediaItem.Category(
+                name=MediaItem.Category.Name.TRAVEL,
+                origin=MediaItem.Category.Origin.USER,
+                probability=100,
+            ),
+        ]
+        categories_3: list[MediaItemCategory] = []
+        # WHEN: setting categories for the first time
+        await media_item_repo.set_categories(item.file_id, categories=categories_1)
+        # THEN
+        result = await _list_categories_by_id(item.file_id)
+        assert result == categories_1
+
+        # WHEN: changing categories to existing and newly one
+        await media_item_repo.set_categories(item.file_id, categories=categories_2)
+        # THEN
+        result = await _list_categories_by_id(item.file_id)
+        assert result == categories_2
+
+        # WHEN: changing to empty list
+        await media_item_repo.set_categories(item.file_id, categories=categories_3)
+        # THEN
+        result = await _list_categories_by_id(item.file_id)
+        assert result == categories_3
+
+    async def test_when_media_item_does_not_exist(
+        self, media_item_repo: MediaItemRepository,
+    ):
+        file_id = uuid.uuid4()
+        with pytest.raises(MediaItem.NotFound):
+            await media_item_repo.set_categories(file_id, categories=[])

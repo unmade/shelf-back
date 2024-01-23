@@ -8,7 +8,10 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
     from uuid import UUID
 
-    from app.app.photos.domain.media_item import MediaItemCategoryName
+    from app.app.photos.domain.media_item import (
+        MediaItemCategory,
+        MediaItemCategoryName,
+    )
     from app.app.photos.repositories import IMediaItemRepository
 
     class IServiceDatabase(Protocol):
@@ -44,10 +47,50 @@ class MediaItemService:
             ]
         )
 
+    async def get_for_user(self, user_id: UUID, file_id: UUID) -> MediaItem:
+        """
+        Gets MediaItem with given file ID for the specified user ID.
+
+        Raises:
+            MediaItem.NotFound: If MediaItem does not exist for the specified user.
+        """
+
+        return await self.db.media_item.get_by_user_id(user_id, file_id)
+
     async def list_for_user(
         self, user_id: UUID, *, offset: int, limit: int
     ) -> list[MediaItem]:
         """Lists media items for a given user."""
         return await self.db.media_item.list_by_user_id(
             user_id, offset=offset, limit=limit
+        )
+
+    async def list_categories(self, file_id: UUID) -> list[MediaItemCategory]:
+        """
+        Lists categories of the MediaItem with specified file ID.
+
+        Raises:
+            MediaItem.NotFound: If MediaItem does not exist.
+        """
+        return await self.db.media_item.list_categories(file_id)
+
+    async def set_categories(
+        self, file_id: UUID, categories: Sequence[MediaItemCategoryName]
+    ) -> None:
+        """
+        Clears existing and sets specified categories for MediaItem with given file ID.
+
+        Raises:
+            MediaItem.NotFound: If MediaItem does not exist.
+        """
+        await self.db.media_item.set_categories(
+            file_id,
+            categories=[
+                MediaItem.Category(
+                    name=category,
+                    origin=MediaItem.Category.Origin.USER,
+                    probability=100,
+                )
+                for category in categories
+            ]
         )
