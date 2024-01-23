@@ -43,6 +43,18 @@ class TestAutoAddCategoryBatch:
         )
 
 
+class TestGetForUser:
+    async def test(self, media_item_service: MediaItemService):
+        # GIVEN
+        user_id, file_id = uuid.uuid4(), uuid.uuid4()
+        db = cast(mock.AsyncMock, media_item_service.db)
+        # WHEN
+        result = await media_item_service.get_for_user(user_id, file_id)
+        # THEN
+        assert result == db.media_item.get_by_user_id.return_value
+        db.media_item.get_by_user_id.assert_awaited_once_with(user_id, file_id)
+
+
 class TestListForUser:
     async def test(self, media_item_service: MediaItemService):
         # GIVEN
