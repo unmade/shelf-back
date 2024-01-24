@@ -68,7 +68,11 @@ class NamespaceUseCase:
         self.user = services.user
 
     async def add_file(
-        self, ns_path: AnyPath, path: AnyPath, content: IFileContent
+        self,
+        ns_path: AnyPath,
+        path: AnyPath,
+        content: IFileContent,
+        mtime: float | None = None,
     ) -> AnyFile:
         """
         Saves a file to a storage and to a database. Additionally calculates and saves
@@ -86,9 +90,6 @@ class NamespaceUseCase:
             File.MalformedPath: If path is invalid (e.g. uploading to Trash folder).
             File.NotADirectory: If one of the path parents is not a folder.
             File.TooLarge: If upload file size exceeds max upload size limit.
-
-        Returns:
-            AnyFile: Saved file.
         """
         path = Path(path)
         if path.is_relative_to("trash"):
@@ -104,7 +105,7 @@ class NamespaceUseCase:
             if (used + content.size) > account.storage_quota:
                 raise Account.StorageQuotaExceeded()
 
-        file = await self.file.create_file(ns_path, path, content)
+        file = await self.file.create_file(ns_path, path, content, mtime)
         await self.content.process_async(file.id)
 
         taskgroups.schedule(self.audit_trail.file_added(file))

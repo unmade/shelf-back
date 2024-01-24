@@ -52,7 +52,11 @@ class FileService:
         self.mount_service = mount_service
 
     async def create_file(
-        self, ns_path: AnyPath, path: AnyPath, content: IFileContent
+        self,
+        ns_path: AnyPath,
+        path: AnyPath,
+        content: IFileContent,
+        mtime: float | None = None,
     ) -> AnyFile:
         """
         Creates a new file with any missing parents. If file name is taken, then file
@@ -68,7 +72,7 @@ class FileService:
             raise File.ActionNotAllowed()
 
         path = await self.get_available_path(fq_path.ns_path, fq_path.path)
-        file = await self.filecore.create_file(fq_path.ns_path, path, content)
+        file = await self.filecore.create_file(fq_path.ns_path, path, content, mtime)
         return _resolve_file(file, fq_path.mount_point)
 
     async def create_folder(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:

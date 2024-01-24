@@ -37,6 +37,7 @@ from app.app.files.domain import (
 from app.app.infrastructure.worker import Job, JobStatus
 from app.app.users.domain import Account
 from app.cache import disk_cache
+from app.toolkit import timezone
 from app.worker.jobs.files import ErrorCode as TaskErrorCode
 from app.worker.jobs.files import FileTaskResult
 
@@ -54,7 +55,11 @@ _FILE_ID = uuid.uuid4()
 
 
 def _make_file(
-    ns_path: AnyPath, path: AnyPath, size: int = 10, mediatype: str = "plain/text"
+    ns_path: AnyPath,
+    path: AnyPath,
+    size: int = 10,
+    mtime: float | None = None,
+    mediatype: str = "plain/text",
 ) -> File:
     return File(
         id=uuid.uuid4(),
@@ -63,6 +68,7 @@ def _make_file(
         path=Path(path),
         chash=uuid.uuid4().hex,
         size=size,
+        mtime=mtime or timezone.now().timestamp(),
         mediatype=mediatype,
     )
 
@@ -981,15 +987,15 @@ class TestUpload:
         expected_path: str,
     ):
         # GIVEN
-        ns_path = str(namespace.path)
-        content = BytesIO(b"Dummy file")
-        size = len(content.getvalue())
+        ns_path, content = str(namespace.path), BytesIO(b"Dummy file")
+        size, mtime = len(content.getvalue()), 1597310774
         ns_use_case.add_file.return_value = _make_file(
-            ns_path, expected_path, size=size
+            ns_path, expected_path, size=size, mtime=mtime
         )
         payload = {
             "file": content,
             "path": (None, path),
+            "mtime": (None, str(mtime)),
         }
         # WHEN
         client.mock_namespace(namespace)
@@ -998,9 +1004,10 @@ class TestUpload:
         assert response.status_code == 200
         assert response.json()["path"] == expected_path
         assert ns_use_case.add_file.await_args is not None
-        assert len(ns_use_case.add_file.await_args.args) == 3
+        assert len(ns_use_case.add_file.await_args.args) == 4
         assert ns_use_case.add_file.await_args.args[:2] == (ns_path, expected_path)
         assert isinstance(ns_use_case.add_file.await_args.args[2], UploadFile)
+        assert ns_use_case.add_file.await_args.args[3] == mtime
 
     @pytest.mark.parametrize(["path", "error", "expected_error"], [
         ("folder/f.txt", File.ActionNotAllowed(), FileActionNotAllowed()),
