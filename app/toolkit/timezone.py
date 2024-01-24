@@ -3,6 +3,12 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from dateutil import tz
+from dateutil.tz.tz import EPOCH
+
+__all__ = [
+    "EPOCH",
+    "now",
+]
 
 
 def now() -> datetime:

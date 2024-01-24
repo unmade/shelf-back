@@ -9,7 +9,7 @@ from typing import IO, TYPE_CHECKING, Iterator
 from app.app.files.domain import File, Path, mediatypes
 from app.app.files.repositories.file import FileUpdate
 from app.app.infrastructure.database import SENTINEL_ID
-from app.toolkit import chash, taskgroups
+from app.toolkit import chash, taskgroups, timezone
 from app.toolkit.chash import EMPTY_CONTENT_HASH
 
 if TYPE_CHECKING:
@@ -73,7 +73,11 @@ class FileCoreService:
             await self.db.file.set_chash_batch(tracker.items)
 
     async def create_file(
-        self, ns_path: AnyPath, path: AnyPath, content: IFileContent
+        self,
+        ns_path: AnyPath,
+        path: AnyPath,
+        content: IFileContent,
+        mtime: float | None = None,
     ) -> File:
         """
         Saves a file to a storage and to a database. Any missing parents automatically
@@ -111,6 +115,7 @@ class FileCoreService:
                         path=next_path,
                         chash=content_hash,
                         size=storage_file.size,
+                        mtime=mtime or timezone.now().timestamp(),
                         mediatype=mediatype,
                     ),
                 )

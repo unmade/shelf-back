@@ -11,6 +11,7 @@ from pydantic.functional_validators import AfterValidator
 
 from app.app.files.services.thumbnailer import thumbnails
 from app.config import ThumbnailSize as AppThumbnailSize
+from app.toolkit import timezone
 from app.worker.jobs.files import ErrorCode as TaskErrorCode
 
 from .exceptions import FileAlreadyDeleted, MalformedPath
@@ -37,6 +38,16 @@ _THUMBNAIL_SIZES = {
     ThumbnailSize.lg: AppThumbnailSize.lg,
     ThumbnailSize.xxl: AppThumbnailSize.xxl,
 }
+
+
+def _check_timestamp_less_than_now(value: float) -> float:
+    assert value <= timezone.now().timestamp(), (
+        "`mtime` can't be greater than current datetime."
+    )
+    assert value >= timezone.EPOCH.timestamp(), (
+        "`mtime` can't be lesser than epoch"
+    )
+    return value
 
 
 def _normalize(path: str) -> str:
@@ -79,6 +90,10 @@ class FileSchema(BaseModel):
         if thumbnails.is_supported(file.mediatype):
             return str(request.url_for("get_thumbnail", file_id=file.id))
         return None
+
+
+class LastModifiedParam(RootModel[float]):
+    root: Annotated[float, AfterValidator(_check_timestamp_less_than_now)]
 
 
 class PathParam(RootModel[str]):

@@ -1,3 +1,4 @@
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Form, Request
@@ -34,6 +35,7 @@ from .schemas import (
     GetContentMetadataResponse,
     GetDownloadUrlResponse,
     IDRequest,
+    LastModifiedParam,
     ListFolderResponse,
     MoveBatchCheckResponse,
     MoveBatchRequest,
@@ -427,16 +429,16 @@ async def upload_file(
     request: Request,
     namespace: NamespaceDeps,
     usecases: UseCasesDeps,
-    file: UploadContent = FileParam(...),
-    path: PathParam = Form(...),
+    file: Annotated[UploadContent, FileParam()],
+    path: Annotated[PathParam, Form()],
+    mtime: Annotated[LastModifiedParam, FileParam()] = None,
 ) -> FileSchema:
     """Upload file to the specified path."""
-    filepath = str(path.root)
-    del path
-
     ns_path = str(namespace.path)
+    mtime_ = mtime.root if mtime is not None else mtime
+
     try:
-        upload = await usecases.namespace.add_file(ns_path, filepath, file)
+        upload = await usecases.namespace.add_file(ns_path, path.root, file, mtime_)
     except File.ActionNotAllowed as exc:
         raise exceptions.FileActionNotAllowed() from exc
     except Account.StorageQuotaExceeded as exc:
@@ -444,7 +446,7 @@ async def upload_file(
     except File.MalformedPath as exc:
         raise exceptions.MalformedPath(str(exc)) from exc
     except File.NotADirectory as exc:
-        raise exceptions.NotADirectory(path=filepath) from exc
+        raise exceptions.NotADirectory(path=path.root) from exc
     except File.TooLarge as exc:
         raise exceptions.UploadFileTooLarge() from exc
 

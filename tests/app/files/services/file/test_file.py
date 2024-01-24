@@ -194,7 +194,7 @@ class TestCreateFile:
         content: IFileContent,
     ):
         # GIVEN
-        ns_path, path = "admin", Path("f.txt")
+        ns_path, path, mtime = "admin", Path("f.txt"), None
         filecore = cast(mock.MagicMock, file_service.filecore)
         mount_service = cast(mock.AsyncMock, file_service.mount_service)
         mount_service.resolve_path.return_value = FullyQualifiedPath(ns_path, path)
@@ -208,7 +208,7 @@ class TestCreateFile:
         assert result == _resolve_file(file, fq_path.mount_point)
         get_available_path_mock.assert_awaited_once_with(fq_path.ns_path, fq_path.path)
         filecore.create_file.assert_called_once_with(
-            fq_path.ns_path, path, content
+            fq_path.ns_path, path, content, mtime
         )
 
     async def test_when_not_allowed(
