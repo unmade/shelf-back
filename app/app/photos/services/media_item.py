@@ -58,11 +58,11 @@ class MediaItemService:
         return await self.db.media_item.get_by_user_id(user_id, file_id)
 
     async def list_for_user(
-        self, user_id: UUID, *, offset: int, limit: int
+        self, user_id: UUID, *, only_favourites: bool = False, offset: int, limit: int
     ) -> list[MediaItem]:
         """Lists media items for a given user."""
         return await self.db.media_item.list_by_user_id(
-            user_id, offset=offset, limit=limit
+            user_id, only_favourites=only_favourites, offset=offset, limit=limit
         )
 
     async def list_categories(self, file_id: UUID) -> list[MediaItemCategory]:

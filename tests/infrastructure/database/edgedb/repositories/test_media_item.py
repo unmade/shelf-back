@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from app.app.users.domain import User
     from app.infrastructure.database.edgedb.repositories import MediaItemRepository
     from tests.infrastructure.database.edgedb.conftest import (
+        BookmarkFactory,
         FileFactory,
         MediaItemFactory,
     )
@@ -179,6 +180,54 @@ class TestListByUserID:
         result = await media_item_repo.list_by_user_id(user.id, offset=0)
         # THEN
         assert result == sorted(items, key=operator.attrgetter("mtime"), reverse=True)
+
+    async def test_only_favourites(
+        self,
+        media_item_repo: MediaItemRepository,
+        media_item_factory: MediaItemFactory,
+        bookmark_factory: BookmarkFactory,
+        file_factory: FileFactory,
+        namespace: Namespace,
+        user: User,
+    ):
+        # GIVEN
+        file = await file_factory(
+            namespace.path,
+            os.path.join(config.features.photos_library_path, "f.txt"),
+        )
+        items = [
+            await media_item_factory(user.id, "im.jpg", mediatype=MediaType.IMAGE_JPEG),
+            await media_item_factory(user.id, "im.png", mediatype=MediaType.IMAGE_PNG),
+            await media_item_factory(user.id, "i.heic", mediatype=MediaType.IMAGE_HEIC),
+        ]
+        await bookmark_factory(user.id, file.id)
+        await bookmark_factory(user.id, items[0].file_id)
+        await bookmark_factory(user.id, items[-1].file_id)
+        # WHEN
+        result = await media_item_repo.list_by_user_id(user.id, offset=0)
+        # THEN
+        assert result == sorted(
+            items[::1],
+            key=operator.attrgetter("mtime"),
+            reverse=True,
+        )
+
+    @pytest.mark.usefixtures("namespace")
+    async def test_only_favourites_when_its_empty(
+        self,
+        media_item_repo: MediaItemRepository,
+        media_item_factory: MediaItemFactory,
+        user: User,
+    ):
+        # GIVEN
+        await media_item_factory(user.id, "im.jpg", mediatype=MediaType.IMAGE_JPEG),
+        await media_item_factory(user.id, "im.png", mediatype=MediaType.IMAGE_PNG),
+        # WHEN
+        result = await media_item_repo.list_by_user_id(
+            user.id, only_favourites=True, offset=0
+        )
+        # THEN
+        assert result == []
 
 
 class TestListCategories:

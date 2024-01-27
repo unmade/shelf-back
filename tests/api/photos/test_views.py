@@ -42,7 +42,7 @@ class TestListMediaItems:
         response = await client.get(self.url)
         # THEN
         photos_use_case.list_media_items.assert_awaited_once_with(
-            user.id, offset=0, limit=1000
+            user.id, only_favourites=False, offset=0, limit=1000
         )
         assert response.status_code == 200
         assert len(response.json()["items"]) == len(items)

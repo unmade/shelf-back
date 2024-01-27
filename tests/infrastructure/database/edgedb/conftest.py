@@ -53,6 +53,10 @@ if TYPE_CHECKING:
     )
     from app.infrastructure.database.edgedb import EdgeDBDatabase
 
+    class BookmarkFactory(Protocol):
+        async def __call__(self, user_id: UUID, file_id: UUID) -> Bookmark:
+            ...
+
     class FileFactory(Protocol):
         async def __call__(
             self,
@@ -177,6 +181,15 @@ def shared_link_repo(edgedb_database: EdgeDBDatabase):
 def user_repo(edgedb_database: EdgeDBDatabase):
     """An EdgeDB instance of IUserRepository"""
     return edgedb_database.user
+
+
+@pytest.fixture
+def bookmark_factory(bookmark_repo: IBookmarkRepository) -> BookmarkFactory:
+    """A factory to bookmark file for the given user."""
+    async def factory(user_id: UUID, file_id: UUID) -> Bookmark:
+        bookmark = Bookmark(user_id=user_id, file_id=file_id)
+        return await bookmark_repo.save(bookmark)
+    return factory
 
 
 @pytest.fixture
@@ -424,6 +437,6 @@ async def user(user_a: User):
 
 
 @pytest.fixture
-async def bookmark(bookmark_repo: IBookmarkRepository, file: File, user: User):
-    bookmark = Bookmark(user_id=user.id, file_id=file.id)
-    return await bookmark_repo.save(bookmark)
+async def bookmark(bookmark_factory: BookmarkFactory, user: User, file: File):
+    """Bookmarks `file` fixture for `user`."""
+    return await bookmark_factory(user.id, file.id)

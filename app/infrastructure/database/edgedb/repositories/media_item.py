@@ -127,10 +127,22 @@ class MediaItemRepository(IMediaItemRepository):
         self,
         user_id: UUID,
         *,
+        only_favourites: bool = False,
         offset: int,
         limit: int = 25,
     ) -> list[MediaItem]:
-        query = """
+        files_query = "File"
+        if only_favourites:
+            files_query = """
+                (
+                    select
+                        User
+                    filter
+                        .id = <uuid>$user_id
+                ).bookmarks
+            """
+
+        query = f"""
             WITH
                 namespace := (
                     SELECT
@@ -142,10 +154,11 @@ class MediaItemRepository(IMediaItemRepository):
                     SELECT
                         MediaType
                     FILTER
-                        .name IN {array_unpack(<array<str>>$mediatypes)}
-                )
+                        .name IN {{array_unpack(<array<str>>$mediatypes)}}
+                ),
+                files := {files_query}
             SELECT
-                File { id, name, size, mtime, mediatype: { name } }
+                files {{ id, name, size, mtime, mediatype: {{ name }} }}
             FILTER
                 .path ilike <str>$path ++ '%'
                 AND
