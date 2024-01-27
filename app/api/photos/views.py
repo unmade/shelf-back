@@ -25,6 +25,7 @@ async def list_media_items(
     request: Request,
     current_user: CurrentUserDeps,
     usecases: UseCasesDeps,
+    favourites: Annotated[bool, Query(...)] = False,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=25, le=100)] = 1000,
 ) -> Page[MediaItemSchema]:
@@ -32,6 +33,7 @@ async def list_media_items(
     offset = get_offset(page, page_size)
     items = await usecases.photos.list_media_items(
         current_user.id,
+        only_favourites=favourites,
         offset=offset,
         limit=page_size,
     )

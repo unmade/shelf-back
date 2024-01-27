@@ -41,7 +41,7 @@ class TestListMediaItems:
         # THEN
         assert result == media_item_service.list_for_user.return_value
         media_item_service.list_for_user.assert_awaited_once_with(
-            user_id, offset=0, limit=25
+            user_id, only_favourites=False, offset=0, limit=25
         )
 
 

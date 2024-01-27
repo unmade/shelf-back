@@ -40,10 +40,15 @@ class PhotosUseCase:
         await self.media_item.auto_add_category_batch(file_id, categories=categories)
 
     async def list_media_items(
-        self, user_id: UUID, *, offset: int, limit: int
+        self, user_id: UUID, *, only_favourites: bool = False, offset: int, limit: int
     ) -> list[MediaItem]:
         """Lists media items for a given user."""
-        return await self.media_item.list_for_user(user_id, offset=offset, limit=limit)
+        return await self.media_item.list_for_user(
+            user_id,
+            only_favourites=only_favourites,
+            offset=offset,
+            limit=limit,
+        )
 
     async def list_media_item_categories(
         self, user_id: UUID, file_id: UUID

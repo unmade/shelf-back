@@ -28,6 +28,7 @@ class IMediaItemRepository(Protocol):
         self,
         user_id: UUID,
         *,
+        only_favourites: bool = False,
         offset: int,
         limit: int = 25,
     ) -> list[MediaItem]:

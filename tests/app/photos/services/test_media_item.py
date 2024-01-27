@@ -65,7 +65,7 @@ class TestListForUser:
         # THEN
         assert result == db.media_item.list_by_user_id.return_value
         db.media_item.list_by_user_id.assert_awaited_once_with(
-            user_id, offset=100, limit=50
+            user_id, only_favourites=False, offset=100, limit=50
         )
 
 
