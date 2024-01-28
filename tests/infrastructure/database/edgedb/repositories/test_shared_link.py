@@ -105,11 +105,11 @@ class TestListByNS:
         # WHEN
         result = await shared_link_repo.list_by_ns(namespace_a.path)
         # THEN
-        assert result == links[:2]
+        assert result == list(reversed(links[:2]))
         # WHEN
         result = await shared_link_repo.list_by_ns(namespace_b.path)
         # THEN
-        assert result == links[2:]
+        assert result == list(reversed(links[2:]))
 
 
 class TestSave:

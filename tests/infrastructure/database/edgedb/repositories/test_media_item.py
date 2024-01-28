@@ -135,6 +135,27 @@ class TestAddCategoryBatch:
             await media_item_repo.add_category_batch(file_id, categories=[])
 
 
+class TestGetByIDBatch:
+    @pytest.mark.usefixtures("namespace")
+    async def test(
+        self,
+        media_item_repo: MediaItemRepository,
+        media_item_factory: MediaItemFactory,
+        user: User,
+    ):
+        # GIVEN
+        items = [
+            await media_item_factory(user.id),
+            await media_item_factory(user.id),
+            await media_item_factory(user.id),
+        ]
+        file_ids = [item.file_id for item in items[:2]]
+        # WHEN
+        result = await media_item_repo.get_by_id_batch(file_ids)
+        # THEN
+        assert result == list(reversed(items[:2]))
+
+
 class TestGetByUserID:
     @pytest.mark.usefixtures("namespace")
     async def test(

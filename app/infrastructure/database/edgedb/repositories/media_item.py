@@ -104,6 +104,35 @@ class MediaItemRepository(IMediaItemRepository):
         except edgedb.NoDataError as exc:
             raise MediaItem.NotFound() from exc
 
+    async def get_by_id_batch(self, file_ids: Sequence[UUID]) -> list[MediaItem]:
+        query = """
+            WITH
+                mediatypes := (
+                    SELECT
+                        MediaType
+                    FILTER
+                        .name IN {array_unpack(<array<str>>$mediatypes)}
+                ),
+            SELECT
+                File { id, name, size, mtime, mediatype: { name } }
+            FILTER
+                .id IN {array_unpack(<array<uuid>>$file_ids)}
+                AND
+                .path ILIKE <str>$prefix ++ '%'
+                AND
+                .mediatype IN mediatypes
+            ORDER BY
+                .mtime DESC
+        """
+
+        objs = await self.conn.query(
+            query,
+            file_ids=file_ids,
+            prefix=config.features.photos_library_path,
+            mediatypes=list(MediaItem.ALLOWED_MEDIA_TYPES),
+        )
+        return [_from_db(obj) for obj in objs]
+
     async def get_by_user_id(self, user_id: UUID, file_id: UUID) -> MediaItem:
         query = """
             SELECT
@@ -160,7 +189,7 @@ class MediaItemRepository(IMediaItemRepository):
             SELECT
                 files {{ id, name, size, mtime, mediatype: {{ name }} }}
             FILTER
-                .path ilike <str>$path ++ '%'
+                .path ILIKE <str>$path ++ '%'
                 AND
                 .namespace = namespace
                 AND

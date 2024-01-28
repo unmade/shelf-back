@@ -47,6 +47,10 @@ class MediaItemService:
             ]
         )
 
+    async def get_by_id_batch(self, file_ids: Sequence[UUID]) -> list[MediaItem]:
+        """Returns all media items with target IDs."""
+        return await self.db.media_item.get_by_id_batch(file_ids)
+
     async def get_for_user(self, user_id: UUID, file_id: UUID) -> MediaItem:
         """
         Gets MediaItem with given file ID for the specified user ID.

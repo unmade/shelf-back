@@ -6,22 +6,35 @@ from typing import TYPE_CHECKING
 import pytest
 
 from app.api.photos.exceptions import MediaItemNotFound
+from app.app.files.domain import SharedLink
 from app.app.photos.domain import MediaItem
+from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
+    from uuid import UUID
 
     from app.app.users.domain import User
     from tests.api.conftest import TestClient
 
 pytestmark = [pytest.mark.anyio]
 
-def _make_media_item(name: str, mediatype: str) -> MediaItem:
+
+def _make_media_item(
+    name: str | None = None, mediatype: str | None = None
+) -> MediaItem:
     return MediaItem(
         file_id=uuid.uuid4(),
-        name=name,
+        name=name or f"{uuid.uuid4().hex}.jpeg",
         size=12,
-        mediatype=mediatype,  # type: ignore
+        mediatype=mediatype or MediaType.IMAGE_JPEG,  # type: ignore
+    )
+
+def _make_shared_link(file_id: UUID) -> SharedLink:
+    return SharedLink(
+        id=uuid.uuid4(),
+        file_id=file_id,
+        token=uuid.uuid4().hex,
     )
 
 
@@ -100,6 +113,24 @@ class TestListMediaItemCategories:
         photos_use_case.list_media_item_categories.assert_awaited_once_with(
             user.id, file_id
         )
+
+
+class TestListSharedLinks:
+    url = "/photos/list_shared_links"
+
+    async def test(self, client: TestClient, photos_use_case: MagicMock, user: User):
+        # GIVEN
+        media_items = [_make_media_item() for _ in range(3)]
+        links = [_make_shared_link(item.file_id) for item in media_items]
+        photos_use_case.list_shared_links.return_value = list(
+            zip(media_items, links, strict=False)
+        )
+        # WHEN
+        client.mock_user(user)
+        response = await client.get(self.url)
+        # THEN
+        assert response.status_code == 200
+        assert len(response.json()["items"]) == 3
 
 
 class TestSetCategories:

@@ -14,6 +14,7 @@ from .schemas import (
     ListMediaItemCategoriesResponse,
     MediaItemCategorySchema,
     MediaItemSchema,
+    MediaItemSharedLinkSchema,
     SetMediaItemCategoriesRequest,
 )
 
@@ -40,6 +41,23 @@ async def list_media_items(
     return Page(
         page=page,
         items=[MediaItemSchema.from_entity(item, request) for item in items],
+    )
+
+
+@router.get("/list_shared_links")
+async def list_shared_links(
+    request: Request,
+    current_user: CurrentUserDeps,
+    usecases: UseCasesDeps,
+) -> Page[MediaItemSharedLinkSchema]:
+    """Lists shared links."""
+    items = await usecases.photos.list_shared_links(current_user.id)
+    return Page(
+        page=1,
+        items=[
+            MediaItemSharedLinkSchema.from_entity(item, link, request=request)
+            for item, link in items
+        ]
     )
 
 
