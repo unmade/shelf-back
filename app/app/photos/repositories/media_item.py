@@ -16,6 +16,9 @@ class IMediaItemRepository(Protocol):
     ) -> None:
         """Adds multiple categories at once for the specified media item."""
 
+    async def get_by_id_batch(self, file_ids: Sequence[UUID]) -> list[MediaItem]:
+        """Gets all media items with target IDs."""
+
     async def get_by_user_id(self, user_id: UUID, file_id: UUID) -> MediaItem:
         """
         Gets MediaItem with given file ID for the specified user ID.

@@ -81,9 +81,15 @@ class SharedLinkRepository(ISharedLinkRepository):
                 SharedLink { id, token, created_at, file: { id } }
             FILTER
                 .file.namespace.path = <str>$ns_path
+            ORDER BY
+                .created_at DESC
+            OFFSET
+                <int64>$offset
+            LIMIT
+                <int64>$limit
         """
 
-        objs = await self.conn.query(query, ns_path=ns_path)
+        objs = await self.conn.query(query, ns_path=ns_path, offset=offset, limit=limit)
         return [_from_db(obj) for obj in objs]
 
     async def save(self, shared_link: SharedLink) -> SharedLink:

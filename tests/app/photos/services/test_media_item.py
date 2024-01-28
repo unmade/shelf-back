@@ -55,6 +55,18 @@ class TestGetForUser:
         db.media_item.get_by_user_id.assert_awaited_once_with(user_id, file_id)
 
 
+class TestGetByIDBatch:
+    async def test(self, media_item_service: MediaItemService):
+        # GIVEN
+        file_ids = [uuid.uuid4(), uuid.uuid4()]
+        db = cast(mock.AsyncMock, media_item_service.db)
+        # WHEN
+        result = await media_item_service.get_by_id_batch(file_ids)
+        # THEN
+        assert result == db.media_item.get_by_id_batch.return_value
+        db.media_item.get_by_id_batch.assert_awaited_once_with(file_ids)
+
+
 class TestListForUser:
     async def test(self, media_item_service: MediaItemService):
         # GIVEN
