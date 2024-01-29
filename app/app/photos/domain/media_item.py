@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import enum
+from datetime import datetime
 from typing import ClassVar, Literal, TypeAlias
 from uuid import UUID
 
@@ -102,4 +103,5 @@ class MediaItem(BaseModel):
     name: str
     size: int
     mtime: float = Field(default_factory=mtime_factory)
+    deleted_at: datetime | None = None
     mediatype: IMediaItemType

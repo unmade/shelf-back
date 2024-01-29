@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 import edgedb
@@ -48,6 +49,7 @@ def _from_db(obj) -> MediaItem:
         name=obj.name,
         size=obj.size,
         mtime=obj.mtime,
+        deleted_at=obj.deleted_at,
         mediatype=obj.mediatype.name
     )
 
@@ -114,7 +116,7 @@ class MediaItemRepository(IMediaItemRepository):
                         .name IN {array_unpack(<array<str>>$mediatypes)}
                 ),
             SELECT
-                File { id, name, size, mtime, mediatype: { name } }
+                File { id, name, size, mtime, deleted_at, mediatype: { name } }
             FILTER
                 .id IN {array_unpack(<array<uuid>>$file_ids)}
                 AND
@@ -136,7 +138,7 @@ class MediaItemRepository(IMediaItemRepository):
     async def get_by_user_id(self, user_id: UUID, file_id: UUID) -> MediaItem:
         query = """
             SELECT
-                File { id, name, size, mtime, mediatype: { name } }
+                File { id, name, size, mtime, deleted_at, mediatype: { name } }
             FILTER
                 .id = <uuid>$file_id
                 AND
@@ -187,13 +189,15 @@ class MediaItemRepository(IMediaItemRepository):
                 ),
                 files := {files_query}
             SELECT
-                files {{ id, name, size, mtime, mediatype: {{ name }} }}
+                files {{ id, name, size, mtime, deleted_at, mediatype: {{ name }} }}
             FILTER
                 .path ILIKE <str>$path ++ '%'
                 AND
                 .namespace = namespace
                 AND
                 .mediatype IN mediatypes
+                AND
+                NOT EXISTS(.deleted_at)
             ORDER BY
                 .mtime DESC
             OFFSET
@@ -233,6 +237,43 @@ class MediaItemRepository(IMediaItemRepository):
             raise MediaItem.NotFound() from exc
 
         return [_load_category(category) for category in obj.categories]
+
+    async def list_deleted(self, user_id: UUID) -> list[MediaItem]:
+        query = """
+            WITH
+                namespace := (
+                    SELECT
+                        Namespace
+                    FILTER
+                        .owner.id = <uuid>$user_id
+                ),
+                mediatypes := (
+                    SELECT
+                        MediaType
+                    FILTER
+                        .name IN {array_unpack(<array<str>>$mediatypes)}
+                ),
+            SELECT
+                File { id, name, size, mtime, deleted_at, mediatype: { name } }
+            FILTER
+                .path ILIKE <str>$prefix ++ '%'
+                AND
+                .namespace = namespace
+                AND
+                .mediatype IN mediatypes
+                AND
+                EXISTS(.deleted_at)
+            ORDER BY
+                .deleted_at DESC
+        """
+
+        objs = await self.conn.query(
+            query,
+            user_id=user_id,
+            prefix=config.features.photos_library_path,
+            mediatypes=list(MediaItem.ALLOWED_MEDIA_TYPES),
+        )
+        return [_from_db(obj) for obj in objs]
 
     async def set_categories(
         self, file_id: UUID, categories: Sequence[MediaItemCategory]
@@ -277,3 +318,49 @@ class MediaItemRepository(IMediaItemRepository):
             )
         except edgedb.NoDataError as exc:
             raise MediaItem.NotFound() from exc
+
+    async def set_deleted_at_batch(
+        self, user_id: UUID, file_ids: Sequence[UUID], deleted_at: datetime | None
+    ) -> list[MediaItem]:
+        query = """
+            WITH
+                namespace := (
+                    SELECT
+                        Namespace
+                    FILTER
+                        .owner.id = <uuid>$user_id
+                ),
+                mediatypes := (
+                    SELECT
+                        MediaType
+                    FILTER
+                        .name IN {array_unpack(<array<str>>$mediatypes)}
+                ),
+            SELECT (
+                UPDATE
+                    File
+                FILTER
+                    .id IN {array_unpack(<array<uuid>>$file_ids)}
+                    AND
+                    .path ILIKE <str>$prefix ++ '%'
+                    AND
+                    .namespace = namespace
+                    AND
+                    .mediatype IN mediatypes
+                SET {
+                    deleted_at := <OPTIONAL datetime>$deleted_at ?? {}
+                }
+            ) { id, name, size, mtime, deleted_at, mediatype: { name } }
+            ORDER BY
+                .mtime DESC
+        """
+        objs = await self.conn.query(
+            query,
+            user_id=user_id,
+            file_ids=file_ids,
+            prefix=config.features.photos_library_path,
+            mediatypes=list(MediaItem.ALLOWED_MEDIA_TYPES),
+            deleted_at=deleted_at,
+        )
+
+        return [_from_db(obj) for obj in objs]

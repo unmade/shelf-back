@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
@@ -45,6 +46,9 @@ class IMediaItemRepository(Protocol):
             MediaItem.NotFound: If MediaItem does not exist.
         """
 
+    async def list_deleted(self, user_id: UUID) -> list[MediaItem]:
+        """Lists deleted media items."""
+
     async def set_categories(
         self, file_id: UUID, categories: Sequence[MediaItemCategory]
     ) -> None:
@@ -54,3 +58,8 @@ class IMediaItemRepository(Protocol):
         Raises:
             MediaItem.NotFound: If MediaItem does not exist.
         """
+
+    async def set_deleted_at_batch(
+        self, user_id: UUID, file_ids: Sequence[UUID], deleted_at: datetime | None
+    ) -> list[MediaItem]:
+        """Set `deleted_at` to the specified value for all provided file IDs."""

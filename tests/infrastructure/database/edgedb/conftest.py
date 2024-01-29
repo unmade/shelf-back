@@ -34,6 +34,7 @@ from app.toolkit import chash
 from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
+    from datetime import datetime
     from typing import Protocol
     from uuid import UUID
 
@@ -46,6 +47,7 @@ if TYPE_CHECKING:
         INamespaceRepository,
         ISharedLinkRepository,
     )
+    from app.app.photos.repositories import IMediaItemRepository
     from app.app.users.repositories import (
         IAccountRepository,
         IBookmarkRepository,
@@ -82,6 +84,7 @@ if TYPE_CHECKING:
             user_id: UUID,
             name: str | None = None,
             mediatype: IMediaItemType = MediaType.IMAGE_JPEG,
+            deleted_at: datetime | None = None
         ) -> MediaItem:
             ...
 
@@ -260,24 +263,31 @@ def folder_factory(file_repo: IFileRepository) -> FolderFactory:
 
 @pytest.fixture
 def media_item_factory(
-    namespace_repo: INamespaceRepository, file_factory: FileFactory,
+    namespace_repo: INamespaceRepository,
+    media_item_repo: IMediaItemRepository,
+    file_factory: FileFactory,
 ) -> MediaItemFactory:
     """A factory to create a saved MediaItem to the EdgeDB."""
     async def factory(
         user_id: UUID,
         name: str | None = None,
         mediatype: IMediaItemType = MediaType.IMAGE_JPEG,
+        deleted_at: datetime | None = None,
     ) -> MediaItem:
         namespace = await namespace_repo.get_by_owner_id(user_id)
         name = name or fake.unique.file_name(category="image")
         path = os.path.join(config.features.photos_library_path, name)
         file = await file_factory(namespace.path, path, mediatype=mediatype)
+        if deleted_at:
+            await media_item_repo.set_deleted_at_batch(user_id, [file.id], deleted_at)
+
         return MediaItem(
             file_id=file.id,
             name=file.name,
             size=file.size,
             mtime=file.mtime,
             mediatype=mediatype,
+            deleted_at=deleted_at,
         )
     return factory
 
