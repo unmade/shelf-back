@@ -10,15 +10,46 @@ from app.api.photos import exceptions
 from app.app.photos.domain import MediaItem
 
 from .schemas import (
+    DeleteMediaItemBatchRequest,
     FileIDRequest,
     ListMediaItemCategoriesResponse,
     MediaItemCategorySchema,
     MediaItemSchema,
     MediaItemSharedLinkSchema,
+    RestoreMediaItemBatchRequest,
     SetMediaItemCategoriesRequest,
 )
 
 router = APIRouter()
+
+
+@router.post("/delete_media_item_batch")
+async def delete_media_item_batch(
+    request: Request,
+    payload: DeleteMediaItemBatchRequest,
+    usecases: UseCasesDeps,
+    user: CurrentUserDeps,
+) -> Page[MediaItemSchema]:
+    """Delete multiple media items at once."""
+    items = await usecases.photos.delete_media_item_batch(user.id, payload.file_ids)
+    return Page(
+        page=1,
+        items=[MediaItemSchema.from_entity(item, request) for item in items]
+    )
+
+
+@router.get("/list_deleted_media_items")
+async def list_deleted_media_items(
+    request: Request,
+    current_user: CurrentUserDeps,
+    usecases: UseCasesDeps,
+) -> Page[MediaItemSchema]:
+    """Lists all user's deleted media items."""
+    items = await usecases.photos.list_deleted_media_items(current_user.id)
+    return Page(
+        page=1,
+        items=[MediaItemSchema.from_entity(item, request) for item in items]
+    )
 
 
 @router.get("/list_media_items")
@@ -80,6 +111,21 @@ async def list_media_item_categories(
             MediaItemCategorySchema.from_entity(category)
             for category in categories
         ]
+    )
+
+
+@router.post("/restore_media_item_batch")
+async def restore_media_item(
+    request: Request,
+    payload: RestoreMediaItemBatchRequest,
+    usecases: UseCasesDeps,
+    user: CurrentUserDeps,
+) -> Page[MediaItemSchema]:
+    """Restores multiple deleted media items at once."""
+    items = await usecases.photos.restore_media_item_batch(user.id, payload.file_ids)
+    return Page(
+        page=1,
+        items=[MediaItemSchema.from_entity(item, request) for item in items]
     )
 
 

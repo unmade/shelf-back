@@ -54,6 +54,31 @@ class TestAutoAddCategoryBatch:
         )
 
 
+class TestDeleteMediaItemBatch:
+    async def test(self, photos_use_case: PhotosUseCase):
+        # GIVEN
+        user_id = uuid.uuid4()
+        file_ids = [uuid.uuid4(), uuid.uuid4()]
+        media_item_service = cast(mock.MagicMock, photos_use_case.media_item)
+        # WHEN
+        result = await photos_use_case.delete_media_item_batch(user_id, file_ids)
+        # THEN
+        assert result == media_item_service.delete_batch.return_value
+        media_item_service.delete_batch.assert_awaited_once_with(user_id, file_ids)
+
+
+class TestListDeletedMediaItems:
+    async def test(self, photos_use_case: PhotosUseCase):
+        # GIVEN
+        user_id = uuid.uuid4()
+        media_item_service = cast(mock.MagicMock, photos_use_case.media_item)
+        # WHEN
+        result = await photos_use_case.list_deleted_media_items(user_id)
+        # THEN
+        assert result == media_item_service.list_deleted.return_value
+        media_item_service.list_deleted.assert_awaited_once_with(user_id)
+
+
 class TestListMediaItems:
     async def test(self, photos_use_case: PhotosUseCase):
         # GIVEN
@@ -106,6 +131,19 @@ class TestListMediaItemCategories:
         media_item_service.get_for_user.assert_awaited_once_with(user_id, file_id)
         item = media_item_service.get_for_user.return_value
         media_item_service.list_categories.assert_awaited_once_with(item.file_id)
+
+
+class TestRestoreMediaItemBatch:
+    async def test(self, photos_use_case: PhotosUseCase):
+        # GIVEN
+        user_id = uuid.uuid4()
+        file_ids = [uuid.uuid4(), uuid.uuid4()]
+        media_item_service = cast(mock.MagicMock, photos_use_case.media_item)
+        # WHEN
+        result = await photos_use_case.restore_media_item_batch(user_id, file_ids)
+        # THEN
+        assert result == media_item_service.restore_batch.return_value
+        media_item_service.restore_batch.assert_awaited_once_with(user_id, file_ids)
 
 
 class TestSetCategories:

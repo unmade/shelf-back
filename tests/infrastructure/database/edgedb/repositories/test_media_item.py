@@ -14,6 +14,7 @@ from app.infrastructure.database.edgedb.repositories.media_item import (
     _dump_category,
     _load_category,
 )
+from app.toolkit import timezone
 from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
@@ -193,6 +194,7 @@ class TestListByUserID:
             namespace.path,
             os.path.join(config.features.photos_library_path, "f.txt"),
         )
+        await media_item_factory(user.id, deleted_at=timezone.now()),
         items = [
             await media_item_factory(user.id, "im.jpg", mediatype=MediaType.IMAGE_JPEG),
             await media_item_factory(user.id, "im.png", mediatype=MediaType.IMAGE_PNG),
@@ -200,7 +202,7 @@ class TestListByUserID:
         # WHEN
         result = await media_item_repo.list_by_user_id(user.id, offset=0)
         # THEN
-        assert result == sorted(items, key=operator.attrgetter("mtime"), reverse=True)
+        assert result == list(reversed(items))
 
     async def test_only_favourites(
         self,
@@ -288,6 +290,26 @@ class TestListCategories:
             await media_item_repo.list_categories(file_id)
 
 
+class TestListDeleted:
+    @pytest.mark.usefixtures("namespace")
+    async def test(
+        self,
+        media_item_repo: MediaItemRepository,
+        media_item_factory: MediaItemFactory,
+        user: User,
+    ):
+        # GIVEN
+        items = [
+            await media_item_factory(user.id, deleted_at=timezone.now()),
+            await media_item_factory(user.id, deleted_at=timezone.now()),
+            await media_item_factory(user.id, deleted_at=None),
+        ]
+        # WHEN
+        result = await media_item_repo.list_deleted(user.id)
+        # THEN
+        assert result == [items[1], items[0]]
+
+
 class TestSetCategories:
     @pytest.mark.usefixtures("namespace")
     async def test(
@@ -347,3 +369,27 @@ class TestSetCategories:
         file_id = uuid.uuid4()
         with pytest.raises(MediaItem.NotFound):
             await media_item_repo.set_categories(file_id, categories=[])
+
+
+class TestSetDeletedAtBatch:
+    @pytest.mark.usefixtures("namespace")
+    async def test(
+        self,
+        media_item_repo: MediaItemRepository,
+        media_item_factory: MediaItemFactory,
+        user: User,
+    ):
+        # GIVEN
+        deleted_at = timezone.now()
+        items = [
+            await media_item_factory(user.id, deleted_at=None),
+            await media_item_factory(user.id, deleted_at=None),
+        ]
+        file_ids = [item.file_id for item in items]
+        # WHEN
+        result = await media_item_repo.set_deleted_at_batch(
+            user.id, file_ids, deleted_at
+        )
+        # THEN
+        assert result[0].deleted_at == deleted_at
+        assert result[1].deleted_at == deleted_at

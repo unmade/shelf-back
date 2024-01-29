@@ -42,9 +42,10 @@ module default {
         required chash: str;
         required size: int64;
         required mtime: float64;
-
         required mediatype: MediaType;
         required namespace: Namespace;
+
+        deleted_at: datetime;
 
         multi categories: FileCategory {
             origin: int16;

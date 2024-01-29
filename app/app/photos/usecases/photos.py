@@ -20,7 +20,6 @@ if TYPE_CHECKING:
         namespace: NamespaceService
         sharing: SharingService
 
-
 __all__ = [
     "PhotosUseCase",
 ]
@@ -45,6 +44,16 @@ class PhotosUseCase:
             MediaItem.NotFound: If media item with a given `file_id` does not exist.
         """
         await self.media_item.auto_add_category_batch(file_id, categories=categories)
+
+    async def delete_media_item_batch(
+        self, user_id: UUID, file_ids: Sequence[UUID]
+    ) -> list[MediaItem]:
+        """Deletes multiple media items at once."""
+        return await self.media_item.delete_batch(user_id, file_ids)
+
+    async def list_deleted_media_items(self, user_id: UUID) -> list[MediaItem]:
+        """Lists deleted media items."""
+        return await self.media_item.list_deleted(user_id)
 
     async def list_media_items(
         self, user_id: UUID, *, only_favourites: bool = False, offset: int, limit: int
@@ -85,6 +94,12 @@ class PhotosUseCase:
             for link in links
             if (item := items_by_id.get(link.file_id))
         ]
+
+    async def restore_media_item_batch(
+        self, user_id: UUID, file_ids: Sequence[UUID]
+    ) -> list[MediaItem]:
+        """Restores multiple media items at once."""
+        return await self.media_item.restore_batch(user_id, file_ids)
 
     async def set_media_item_categories(
         self, user_id: UUID, file_id: UUID, categories: Sequence[MediaItemCategoryName]

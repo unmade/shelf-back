@@ -27,6 +27,7 @@ class MediaItemSchema(BaseModel):
     mtime: float
     mediatype: str
     thumbnail_url: str
+    deleted_at: datetime | None
 
     @classmethod
     def from_entity(cls, entity: MediaItem, request: Request) -> Self:
@@ -37,6 +38,7 @@ class MediaItemSchema(BaseModel):
             mtime=entity.mtime,
             mediatype=entity.mediatype,
             thumbnail_url=_make_thumbnail_url(request, entity),
+            deleted_at=entity.deleted_at,
         )
 
 
@@ -88,9 +90,17 @@ class AddCategoryRequest(BaseModel):
     categories: Categories
 
 
+class DeleteMediaItemBatchRequest(BaseModel):
+    file_ids: list[UUID]
+
+
 class ListMediaItemCategoriesResponse(BaseModel):
     file_id: UUID
     categories: list[MediaItemCategorySchema]
+
+
+class RestoreMediaItemBatchRequest(BaseModel):
+    file_ids: list[UUID]
 
 
 class SetMediaItemCategoriesRequest(BaseModel):
