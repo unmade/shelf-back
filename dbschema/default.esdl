@@ -96,6 +96,14 @@ module default {
         };
     }
 
+    type FilePendingDeletion {
+        required ns_path: str;
+        required path: str;
+        required chash: str;
+        required mediatype: str;
+        required created_at: datetime;
+    }
+
     type Fingerprint {
         required part1: int32;
         required part2: int32;

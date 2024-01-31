@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import textwrap
 from typing import (
     TYPE_CHECKING,
     Iterable,
@@ -22,6 +23,8 @@ from app.toolkit import json_
 from .file_member import ActionFlag
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from app.app.files.domain import AnyFile, AnyPath
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
     from app.typedefs import StrOrUUID
@@ -165,6 +168,69 @@ class FileRepository(IFileRepository):
 
         await self.conn.query(query, ns_path=str(ns_path), prefix=str(prefix))
 
+    async def delete_all_with_prefix_batch(
+        self, items: Mapping[str, Sequence[AnyPath]]
+    ) -> None:
+        if not items:
+            return
+
+        filter_clause = " OR ".join(
+            [
+                textwrap.dedent(
+                    f"""\
+                    (
+                        .path ILIKE (
+                            FOR prefix in {{array_unpack(<array<str>>$prefixes_{i})}}
+                            UNION (
+                                SELECT prefix ++ '%'
+                            )
+                        )
+                        AND .namespace.path = <str>$ns_path_{i}
+                    )
+                    """
+                )
+                for i in range(len(items))
+            ]
+        )
+
+        kwargs: dict[str, str | list[str]] = {}
+        for i, (ns_path, prefixes) in enumerate(items.items()):
+            kwargs[f"ns_path_{i}"] = ns_path
+            kwargs[f"prefixes_{i}"] = [str(prefix) for prefix in prefixes]
+
+        query = f"""
+            DELETE
+                File {{
+                    id, name, path, chash, size, mtime,
+                    mediatype: {{ name }},
+                    namespace: {{ path }}
+                }}
+            FILTER
+                {filter_clause}
+        """
+        await self.conn.query(query, **kwargs)
+
+    async def delete_batch(
+        self, ns_path: AnyPath, paths: Sequence[AnyPath]
+    ) -> list[File]:
+        query = """
+            SELECT (
+                DELETE
+                    File
+                FILTER
+                    str_lower(.path) IN {array_unpack(<array<str>>$paths)}
+                    AND
+                    .namespace.path = <str>$ns_path
+            ) { id, name, path, chash, size, mtime, mediatype: { name } }
+        """
+
+        objs = await self.conn.query(
+            query,
+            ns_path=str(ns_path),
+            paths=[str(path).lower() for path in paths],
+        )
+        return [_from_db(str(ns_path), obj) for obj in objs]
+
     async def exists_at_path(self, ns_path: AnyPath, path: AnyPath) -> bool:
         query = """
             SELECT EXISTS (
@@ -198,6 +264,20 @@ class FileRepository(IFileRepository):
             query, ns_path=str(ns_path), file_id=file_id
         )
         return cast(bool, exists)
+
+    async def get_by_chash_batch(self, chashes: Sequence[str]) -> list[File]:
+        query = """
+            SELECT
+                File {
+                    id, name, path, chash, size, mtime, mediatype: { name },
+                    namespace: { path }
+                }
+            FILTER
+                .chash IN {array_unpack(<array<str>>$chashes)}
+        """
+
+        objs = await self.conn.query(query, chashes=chashes)
+        return [_from_db(None, obj) for obj in objs]
 
     async def get_by_id(self, file_id: UUID) -> File:
         query = """
@@ -283,6 +363,44 @@ class FileRepository(IFileRepository):
             paths=[str(p).lower() for p in paths]
         )
         return [_from_db(ns_path, obj) for obj in objs]
+
+    async def incr_size(
+        self, ns_path: AnyPath, items: Sequence[tuple[AnyPath, int]]
+    ) -> None:
+        query = """
+            WITH
+                entries := array_unpack(<array<json>>$entries),
+                namespace := (
+                    SELECT
+                        Namespace
+                    FILTER
+                        .path = <str>$ns_path
+                )
+            FOR entry IN {entries}
+            UNION (
+                UPDATE File
+                FILTER
+                    str_lower(.path) = <str>entry['path']
+                    AND
+                    .namespace = namespace
+                SET {
+                    size := .size + <int64>entry['size']
+                }
+            )
+        """
+
+        await self.conn.query(
+            query,
+            ns_path=ns_path,
+            entries=[
+                json_.dumps({
+                    "path": str(path),
+                    "size": size,
+                })
+                for path, size in items
+                if size
+            ],
+        )
 
     async def incr_size_batch(
         self, ns_path: AnyPath, paths: Iterable[AnyPath], value: int
@@ -423,6 +541,50 @@ class FileRepository(IFileRepository):
             parent_path=str(Path(prefix)),
         )
         return [_from_db_v2(str(ns_path), obj) for obj in objs]
+
+    async def list_all_with_prefix_batch(
+        self, items:Mapping[str, Sequence[AnyPath]]
+    ) -> list[File]:
+        if not items:
+            return []
+
+        filter_clause = " OR ".join(
+            [
+                textwrap.dedent(
+                    f"""\
+                    (
+                        .path ILIKE (
+                            FOR prefix in {{array_unpack(<array<str>>$prefixes_{i})}}
+                            UNION (
+                                SELECT prefix ++ '%'
+                            )
+                        )
+                        AND .namespace.path = <str>$ns_path_{i}
+                    )
+                    """
+                )
+                for i in range(len(items))
+            ]
+        )
+
+        kwargs: dict[str, str | list[str]] = {}
+        for i, (ns_path, prefixes) in enumerate(items.items()):
+            kwargs[f"ns_path_{i}"] = ns_path
+            kwargs[f"prefixes_{i}"] = [str(prefix) for prefix in prefixes]
+
+        query = f"""
+            SELECT
+                File {{
+                    id, name, path, chash, size, mtime,
+                    mediatype: {{ name }},
+                    namespace: {{ path }}
+                }}
+            FILTER
+                {filter_clause}
+        """
+
+        objs = await self.conn.query(query, **kwargs)
+        return [_from_db(None, obj) for obj in objs]
 
     async def replace_path_prefix(
         self, at: tuple[AnyPath, AnyPath], to: tuple[AnyPath, AnyPath]

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import operator
 import uuid
 from io import BytesIO
 from typing import IO, TYPE_CHECKING, cast
@@ -54,11 +55,49 @@ async def image_thumbnail(image_content: IFileContent) -> bytes:
     return thumbnail
 
 
+class TestIsSupported:
+    @mock.patch("app.app.files.services.thumbnailer.thumbnailer.thumbnails")
+    async def test(self, thumbnails_mock: MagicMock, thumbnailer: ThumbnailService):
+        # GIVEN
+        mediatype = "plain/text"
+        # WHEN
+        result = thumbnailer.is_supported(mediatype)
+        # THEN
+        assert result == thumbnails_mock.is_supported.return_value
+        thumbnails_mock.is_supported.assert_called_once_with(mediatype)
+
+
 class TestGetStoragePath:
     async def test(self, thumbnailer: ThumbnailService):
         chash, size = "abcdef", 72
         path = thumbnailer.get_storage_path(chash, size)
         assert path == "thumbs/ab/cd/ef/abcdef_72.webp"
+
+
+class TestDeleteStaleThumbnails:
+    async def test(self, thumbnailer: ThumbnailService):
+        # GIVEN
+        chashes = ["abcdef", "ghijkl", "", uuid.uuid4().hex]
+        filecore = cast(mock.MagicMock, thumbnailer.filecore)
+        files = [_make_file("admin", "im.jpeg", chash=chashes[-1])]
+        filecore.get_by_chash_batch.return_value = files
+        storage = cast(mock.MagicMock, thumbnailer.storage)
+        # WHEN
+        await thumbnailer.delete_stale_thumbnails(chashes)
+        # THEN
+        storage.delete_batch.assert_awaited_once()
+        call_args = storage.delete_batch.call_args
+        assert call_args.kwargs == {}
+        assert len(call_args.args) == 1
+        actual = sorted(call_args.args[0], key=operator.itemgetter(1))
+        assert actual == [
+            ("thumbs", "ab/cd/ef/abcdef_2880.webp"),
+            ("thumbs", "ab/cd/ef/abcdef_72.webp"),
+            ("thumbs", "ab/cd/ef/abcdef_768.webp"),
+            ("thumbs", "gh/ij/kl/ghijkl_2880.webp"),
+            ("thumbs", "gh/ij/kl/ghijkl_72.webp"),
+            ("thumbs", "gh/ij/kl/ghijkl_768.webp"),
+        ]
 
 
 class TestGenerateThumbnails:
@@ -80,9 +119,9 @@ class TestGenerateThumbnails:
         # THEN
         filecore.get_by_id.assert_awaited_once_with(file.id)
         storage.exists.assert_has_awaits([
-            mock.call(_PREFIX, thumbnailer._make_path(file.chash, 32)),
-            mock.call(_PREFIX, thumbnailer._make_path(file.chash, 64)),
-            mock.call(_PREFIX, thumbnailer._make_path(file.chash, 128)),
+            mock.call(_PREFIX, thumbnailer.make_path(file.chash, 32)),
+            mock.call(_PREFIX, thumbnailer.make_path(file.chash, 64)),
+            mock.call(_PREFIX, thumbnailer.make_path(file.chash, 128)),
         ])
         filecore.download.assert_awaited_once_with(file.id)
         storage.makedirs.assert_has_awaits([

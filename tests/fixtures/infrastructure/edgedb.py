@@ -75,6 +75,7 @@ def flush_edgedb_database_if_needed(request: FixtureRequest):
                     DELETE AuditTrailAction;
                     DELETE File;
                     DELETE FileMetadata;
+                    DELETE FilePendingDeletion;
                     DELETE Fingerprint;
                     DELETE MediaType;
                     DELETE Namespace;

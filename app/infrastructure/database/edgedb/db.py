@@ -22,6 +22,7 @@ from .repositories import (
     BookmarkRepository,
     ContentMetadataRepository,
     FileMemberRepository,
+    FilePendingDeletionRepository,
     FileRepository,
     FingerprintRepository,
     MediaItemRepository,
@@ -36,6 +37,7 @@ if TYPE_CHECKING:
     from app.app.files.repositories import (
         IContentMetadataRepository,
         IFileMemberRepository,
+        IFilePendingDeletionRepository,
         IFileRepository,
         IFingerprintRepository,
         IMountRepository,
@@ -70,6 +72,7 @@ class EdgeDBDatabase(IDatabase):
     bookmark: IBookmarkRepository
     file: IFileRepository
     file_member: IFileMemberRepository
+    file_pending_deletion: IFilePendingDeletionRepository
     fingerprint: IFingerprintRepository
     media_item: IMediaItemRepository
     metadata: IContentMetadataRepository
@@ -95,6 +98,9 @@ class EdgeDBDatabase(IDatabase):
         self.bookmark = BookmarkRepository(db_context=db_context)
         self.file = FileRepository(db_context=db_context)
         self.file_member = FileMemberRepository(db_context=db_context)
+        self.file_pending_deletion = FilePendingDeletionRepository(
+            db_context=db_context
+        )
         self.fingerprint = FingerprintRepository(db_context=db_context)
         self.media_item = MediaItemRepository(db_context=db_context)
         self.metadata = ContentMetadataRepository(db_context=db_context)

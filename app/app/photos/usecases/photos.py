@@ -8,6 +8,7 @@ if TYPE_CHECKING:
 
     from app.app.files.domain import SharedLink
     from app.app.files.services import NamespaceService, SharingService
+    from app.app.files.services.file import FileCoreService
     from app.app.photos.domain import MediaItem
     from app.app.photos.domain.media_item import (
         MediaItemCategory,
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
     from app.app.photos.services import MediaItemService
 
     class IUseCaseServices(Protocol):
+        filecore: FileCoreService
         media_item: MediaItemService
         namespace: NamespaceService
         sharing: SharingService
@@ -26,10 +28,11 @@ __all__ = [
 
 
 class PhotosUseCase:
-    __slots__ = ["_services", "media_item", "namespace", "sharing"]
+    __slots__ = ["_services", "filecore", "media_item", "namespace", "sharing"]
 
     def __init__(self, services: IUseCaseServices):
         self._services = services
+        self.filecore = services.filecore
         self.media_item = services.media_item
         self.namespace = services.namespace
         self.sharing = services.sharing
@@ -51,9 +54,27 @@ class PhotosUseCase:
         """Deletes multiple media items at once."""
         return await self.media_item.delete_batch(user_id, file_ids)
 
+    async def delete_media_item_immediately_batch(
+        self, user_id: UUID, file_ids: Sequence[UUID]
+    ) -> None:
+        """Deletes multiple media items permanently."""
+        namespace = await self.namespace.get_by_owner_id(user_id)
+        files = await self.filecore.get_by_id_batch(file_ids)
+        paths = [file.path for file in files]
+        await self.filecore.delete_batch(namespace.path, paths)
+
+    async def empty_trash(self, user_id: UUID) -> None:
+        """Deletes all files in the Trash permanently."""
+        namespace = await self.namespace.get_by_owner_id(user_id)
+        async for items in self.media_item.iter_deleted(user_id):
+            file_ids = [item.file_id for item in items]
+            files = await self.filecore.get_by_id_batch(file_ids)
+            paths = [file.path for file in files]
+            await self.filecore.delete_batch(namespace.path, paths)
+
     async def list_deleted_media_items(self, user_id: UUID) -> list[MediaItem]:
         """Lists deleted media items."""
-        return await self.media_item.list_deleted(user_id)
+        return await self.media_item.list_deleted(user_id, offset=0, limit=2_000)
 
     async def list_media_items(
         self, user_id: UUID, *, only_favourites: bool = False, offset: int, limit: int

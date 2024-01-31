@@ -3,33 +3,48 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import itertools
-from collections import deque
-from typing import IO, TYPE_CHECKING, Iterator
+from collections import defaultdict, deque
+from typing import IO, TYPE_CHECKING, Protocol
 
-from app.app.files.domain import File, Path, mediatypes
+from pydantic import BaseModel
+
+from app.app.files.domain import File, FilePendingDeletion, Path, mediatypes
 from app.app.files.repositories.file import FileUpdate
 from app.app.infrastructure.database import SENTINEL_ID
 from app.toolkit import chash, taskgroups, timezone
 from app.toolkit.chash import EMPTY_CONTENT_HASH
 
 if TYPE_CHECKING:
-    from typing import (
+    from collections.abc import (
         AsyncIterator,
         Iterable,
-        Protocol,
+        Iterator,
         Sequence,
     )
     from uuid import UUID
 
     from app.app.files.domain import AnyFile, AnyPath, IFileContent
-    from app.app.files.repositories import IFileRepository
-    from app.app.infrastructure import IDatabase
-    from app.app.infrastructure.storage import IStorage
+    from app.app.files.repositories import (
+        IFilePendingDeletionRepository,
+        IFileRepository,
+    )
+    from app.app.infrastructure import IDatabase, IStorage, IWorker
 
     class IServiceDatabase(IDatabase, Protocol):
         file: IFileRepository
+        file_pending_deletion: IFilePendingDeletionRepository
 
-__all__ = ["FileCoreService"]
+__all__ = [
+    "FileCoreService",
+    "ProcessFilePendingDeletionResult",
+]
+
+
+class ProcessFilePendingDeletionResult(BaseModel):
+    ns_path: str
+    path: str
+    chash: str
+    mediatype: str
 
 
 class _ContentHashTracker:
@@ -54,11 +69,12 @@ class FileCoreService:
     That service operates only with a real file path.
     """
 
-    __slots__ = ["db", "storage"]
+    __slots__ = ("db", "storage", "worker")
 
-    def __init__(self, database: IServiceDatabase, storage: IStorage):
+    def __init__(self, database: IServiceDatabase, storage: IStorage, worker: IWorker):
         self.db = database
         self.storage = storage
+        self.worker = worker
 
     @contextlib.asynccontextmanager
     async def chash_batch(self) -> AsyncIterator[_ContentHashTracker]:
@@ -186,6 +202,34 @@ class FileCoreService:
 
         return file
 
+    async def delete_batch(self, ns_path: AnyPath, paths: Sequence[AnyPath]) -> None:
+        """Permanently deletes multiple files at once."""
+        async for tx in self.db.atomic():
+            async with tx:
+                files = await self.db.file.delete_batch(ns_path, paths)
+
+                sizes: dict[Path, int] = defaultdict(int)
+                for file in files:
+                    for parent in file.path.parents:
+                        sizes[parent] -= file.size
+                await self.db.file.incr_size(ns_path, list(sizes.items()))
+
+                deletions = await self.db.file_pending_deletion.save_batch([
+                    FilePendingDeletion(
+                        id=SENTINEL_ID,
+                        ns_path=str(file.ns_path),
+                        path=str(file.path),
+                        chash=file.chash,
+                        mediatype=file.mediatype,
+                    )
+                    for file in files
+                ])
+
+        await self.worker.enqueue(
+            "process_file_pending_deletion",
+            ids=[item.id for item in deletions]
+        )
+
     async def download(self, file_id: UUID) -> tuple[File, AsyncIterator[bytes]]:
         """
         Downloads a file at a given path.
@@ -249,6 +293,9 @@ class FileCoreService:
         pattern = f"{path.stem} \\([[:digit:]]+\\){path.suffix}$"
         count = await self.db.file.count_by_path_pattern(ns_path, pattern)
         return path.with_stem(f"{path.stem} ({count + 1})")
+
+    async def get_by_chash_batch(self, chashes: Sequence[str]) -> list[File]:
+        return await self.db.file.get_by_chash_batch(chashes)
 
     async def get_by_id(self, file_id: UUID) -> File:
         """
@@ -388,6 +435,48 @@ class FileCoreService:
                 await self.db.file.incr_size_batch(at_ns_path, to_decrease, value=-size)
                 await self.db.file.incr_size_batch(to_ns_path, to_increase, value=size)
         return updated_file
+
+    async def process_file_pending_deletion(
+        self, ids: Sequence[UUID]
+    ) -> list[ProcessFilePendingDeletionResult]:
+        """Removes deleted files from the storage."""
+        items = await self.db.file_pending_deletion.get_by_id_batch(ids)
+        to_delete = [
+            (item.ns_path, item.path) for item in items if not item.is_folder()
+        ]
+
+        # clean up all remaining files in folders that were deleted
+        folders_by_ns = defaultdict(list)
+        for item in items:
+            if item.is_folder():
+                folders_by_ns[item.ns_path].append(f"{item.path}/")
+
+        children = await self.db.file.list_all_with_prefix_batch(folders_by_ns)
+        to_delete.extend(
+            (file.ns_path, str(file.path))
+            for file in children
+            if not file.is_folder()
+        )
+
+        # remove everything from the storage
+        await self.storage.delete_batch(to_delete)
+
+        # remove from the database
+        async for tx in self.db.atomic():
+            async with tx:
+                await self.db.file_pending_deletion.delete_by_id_batch(ids)
+                await self.db.file.delete_all_with_prefix_batch(folders_by_ns)
+
+        chain: Iterable[File | FilePendingDeletion] = itertools.chain(items, children)
+        return [
+            ProcessFilePendingDeletionResult(
+                ns_path=item.ns_path,
+                path=str(item.path),
+                chash=item.chash,
+                mediatype=item.mediatype,
+            )
+            for item in chain
+        ]
 
     async def reindex(self, ns_path: AnyPath, path: AnyPath) -> None:
         """

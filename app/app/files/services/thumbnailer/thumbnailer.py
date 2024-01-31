@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import os.path
 from io import BytesIO
 from typing import TYPE_CHECKING
@@ -12,7 +13,7 @@ from app.config import config
 from . import thumbnails
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Sequence
     from uuid import UUID
 
     from app.app.files.services.file import FileCoreService
@@ -36,7 +37,12 @@ class ThumbnailService:
         return _LOCK_KEY.format(content_hash=content_hash, size=size)
 
     @staticmethod
-    def _make_path(content_hash: str, size: int) -> str:
+    def is_supported(mediatype: str) -> bool:
+        """True if thumbnail available for a given mediatype, otherwise False."""
+        return thumbnails.is_supported(mediatype)
+
+    @staticmethod
+    def make_path(content_hash: str, size: int) -> str:
         parts = [
             content_hash[:2],
             content_hash[2:4],
@@ -47,7 +53,25 @@ class ThumbnailService:
 
     @classmethod
     def get_storage_path(cls, content_hash: str, size: int) -> str:
-        return f"{_PREFIX}/{cls._make_path(content_hash, size)}"
+        return f"{_PREFIX}/{cls.make_path(content_hash, size)}"
+
+    async def delete_stale_thumbnails(self, chashes: Sequence[str]) -> None:
+        """Cleanups thumbnails that don't have any reference."""
+        items = {chash for chash in chashes if chash}
+        items.difference_update(
+            file.chash
+            for file in await self.filecore.get_by_chash_batch(list(items))
+        )
+
+        to_delete = list(itertools.chain.from_iterable(
+            (
+                (_PREFIX, self.make_path(chash, size))
+                for size in config.features.pre_generated_thumbnail_sizes
+            )
+            for chash in items
+        ))
+
+        await self.storage.delete_batch(to_delete)
 
     async def generate_thumbnails(self, file_id: UUID, sizes: Iterable[int]) -> None:
         """Generates a set of thumbnails for the specified sizes."""
@@ -63,7 +87,7 @@ class ThumbnailService:
 
         content: BytesIO | None = None
         for size in sizes:
-            path = self._make_path(file.chash, size)
+            path = self.make_path(file.chash, size)
             lock_id = self._lock_id(file.chash, size)
 
             async with cache.lock(lock_id, expire=30, wait=True):
@@ -94,7 +118,7 @@ class ThumbnailService:
             File.NotFound: If file with this ID does not exist.
             File.ThumbnailUnavailable: If thumbnail can't be generated for a file.
         """
-        path = self._make_path(content_hash, size)
+        path = self.make_path(content_hash, size)
         if not content_hash:
             raise File.ThumbnailUnavailable() from None
 

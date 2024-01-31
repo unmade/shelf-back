@@ -94,6 +94,10 @@ class DeleteMediaItemBatchRequest(BaseModel):
     file_ids: list[UUID]
 
 
+class DeleteMediaItemImmediatelyBatchRequest(BaseModel):
+    file_ids: list[UUID]
+
+
 class ListMediaItemCategoriesResponse(BaseModel):
     file_id: UUID
     categories: list[MediaItemCategorySchema]

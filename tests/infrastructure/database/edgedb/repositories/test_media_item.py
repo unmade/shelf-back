@@ -305,7 +305,7 @@ class TestListDeleted:
             await media_item_factory(user.id, deleted_at=None),
         ]
         # WHEN
-        result = await media_item_repo.list_deleted(user.id)
+        result = await media_item_repo.list_deleted(user.id, offset=0)
         # THEN
         assert result == [items[1], items[0]]
 

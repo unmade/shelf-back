@@ -11,6 +11,7 @@ from typing import (
 from app.app.files.domain import File
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from uuid import UUID
 
     from app.app.files.domain import AnyFile, AnyPath
@@ -43,6 +44,16 @@ class IFileRepository(Protocol):
     ) -> None:
         """Deletes all files with path starting with a given prefix."""
 
+    async def delete_all_with_prefix_batch(
+        self, items: Mapping[str, Sequence[AnyPath]]
+    ) -> None:
+        """Deletes files based on specified prefixes for each namespace."""
+
+    async def delete_batch(
+        self, ns_path: AnyPath, paths: Sequence[AnyPath]
+    ) -> list[File]:
+        """Deletes files with given paths in the specified namespace."""
+
     async def exists_at_path(self, ns_path: AnyPath, path: AnyPath) -> bool:
         """Checks whether a file or a folder exists at path in a target namespace."""
 
@@ -50,6 +61,9 @@ class IFileRepository(Protocol):
         """
         Checks whether a file or a folder with a given ID exists in a target namespace.
         """
+
+    async def get_by_chash_batch(self, chashes: Sequence[str]) -> list[File]:
+        """Returns all files with specified chashes."""
 
     async def get_by_id(self, file_id: UUID) -> File:
         """
@@ -75,6 +89,14 @@ class IFileRepository(Protocol):
     ) -> list[File]:
         """Returns all files with target paths. The result is sorted by path ASC."""
 
+    async def incr_size(
+        self, ns_path: AnyPath, items: Sequence[tuple[AnyPath, int]]
+    ) -> None:
+        """
+        Increments size for all provideded (path - size) pairs in the specified
+        namespace.
+        """
+
     async def incr_size_batch(
         self, ns_path: AnyPath, paths: Iterable[AnyPath], value: int,
     ) -> None:
@@ -94,7 +116,12 @@ class IFileRepository(Protocol):
     async def list_with_prefix(
         self, ns_path: AnyPath, prefix: AnyPath
     ) -> list[AnyFile]:
-        """Lists all files with a path starting with a given prefix."""
+        """Lists all files with a path starting with a given prefix one-level deep."""
+
+    async def list_all_with_prefix_batch(
+        self, items: Mapping[str, Sequence[AnyPath]]
+    ) -> list[File]:
+        """Lists files based on specified prefixes for each namespace."""
 
     async def replace_path_prefix(
         self, at: tuple[AnyPath, AnyPath], to: tuple[AnyPath, AnyPath]

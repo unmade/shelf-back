@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import abc
-from typing import TYPE_CHECKING, AsyncIterator, Iterator, Protocol, Self
+from typing import TYPE_CHECKING, Protocol, Self
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Iterable, Iterator
+
     from app.app.files.domain import AnyPath, IFileContent
 
 __all__ = ["IStorage", "StorageFile"]
@@ -63,6 +65,14 @@ class IStorage(Protocol):
     async def delete(self, ns_path: AnyPath, path: AnyPath) -> None:
         """
         Delete a file by path.
+
+        If path does not exists or path is a directory, it will act as a no-op.
+        """
+
+    @abc.abstractmethod
+    async def delete_batch(self, items: Iterable[tuple[AnyPath, AnyPath]]) -> None:
+        """
+        Delete multiple file by provided paths.
 
         If path does not exists or path is a directory, it will act as a no-op.
         """

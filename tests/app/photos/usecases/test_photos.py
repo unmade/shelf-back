@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, TypeVar, cast
 from unittest import mock
 
 import pytest
@@ -11,11 +11,14 @@ from app.app.photos.domain import MediaItem
 from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
     from uuid import UUID
 
     from app.app.photos.usecases import PhotosUseCase
 
 pytestmark = [pytest.mark.anyio]
+
+T = TypeVar("T")
 
 
 def _make_media_item(
@@ -67,6 +70,58 @@ class TestDeleteMediaItemBatch:
         media_item_service.delete_batch.assert_awaited_once_with(user_id, file_ids)
 
 
+class TestEmptyTrash:
+    @staticmethod
+    def _aiter_items_factory(batches: list[list[T]]):
+        async def _aiter_items(user_id: UUID) -> AsyncIterator[list[T]]:
+            for batch in batches:
+                yield batch
+        return _aiter_items
+
+    async def test(self, photos_use_case: PhotosUseCase):
+        # GIVEN
+        user_id = uuid.uuid4()
+        items = [[_make_media_item(), _make_media_item()]]
+        filecore = cast(mock.MagicMock, photos_use_case.filecore)
+        media_item_service = cast(mock.MagicMock, photos_use_case.media_item)
+        ns_service = cast(mock.MagicMock, photos_use_case.namespace)
+
+        namespace = ns_service.get_by_owner_id.return_value
+        media_item_service.iter_deleted = self._aiter_items_factory(items)
+        file_ids = [item.file_id for item in items[0]]
+        files = filecore.get_by_id_batch.return_value
+        paths = [file.path for file in files]
+
+        # WHEN
+        await photos_use_case.empty_trash(user_id)
+
+        # THEN
+        ns_service.get_by_owner_id.assert_awaited_once_with(user_id)
+        filecore.get_by_id_batch.assert_awaited_once_with(file_ids)
+        filecore.delete_batch.assert_awaited_once_with(namespace.path, paths)
+
+
+class TestDeleteMediaItemImmediatelyBatch:
+    async def test(self, photos_use_case: PhotosUseCase):
+        # GIVEN
+        user_id = uuid.uuid4()
+        filecore = cast(mock.MagicMock, photos_use_case.filecore)
+        ns_service = cast(mock.MagicMock, photos_use_case.namespace)
+
+        namespace = ns_service.get_by_owner_id.return_value
+        file_ids = [uuid.uuid4(), uuid.uuid4()]
+        files = filecore.get_by_id_batch.return_value
+        paths = [file.path for file in files]
+
+        # WHEN
+        await photos_use_case.delete_media_item_immediately_batch(user_id, file_ids)
+
+        # THEN
+        ns_service.get_by_owner_id.assert_awaited_once_with(user_id)
+        filecore.get_by_id_batch.assert_awaited_once_with(file_ids)
+        filecore.delete_batch.assert_awaited_once_with(namespace.path, paths)
+
+
 class TestListDeletedMediaItems:
     async def test(self, photos_use_case: PhotosUseCase):
         # GIVEN
@@ -76,7 +131,9 @@ class TestListDeletedMediaItems:
         result = await photos_use_case.list_deleted_media_items(user_id)
         # THEN
         assert result == media_item_service.list_deleted.return_value
-        media_item_service.list_deleted.assert_awaited_once_with(user_id)
+        media_item_service.list_deleted.assert_awaited_once_with(
+            user_id, offset=0, limit=2_000
+        )
 
 
 class TestListMediaItems:

@@ -4,7 +4,7 @@ import asyncio
 import os
 import os.path
 from contextlib import AsyncExitStack
-from typing import TYPE_CHECKING, AsyncIterator, Iterator, Self
+from typing import TYPE_CHECKING, Self
 
 import stream_zip
 
@@ -20,6 +20,8 @@ from .clients import (
 from .clients.exceptions import NoSuchKey, ResourceNotFound
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Iterable, Iterator
+
     from app.app.files.domain import AnyPath, IFileContent
     from app.config import S3StorageConfig
 
@@ -57,6 +59,10 @@ class S3Storage(IStorage):
     async def delete(self, ns_path: AnyPath, path: AnyPath) -> None:
         key = self._joinpath(ns_path, path)
         await self.s3.delete(self.bucket, key)
+
+    async def delete_batch(self, items: Iterable[tuple[AnyPath, AnyPath]]) -> None:
+        keys = [self._joinpath(ns_path, path) for ns_path, path in items]
+        await self.s3.delete(self.bucket, *keys)
 
     async def deletedir(self, ns_path: AnyPath, path: AnyPath) -> None:
         prefix = f"{self._joinpath(ns_path, path)}/"
