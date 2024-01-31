@@ -41,15 +41,8 @@ async def thumbnail(content: IO[bytes], *, size: int) -> bytes:
     Generates in-memory thumbnail with a specified sized for a given content with
     preserved aspect ratio.
 
-    Args:
-        content (IO[bytes]): File Content.
-        size (int): Thumbnail size.
-
     Raises:
         File.ThumbnailUnavailable: If thumbnail can't be generated for the content.
-
-    Returns:
-        bytes: Generated thumbnail as bytes.
     """
     return await asyncio.to_thread(_thumbnail, content, size)
 

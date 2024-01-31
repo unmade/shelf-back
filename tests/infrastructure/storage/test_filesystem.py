@@ -73,6 +73,22 @@ class TestDelete:
         await fs_storage.delete("user", "f.txt")
 
 
+class TestDeleteBatch:
+    async def test(self, fs_storage: FileSystemStorage, file_factory: FileFactory):
+        # GIVEN
+        fullpaths = [
+            await file_factory("user/f.txt"),
+            await file_factory("user/f (1).txt"),
+        ]
+        assert fullpaths[0].exists()
+        assert fullpaths[1].exists()
+        # WHEN
+        await fs_storage.delete_batch(items=[("user", "f.txt"), ("user", "f (1).txt")])
+        # THEN
+        assert not fullpaths[0].exists()
+        assert not fullpaths[1].exists()
+
+
 class TestDeletedir:
     async def test(self, fs_storage: FileSystemStorage, file_factory: FileFactory):
         # GIVEN

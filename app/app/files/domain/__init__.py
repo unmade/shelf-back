@@ -6,6 +6,7 @@ from .content import IFileContent
 from .content_metadata import ContentMetadata, Exif
 from .file import File, MountedFile
 from .file_member import FileMember
+from .file_pending_deletion import FilePendingDeletion
 from .fingerprint import Fingerprint
 from .mount import MountPoint
 from .namespace import Namespace
@@ -17,6 +18,7 @@ __all__ = [
     "Exif",
     "File",
     "FileMember",
+    "FilePendingDeletion",
     "IFileContent",
     "MountedFile",
     "Fingerprint",

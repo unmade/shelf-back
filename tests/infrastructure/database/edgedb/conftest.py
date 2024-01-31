@@ -13,6 +13,7 @@ from app.app.files.domain import (
     Exif,
     File,
     FileMember,
+    FilePendingDeletion,
     Fingerprint,
     MountPoint,
     Namespace,
@@ -41,6 +42,7 @@ if TYPE_CHECKING:
     from app.app.files.domain import AnyPath
     from app.app.files.repositories import (
         IContentMetadataRepository,
+        IFilePendingDeletionRepository,
         IFileRepository,
         IFingerprintRepository,
         IMountRepository,
@@ -70,6 +72,15 @@ if TYPE_CHECKING:
 
     class FileMemberFactory(Protocol):
         async def __call__(self, file_id: UUID, user_id: UUID) -> FileMember: ...
+
+    class FilePendingDeletionFactory(Protocol):
+        async def __call__(
+            self,
+            ns_path: AnyPath | None = None,
+            path: AnyPath | None = None,
+            mediatype: str | None = None,
+        ) -> FilePendingDeletion:
+            ...
 
     class FingerprintFactory(Protocol):
         async def __call__(self, file_id: UUID, value: int) -> Fingerprint: ...
@@ -145,6 +156,12 @@ def file_member_repo(edgedb_database: EdgeDBDatabase):
 
 
 @pytest.fixture
+def file_pending_deletion_repo(edgedb_database: EdgeDBDatabase):
+    """And EdgeDB instance of IFilePendingDeletionRepository"""
+    return edgedb_database.file_pending_deletion
+
+
+@pytest.fixture
 def fingerprint_repo(edgedb_database: EdgeDBDatabase):
     """An EdgeDB instance of IFingerprintRepository"""
     return edgedb_database.fingerprint
@@ -209,7 +226,7 @@ def file_factory(file_repo: IFileRepository) -> FileFactory:
                 ns_path=ns_path,
                 name=Path(path).name,
                 path=Path(path),
-                chash=hashlib.sha256().hexdigest(),
+                chash=hashlib.sha256(str(path).encode()).hexdigest(),
                 size=10,
                 mediatype=mediatype,
             )
@@ -230,6 +247,28 @@ def file_member_factory(file_member_repo: IFileMemberRepository) -> FileMemberFa
                 ),
             )
         )
+    return factory
+
+
+@pytest.fixture
+def file_pending_deletion_factory(
+    file_pending_deletion_repo: IFilePendingDeletionRepository
+) -> FilePendingDeletionFactory:
+    async def factory(
+        ns_path: AnyPath | None = None,
+        path: AnyPath | None = None,
+        mediatype: str | None = None,
+    ) -> FilePendingDeletion:
+        items = await file_pending_deletion_repo.save_batch([
+            FilePendingDeletion(
+                id=SENTINEL_ID,
+                ns_path=str(ns_path) if ns_path else fake.unique.user_name(),
+                path=str(path) if path else fake.unique.file_name(),
+                chash=uuid.uuid4().hex,
+                mediatype=mediatype or "plain/text",
+            )
+        ])
+        return items[0]
     return factory
 
 
@@ -436,7 +475,7 @@ async def user_a(user_factory: UserFactory):
 
 @pytest.fixture
 async def user_b(user_factory: UserFactory):
-    """A User instance saved to the EdgeDB."""
+    """Another User instance saved to the EdgeDB."""
     return await user_factory()
 
 

@@ -142,7 +142,11 @@ class Services:
 
         self.audit_trail = AuditTrailService(database=database)
         self.bookmark = BookmarkService(database=database)
-        self.filecore = FileCoreService(database=database, storage=storage)
+        self.filecore = FileCoreService(
+            database=database,
+            storage=storage,
+            worker=worker,
+        )
         self.file = FileService(
             filecore=self.filecore,
             mount_service=MountService(database=database),

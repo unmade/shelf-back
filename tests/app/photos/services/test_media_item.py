@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, TypeVar, cast
 from unittest import mock
 
 import pytest
@@ -14,6 +14,8 @@ if TYPE_CHECKING:
     from app.app.photos.services import MediaItemService
 
 pytestmark = [pytest.mark.anyio]
+
+T = TypeVar("T")
 
 
 class TestAutoAddCategoryBatch:
@@ -87,16 +89,35 @@ class TestGetByIDBatch:
         db.media_item.get_by_id_batch.assert_awaited_once_with(file_ids)
 
 
+class TestIterDeleted:
+    async def test(self, media_item_service: MediaItemService):
+        # GIVEN
+        user_id = uuid.uuid4()
+        batches = [[mock.MagicMock(), mock.MagicMock()], [mock.MagicMock()], []]
+        db = cast(mock.AsyncMock, media_item_service.db)
+        db.media_item.list_deleted.side_effect = batches
+        # WHEN
+        result = []
+        async for batch in media_item_service.iter_deleted(user_id, batch_size=2):
+            result.append(batch)
+        # THEN
+        assert result == batches[:2]
+        db.media_item.list_deleted.assert_has_awaits([
+            mock.call(user_id, offset=0, limit=2),
+            mock.call(user_id, offset=2, limit=2),
+        ])
+
+
 class TestListDeleted:
     async def test(self, media_item_service: MediaItemService):
         # GIVEN
-        file_id = uuid.uuid4()
+        user_id = uuid.uuid4()
         db = cast(mock.AsyncMock, media_item_service.db)
         # WHEN
-        result = await media_item_service.list_deleted(file_id)
+        result = await media_item_service.list_deleted(user_id, offset=0, limit=50)
         # THEN
         assert result == db.media_item.list_deleted.return_value
-        db.media_item.list_deleted.assert_awaited_once_with(file_id)
+        db.media_item.list_deleted.assert_awaited_once_with(user_id, offset=0, limit=50)
 
 
 class TestListForUser:

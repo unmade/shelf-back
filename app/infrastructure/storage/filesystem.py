@@ -7,7 +7,7 @@ import glob
 import os
 import os.path
 import shutil
-from typing import TYPE_CHECKING, AsyncIterator, Iterator, Self
+from typing import TYPE_CHECKING, Self
 
 import stream_zip
 
@@ -18,6 +18,8 @@ from app.config import FileSystemStorageConfig
 from ._datastructures import StreamZipFile
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Iterable, Iterator
+
     from app.app.files.domain import AnyPath, IFileContent
 
 __all__ = ["FileSystemStorage"]
@@ -69,6 +71,10 @@ class FileSystemStorage(IStorage):
         if not os.path.isdir(fullpath):
             with contextlib.suppress(FileNotFoundError):
                 await asyncio.to_thread(os.unlink, fullpath)
+
+    async def delete_batch(self, items: Iterable[tuple[AnyPath, AnyPath]]) -> None:
+        for ns_path, path in items:
+            await self.delete(ns_path, path)
 
     async def deletedir(self, ns_path: AnyPath, path: AnyPath) -> None:
         fullpath = self._joinpath(self.location, ns_path, path)

@@ -46,7 +46,9 @@ class IMediaItemRepository(Protocol):
             MediaItem.NotFound: If MediaItem does not exist.
         """
 
-    async def list_deleted(self, user_id: UUID) -> list[MediaItem]:
+    async def list_deleted(
+        self, user_id: UUID, *, offset: int, limit: int = 25
+    ) -> list[MediaItem]:
         """Lists deleted media items."""
 
     async def set_categories(

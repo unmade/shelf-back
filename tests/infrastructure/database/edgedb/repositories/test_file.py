@@ -142,6 +142,73 @@ class TestDeleteAllWithPrefix:
         assert not await _exists_with_id(files[1].id)
 
 
+class TestDeleteAllWithPrefixBatch:
+    async def test(
+        self,
+        file_repo: FileRepository,
+        file_factory: FileFactory,
+        folder_factory: FolderFactory,
+        namespace_a: Namespace,
+        namespace_b: Namespace,
+    ):
+        # GIVEN
+        ns_path = namespace_a.path
+        await folder_factory(ns_path, "home")
+        await folder_factory(ns_path, "home/Documents")
+        a_f_txt = await file_factory(ns_path, "home/Documents/f.txt")
+        a_f_1_txt = await file_factory(ns_path, "home/Documents/f (1).txt")
+        await folder_factory(ns_path, "home/Photos")
+        a_im_jpeg = await file_factory(ns_path, "home/Photos/im.jpeg")
+
+        ns_path = namespace_b.path
+        await folder_factory(ns_path, "home")
+        await folder_factory(ns_path, "home/Documents")
+        await folder_factory(ns_path, "home/Downloads")
+        b_doc_f_txt = await file_factory(ns_path, "home/Documents/f.txt")
+        b_f_txt = await file_factory(ns_path, "home/Downloads/f.txt")
+        b_im_jpeg = await file_factory(ns_path, "home/Downloads/im.jpeg")
+
+        items = {
+            namespace_a.path: ["home/Documents/", "home/Photos/"],
+            namespace_b.path: ["home/Downloads/"],
+        }
+
+        # WHEN
+        await file_repo.delete_all_with_prefix_batch(items)
+
+        # THEN
+        for file in [a_f_txt, a_f_1_txt, a_im_jpeg, b_f_txt, b_im_jpeg]:
+            assert not await _exists_with_id(file.id)
+
+        assert await _exists_with_id(b_doc_f_txt.id)
+
+    async def test_on_empty_items(self, file_repo: FileRepository):
+        # GIVEN
+        items: dict[str, list[str]] = {}
+        # WHEN
+        await file_repo.delete_all_with_prefix_batch(items)
+
+
+class TestDeleteBatch:
+    async def test(
+        self,
+        file_repo: FileRepository,
+        file_factory: FileFactory,
+        namespace: Namespace,
+    ):
+        # GIVEN
+        files = [
+            await file_factory(namespace.path),
+            await file_factory(namespace.path),
+            await file_factory(namespace.path),
+        ]
+        paths = [file.path for file in files[:2]]
+        # WHEN
+        result = await file_repo.delete_batch(namespace.path, paths)
+        # THEN
+        assert result == files[:2]
+
+
 class TestExistsAtPath:
     async def test_when_exists(self, file_repo: FileRepository, file: File):
         exists = await file_repo.exists_at_path(file.ns_path, file.path)
@@ -166,6 +233,26 @@ class TestExistsWithID:
         file_id = uuid.uuid4()
         exists = await file_repo.exists_with_id(namespace.path, file_id)
         assert exists is False
+
+
+class TestGetByCHashBatch:
+    async def test(
+        self,
+        file_repo: FileRepository,
+        file_factory: FileFactory,
+        namespace: Namespace,
+    ):
+        # GIVEN
+        files = [
+            await file_factory(namespace.path),
+            await file_factory(namespace.path),
+            await file_factory(namespace.path),
+        ]
+        chashes = [file.chash for file in files[:2]]
+        # WHEN
+        result = await file_repo.get_by_chash_batch(chashes)
+        # THEN
+        assert sorted(result, key=operator.attrgetter("mtime")) == files[:2]
 
 
 class TestGetById:
@@ -224,6 +311,28 @@ class TestGetByPathBatch:
         paths = [str(file.path), f"{uuid.uuid4()}.txt"]
         result = await file_repo.get_by_path_batch(file.ns_path, paths)
         assert result == [file]
+
+
+class TestIncrSize:
+    async def test(
+        self,
+        file_repo: FileRepository,
+        folder_factory: FolderFactory,
+        namespace: Namespace,
+    ):
+        # GIVEN
+        await folder_factory(namespace.path, "a")
+        await folder_factory(namespace.path, "a/b")
+        await folder_factory(namespace.path, "a/c")
+        items = [("a", 5), ("a/c", 15)]
+        # WHEN
+        await file_repo.incr_size(namespace.path, items=items)
+        # THEN
+        paths = ["a", "a/b", "a/c"]
+        a, b, c = await file_repo.get_by_path_batch(namespace.path, paths=paths)
+        assert a.size == 5
+        assert b.size == 0
+        assert c.size == 15
 
 
 class TestIncrSizeBatch:
@@ -394,6 +503,53 @@ class TestListWithPrefix:
         files = await file_repo.list_with_prefix(ns_path, "home/")
         # THEN
         assert len(files) == 0
+
+
+class TestListAllWithPrefixBatch:
+    async def test(
+        self,
+        file_repo: FileRepository,
+        file_factory: FileFactory,
+        folder_factory: FolderFactory,
+        namespace_a: Namespace,
+        namespace_b: Namespace,
+    ):
+        # GIVEN
+        ns_path = namespace_a.path
+        await folder_factory(ns_path, "home")
+        await folder_factory(ns_path, "home/Documents")
+        a_f_txt = await file_factory(ns_path, "home/Documents/f.txt")
+        a_f_1_txt = await file_factory(ns_path, "home/Documents/f (1).txt")
+        await folder_factory(ns_path, "home/Photos")
+        a_im_jpeg = await file_factory(ns_path, "home/Photos/im.jpeg")
+
+        ns_path = namespace_b.path
+        await folder_factory(ns_path, "home")
+        await folder_factory(ns_path, "home/Documents")
+        await folder_factory(ns_path, "home/Downloads")
+        await file_factory(ns_path, "home/Documents/f.txt")
+        b_f_txt = await file_factory(ns_path, "home/Downloads/f.txt")
+        b_im_jpeg = await file_factory(ns_path, "home/Downloads/im.jpeg")
+
+        items = {
+            namespace_a.path: ["home/Documents/", "home/Photos/"],
+            namespace_b.path: ["home/Downloads/"],
+        }
+
+        # WHEN
+        result = await file_repo.list_all_with_prefix_batch(items)
+
+        # THEN
+        actual = sorted(result, key=operator.attrgetter("mtime"))
+        assert actual == [a_f_txt, a_f_1_txt, a_im_jpeg, b_f_txt, b_im_jpeg]
+
+    async def test_on_empty_items(self, file_repo: FileRepository):
+        # GIVEN
+        items: dict[str, list[str]] = {}
+        # WHEN
+        result = await file_repo.list_all_with_prefix_batch(items)
+        # THEN
+        assert result == []
 
 
 class TestReplacePathPrefix:

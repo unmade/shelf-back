@@ -238,7 +238,9 @@ class MediaItemRepository(IMediaItemRepository):
 
         return [_load_category(category) for category in obj.categories]
 
-    async def list_deleted(self, user_id: UUID) -> list[MediaItem]:
+    async def list_deleted(
+        self, user_id: UUID, *, offset: int, limit: int = 25
+    ) -> list[MediaItem]:
         query = """
             WITH
                 namespace := (
@@ -265,6 +267,11 @@ class MediaItemRepository(IMediaItemRepository):
                 EXISTS(.deleted_at)
             ORDER BY
                 .deleted_at DESC
+            OFFSET
+                <int64>$offset
+            LIMIT
+                <int64>$limit
+
         """
 
         objs = await self.conn.query(
@@ -272,6 +279,8 @@ class MediaItemRepository(IMediaItemRepository):
             user_id=user_id,
             prefix=config.features.photos_library_path,
             mediatypes=list(MediaItem.ALLOWED_MEDIA_TYPES),
+            offset=offset,
+            limit=limit,
         )
         return [_from_db(obj) for obj in objs]
 

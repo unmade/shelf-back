@@ -1,5 +1,6 @@
 from .file import IFileRepository
 from .file_member import IFileMemberRepository
+from .file_pending_deletion import IFilePendingDeletionRepository
 from .fingerprint import IFingerprintRepository
 from .metadata import IContentMetadataRepository
 from .mount import IMountRepository
@@ -10,6 +11,7 @@ __all__ = [
     "IContentMetadataRepository",
     "IFileRepository",
     "IFileMemberRepository",
+    "IFilePendingDeletionRepository",
     "IFingerprintRepository",
     "IMountRepository",
     "INamespaceRepository",

@@ -6,16 +6,17 @@ from app.app.photos.domain import MediaItem
 from app.toolkit import timezone
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import AsyncIterator, Sequence
     from uuid import UUID
 
+    from app.app.infrastructure.database import IDatabase
     from app.app.photos.domain.media_item import (
         MediaItemCategory,
         MediaItemCategoryName,
     )
     from app.app.photos.repositories import IMediaItemRepository
 
-    class IServiceDatabase(Protocol):
+    class IServiceDatabase(IDatabase, Protocol):
         media_item: IMediaItemRepository
 
 __all__ = ["MediaItemService"]
@@ -71,8 +72,31 @@ class MediaItemService:
 
         return await self.db.media_item.get_by_user_id(user_id, file_id)
 
-    async def list_deleted(self, user_id: UUID) -> list[MediaItem]:
-        return await self.db.media_item.list_deleted(user_id)
+    async def iter_deleted(
+        self, user_id: UUID, *, batch_size: int = 1000
+    ) -> AsyncIterator[list[MediaItem]]:
+        """Iterates through all deleted media items in batches."""
+        limit = batch_size
+        offset = -limit
+
+        while True:
+            offset += limit
+            items = await self.db.media_item.list_deleted(
+                user_id,
+                offset=offset,
+                limit=limit,
+            )
+            if not items:
+                return
+            yield items
+
+    async def list_deleted(
+        self, user_id: UUID, *, offset: int, limit: int = 25
+    ) -> list[MediaItem]:
+        """Lists user's deleted files."""
+        return await self.db.media_item.list_deleted(
+            user_id, offset=offset, limit=limit
+        )
 
     async def list_for_user(
         self, user_id: UUID, *, only_favourites: bool = False, offset: int, limit: int

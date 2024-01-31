@@ -18,3 +18,6 @@ class MediaType(str, enum.Enum):
     IMAGE_PNG = "image/png"
     IMAGE_WEBP = "image/webp"
     IMAGE_ICON = "image/x-icon"
+
+    # plain
+    PLAIN_TEXT = "plain/text"

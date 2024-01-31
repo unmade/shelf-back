@@ -64,6 +64,20 @@ class TestDelete:
         await s3_storage.delete("user", "f.txt")
 
 
+class TestDeleteBatch:
+    async def test(self, s3_storage: S3Storage, file_factory: FileFactory):
+        # GIVEN
+        await file_factory("user/f.txt")
+        await file_factory("user/f (1).txt")
+        assert await s3_storage.exists("user", "f.txt")
+        assert await s3_storage.exists("user", "f (1).txt")
+        # WHEN
+        await s3_storage.delete_batch(items=[("user", "f.txt"), ("user", "f (1).txt")])
+        # THEN
+        assert not await s3_storage.exists("user", "f.txt")
+        assert not await s3_storage.exists("user", "f (1).txt")
+
+
 class TestDeletedir:
     async def test_deletedir(self, s3_storage: S3Storage, file_factory: FileFactory):
         await file_factory("user/a/f.txt")

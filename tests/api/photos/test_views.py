@@ -67,6 +67,39 @@ class TestDeleteMediaItemBatch:
         assert response.json()["items"][1]["thumbnail_url"] is not None
 
 
+class TestEmptyTrash:
+    url = "/photos/empty_trash"
+
+    async def test(
+        self, client: TestClient, photos_use_case: MagicMock, user: User,
+    ):
+        # WHEN
+        client.mock_user(user)
+        response = await client.post(self.url)
+        # THEN
+        photos_use_case.empty_trash.assert_awaited_once_with(user.id)
+        assert response.status_code == 200
+
+
+class TestDeleteMediaItemImmediatelyBatch:
+    url = "/photos/delete_media_item_immediately_batch"
+
+    async def test(
+        self, client: TestClient, photos_use_case: MagicMock, user: User,
+    ):
+        # GIVEN
+        file_ids = [uuid.uuid4(), uuid.uuid4()]
+        payload = {"file_ids": [str(file_id) for file_id in file_ids]}
+        # WHEN
+        client.mock_user(user)
+        response = await client.post(self.url, json=payload)
+        # THEN
+        photos_use_case.delete_media_item_immediately_batch.assert_awaited_once_with(
+            user.id, file_ids
+        )
+        assert response.status_code == 200
+
+
 class TestListDeletedMediaItems:
     url = "/photos/list_deleted_media_items"
 

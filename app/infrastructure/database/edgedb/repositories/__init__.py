@@ -3,6 +3,7 @@ from .audit import AuditTrailRepository
 from .bookmark import BookmarkRepository
 from .file import FileRepository
 from .file_member import FileMemberRepository
+from .file_pending_deletion import FilePendingDeletionRepository
 from .fingerprint import FingerprintRepository
 from .media_item import MediaItemRepository
 from .metadata import ContentMetadataRepository
@@ -18,6 +19,7 @@ __all__ = [
     "ContentMetadataRepository",
     "FileRepository",
     "FileMemberRepository",
+    "FilePendingDeletionRepository",
     "FingerprintRepository",
     "MediaItemRepository",
     "MountRepository",
