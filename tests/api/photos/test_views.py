@@ -134,7 +134,7 @@ class TestListMediaItems:
         # GIVEN
         items = [
             _make_media_item("img.jpeg", mediatype="image/jpeg"),
-            _make_media_item("img.png", mediatype="image/png"),
+            _make_media_item("img.svg", mediatype="image/svg+xml"),
         ]
         photos_use_case.list_media_items.return_value = items
         # WHEN
@@ -148,8 +148,8 @@ class TestListMediaItems:
         assert len(response.json()["items"]) == len(items)
         assert response.json()["items"][0]["name"] == "img.jpeg"
         assert response.json()["items"][0]["thumbnail_url"] is not None
-        assert response.json()["items"][1]["name"] == "img.png"
-        assert response.json()["items"][1]["thumbnail_url"] is not None
+        assert response.json()["items"][1]["name"] == "img.svg"
+        assert response.json()["items"][1]["thumbnail_url"] is None
 
 
 class TestListMediaItemCategories:
