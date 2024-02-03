@@ -23,10 +23,13 @@ def mtime_factory() -> float:
 
 
 IMediaItemType: TypeAlias = Literal[
+    MediaType.IMAGE_BMP,
     MediaType.IMAGE_HEIC,
     MediaType.IMAGE_HEIF,
     MediaType.IMAGE_JPEG,
     MediaType.IMAGE_PNG,
+    MediaType.IMAGE_SVG,
+    MediaType.IMAGE_TIFF,
     MediaType.IMAGE_WEBP,
 ]
 
@@ -88,10 +91,13 @@ class MediaItemCategory(BaseModel):
 
 class MediaItem(BaseModel):
     ALLOWED_MEDIA_TYPES: ClassVar[set[IMediaItemType]] = {
+        MediaType.IMAGE_BMP,
         MediaType.IMAGE_HEIC,
         MediaType.IMAGE_HEIF,
         MediaType.IMAGE_JPEG,
         MediaType.IMAGE_PNG,
+        MediaType.IMAGE_SVG,
+        MediaType.IMAGE_TIFF,
         MediaType.IMAGE_WEBP,
     }
 

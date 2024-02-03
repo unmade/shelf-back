@@ -11,13 +11,16 @@ class MediaType(str, enum.Enum):
     OCTET_STREAM = "application/octet-stream"
 
     # image
+    IMAGE_BMP = "image/bmp"
     IMAGE_GIF = "image/gif"
     IMAGE_HEIC = "image/heic"
     IMAGE_HEIF = "image/heif"
+    IMAGE_ICON = "image/x-icon"
     IMAGE_JPEG = "image/jpeg"
     IMAGE_PNG = "image/png"
+    IMAGE_SVG = "image/svg+xml"
+    IMAGE_TIFF = "image/tiff"
     IMAGE_WEBP = "image/webp"
-    IMAGE_ICON = "image/x-icon"
 
     # plain
     PLAIN_TEXT = "plain/text"
