@@ -17,5 +17,4 @@ pytest
 sentry-sdk[fastapi]
 typer
 types-orjson
-types-python-dateutil
 uvloop

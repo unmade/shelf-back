@@ -2,14 +2,13 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from dateutil import tz
-from dateutil.tz.tz import EPOCH
-
 __all__ = [
     "EPOCH",
     "fromtimestamp",
     "now",
 ]
+
+EPOCH = datetime.utcfromtimestamp(0)
 
 
 def fromtimestamp(ts: int | float) -> datetime:
@@ -19,4 +18,4 @@ def fromtimestamp(ts: int | float) -> datetime:
 
 def now() -> datetime:
     """Return an aware datetime."""
-    return datetime.now(UTC).replace(tzinfo=tz.UTC)
+    return datetime.now(UTC)
