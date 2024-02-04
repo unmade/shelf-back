@@ -41,7 +41,7 @@ module default {
         required path: str;
         required chash: str;
         required size: int64;
-        required mtime: float64;
+        required modified_at: datetime;
         required mediatype: MediaType;
         required namespace: Namespace;
 

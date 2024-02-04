@@ -74,7 +74,7 @@ class SharedFileSchema(BaseModel):
     name: str
     path: str
     size: int
-    mtime: float
+    modified_at: datetime
     mediatype: str
     hidden: bool = False
     thumbnail_url: str | None
@@ -86,7 +86,7 @@ class SharedFileSchema(BaseModel):
             name=file.name,
             path=str(file.path),
             size=file.size,
-            mtime=file.mtime,
+            modified_at=file.modified_at,
             mediatype=file.mediatype,
             hidden=file.name.startswith('.'),
             thumbnail_url=cls._make_thumbnail_url(request, file),
@@ -117,7 +117,7 @@ class SharedLinkFileSchema(BaseModel):
     id: UUID
     name: str
     size: int
-    mtime: float
+    modified_at: datetime
     mediatype: str
     hidden: bool = False
     thumbnail_url: str | None
@@ -128,7 +128,7 @@ class SharedLinkFileSchema(BaseModel):
             id=file.id,
             name=file.name,
             size=file.size,
-            mtime=file.mtime,
+            modified_at=file.modified_at,
             mediatype=file.mediatype,
             hidden=file.name.startswith('.'),
             thumbnail_url=cls._make_thumbnail_url(file, token, request),

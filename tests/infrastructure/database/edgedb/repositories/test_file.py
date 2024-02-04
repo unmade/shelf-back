@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import operator
 import uuid
+from datetime import UTC, datetime
 from io import BytesIO
 from typing import TYPE_CHECKING, cast
 
@@ -41,7 +42,7 @@ async def _get_by_id(file_id: UUID) -> File:
     query = """
         SELECT
             File {
-                id, name, path, chash, size, mtime,
+                id, name, path, chash, size, modified_at,
                 mediatype: { name },
                 namespace: { path },
             }
@@ -56,7 +57,7 @@ async def _get_by_id(file_id: UUID) -> File:
         path=obj.path,
         chash=obj.chash,
         size=obj.size,
-        mtime=obj.mtime,
+        modified_at=obj.modified_at,
         mediatype=obj.mediatype.name,
     )
 
@@ -65,7 +66,7 @@ async def _get_by_path(ns_path: AnyPath, path: AnyPath) -> File:
     query = """
         SELECT
             File {
-                id, name, path, chash, size, mtime,
+                id, name, path, chash, size, modified_at,
                 mediatype: { name },
                 namespace: { path },
             }
@@ -84,7 +85,7 @@ async def _get_by_path(ns_path: AnyPath, path: AnyPath) -> File:
         chash=obj.chash,
         path=obj.path,
         size=obj.size,
-        mtime=obj.mtime,
+        modified_at=obj.modified_at,
         mediatype=obj.mediatype.name,
     )
 
@@ -252,7 +253,7 @@ class TestGetByCHashBatch:
         # WHEN
         result = await file_repo.get_by_chash_batch(chashes)
         # THEN
-        assert sorted(result, key=operator.attrgetter("mtime")) == files[:2]
+        assert sorted(result, key=operator.attrgetter("modified_at")) == files[:2]
 
 
 class TestGetById:
@@ -392,7 +393,7 @@ class TestListFiles:
         files = await file_repo.list_files(ns_path, offset=0)
         # THEN
         assert len(files) == 3
-        assert sorted(files, key=operator.attrgetter("mtime")) == [txt, jpg, png]
+        assert sorted(files, key=operator.attrgetter("modified_at")) == [txt, jpg, png]
 
         # WHEN
         files = await file_repo.list_files(
@@ -400,7 +401,7 @@ class TestListFiles:
         )
         # THEN
         assert len(files) == 1
-        assert sorted(files, key=operator.attrgetter("mtime")) == [txt]
+        assert sorted(files, key=operator.attrgetter("modified_at")) == [txt]
 
         # WHEN
         files = await file_repo.list_files(
@@ -408,7 +409,7 @@ class TestListFiles:
         )
         # THEN
         assert len(files) == 2
-        assert sorted(files, key=operator.attrgetter("mtime")) == [jpg, png]
+        assert sorted(files, key=operator.attrgetter("modified_at")) == [jpg, png]
 
     async def test_limit_offset(
         self, file_repo: FileRepository, file_factory: FileFactory, namespace: Namespace
@@ -421,7 +422,10 @@ class TestListFiles:
         files_b = await file_repo.list_files(ns_path, offset=1, limit=1)
         assert len(files_a) == 1
         assert len(files_b) == 1
-        actual = sorted([files_a[0], files_b[0]], key=operator.attrgetter("mtime"))
+        actual = sorted(
+            [files_a[0], files_b[0]],
+            key=operator.attrgetter("modified_at"),
+        )
         assert actual == [jpg, png]
 
 
@@ -540,7 +544,7 @@ class TestListAllWithPrefixBatch:
         result = await file_repo.list_all_with_prefix_batch(items)
 
         # THEN
-        actual = sorted(result, key=operator.attrgetter("mtime"))
+        actual = sorted(result, key=operator.attrgetter("modified_at"))
         assert actual == [a_f_txt, a_f_1_txt, a_im_jpeg, b_f_txt, b_im_jpeg]
 
     async def test_on_empty_items(self, file_repo: FileRepository):
@@ -615,7 +619,7 @@ class TestSave:
                 path=Path("folder/f.txt"),
                 chash=chash.chash(BytesIO(b"Dummy Content!")),
                 size=10,
-                mtime=12.34,
+                modified_at=datetime(2020, 8, 13, 9, 26, 14, tzinfo=UTC),
                 mediatype="plain/text",
             )
         )
@@ -634,7 +638,7 @@ class TestSave:
             path=file.path,
             chash=uuid.uuid4().hex,
             size=10,
-            mtime=12.34,
+            modified_at=datetime(2020, 8, 13, 9, 26, 14, tzinfo=UTC),
             mediatype="plain/text",
         )
         with pytest.raises(File.AlreadyExists):
@@ -651,7 +655,7 @@ class TestSaveBatch:
                 path=Path("folder"),
                 chash=chash.EMPTY_CONTENT_HASH,
                 size=10,
-                mtime=12.34,
+                modified_at=datetime(2020, 8, 13, 9, 26, 14, tzinfo=UTC),
                 mediatype="application/directory",
             ),
             File(
@@ -661,7 +665,7 @@ class TestSaveBatch:
                 path=Path("folder/f.txt"),
                 chash=chash.chash(BytesIO(b"Dummy Content!")),
                 size=10,
-                mtime=12.35,
+                modified_at=datetime(2020, 8, 13, 9, 26, 14, tzinfo=UTC),
                 mediatype="plain/text",
             ),
         ])
@@ -683,7 +687,7 @@ class TestSaveBatch:
             path=file.path,
             chash=chash.chash(BytesIO(b"Dummy Content!")),
             size=10,
-            mtime=12.34,
+            modified_at=datetime(2020, 8, 13, 9, 26, 14, tzinfo=UTC),
             mediatype="plain/text",
         )
         await file_repo.save_batch([file_to_save])

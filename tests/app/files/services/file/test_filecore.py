@@ -552,7 +552,7 @@ class TestIterFiles:
         # THEN
         assert len(result) == 2
         actual = [*result[0], *result[1]]
-        assert sorted(actual, key=operator.attrgetter("mtime")) == [jpg_1, jpg_2]
+        assert sorted(actual, key=operator.attrgetter("modified_at")) == [jpg_1, jpg_2]
 
     async def test_when_no_files(
         self, filecore: FileCoreService, namespace: Namespace

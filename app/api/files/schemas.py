@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import enum
+from datetime import datetime
 from os.path import normpath
 from typing import TYPE_CHECKING, Annotated, Literal, Self
 from uuid import UUID
@@ -65,11 +66,11 @@ class FileSchema(BaseModel):
     name: str
     path: str
     size: int
-    mtime: float
     mediatype: str
     hidden: bool = False
     shared: bool
     thumbnail_url: str | None
+    modified_at: datetime
 
     @classmethod
     def from_entity(cls, file: AnyFile, request: Request) -> Self:
@@ -78,11 +79,11 @@ class FileSchema(BaseModel):
             name=file.name,
             path=str(file.path),
             size=file.size,
-            mtime=file.mtime,
             mediatype=file.mediatype,
             hidden=file.is_hidden(),
             shared=file.shared,
             thumbnail_url=cls._make_thumbnail_url(request, file),
+            modified_at=file.modified_at,
         )
 
     @staticmethod

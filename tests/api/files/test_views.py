@@ -3,6 +3,7 @@ from __future__ import annotations
 import secrets
 import urllib.parse
 import uuid
+from datetime import UTC, datetime
 from io import BytesIO
 from typing import TYPE_CHECKING, AsyncIterator
 from unittest import mock
@@ -58,7 +59,7 @@ def _make_file(
     ns_path: AnyPath,
     path: AnyPath,
     size: int = 10,
-    mtime: float | None = None,
+    modified_at: datetime | None = None,
     mediatype: str = "plain/text",
 ) -> File:
     return File(
@@ -68,7 +69,7 @@ def _make_file(
         path=Path(path),
         chash=uuid.uuid4().hex,
         size=size,
-        mtime=mtime or timezone.now().timestamp(),
+        modified_at=modified_at or timezone.now(),
         mediatype=mediatype,
     )
 
@@ -988,14 +989,15 @@ class TestUpload:
     ):
         # GIVEN
         ns_path, content = str(namespace.path), BytesIO(b"Dummy file")
-        size, mtime = len(content.getvalue()), 1597310774
+        size = len(content.getvalue())
+        modified_at = datetime(2020, 8, 13, 9, 26, 14, tzinfo=UTC)
         ns_use_case.add_file.return_value = _make_file(
-            ns_path, expected_path, size=size, mtime=mtime
+            ns_path, expected_path, size=size, modified_at=modified_at
         )
         payload = {
             "file": content,
             "path": (None, path),
-            "mtime": (None, str(mtime)),
+            "mtime": (None, str(modified_at.timestamp())),
         }
         # WHEN
         client.mock_namespace(namespace)
@@ -1003,11 +1005,15 @@ class TestUpload:
         # THEN
         assert response.status_code == 200
         assert response.json()["path"] == expected_path
-        assert ns_use_case.add_file.await_args is not None
-        assert len(ns_use_case.add_file.await_args.args) == 4
-        assert ns_use_case.add_file.await_args.args[:2] == (ns_path, expected_path)
-        assert isinstance(ns_use_case.add_file.await_args.args[2], UploadFile)
-        assert ns_use_case.add_file.await_args.args[3] == mtime
+        call_args = ns_use_case.add_file.await_args
+        assert len(call_args.args) == 0
+        assert list(call_args.kwargs.keys()) == [
+            "ns_path", "path", "content", "modified_at"
+        ]
+        assert call_args.kwargs["ns_path"] == ns_path
+        assert call_args.kwargs["path"] == expected_path
+        assert isinstance(call_args.kwargs["content"], UploadFile)
+        assert call_args.kwargs["modified_at"] == modified_at
 
     @pytest.mark.parametrize(["path", "error", "expected_error"], [
         ("folder/f.txt", File.ActionNotAllowed(), FileActionNotAllowed()),

@@ -17,6 +17,7 @@ from app.app.files.domain import ContentMetadata, File, mediatypes
 from app.app.infrastructure.worker import JobStatus
 from app.app.users.domain import Account
 from app.cache import disk_cache
+from app.toolkit import timezone
 
 from . import exceptions
 from .schemas import (
@@ -434,11 +435,15 @@ async def upload_file(
     mtime: Annotated[LastModifiedParam, FileParam()] = None,
 ) -> FileSchema:
     """Upload file to the specified path."""
-    ns_path = str(namespace.path)
-    mtime_ = mtime.root if mtime is not None else mtime
+    modified_at = mtime if mtime is None else timezone.fromtimestamp(mtime.root)
 
     try:
-        upload = await usecases.namespace.add_file(ns_path, path.root, file, mtime_)
+        upload = await usecases.namespace.add_file(
+            ns_path=namespace.path,
+            path=path.root,
+            content=file,
+            modified_at=modified_at,
+        )
     except File.ActionNotAllowed as exc:
         raise exceptions.FileActionNotAllowed() from exc
     except Account.StorageQuotaExceeded as exc:

@@ -18,10 +18,6 @@ __all__ = [
 ]
 
 
-def mtime_factory() -> float:
-    return timezone.now().timestamp()
-
-
 IMediaItemType: TypeAlias = Literal[
     MediaType.IMAGE_BMP,
     MediaType.IMAGE_HEIC,
@@ -108,6 +104,6 @@ class MediaItem(BaseModel):
     file_id: UUID
     name: str
     size: int
-    mtime: float = Field(default_factory=mtime_factory)
+    modified_at: datetime = Field(default_factory=timezone.now)
     deleted_at: datetime | None = None
     mediatype: IMediaItemType

@@ -324,7 +324,7 @@ def media_item_factory(
             file_id=file.id,
             name=file.name,
             size=file.size,
-            mtime=file.mtime,
+            modified_at=file.modified_at,
             mediatype=mediatype,
             deleted_at=deleted_at,
         )

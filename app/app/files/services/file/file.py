@@ -6,6 +6,7 @@ from app.app.files.domain import File, MountedFile, MountPoint, Path
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+    from datetime import datetime
     from uuid import UUID
 
     from app.app.files.domain import AnyFile, AnyPath, IFileContent
@@ -23,14 +24,14 @@ def _resolve_file(file: AnyFile, mount_point: MountPoint | None) -> AnyFile:
     relpath = str(file.path)[len(str(mount_point.source.path)) + 1:]
     path = mount_point.display_path / relpath
 
-    return MountedFile.model_construct(  # replace with regular init
+    return MountedFile.model_construct(
         id=file.id,
         ns_path=mount_point.folder.ns_path,
         name=path.name,
         path=path,
         chash=file.chash,
         size=file.size,
-        mtime=file.mtime,
+        modified_at=file.modified_at,
         mediatype=file.mediatype,
         mount_point=mount_point,
     )
@@ -56,7 +57,7 @@ class FileService:
         ns_path: AnyPath,
         path: AnyPath,
         content: IFileContent,
-        mtime: float | None = None,
+        modified_at: datetime | None = None,
     ) -> AnyFile:
         """
         Creates a new file with any missing parents. If file name is taken, then file
@@ -72,7 +73,9 @@ class FileService:
             raise File.ActionNotAllowed()
 
         path = await self.get_available_path(fq_path.ns_path, fq_path.path)
-        file = await self.filecore.create_file(fq_path.ns_path, path, content, mtime)
+        file = await self.filecore.create_file(
+            fq_path.ns_path, path, content, modified_at
+        )
         return _resolve_file(file, fq_path.mount_point)
 
     async def create_folder(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:
