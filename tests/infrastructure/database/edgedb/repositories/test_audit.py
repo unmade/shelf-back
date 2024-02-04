@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import pytest
-from dateutil import tz
 
 from app.app.audit.domain import AuditTrail
 from app.app.infrastructure.database import SENTINEL_ID
@@ -21,7 +20,7 @@ if TYPE_CHECKING:
 class TestSave:
     async def test(self, audit_trail_repo: AuditTrailRepository, user: User):
         # GIVEN
-        created_at = datetime(2022, 8, 14, 16, 13, tzinfo=tz.gettz("America/New_York"))
+        created_at = datetime(2022, 8, 14, 16, 13, tzinfo=UTC)
         audit_trail = AuditTrail(
             id=SENTINEL_ID,
             action=AuditTrail.Action.user_signed_in,
@@ -52,7 +51,7 @@ class TestSave:
         file: File,
     ):
         # GIVEN
-        created_at = datetime(2022, 8, 14, 16, 13, tzinfo=tz.gettz("America/New_York"))
+        created_at = datetime(2022, 8, 14, 16, 13, tzinfo=UTC)
         audit_trail = AuditTrail(
             id=SENTINEL_ID,
             action=AuditTrail.Action.user_signed_in,

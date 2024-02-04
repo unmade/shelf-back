@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import pytest
-from dateutil import tz
 
 from app.app.infrastructure.database import SENTINEL_ID
 from app.app.users.domain import Account, User
@@ -32,7 +31,7 @@ class TestGetByUserID:
 class TestSave:
     async def test(self, user: User, account_repo: IAccountRepository):
         # GIVEN
-        created_at = datetime(2022, 8, 14, 16, 13, tzinfo=tz.gettz("America/New_York"))
+        created_at = datetime(2022, 8, 14, 16, 13, tzinfo=UTC)
         account = Account(
             id=SENTINEL_ID,
             email=None,
