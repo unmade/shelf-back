@@ -10,6 +10,7 @@ from app.config import config
 from app.toolkit import taskgroups, timezone
 
 if TYPE_CHECKING:
+    from datetime import datetime
     from uuid import UUID
 
     from app.app.audit.services import AuditTrailService
@@ -72,7 +73,7 @@ class NamespaceUseCase:
         ns_path: AnyPath,
         path: AnyPath,
         content: IFileContent,
-        mtime: float | None = None,
+        modified_at: datetime | None = None,
     ) -> AnyFile:
         """
         Saves a file to a storage and to a database. Additionally calculates and saves
@@ -105,7 +106,7 @@ class NamespaceUseCase:
             if (used + content.size) > account.storage_quota:
                 raise Account.StorageQuotaExceeded()
 
-        file = await self.file.create_file(ns_path, path, content, mtime)
+        file = await self.file.create_file(ns_path, path, content, modified_at)
         await self.content.process_async(file.id)
 
         taskgroups.schedule(self.audit_trail.file_added(file))

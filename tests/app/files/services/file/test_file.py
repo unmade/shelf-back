@@ -47,7 +47,7 @@ def _make_mounted_file(
             path=path,
             chash=uuid.uuid4().hex,
             size=10,
-            mtime=source_file.mtime,
+            modified_at=source_file.modified_at,
             mediatype="plain/text",
             mount_point=MountPoint(
                 source=MountPoint.Source(
@@ -139,7 +139,7 @@ class TestResolveFile:
             chash=file.chash,
             size=file.size,
             mediatype=file.mediatype,
-            mtime=file.mtime,
+            modified_at=file.modified_at,
             mount_point=fq_path.mount_point,
         )
 
@@ -179,7 +179,7 @@ class TestResolveFile:
             chash=file.chash,
             size=file.size,
             mediatype=file.mediatype,
-            mtime=file.mtime,
+            modified_at=file.modified_at,
             mount_point=fq_path.mount_point,
         )
 
@@ -194,7 +194,7 @@ class TestCreateFile:
         content: IFileContent,
     ):
         # GIVEN
-        ns_path, path, mtime = "admin", Path("f.txt"), None
+        ns_path, path, modified_at = "admin", Path("f.txt"), None
         filecore = cast(mock.MagicMock, file_service.filecore)
         mount_service = cast(mock.AsyncMock, file_service.mount_service)
         mount_service.resolve_path.return_value = FullyQualifiedPath(ns_path, path)
@@ -208,7 +208,7 @@ class TestCreateFile:
         assert result == _resolve_file(file, fq_path.mount_point)
         get_available_path_mock.assert_awaited_once_with(fq_path.ns_path, fq_path.path)
         filecore.create_file.assert_called_once_with(
-            fq_path.ns_path, path, content, mtime
+            fq_path.ns_path, path, content, modified_at
         )
 
     async def test_when_not_allowed(

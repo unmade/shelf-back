@@ -231,7 +231,7 @@ class TestListByUserID:
         # THEN
         assert result == sorted(
             items[::1],
-            key=operator.attrgetter("mtime"),
+            key=operator.attrgetter("modified_at"),
             reverse=True,
         )
 

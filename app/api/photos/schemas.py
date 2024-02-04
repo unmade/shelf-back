@@ -27,9 +27,9 @@ class MediaItemSchema(BaseModel):
     file_id: UUID
     name: str
     size: int
-    mtime: float
     mediatype: str
     thumbnail_url: str | None
+    modified_at: datetime
     deleted_at: datetime | None
 
     @classmethod
@@ -38,9 +38,9 @@ class MediaItemSchema(BaseModel):
             file_id=entity.file_id,
             name=entity.name,
             size=entity.size,
-            mtime=entity.mtime,
             mediatype=entity.mediatype,
             thumbnail_url=_make_thumbnail_url(request, entity),
+            modified_at=entity.modified_at,
             deleted_at=entity.deleted_at,
         )
 

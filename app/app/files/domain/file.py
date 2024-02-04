@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import ClassVar
 from uuid import UUID
 
@@ -12,10 +13,6 @@ from .mount import MountPoint
 from .path import Path
 
 __all__ = ["File", "MountedFile"]
-
-
-def mtime_factory() -> float:
-    return timezone.now().timestamp()
 
 
 class FileError(Exception):
@@ -81,7 +78,7 @@ class _BaseFile(BaseModel):
     path: Path
     chash: str
     size: int
-    mtime: float = Field(default_factory=mtime_factory)
+    modified_at: datetime = Field(default_factory=timezone.now)
     mediatype: str
     shared: bool = False
 

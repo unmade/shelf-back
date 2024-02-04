@@ -7,8 +7,14 @@ from dateutil.tz.tz import EPOCH
 
 __all__ = [
     "EPOCH",
+    "fromtimestamp",
     "now",
 ]
+
+
+def fromtimestamp(ts: int | float) -> datetime:
+    """Return UTC datetime from UTC timestamp."""
+    return datetime.fromtimestamp(ts, tz=UTC)
 
 
 def now() -> datetime:

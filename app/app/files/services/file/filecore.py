@@ -21,6 +21,7 @@ if TYPE_CHECKING:
         Iterator,
         Sequence,
     )
+    from datetime import datetime
     from uuid import UUID
 
     from app.app.files.domain import AnyFile, AnyPath, IFileContent
@@ -93,7 +94,7 @@ class FileCoreService:
         ns_path: AnyPath,
         path: AnyPath,
         content: IFileContent,
-        mtime: float | None = None,
+        modified_at: datetime | None = None,
     ) -> File:
         """
         Saves a file to a storage and to a database. Any missing parents automatically
@@ -131,7 +132,7 @@ class FileCoreService:
                         path=next_path,
                         chash=content_hash,
                         size=storage_file.size,
-                        mtime=mtime or timezone.now().timestamp(),
+                        modified_at=modified_at or timezone.now(),
                         mediatype=mediatype,
                     ),
                 )
@@ -527,7 +528,7 @@ class FileCoreService:
                     path=file.path,  # type: ignore
                     chash=chash.EMPTY_CONTENT_HASH,
                     size=size,
-                    mtime=file.mtime,
+                    modified_at=timezone.fromtimestamp(file.mtime),
                     mediatype=mediatype,
                 )
 

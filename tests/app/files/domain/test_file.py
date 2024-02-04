@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC
 from typing import TYPE_CHECKING
 
 import pytest
@@ -28,7 +29,7 @@ def _make_file(
         path=Path(pathname),
         chash=uuid.uuid4().hex,
         size=fake.pyint(),
-        mtime=fake.pyfloat(positive=True),
+        modified_at=fake.date_time(UTC),
         mediatype=mediatype or fake.mime_type(),
     )
 

@@ -40,7 +40,7 @@ def _from_db(ns_path: str | None, obj) -> File:
         path=obj.path,
         chash=obj.chash,
         size=obj.size,
-        mtime=obj.mtime,
+        modified_at=obj.modified_at,
         mediatype=obj.mediatype.name,
     )
 
@@ -54,7 +54,7 @@ def _from_db_v2(ns_path: str, obj) -> AnyFile:
             path=obj.path,
             chash=obj.chash,
             size=obj.size,
-            mtime=obj.mtime,
+            modified_at=obj.modified_at,
             shared=obj.shared,
             mediatype=obj.mediatype.name,
         )
@@ -79,7 +79,7 @@ def _from_db_v2(ns_path: str, obj) -> AnyFile:
         path=mount_point.display_path,
         chash=obj.chash,
         size=obj.size,
-        mtime=obj.mtime,
+        modified_at=obj.modified_at,
         mediatype=obj.mediatype.name,
         shared=True,
         mount_point=mount_point,
@@ -142,7 +142,7 @@ class FileRepository(IFileRepository):
                     AND
                     .namespace.path = <str>$ns_path
                 LIMIT 1
-            ) { id, name, path, chash, size, mtime, mediatype: { name } }
+            ) { id, name, path, chash, size, modified_at, mediatype: { name } }
         """
 
         try:
@@ -201,7 +201,7 @@ class FileRepository(IFileRepository):
         query = f"""
             DELETE
                 File {{
-                    id, name, path, chash, size, mtime,
+                    id, name, path, chash, size, modified_at,
                     mediatype: {{ name }},
                     namespace: {{ path }}
                 }}
@@ -221,7 +221,7 @@ class FileRepository(IFileRepository):
                     str_lower(.path) IN {array_unpack(<array<str>>$paths)}
                     AND
                     .namespace.path = <str>$ns_path
-            ) { id, name, path, chash, size, mtime, mediatype: { name } }
+            ) { id, name, path, chash, size, modified_at, mediatype: { name } }
         """
 
         objs = await self.conn.query(
@@ -269,7 +269,7 @@ class FileRepository(IFileRepository):
         query = """
             SELECT
                 File {
-                    id, name, path, chash, size, mtime, mediatype: { name },
+                    id, name, path, chash, size, modified_at, mediatype: { name },
                     namespace: { path }
                 }
             FILTER
@@ -283,7 +283,7 @@ class FileRepository(IFileRepository):
         query = """
             SELECT
                 File {
-                    id, name, path, chash, size, mtime, mediatype: { name },
+                    id, name, path, chash, size, modified_at, mediatype: { name },
                     namespace: { path }
                 }
             FILTER
@@ -304,7 +304,7 @@ class FileRepository(IFileRepository):
                     path,
                     chash,
                     size,
-                    mtime,
+                    modified_at,
                     mediatype: {
                         name,
                     },
@@ -324,7 +324,7 @@ class FileRepository(IFileRepository):
         query = """
             SELECT
                 File {
-                    id, name, path, chash, size, mtime, mediatype: { name }
+                    id, name, path, chash, size, modified_at, mediatype: { name }
                 }
             FILTER
                 str_lower(.path) = str_lower(<str>$path)
@@ -347,7 +347,7 @@ class FileRepository(IFileRepository):
         query = """
             SELECT
                 File {
-                    id, name, path, chash, size, mtime, mediatype: { name },
+                    id, name, path, chash, size, modified_at, mediatype: { name },
                 }
             FILTER
                 str_lower(.path) IN {array_unpack(<array<str>>$paths)}
@@ -458,7 +458,7 @@ class FileRepository(IFileRepository):
         query = f"""
             SELECT
                 File {{
-                    id, name, path, chash, size, mtime, mediatype: {{ name }},
+                    id, name, path, chash, size, modified_at, mediatype: {{ name }},
                 }}
             FILTER
                 {" AND ".join(filter_clauses)}
@@ -509,7 +509,7 @@ class FileRepository(IFileRepository):
                     path,
                     chash,
                     size,
-                    mtime,
+                    modified_at,
                     mediatype := .mediatype { name },
                     namespace := .namespace { path },
                     shared := (
@@ -575,7 +575,7 @@ class FileRepository(IFileRepository):
         query = f"""
             SELECT
                 File {{
-                    id, name, path, chash, size, mtime,
+                    id, name, path, chash, size, modified_at,
                     mediatype: {{ name }},
                     namespace: {{ path }}
                 }}
@@ -625,7 +625,7 @@ class FileRepository(IFileRepository):
                     path := <str>$path,
                     chash := <str>$chash,
                     size := <int64>$size,
-                    mtime := <float64>$mtime,
+                    modified_at := <datetime>$modified_at,
                     mediatype := (
                         INSERT MediaType {
                             name := <str>$mediatype
@@ -646,7 +646,7 @@ class FileRepository(IFileRepository):
                         LIMIT 1
                     ),
                 }
-            ) { id, name, path, chash, size, mtime, mediatype: { name } }
+            ) { id, name, path, chash, size, modified_at, mediatype: { name } }
         """
 
         params = {
@@ -654,7 +654,7 @@ class FileRepository(IFileRepository):
             "path": str(file.path),
             "chash": str(file.chash),
             "size": file.size,
-            "mtime": file.mtime,
+            "modified_at": file.modified_at,
             "mediatype": file.mediatype,
             "namespace": file.ns_path,
         }
@@ -677,7 +677,7 @@ class FileRepository(IFileRepository):
                     path := <str>file['path'],
                     chash := <str>file['chash'],
                     size := <int64>file['size'],
-                    mtime := <float64>file['mtime'],
+                    modified_at := <datetime>file['modified_at'],
                     mediatype := (
                         SELECT
                             MediaType
@@ -751,7 +751,7 @@ class FileRepository(IFileRepository):
                     {','.join(statements)}
                 }}
             ) {{
-                id, name, path, chash, size, mtime,
+                id, name, path, chash, size, modified_at,
                 mediatype: {{ name }},
                 namespace: {{ path }}
             }}

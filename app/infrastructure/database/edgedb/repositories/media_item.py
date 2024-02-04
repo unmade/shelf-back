@@ -48,7 +48,7 @@ def _from_db(obj) -> MediaItem:
         file_id=obj.id,
         name=obj.name,
         size=obj.size,
-        mtime=obj.mtime,
+        modified_at=obj.modified_at,
         deleted_at=obj.deleted_at,
         mediatype=obj.mediatype.name
     )
@@ -116,7 +116,7 @@ class MediaItemRepository(IMediaItemRepository):
                         .name IN {array_unpack(<array<str>>$mediatypes)}
                 ),
             SELECT
-                File { id, name, size, mtime, deleted_at, mediatype: { name } }
+                File { id, name, size, modified_at, deleted_at, mediatype: { name } }
             FILTER
                 .id IN {array_unpack(<array<uuid>>$file_ids)}
                 AND
@@ -124,7 +124,7 @@ class MediaItemRepository(IMediaItemRepository):
                 AND
                 .mediatype IN mediatypes
             ORDER BY
-                .mtime DESC
+                .modified_at DESC
         """
 
         objs = await self.conn.query(
@@ -138,7 +138,7 @@ class MediaItemRepository(IMediaItemRepository):
     async def get_by_user_id(self, user_id: UUID, file_id: UUID) -> MediaItem:
         query = """
             SELECT
-                File { id, name, size, mtime, deleted_at, mediatype: { name } }
+                File { id, name, size, modified_at, deleted_at, mediatype: { name } }
             FILTER
                 .id = <uuid>$file_id
                 AND
@@ -189,7 +189,9 @@ class MediaItemRepository(IMediaItemRepository):
                 ),
                 files := {files_query}
             SELECT
-                files {{ id, name, size, mtime, deleted_at, mediatype: {{ name }} }}
+                files {{
+                    id, name, size, modified_at, deleted_at, mediatype: {{ name }}
+                }}
             FILTER
                 .path ILIKE <str>$path ++ '%'
                 AND
@@ -199,7 +201,7 @@ class MediaItemRepository(IMediaItemRepository):
                 AND
                 NOT EXISTS(.deleted_at)
             ORDER BY
-                .mtime DESC
+                .modified_at DESC
             OFFSET
                 <int64>$offset
             LIMIT
@@ -256,7 +258,7 @@ class MediaItemRepository(IMediaItemRepository):
                         .name IN {array_unpack(<array<str>>$mediatypes)}
                 ),
             SELECT
-                File { id, name, size, mtime, deleted_at, mediatype: { name } }
+                File { id, name, size, modified_at, deleted_at, mediatype: { name } }
             FILTER
                 .path ILIKE <str>$prefix ++ '%'
                 AND
@@ -359,9 +361,9 @@ class MediaItemRepository(IMediaItemRepository):
                 SET {
                     deleted_at := <OPTIONAL datetime>$deleted_at ?? {}
                 }
-            ) { id, name, size, mtime, deleted_at, mediatype: { name } }
+            ) { id, name, size, modified_at, deleted_at, mediatype: { name } }
             ORDER BY
-                .mtime DESC
+                .modified_at DESC
         """
         objs = await self.conn.query(
             query,

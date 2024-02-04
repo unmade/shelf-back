@@ -52,7 +52,7 @@ def _make_mounted_file(source_file: File, ns_path: str, path: AnyPath) -> Mounte
             path=path,
             chash=source_file.chash,
             size=10,
-            mtime=source_file.mtime,
+            modified_at=source_file.modified_at,
             mediatype="plain/text",
             mount_point=MountPoint(
                 source=MountPoint.Source(

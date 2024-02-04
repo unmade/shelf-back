@@ -57,14 +57,16 @@ class TestAddFile:
         user_service = cast(mock.MagicMock, ns_use_case.user)
         user_service.get_account.return_value = _make_account(storage_quota=None)
 
-        ns_path, path, mtime = "admin", "f.txt", None
+        ns_path, path, modified_at = "admin", "f.txt", None
 
         # WHEN
         result = await ns_use_case.add_file(ns_path, path, content)
 
         # THEN
         assert result == file_service.create_file.return_value
-        file_service.create_file.assert_awaited_once_with(ns_path, path, content, mtime)
+        file_service.create_file.assert_awaited_once_with(
+            ns_path, path, content, modified_at
+        )
         content_service.process_async.assert_awaited_once_with(result.id)
 
         owner_id = ns_service.get_by_path.return_value.owner_id
@@ -84,14 +86,16 @@ class TestAddFile:
         user_service = cast(mock.MagicMock, ns_use_case.user)
         user_service.get_account.return_value = _make_account(storage_quota=1024)
 
-        ns_path, path, mtime = "admin", "f.txt", None
+        ns_path, path, modified_at = "admin", "f.txt", None
 
         # WHEN
         result = await ns_use_case.add_file(ns_path, path, content)
 
         # THEN
         assert result == file_service.create_file.return_value
-        file_service.create_file.assert_awaited_once_with(ns_path, path, content, mtime)
+        file_service.create_file.assert_awaited_once_with(
+            ns_path, path, content, modified_at
+        )
         content_service.process_async.assert_awaited_once_with(result.id)
 
         owner_id = ns_service.get_by_path.return_value.owner_id
