@@ -15,13 +15,11 @@ router = APIRouter()
 @router.get("/get_current")
 async def get_current(
     user: CurrentUserDeps,
-    usecases: UseCasesDeps,
 ) -> CurrentAccountSchema:
     """Get account information for a current user."""
     # normally, we would re-raised UserNotFound error, but if some user,
     # doesn't have an account, then it is data integrity error, so fail miserably.
-    account = await usecases.user.get_account(user.id)
-    return CurrentAccountSchema.from_entity(account, user=user)
+    return CurrentAccountSchema.from_entity(user=user)
 
 
 @router.get("/get_space_usage")

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import pytest
@@ -31,15 +30,10 @@ class TestGetByUserID:
 class TestSave:
     async def test(self, user: User, account_repo: IAccountRepository):
         # GIVEN
-        created_at = datetime(2022, 8, 14, 16, 13, tzinfo=UTC)
         account = Account(
             id=SENTINEL_ID,
-            email=None,
-            username=user.username,
-            first_name="John",
-            last_name="Doe",
+            user_id=user.id,
             storage_quota=1024**3,
-            created_at=created_at,
         )
         # WHEN
         created_account = await account_repo.save(account)
@@ -47,18 +41,3 @@ class TestSave:
         assert created_account.id != SENTINEL_ID
         account.id = created_account.id
         assert created_account == account
-
-    async def test_when_email_is_taken(
-        self, user: User, account_repo: IAccountRepository
-    ):
-        account = Account(
-            id=SENTINEL_ID,
-            username=user.username,
-            email="johndoe@example.com",
-            first_name="John",
-            last_name="Doe",
-        )
-        await account_repo.save(account)
-        with pytest.raises(User.AlreadyExists) as excinfo:
-            await account_repo.save(account)
-        assert str(excinfo.value) == "Email 'johndoe@example.com' is taken"

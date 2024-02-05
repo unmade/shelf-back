@@ -19,6 +19,12 @@ def _from_db(obj) -> User:
         id=obj.id,
         username=obj.username,
         password=obj.password,
+        email=obj.email,
+        email_verified=obj.email_verified,
+        display_name=obj.display_name,
+        created_at=obj.created_at,
+        last_login_at=obj.last_login_at,
+        active=obj.active,
         superuser=obj.superuser,
     )
 
@@ -34,7 +40,18 @@ class UserRepository(IUserRepository):
     async def get_by_username(self, username: str) -> User:
         query = """
             SELECT
-                User { id, username, password, superuser }
+                User {
+                    id,
+                    username,
+                    password,
+                    email,
+                    email_verified,
+                    display_name,
+                    created_at,
+                    last_login_at,
+                    active,
+                    superuser,
+                }
             FILTER
                 .username = <str>$username
             LIMIT 1
@@ -48,7 +65,18 @@ class UserRepository(IUserRepository):
     async def get_by_id(self, user_id: StrOrUUID) -> User:
         query = """
             SELECT
-                User { id, username, password, superuser }
+                User {
+                    id,
+                    username,
+                    password,
+                    email,
+                    email_verified,
+                    display_name,
+                    created_at,
+                    last_login_at,
+                    active,
+                    superuser,
+                }
             FILTER
                 .id = <uuid>$user_id
         """
@@ -64,9 +92,15 @@ class UserRepository(IUserRepository):
                 INSERT User {
                     username := <str>$username,
                     password := <str>$password,
+                    email := <OPTIONAL str>$email,
+                    email_verified := <bool>$email_verified,
+                    display_name := <str>$display_name,
+                    created_at := <datetime>$created_at,
+                    last_login_at := <OPTIONAL datetime>$last_login_at,
+                    active := <bool>$active,
                     superuser := <bool>$superuser,
                 }
-            ) { id, username, superuser }
+            ) { id }
         """
 
         try:
@@ -74,6 +108,12 @@ class UserRepository(IUserRepository):
                 query,
                 username=user.username,
                 password=user.password,
+                email=user.email,
+                email_verified=user.email_verified,
+                display_name=user.display_name,
+                created_at=user.created_at,
+                last_login_at=user.last_login_at,
+                active=user.active,
                 superuser=user.superuser,
             )
         except edgedb.ConstraintViolationError as exc:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import pytest
@@ -39,15 +40,37 @@ class TestGetByUsername:
 
 class TestSave:
     async def test(self, user_repo: IUserRepository):
-        user = User(id=SENTINEL_ID, username="admin", password="psswd")
+        user = User(
+            id=SENTINEL_ID,
+            username="admin",
+            password="psswd",
+            email="admin@getshelf.cloud",
+            email_verified=False,
+            display_name="John Doe",
+            active=True,
+            created_at=datetime(2024, 2, 4, tzinfo=UTC),
+            last_login_at=None,
+        )
         created_user = await user_repo.save(user)
         assert created_user.id != SENTINEL_ID
         assert user.username == user.username
         assert user.password == user.password
+        assert user.email == "admin@getshelf.cloud"
+        assert user.email_verified is False
+        assert user.display_name == "John Doe"
+        assert user.active is True
         assert user.superuser is False
 
     async def test_when_user_already_exists(self, user_repo: IUserRepository):
-        user = User(id=SENTINEL_ID, username="admin", password="psswd")
+        user = User(
+            id=SENTINEL_ID,
+            username="admin",
+            password="psswd",
+            email=None,
+            email_verified=False,
+            display_name="",
+            active=True,
+        )
         await user_repo.save(user)
 
         with pytest.raises(User.AlreadyExists) as excinfo:

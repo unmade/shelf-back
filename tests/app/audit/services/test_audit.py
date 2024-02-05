@@ -14,6 +14,7 @@ from app.app.infrastructure.database import SENTINEL_ID
 from app.app.users.domain import User
 
 if TYPE_CHECKING:
+    from app.app.audit.domain.current_user_context import CurrentUser
     from app.app.audit.services import AuditTrailService
     from app.app.files.domain import AnyPath
 
@@ -22,13 +23,23 @@ pytestmark = [pytest.mark.anyio]
 now = datetime.datetime(2023, 4, 15, 22, 51)
 
 
-def _make_user(username: str):
+def _make_user(username: str) -> User:
     return User(
         id=uuid.uuid4(),
         username=username,
         password="root",
+        email=None,
+        email_verified=False,
+        display_name="",
+        active=True,
     )
 
+
+def _make_current_user(username: str) -> CurrentUser:
+    return CurrentUserContext.User(
+        id=uuid.uuid4(),
+        username=username,
+    )
 
 
 def _make_file(ns_path: str, path: AnyPath) -> File:
@@ -46,9 +57,9 @@ def _make_file(ns_path: str, path: AnyPath) -> File:
 class TestTrackFileAction:
     async def test(self, audit_trail_service: AuditTrailService):
         # GIVEN
-        user = _make_user("admin")
+        user = _make_current_user("admin")
         file = _make_file("admin", "folder/f.txt")
-        current_user_ctx.set(CurrentUserContext(user=user.model_dump()))
+        current_user_ctx.set(CurrentUserContext(user=user))
         db = cast(mock.MagicMock, audit_trail_service.db)
         # WHEN
         await audit_trail_service._track_file_action(
@@ -77,8 +88,8 @@ class TestTrackFileAction:
 class TestTrackUserAction:
     async def test(self, audit_trail_service: AuditTrailService):
         # GIVEN
-        user = _make_user("admin")
-        current_user_ctx.set(CurrentUserContext(user=user.model_dump()))
+        user = _make_current_user("admin")
+        current_user_ctx.set(CurrentUserContext(user=user))
         db = cast(mock.MagicMock, audit_trail_service.db)
         # WHEN
         await audit_trail_service._track_user_action(

@@ -405,6 +405,10 @@ def user_factory(user_repo: IUserRepository):
                 id=SENTINEL_ID,
                 username=username or fake.unique.user_name(),
                 password=password or fake.password(),
+                email=None,
+                email_verified=False,
+                display_name="",
+                active=True,
                 superuser=False,
             )
         )
@@ -417,10 +421,7 @@ async def account(user: User, account_repo: IAccountRepository):
     return await account_repo.save(
         Account(
             id=SENTINEL_ID,
-            username=user.username,
-            email=fake.email(),
-            first_name=fake.first_name(),
-            last_name=fake.last_name(),
+            user_id=user.id,
         )
     )
 

@@ -25,16 +25,18 @@ class TestCreate:
                     id=SENTINEL_ID,
                     username="johndoe",
                     password=mock.ANY,
+                    email=None,
+                    email_verified=False,
+                    display_name='',
+                    active=True,
+                    created_at=mock.ANY,
+                    last_login_at=None,
                     superuser=False,
                 ),
                 "account": Account.model_construct(
                     id=SENTINEL_ID,
-                    username="johndoe",
-                    email=None,
-                    first_name="",
-                    last_name="",
+                    user_id=SENTINEL_ID,
                     storage_quota=None,
-                    created_at=mock.ANY,
                 ),
             },
         ),
@@ -43,8 +45,7 @@ class TestCreate:
                 "username": "johndoe",
                 "password": "psswd",
                 "email": "johndoe@example.com",
-                "first_name": "John",
-                "last_name": "Doe",
+                "display_name": "John Doe",
                 "storage_quota": 1024,
             },
             {
@@ -52,16 +53,18 @@ class TestCreate:
                     id=SENTINEL_ID,
                     username="johndoe",
                     password=mock.ANY,
+                    email="johndoe@example.com",
+                    email_verified=False,
+                    display_name="John Doe",
+                    active=True,
+                    created_at=mock.ANY,
+                    last_login_at=None,
                     superuser=False,
                 ),
                 "account": Account.model_construct(
                     id=SENTINEL_ID,
-                    username="johndoe",
-                    email="johndoe@example.com",
-                    first_name="John",
-                    last_name="Doe",
+                    user_id=SENTINEL_ID,
                     storage_quota=1024,
-                    created_at=mock.ANY,
                 ),
             },
         ),
@@ -69,6 +72,7 @@ class TestCreate:
     async def test(self, user_service: UserService, given, expected):
         # GIVEN
         db = cast(mock.MagicMock, user_service.db)
+        db.user.save.return_value = expected["user"]
         # WHEN
         with mock.patch("app.toolkit.security.make_password") as make_password_mock:
             make_password_mock.return_value = "hashed_password"

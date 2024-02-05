@@ -14,6 +14,14 @@ if TYPE_CHECKING:
 __all__ = ["AccountRepository"]
 
 
+def _from_db(obj) -> Account:
+    return Account(
+        id=obj.id,
+        user_id=obj.user.id,
+        storage_quota=obj.storage_quota,
+    )
+
+
 class AccountRepository(IAccountRepository):
     def __init__(self, db_context: EdgeDBContext):
         self.db_context = db_context
@@ -25,9 +33,7 @@ class AccountRepository(IAccountRepository):
     async def get_by_user_id(self, user_id: StrOrUUID) -> Account:
         query = """
             SELECT Account {
-                id, email, first_name, last_name, storage_quota, created_at, user: {
-                    id, username
-                }
+                id,  storage_quota, user: { id }
             }
             FILTER
                 .user.id = <uuid>$user_id
@@ -39,46 +45,28 @@ class AccountRepository(IAccountRepository):
             message = f"No account for user with id: {user_id}"
             raise User.NotFound(message) from exc
 
-        return Account(
-            id=obj.id,
-            username=obj.user.username,
-            email=obj.email,
-            first_name=obj.first_name,
-            last_name=obj.last_name,
-            storage_quota=obj.storage_quota,
-            created_at=obj.created_at,
-        )
+        return _from_db(obj)
 
     async def save(self, account: Account) -> Account:
         query = """
             SELECT (
                 INSERT Account {
-                    email := <OPTIONAL str>$email,
-                    first_name := <str>$first_name,
-                    last_name := <str>$last_name,
                     storage_quota := <OPTIONAL int64>$storage_quota,
-                    created_at := <datetime>$created_at,
                     user := (
                         SELECT
                             User
                         FILTER
-                            .username = <str>$username
+                            .id = <uuid>$user_id
                         LIMIT 1
                     )
                 }
             ) { id }
         """
-        try:
-            obj = await self.conn.query_required_single(
-                query,
-                username=account.username,
-                email=account.email,
-                first_name=account.first_name,
-                last_name=account.last_name,
-                storage_quota=account.storage_quota,
-                created_at=account.created_at,
-            )
-        except edgedb.ConstraintViolationError as exc:
-            raise User.AlreadyExists(f"Email '{account.email}' is taken") from exc
+
+        obj = await self.conn.query_required_single(
+            query,
+            user_id=account.user_id,
+            storage_quota=account.storage_quota,
+        )
 
         return account.model_copy(update={"id": obj.id})
