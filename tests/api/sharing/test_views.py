@@ -62,6 +62,10 @@ def _make_user(username: str) -> User:
         id=uuid.uuid4(),
         username=username,
         password="root",
+        email=None,
+        email_verified=False,
+        display_name="",
+        active=True,
     )
 
 

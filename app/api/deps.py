@@ -48,24 +48,31 @@ def token_payload(token: str | None = Depends(reusable_oauth2)) -> AccessToken:
         raise exceptions.InvalidToken() from exc
 
 
-async def current_user_ctx(
+async def _user(
     usecases: UseCasesDeps,
     payload: AccessToken = Depends(token_payload),
-) -> AsyncIterator[CurrentUserContext]:
-    """Sets context about current user."""
+) -> User:
+    """Returns currently authenticated user."""
     try:
-        user = await usecases.user.user_service.get_by_id(payload.sub)
+        return await usecases.user.user_service.get_by_id(payload.sub)
     except User.NotFound as exc:
         raise exceptions.UserNotFound() from exc
 
+
+async def current_user_ctx(
+    user: User = Depends(_user)
+) -> AsyncIterator[CurrentUserContext]:
+    """Sets context about current user."""
     current_user = CurrentUser(id=user.id, username=user.username)
     with CurrentUserContext(user=current_user) as ctx:
         yield ctx
 
 
-async def current_user(ctx: CurrentUserContextDeps) -> CurrentUser:
+async def current_user(
+    _: CurrentUserContextDeps, user: User = Depends(_user)
+) -> User:
     """Returns current user."""
-    return ctx.user
+    return user
 
 
 async def download_cache(key: str = Query(None)):
@@ -95,7 +102,7 @@ async def service_token(token: str | None = Depends(reusable_oauth2)):
         raise exceptions.InvalidToken() from None
 
 
-CurrentUserDeps: TypeAlias = Annotated[CurrentUser, Depends(current_user)]
+CurrentUserDeps: TypeAlias = Annotated[User, Depends(current_user)]
 CurrentUserContextDeps: TypeAlias = Annotated[
     CurrentUserContext, Depends(current_user_ctx)
 ]

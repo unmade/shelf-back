@@ -6,6 +6,18 @@ from unittest import mock
 from app.app.users.domain import User
 
 
+def _make_user(username: str, password: str) -> User:
+    return User(
+        id=uuid.uuid4(),
+        username=username,
+        password=password,
+        email=None,
+        email_verified=False,
+        display_name="",
+        active=True,
+    )
+
+
 class TestMakePassword:
     def test(self):
         plain_password = "plain-password"
@@ -19,7 +31,7 @@ class TestMakePassword:
 class TestCheckPassword:
     def test(self):
         plain_password, hashed_password = "plain-password", "hashed-password"
-        user = User(id=uuid.uuid4(), username="admin", password=hashed_password)
+        user = _make_user("admin", hashed_password)
         with mock.patch("app.toolkit.security.check_password") as check_mock:
             user.check_password(plain_password)
 

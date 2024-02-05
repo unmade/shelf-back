@@ -51,7 +51,7 @@ class TestClient(AsyncClient):
 
     def mock_user(self, user: User) -> Self:
         async def get_current_user():
-            return CurrentUserContext.User(id=user.id, username=user.username)
+            return user
 
         self.app.dependency_overrides[deps.current_user] = get_current_user
         return self
@@ -133,17 +133,22 @@ async def mock_worker_deps(app: FastAPI, worker_mock: mock.MagicMock):
 
 @pytest.fixture
 async def user():
-    return User(id=uuid.uuid4(), username="admin", password="psswd")
+    return User(
+        id=uuid.uuid4(),
+        username="admin",
+        password="psswd",
+        email=None,
+        email_verified=False,
+        display_name="",
+        active=True,
+    )
 
 
 @pytest.fixture
 async def account(user: User):
     return Account(
         id=uuid.uuid4(),
-        email=None,
-        username=user.username,
-        first_name="John",
-        last_name="Doe",
+        user_id=user.id,
     )
 
 

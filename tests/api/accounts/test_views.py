@@ -9,7 +9,7 @@ from app.app.users.usecases.user import AccountSpaceUsage
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
-    from app.app.users.domain import Account, User
+    from app.app.users.domain import User
     from tests.api.conftest import TestClient
 
 pytestmark = [pytest.mark.anyio]
@@ -18,24 +18,16 @@ pytestmark = [pytest.mark.anyio]
 class TestGetCurrent:
     url = "/accounts/get_current"
 
-    async def test(
-        self,
-        client: TestClient,
-        user_use_case: MagicMock,
-        account: Account,
-        user: User,
-    ):
-        # GIVEN
-        user_use_case.get_account.return_value = account
+    async def test(self, client: TestClient, user: User):
         # WHEN
         client.mock_user(user)
         response = await client.get(self.url)
         # THEN
         data = response.json()
-        assert data["username"] == account.username
-        assert data["email"] == account.email
-        assert data["first_name"] == account.first_name
-        assert data["last_name"] == account.last_name
+        assert data["username"] == user.username
+        assert data["email"] == user.email
+        assert data["email_verified"] is False
+        assert data["display_name"] == user.display_name
         assert data["superuser"] is False
         assert response.status_code == 200
 

@@ -34,12 +34,8 @@ class Account(BaseModel):
     StorageQuotaExceeded: ClassVar[type[Exception]] = StorageQuotaExceeded
 
     id: UUID
-    username: str
-    email: str | None
-    first_name: str
-    last_name: str
+    user_id: UUID
     storage_quota: int | None = None
-    created_at: datetime = Field(default_factory=timezone.now)
 
 
 class User(BaseModel):
@@ -50,7 +46,17 @@ class User(BaseModel):
     id: UUID
     username: str
     password: str
+
+    email: str | None
+    email_verified: bool
+
+    display_name: str
+
+    active: bool
     superuser: bool = False
+
+    created_at: datetime = Field(default_factory=timezone.now)
+    last_login_at: datetime | None = None
 
     @classmethod
     def make_password(self, plain_password: str) -> str:
