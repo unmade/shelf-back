@@ -6,6 +6,7 @@ from unittest import mock
 import pytest
 
 from app.app.users.domain import User
+from app.config import config
 
 if TYPE_CHECKING:
     from app.app.auth.usecases import AuthUseCase
@@ -36,7 +37,7 @@ class TestSignIn:
         audit_trail = cast(mock.MagicMock, auth_use_case.audit_trail)
         token_service = cast(mock.MagicMock, auth_use_case.token_service)
         user_service = cast(mock.MagicMock, auth_use_case.user_service)
-        user_service.get_by_username.side_effect = User.NotFound
+        user_service.get_by_username.side_effect = User.NotFound()
         # WHEN
         with pytest.raises(User.InvalidCredentials):
             await auth_use_case.signin(username, password)
@@ -66,16 +67,20 @@ class TestSignIn:
 class TestSignUp:
     async def test(self, auth_use_case: AuthUseCase):
         # GIVEN
-        username, password, storage_quota = "admin", "password", 1024
+        email, password, display_name = "admin@example.com", "password", "Admin"
         ns_service = cast(mock.MagicMock, auth_use_case.ns_service)
         token_service = cast(mock.MagicMock, auth_use_case.token_service)
         user_service = cast(mock.MagicMock, auth_use_case.user_service)
         # WHEN
-        result = await auth_use_case.signup(username, password, storage_quota)
+        result = await auth_use_case.signup(email, password, display_name)
         # THEN
         assert result == token_service.create.return_value
         user_service.create.assert_awaited_once_with(
-            username, password, storage_quota=storage_quota
+            email,
+            password,
+            email=email,
+            display_name=display_name,
+            storage_quota=config.storage.quota,
         )
         user = user_service.create.return_value
         ns_service.create.assert_awaited_once_with(user.username, owner_id=user.id)

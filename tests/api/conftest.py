@@ -113,7 +113,7 @@ def user_use_case(_usecases: UseCases):
 
 
 @pytest.fixture(autouse=True)
-async def mock_usecases_deps(app: FastAPI, _usecases: UseCases):
+async def mock_usecases_deps(anyio_backend, app: FastAPI, _usecases: UseCases):
     async def get_usecases():
         return _usecases
     app.dependency_overrides[deps.usecases] = get_usecases

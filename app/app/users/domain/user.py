@@ -31,7 +31,7 @@ class UserNotFound(Exception):
 
 
 class Account(BaseModel):
-    StorageQuotaExceeded: ClassVar[type[Exception]] = StorageQuotaExceeded
+    StorageQuotaExceeded: ClassVar[type[StorageQuotaExceeded]] = StorageQuotaExceeded
 
     id: UUID
     user_id: UUID
@@ -39,9 +39,9 @@ class Account(BaseModel):
 
 
 class User(BaseModel):
-    AlreadyExists: ClassVar[type[Exception]] = UserAlreadyExists
-    InvalidCredentials: ClassVar[type[Exception]] = InvalidCredentials
-    NotFound: ClassVar[type[Exception]] = UserNotFound
+    AlreadyExists: ClassVar[type[UserAlreadyExists]] = UserAlreadyExists
+    InvalidCredentials: ClassVar[type[InvalidCredentials]] = InvalidCredentials
+    NotFound: ClassVar[type[UserNotFound]] = UserNotFound
 
     id: UUID
     username: str

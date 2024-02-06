@@ -62,7 +62,8 @@ class TestSignUp:
         tokens = Tokens(access="access", refresh="refresh")
         auth_use_case.signup.return_value = tokens
         payload = {
-            "username": "johndoe",
+            "email": "johndoe@example.com",
+            "display_name": "John Doe",
             "password": "Password1",
             "confirm_password": "Password1",
         }
@@ -72,15 +73,16 @@ class TestSignUp:
         assert "access_token" in response.json()
         assert response.status_code == 200
         auth_use_case.signup.assert_awaited_once_with(
-            payload["username"],
-            payload["password"],
-            storage_quota=config.storage.quota,
+            email=payload["email"],
+            display_name=payload["display_name"],
+            password=payload["password"],
         )
 
     async def test_when_disabled(self, client: TestClient, auth_use_case: MagicMock):
         # GIVEN
         payload = {
-            "username": "johndoe",
+            "email": "johndoe@example.com",
+            "display_name": "John Doe",
             "password": "Password1",
             "confirm_password": "Password1",
         }
@@ -98,7 +100,8 @@ class TestSignUp:
     ):
         # GIVEN
         payload = {
-            "username": "johndoe",
+            "email": "johndoe@example.com",
+            "display_name": "John Doe",
             "password": "Password1",
             "confirm_password": "Password1",
         }
