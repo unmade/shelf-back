@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol
 
 from app.app.users.domain import User
+from app.config import config
 from app.toolkit import taskgroups
 
 if TYPE_CHECKING:
@@ -46,14 +47,19 @@ class AuthUseCase:
         return await self.token_service.create(str(user.id))
 
     async def signup(
-        self, username: str, password: str, storage_quota: int | None
+        self,
+        email: str,
+        password: str,
+        display_name: str,
     ) -> Tokens:
         async for tx in self._services.atomic():
             async with tx:
                 user = await self.user_service.create(
-                    username,
+                    email,
                     password,
-                    storage_quota=storage_quota,
+                    email=email,
+                    display_name=display_name,
+                    storage_quota=config.storage.quota,
                 )
                 await self.ns_service.create(user.username, owner_id=user.id)
                 tokens = await self.token_service.create(str(user.id))

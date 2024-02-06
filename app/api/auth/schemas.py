@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Annotated
 
 from pydantic import (
@@ -14,19 +15,24 @@ from app.toolkit import security
 
 
 class SignUpRequest(BaseModel):
-    username: Annotated[str, Field(min_length=3, max_length=31)]
+    email: EmailStr
+    display_name: Annotated[str, Field(min_length=2, max_length=100)]
     password: Annotated[str, Field(min_length=8, max_length=63)]
     confirm_password: Annotated[str, Field(min_length=8, max_length=63)]
-    email: EmailStr | None = None
 
-    @field_validator("username")
+    @field_validator("email")
     @classmethod
-    def username_is_long_and_alphanumeric(cls, value: str) -> str:
-        assert value.isalnum(), (
-            "Username must be at least 3 characters and contain only letters and "
-            "numbers"
-        )
+    def lower_case_email(cls, value: str) -> str:
         return value.lower()
+
+    @field_validator("display_name")
+    @classmethod
+    def validate_display_name(cls, value: str) -> str:
+        pattern = r'^[A-Za-z\-\'\s]+$'
+        assert re.match(pattern, value), (
+            "Display name can only contain letters, spaces, hyphens, and apostrophes."
+        )
+        return value.strip()
 
     @field_validator("password")
     @classmethod

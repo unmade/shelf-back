@@ -42,9 +42,9 @@ async def sign_up(
 
     try:
        access, refresh = await usecases.auth.signup(
-            payload.username,
-            payload.password,
-            storage_quota=config.storage.quota,
+            email=payload.email,
+            password=payload.password,
+            display_name=payload.display_name,
         )
     except User.AlreadyExists as exc:
         raise exceptions.UserAlreadyExists(str(exc)) from exc
