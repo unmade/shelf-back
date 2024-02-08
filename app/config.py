@@ -19,6 +19,10 @@ if TYPE_CHECKING:
 _BASE_DIR = Path(__file__).absolute().resolve().parent.parent
 
 
+class MailBackendType(enum.StrEnum):
+    smtp = "smtp"
+
+
 class StorageType(str, enum.Enum):
     filesystem = "filesystem"
     s3 = "s3"
@@ -116,6 +120,10 @@ class EdgeDBDSN(str):
         return self.__class__(dsn)
 
 
+class ARQWorkerConfig(BaseModel):
+    broker_dsn: Annotated[str, RedisDsn]
+
+
 class AuthConfig(BaseModel):
     secret_key: str
     service_token: str | None = None
@@ -169,6 +177,14 @@ class IndexerClientConfig(BaseModel):
     timeout: float = 10.0
 
 
+class MailSMTPConfig(BaseModel):
+    type: Literal[MailBackendType.smtp] = MailBackendType.smtp
+    smtp_hostname: str
+    smtp_port: int
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+
+
 class S3StorageConfig(BaseModel):
     type: Literal[StorageType.s3] = StorageType.s3
     quota: BytesSize | None = None
@@ -184,15 +200,16 @@ class SentryConfig(BaseModel):
     environment: str | None = None
 
 
-class ARQWorkerConfig(BaseModel):
-    broker_dsn: Annotated[str, RedisDsn]
-
-
 DatabaseConfig: TypeAlias = EdgeDBConfig
+
+MailConfig: TypeAlias = Annotated[
+    MailSMTPConfig,
+    Field(discriminator="type"),
+]
 
 StorageConfig: TypeAlias = Annotated[
     FileSystemStorageConfig | S3StorageConfig,
-    Field(discriminator="type")
+    Field(discriminator="type"),
 ]
 
 WorkerConfig: TypeAlias = ARQWorkerConfig
@@ -209,6 +226,7 @@ class AppConfig(BaseSettings):
     database: DatabaseConfig
     features: FeatureConfig = FeatureConfig()
     indexer: IndexerClientConfig = IndexerClientConfig()
+    mail: MailConfig
     sentry: SentryConfig = SentryConfig()
     storage: StorageConfig
     worker: WorkerConfig

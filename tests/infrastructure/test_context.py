@@ -16,10 +16,11 @@ if TYPE_CHECKING:
 class TestInfrastructure:
     @pytest.mark.anyio
     async def test_as_context_manager(
-        self, edgedb_config, fs_storage_config, arq_worker_config
+        self, edgedb_config, fs_storage_config, arq_worker_config, smtp_mail_config
     ):
         config = mock.MagicMock(
             database=edgedb_config,
+            mail=smtp_mail_config,
             storage=fs_storage_config,
             worker=arq_worker_config,
         )

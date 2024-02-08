@@ -5,6 +5,8 @@ pre-commit>=3.2,<4
 
 # these dependencies are needed for mypy:
 
+aiosmtpd
+aiosmtplib
 arq
 cashews
 edgedb
