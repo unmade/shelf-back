@@ -19,14 +19,21 @@ from app.app.files.services.content import ContentService
 from app.app.files.services.file import FileCoreService, MountService
 from app.app.files.services.file_member import FileMemberService
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
+from app.app.infrastructure.mail import IMailBackend
 from app.app.photos.services import MediaItemService
 from app.app.photos.usecases import PhotosUseCase
 from app.app.users.services import BookmarkService, UserService
 from app.app.users.usecases import UserUseCase
 from app.cache import cache
-from app.config import FileSystemStorageConfig, S3StorageConfig
+from app.config import (
+    FileSystemStorageConfig,
+    MailConfig,
+    MailSMTPConfig,
+    S3StorageConfig,
+)
 from app.infrastructure.clients.indexer import IndexerClient
 from app.infrastructure.database.edgedb import EdgeDBDatabase
+from app.infrastructure.mail import SMTPEmailBackend
 from app.infrastructure.storage import FileSystemStorage, S3Storage
 from app.infrastructure.worker import ARQWorker
 from app.toolkit import taskgroups
@@ -67,12 +74,13 @@ class AppContext:
 
 
 class Infrastructure:
-    __slots__ = ["database", "indexer", "storage", "worker", "_stack"]
+    __slots__ = ["database", "indexer", "mail", "storage", "worker", "_stack"]
 
     def __init__(self, config: AppConfig):
         self.database = self._get_database(config.database)
         self.storage = self._get_storage(config.storage)
         self.indexer = self._get_indexer(config.indexer)
+        self.mail = self._get_mail_backend(config.mail)
         self.worker = self._get_worker(config.worker)
         self._stack = AsyncExitStack()
 
@@ -100,6 +108,12 @@ class Infrastructure:
         if indexer_config.url is None:
             return None
         return IndexerClient(indexer_config)
+
+    @staticmethod
+    def _get_mail_backend(mail_config: MailConfig) -> IMailBackend:
+        if isinstance(mail_config, MailSMTPConfig):
+            return SMTPEmailBackend(mail_config)
+        assert_never(mail_config)
 
     @staticmethod
     def _get_storage(storage_config: StorageConfig) -> IStorage:

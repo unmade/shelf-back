@@ -1,5 +1,6 @@
 -c base.txt
 
+aiosmtpd>=1.4,<2
 anyio>=4.2,<5
 faker>=22.5
 httpx>=0.26,<1
