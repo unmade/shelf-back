@@ -8,6 +8,8 @@ from app.app.users.domain import User
 from app.app.users.repositories import IUserRepository
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
     from app.typedefs import StrOrUUID
 
@@ -121,3 +123,16 @@ class UserRepository(IUserRepository):
             raise User.AlreadyExists(message) from exc
 
         return user.model_copy(update={"id": obj.id})
+
+    async def set_email_verified(self, user_id: UUID, *, verified: bool) -> None:
+        query = """
+            UPDATE
+                User
+            FILTER
+                .id = <uuid>$user_id
+            SET {
+                email_verified := <bool>$verified
+            }
+        """
+
+        await self.conn.query_required_single(query, user_id=user_id, verified=verified)

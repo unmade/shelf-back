@@ -150,6 +150,7 @@ class Services:
     def __init__(self, infra: Infrastructure):
         database = infra.database
         storage = infra.storage
+        mail = infra.mail
         worker = infra.worker
 
         self._database = database
@@ -173,7 +174,7 @@ class Services:
         self.sharing = SharingService(database=database)
         self.thumbnailer = ThumbnailService(filecore=self.filecore, storage=storage)
         self.token = TokenService(token_repo=cache)
-        self.user = UserService(database=database)
+        self.user = UserService(database=database, mail=mail)
 
         self.content = ContentService(
             dupefinder=self.dupefinder,

@@ -5,6 +5,7 @@ from unittest import mock
 
 import pytest
 
+from app.app.infrastructure import IMailBackend
 from app.app.users.repositories import (
     IAccountRepository,
     IBookmarkRepository,
@@ -34,4 +35,5 @@ def user_service() -> UserService:
         user=mock.AsyncMock(IUserRepository),
         atomic=_atomic,
     )
-    return UserService(database=database)
+    mail = mock.MagicMock(IMailBackend)
+    return UserService(database=database, mail=mail)

@@ -179,6 +179,7 @@ class IndexerClientConfig(BaseModel):
 
 class MailSMTPConfig(BaseModel):
     type: Literal[MailBackendType.smtp] = MailBackendType.smtp
+    sender: str = "no-reply@getshelf.cloud"
     smtp_hostname: str
     smtp_port: int
     smtp_username: str | None = None

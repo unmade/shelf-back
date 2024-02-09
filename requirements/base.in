@@ -7,6 +7,7 @@ fastapi>=0.109.1,<1
 filetype>=1.2,<2
 gunicorn>=21,<22
 httpx[http2]>=0.26,<1
+Jinja2>=3.1,<4
 orjson>=3.9.13,<4
 PyMuPDF>=1.21,<2
 passlib>=1.7,<2
