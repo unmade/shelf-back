@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Protocol
 from app.app.users.domain import User
 
 if TYPE_CHECKING:
+    from uuid import UUID
 
     from app.typedefs import StrOrUUID
 
@@ -14,40 +15,27 @@ class IUserRepository(Protocol):
         """
         Retrieves a user by username
 
-        Args:
-            username (str): User username.
-
         Raises:
             User.NotFound: If User with a target username does not exists.
-
-        Returns:
-            User: a User instance.
         """
 
     async def get_by_id(self, user_id: StrOrUUID) -> User:
         """
         Returns a user with a given user ID.
 
-        Args:
-            user_id (StrOrUUID): User ID to search for.
-
         Raises:
             User.NotFound: If user with a target user ID does not exist.
-
-        Returns:
-            User: a User instance.
         """
 
     async def save(self, user: User) -> User:
         """
         Saves a user to the database.
 
-        Args:
-            user (User): a user instance to create.
-
         Raises:
             User.AlreadyExists: If user with a target username already exists.
+        """
 
-        Returns:
-            User: a freshly created user instance.
+    async def set_email_verified(self, user_id: UUID, *, verified: bool) -> None:
+        """
+        Sets `email_verified` for the specified user ID.
         """

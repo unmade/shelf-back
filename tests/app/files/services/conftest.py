@@ -26,7 +26,7 @@ from app.app.files.services import (
     ThumbnailService,
 )
 from app.app.files.services.file import FileCoreService, MountService
-from app.app.infrastructure import IIndexerClient, IStorage, IWorker
+from app.app.infrastructure import IIndexerClient, IMailBackend, IStorage, IWorker
 from app.app.infrastructure.database import SENTINEL_ID
 from app.app.users.repositories import IUserRepository
 from app.app.users.services import BookmarkService, UserService
@@ -153,7 +153,8 @@ def thumbnailer():
 @pytest.fixture
 def user_service(edgedb_database: EdgeDBDatabase):
     """A user service instance."""
-    return UserService(database=edgedb_database)
+    mail = mock.MagicMock(IMailBackend)
+    return UserService(database=edgedb_database, mail=mail)
 
 
 @pytest.fixture(scope="session")

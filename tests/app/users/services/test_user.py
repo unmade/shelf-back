@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import cast
+from typing import TYPE_CHECKING, cast
 from unittest import mock
 
 import pytest
@@ -10,7 +10,25 @@ from app.app.infrastructure.database import SENTINEL_ID
 from app.app.users.domain import Account, User
 from app.app.users.services import UserService
 
+if TYPE_CHECKING:
+    from unittest.mock import MagicMock
+
 pytestmark = [pytest.mark.anyio]
+
+
+def _make_user(*, email: str | None, email_verified: bool = False) -> User:
+    return User.model_construct(
+        id=uuid.uuid4(),
+        username="johndoe",
+        password=mock.ANY,
+        email=email,
+        email_verified=email_verified,
+        display_name='John Doe',
+        active=True,
+        created_at=mock.ANY,
+        last_login_at=None,
+        superuser=False,
+    )
 
 
 class TestCreate:
@@ -136,3 +154,85 @@ class TestGetByUsername:
         await user_service.get_by_username(username)
         # THEN
         db.user.get_by_username.assert_awaited_once_with("admin")
+
+
+class TestSendEmailVerificationCode:
+    async def test(self, user_service: UserService):
+        # GIVEN
+        user = _make_user(email="johndoe@example.com")
+        db = cast(mock.MagicMock, user_service.db)
+        db.user.get_by_id.return_value = user
+        mail = cast(mock.MagicMock, user_service.mail)
+        # WHEN
+        await user_service.send_email_verification_code(user.id)
+        # THEN
+        db.user.get_by_id.assert_awaited_once_with(user.id)
+        mail.send.assert_awaited_once()
+
+    async def test_when_email_is_missing(self, user_service: UserService):
+        # GIVEN
+        user = _make_user(email=None)
+        db = cast(mock.MagicMock, user_service.db)
+        db.user.get_by_id.return_value = user
+        mail = cast(mock.MagicMock, user_service.mail)
+        # WHEN
+        with pytest.raises(User.EmailIsMissing):
+            await user_service.send_email_verification_code(user.id)
+        # THEN
+        db.user.get_by_id.assert_awaited_once_with(user.id)
+        mail.send.assert_not_awaited()
+
+    async def test_when_email_is_verified(self, user_service: UserService):
+        # GIVEN
+        user = _make_user(email="johndoe@example.com", email_verified=True)
+        db = cast(mock.MagicMock, user_service.db)
+        db.user.get_by_id.return_value = user
+        mail = cast(mock.MagicMock, user_service.mail)
+        # WHEN
+        with pytest.raises(User.EmailAlreadyVerified):
+            await user_service.send_email_verification_code(user.id)
+        # THEN
+        db.user.get_by_id.assert_awaited_once_with(user.id)
+        mail.send.assert_not_awaited()
+
+
+class TestVerifyEmail:
+    @mock.patch("app.app.users.services.user.cache.get")
+    async def test(self, cache_get_mock: MagicMock, user_service: UserService):
+        # GIVEN
+        user_id, code = uuid.uuid4(), "078243"
+        cache_get_mock.return_value = code
+        db = cast(mock.MagicMock, user_service.db)
+        # WHEN
+        result = await user_service.verify_email(user_id, code)
+        # THEN
+        assert result is True
+        db.user.set_email_verified.assert_awaited_once_with(user_id, verified=result)
+
+    @mock.patch("app.app.users.services.user.cache.get")
+    async def test_when_code_not_set(
+        self, cache_get_mock: MagicMock, user_service: UserService
+    ):
+        # GIVEN
+        user_id, code = uuid.uuid4(), "078243"
+        cache_get_mock.return_value = ""
+        db = cast(mock.MagicMock, user_service.db)
+        # WHEN
+        result = await user_service.verify_email(user_id, code)
+        # THEN
+        assert result is False
+        db.user.set_email_verified.assert_awaited_once_with(user_id, verified=result)
+
+    @mock.patch("app.app.users.services.user.cache.get")
+    async def test_when_code_is_invlaid(
+        self, cache_get_mock: MagicMock, user_service: UserService
+    ):
+        # GIVEN
+        user_id, code = uuid.uuid4(), "078243"
+        cache_get_mock.return_value = "078244"
+        db = cast(mock.MagicMock, user_service.db)
+        # WHEN
+        result = await user_service.verify_email(user_id, code)
+        # THEN
+        assert result is False
+        db.user.set_email_verified.assert_awaited_once_with(user_id, verified=result)

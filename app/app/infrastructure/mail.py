@@ -10,10 +10,10 @@ if TYPE_CHECKING:
 
 class IMailBackend(Protocol):
     async def __aenter__(self) -> Self:
-        ...
+        raise NotImplementedError()  # pragma: no cover
 
     async def __aexit__(self, exc_type, exc_value, traceback):
-        ...
+        raise NotImplementedError()  # pragma: no cover
 
     async def send(self, message: EmailMessage | MIMEText | MIMEMultipart) -> None:
         """Sends and email to given content."""

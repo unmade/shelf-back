@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import secrets
+import string
 from typing import cast
 
 from passlib.context import CryptContext
 
 __all__ = [
     "check_password",
-    "make_password",
     "is_strong_password",
+    "make_password",
+    "make_otp_code",
 ]
 
 ALGORITHM = "HS256"
@@ -30,15 +33,7 @@ def check_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def is_strong_password(password: str) -> bool:
-    """
-    Check if password is strong enough.
-
-    Args:
-        password (str): Plain-text password.
-
-    Returns:
-        bool: True if password is strong, False otherwise.
-    """
+    """Check if password is strong enough."""
     return (
         len(password) >= 8
         and any(c.isdigit() for c in password)
@@ -48,13 +43,10 @@ def is_strong_password(password: str) -> bool:
 
 
 def make_password(password: str) -> str:
-    """
-    Creates a hashed password.
-
-    Args:
-        password (str): Password to be hashed.
-
-    Returns:
-        str: Hashed password.
-    """
+    """Creates a hashed password."""
     return cast(str, pwd_context.hash(password))
+
+
+def make_otp_code(n: int = 6) -> str:
+    """Creates a N-digits code."""
+    return "".join(secrets.choice(string.digits) for _ in range(n))

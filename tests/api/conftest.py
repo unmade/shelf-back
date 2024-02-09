@@ -15,7 +15,7 @@ from app.app.files.domain import Namespace
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
 from app.app.infrastructure.worker import IWorker
 from app.app.photos.usecases.photos import PhotosUseCase
-from app.app.users.domain import Account, User
+from app.app.users.domain import User
 from app.app.users.usecases import UserUseCase
 from app.infrastructure.context import UseCases
 
@@ -141,14 +141,6 @@ async def user():
         email_verified=False,
         display_name="",
         active=True,
-    )
-
-
-@pytest.fixture
-async def account(user: User):
-    return Account(
-        id=uuid.uuid4(),
-        user_id=user.id,
     )
 
 

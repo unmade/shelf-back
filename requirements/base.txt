@@ -76,6 +76,10 @@ idna==3.6
     #   anyio
     #   email-validator
     #   httpx
+jinja2==3.1.3
+    # via -r requirements/base.in
+markupsafe==2.1.5
+    # via jinja2
 orjson==3.9.13
     # via -r requirements/base.in
 packaging==23.2

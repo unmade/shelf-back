@@ -140,6 +140,12 @@ superuser on the first image run:
 |FEATURES__UPLOAD_FILE_MAX     | - | 100MB | Maximum upload file size. Default to 100 MB |
 |INDEXER__URL                  | - | None   | A URL to the Indexer service. If not specified, the file won't be indexed. |
 |INDEXER__TIMEOUT              | - | 10     | A timeout to wait response from indexer. |
+|MAIL__TYPE                    | - | smtp   | Backend to use for sending emails. |
+|MAIL__SENDER                  | - | <no-reply@getshelf.cloud>  | Email sender on behalf of application. |
+|MAIL__SMTP_HOSTNAME           | - | localhost  | SMTP hostname. |
+|MAIL__SMTP_PORT               | - | 1025   | SMTP port. |
+|MAIL__SMTP_USERNAME           | - | smtp   | SMTP username. |
+|MAIL__SMTP_PASSWORD           | - | smtp   | SMTP password. |
 |SENTRY__DSN                   | - | None   | Sentry DSN |
 |SENTRY__ENV                   | - | None   | Sentry environment |
 |STORAGE__TYPE                 | - | filesystem | A primary storage type. Either `filesystem` or `s3` options are available |

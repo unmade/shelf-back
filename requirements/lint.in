@@ -12,6 +12,7 @@ cashews
 edgedb
 fastapi
 httpx
+jinja2
 mypy
 pydantic
 pydantic-settings

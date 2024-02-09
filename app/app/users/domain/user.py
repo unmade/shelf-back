@@ -26,6 +26,14 @@ class UserAlreadyExists(Exception):
     pass
 
 
+class UserEmailAlreadyVerified(Exception):
+    pass
+
+
+class UserEmailIsMissing(Exception):
+    pass
+
+
 class UserNotFound(Exception):
     pass
 
@@ -40,6 +48,10 @@ class Account(BaseModel):
 
 class User(BaseModel):
     AlreadyExists: ClassVar[type[UserAlreadyExists]] = UserAlreadyExists
+    EmailAlreadyVerified: ClassVar[
+        type[UserEmailAlreadyVerified]
+    ] = UserEmailAlreadyVerified
+    EmailIsMissing: ClassVar[type[UserEmailIsMissing]] = UserEmailIsMissing
     InvalidCredentials: ClassVar[type[InvalidCredentials]] = InvalidCredentials
     NotFound: ClassVar[type[UserNotFound]] = UserNotFound
 
