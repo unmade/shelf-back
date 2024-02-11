@@ -32,6 +32,10 @@ async def test_list_features(client: TestClient):
                 "name": "upload_file_max_size",
                 "value": config.features.upload_file_max_size,
             },
+            {
+                "name": "verification_required",
+                "value": config.features.verification_required,
+            },
         ],
     }
     assert response.status_code == 200

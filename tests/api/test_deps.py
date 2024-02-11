@@ -39,41 +39,6 @@ def usecases():
     )
 
 
-class TestUseCases:
-    async def test(self):
-        request = mock.MagicMock(Request)
-        assert await deps.usecases(request) == request.state.usecases
-
-
-class TestWorker:
-    async def test(self):
-        request = mock.MagicMock(Request)
-        assert await deps.worker(request) == request.state.worker
-
-
-class TestUser:
-    @pytest.fixture
-    def payload(self, user: User):
-        return AccessToken(sub=str(user.id), exp=timezone.now())
-
-    async def test(self, payload: AccessToken, usecases: MagicMock, user: User):
-        # GIVEN
-        usecases.user.user_service.get_by_id.return_value = user
-        # WHEN
-        result = await deps._user(usecases, payload)
-        # THEN
-        assert result == user
-        usecases.user.user_service.get_by_id.assert_awaited_once_with(payload.sub)
-
-    async def test_when_user_not_found(self, payload: AccessToken, usecases: MagicMock):
-        # GIVEN
-        usecases.user.user_service.get_by_id.side_effect = User.NotFound
-        # WHEN/THEN
-        with pytest.raises(exceptions.UserNotFound):
-            await deps._user(usecases, payload)
-        usecases.user.user_service.get_by_id.assert_awaited_once_with(payload.sub)
-
-
 class TestCurrentUserContext:
     async def test(self, user: User):
         # GIVEN
@@ -148,3 +113,68 @@ class TestTokenPayload:
             with pytest.raises(exceptions.InvalidToken):
                 deps.token_payload(token=token)
         decode_mock.assert_called_once_with(token)
+
+
+class TestUseCases:
+    async def test(self):
+        request = mock.MagicMock(Request)
+        assert await deps.usecases(request) == request.state.usecases
+
+
+class TestUser:
+    @pytest.fixture
+    def payload(self, user: User):
+        return AccessToken(sub=str(user.id), exp=timezone.now())
+
+    async def test(self, payload: AccessToken, usecases: MagicMock, user: User):
+        # GIVEN
+        usecases.user.user_service.get_by_id.return_value = user
+        # WHEN
+        result = await deps._user(usecases, payload)
+        # THEN
+        assert result == user
+        usecases.user.user_service.get_by_id.assert_awaited_once_with(payload.sub)
+
+    async def test_when_user_not_found(self, payload: AccessToken, usecases: MagicMock):
+        # GIVEN
+        usecases.user.user_service.get_by_id.side_effect = User.NotFound
+        # WHEN / THEN
+        with pytest.raises(exceptions.UserNotFound):
+            await deps._user(usecases, payload)
+        usecases.user.user_service.get_by_id.assert_awaited_once_with(payload.sub)
+
+
+class TestVerifiedUser:
+    async def test(self, user: User):
+        # GIVEN
+        user.email_verified = True
+        # WHEN
+        with mock.patch.object(config.features, "verification_required", True):
+            result = await deps.verified_current_user(user)
+        # THEN
+        assert user == result
+
+    async def test_when_verification_disabled(self, user: User):
+        # GIVEN
+        user.email_verified = False
+        # WHEN
+        with mock.patch.object(config.features, "verification_required", False):
+            result = await deps.verified_current_user(user)
+        # THEN
+        assert user == result
+
+    async def test_when_unverified(self, user: User):
+        # GIVEN
+        user.email_verified = False
+        # WHEN / THEN
+        with (
+            mock.patch.object(config.features, "verification_required", True),
+            pytest.raises(exceptions.UnverifiedUser),
+        ):
+            await deps.verified_current_user(user)
+
+
+class TestWorker:
+    async def test(self):
+        request = mock.MagicMock(Request)
+        assert await deps.worker(request) == request.state.worker

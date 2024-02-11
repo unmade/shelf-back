@@ -137,8 +137,8 @@ async def user():
         id=uuid.uuid4(),
         username="admin",
         password="psswd",
-        email=None,
-        email_verified=False,
+        email="admin@getshelf.cloud",
+        email_verified=True,
         display_name="",
         active=True,
     )

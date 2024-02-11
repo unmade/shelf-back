@@ -76,3 +76,6 @@ class User(BaseModel):
 
     def check_password(self, plain_password: str) -> bool:
         return security.check_password(plain_password, self.password)
+
+    def is_verified(self) -> bool:
+        return self.superuser or self.email_verified
