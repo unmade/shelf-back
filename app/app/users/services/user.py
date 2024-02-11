@@ -19,13 +19,25 @@ if TYPE_CHECKING:
 __all__ = ["UserService"]
 
 
-def _verify_email_key(user_id) -> str:
-    return f"verify_email:{user_id}"
+def _verify_email_key(user_id: UUID) -> str:
+    return f"otp:verify_email:{user_id}"
 
 
 class IServiceDatabase(IDatabase, Protocol):
     account: IAccountRepository
     user: IUserRepository
+
+
+class UserServiceError(Exception):
+    pass
+
+
+class EmailUpdateAlreadyStarted(UserServiceError):
+    pass
+
+
+class EmailUpdateNotStarted(UserServiceError):
+    pass
 
 
 class UserService:
@@ -34,6 +46,52 @@ class UserService:
     def __init__(self, database: IServiceDatabase, mail: IMailBackend):
         self.db = database
         self.mail = mail
+
+    async def _send_email_verification_code(
+        self, display_name: str, email: str, code: str
+    ) -> None:
+        message = EmailVerificationMessage(display_name, email, code)
+        content = await message.build()
+
+        async with self.mail:
+            await self.mail.send(content)
+
+    async def change_email_complete(self, user_id: UUID, code: str) -> bool:
+        email, expected_code = await cache.get_many(
+            f"email_update:{user_id}:email",
+            f"email_update:{user_id}:code",
+        )
+        if not email:
+            raise EmailUpdateNotStarted() from None
+
+        if not expected_code:
+            return False
+
+        verified = secrets.compare_digest(code, expected_code)
+        if verified:
+            await self.db.user.update(user_id, email=email, email_verified=True)
+
+        return verified
+
+    async def change_email_resend_code(self, user_id: UUID) -> None:
+        email = await cache.get(f"email_update:{user_id}:email")
+        if not email:
+            raise EmailUpdateNotStarted() from None
+
+        user = await self.db.user.get_by_id(user_id)
+        code = security.make_otp_code()
+        await cache.set(f"email_update:{user_id}:code", code, expire="2m")
+        await self._send_email_verification_code(user.display_name, email, code)
+
+    async def change_email_start(self, user_id: UUID, email: str) -> None:
+        if await self.db.user.exists_with_email(email):
+            raise User.AlreadyExists() from None
+
+        key = f"email_update:{user_id}:email"
+        if not await cache.set(key, email, expire="10m", exist=False):
+            raise EmailUpdateAlreadyStarted() from None
+
+        await self.change_email_resend_code(user_id)
 
     async def create(
         self,
@@ -122,15 +180,11 @@ class UserService:
         code = security.make_otp_code()
         await cache.set(_verify_email_key(user_id), code, expire="2m")
 
-        message = EmailVerificationMessage(user, code)
-        content = await message.build()
-
-        async with self.mail:
-            await self.mail.send(content)
+        await self._send_email_verification_code(user.display_name, user.email, code)
 
     async def verify_email(self, user_id: UUID, code: str) -> bool:
         """Verifies user email based on provided code."""
         expected_code = await cache.get(_verify_email_key(user_id), default="")
         verified = secrets.compare_digest(code.encode(), expected_code.encode())
-        await self.db.user.set_email_verified(user_id, verified=verified)
+        await self.db.user.update(user_id, email_verified=verified)
         return verified

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Unpack, cast, get_type_hints
 
 import edgedb
 
 from app.app.users.domain import User
 from app.app.users.repositories import IUserRepository
+from app.app.users.repositories.user import UserUpdate
+from app.infrastructure.database.edgedb import autocast
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -38,6 +40,17 @@ class UserRepository(IUserRepository):
     @property
     def conn(self) -> EdgeDBAnyConn:
         return self.db_context.get()
+
+    async def exists_with_email(self, email: str) -> bool:
+        query = """
+            SELECT EXISTS(
+                SELECT
+                    User
+                FILTER
+                    .email = <str>$email
+            )
+        """
+        return cast(bool, await self.conn.query_required_single(query, email=email))
 
     async def get_by_username(self, username: str) -> User:
         query = """
@@ -124,15 +137,36 @@ class UserRepository(IUserRepository):
 
         return user.model_copy(update={"id": obj.id})
 
-    async def set_email_verified(self, user_id: UUID, *, verified: bool) -> None:
-        query = """
-            UPDATE
-                User
-            FILTER
-                .id = <uuid>$user_id
-            SET {
-                email_verified := <bool>$verified
-            }
+    async def update(self, user_id: UUID, **fields: Unpack[UserUpdate]) -> User:
+        assert fields, "`fields` must have at least one value"
+        hints = get_type_hints(UserUpdate)
+        statements = [
+            f"{key} := {autocast.autocast(hints[key])}${key}"
+            for key in fields
+        ]
+        query = f"""
+            SELECT (
+                UPDATE
+                    User
+                FILTER
+                    .id = <uuid>$user_id
+                SET {{
+                    {','.join(statements)}
+                }}
+            ) {{
+                id,
+                username,
+                password,
+                email,
+                email_verified,
+                display_name,
+                created_at,
+                last_login_at,
+                active,
+                superuser,
+            }}
         """
-
-        await self.conn.query_required_single(query, user_id=user_id, verified=verified)
+        obj = await self.conn.query_required_single(
+            query, user_id=user_id, **fields
+        )
+        return _from_db(obj)

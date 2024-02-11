@@ -3,6 +3,8 @@ from __future__ import annotations
 import uuid
 from unittest import mock
 
+import pytest
+
 from app.app.users.domain import User
 
 
@@ -36,3 +38,20 @@ class TestCheckPassword:
             user.check_password(plain_password)
 
         check_mock.assert_called_once_with(plain_password, hashed_password)
+
+
+class TestIsVerified:
+    @pytest.mark.parametrize(["email_verified", "superuser", "verified"], [
+        (False, False, False),
+        (False, True, True),
+        (True, False, True),
+    ])
+    def test(self, email_verified: bool, superuser: bool, verified: bool):
+        # GIVEN
+        user = _make_user("admin", "hashed-password")
+        user.email_verified = email_verified
+        user.superuser = superuser
+        # WHEN
+        result = user.is_verified()
+        # THEN
+        assert result is verified
