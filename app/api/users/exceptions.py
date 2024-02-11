@@ -10,6 +10,13 @@ class FileNotFound(APIError):
     default_message = "File does not exists"
 
 
+class UserEmailAlreadySet(APIError):
+    status_code = 400
+    code = "USER_EMAIL_ALREADY_SET"
+    code_verbose = "User email already set"
+    default_message = ""
+
+
 class UserEmailAlreadyVerified(APIError):
     status_code = 400
     code = "USER_EMAIL_ALREADY_VERIFIED"

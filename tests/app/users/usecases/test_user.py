@@ -27,6 +27,39 @@ class TestAddBookmark:
         bookmark_service.add_bookmark.assert_awaited_once_with(user_id, file.id)
 
 
+class TestChangeEmailComplete:
+    async def test(self, user_use_case: UserUseCase):
+        # GIVEN
+        user_id, code = uuid.uuid4(), "078243"
+        user_service = cast(mock.MagicMock, user_use_case.user_service)
+        # WHEN
+        await user_use_case.change_email_complete(user_id, code)
+        # THEN
+        user_service.change_email_complete.assert_awaited_once_with(user_id, code)
+
+
+class TestChangeEmailResendCode:
+    async def test(self, user_use_case: UserUseCase):
+        # GIVEN
+        user_id = uuid.uuid4()
+        user_service = cast(mock.MagicMock, user_use_case.user_service)
+        # WHEN
+        await user_use_case.change_email_resend_code(user_id)
+        # THEN
+        user_service.change_email_resend_code.assert_awaited_once_with(user_id)
+
+
+class TestChangeEmailStart:
+    async def test(self, user_use_case: UserUseCase):
+        # GIVEN
+        user_id, email = uuid.uuid4(), "johndoe@example.com"
+        user_service = cast(mock.MagicMock, user_use_case.user_service)
+        # WHEN
+        await user_use_case.change_email_start(user_id, email)
+        # THEN
+        user_service.change_email_start.assert_awaited_once_with(user_id, email)
+
+
 class TestCreateSuperUser:
     async def test(self, user_use_case: UserUseCase):
         # GIVEN

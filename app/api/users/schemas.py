@@ -12,6 +12,10 @@ class ListBookmarksResponse(BaseModel):
     items: list[UUID]
 
 
+class SetEmailRequest(BaseModel):
+    email: str
+
+
 class VerifyEmailRequest(BaseModel):
     code: Annotated[str, Field(min_length=6)]
 

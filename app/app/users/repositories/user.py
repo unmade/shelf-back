@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, TypedDict, Unpack
 
 from app.app.users.domain import User
 
@@ -10,13 +10,21 @@ if TYPE_CHECKING:
     from app.typedefs import StrOrUUID
 
 
+class UserUpdate(TypedDict, total=False):
+    email: str
+    email_verified: bool
+
+
 class IUserRepository(Protocol):
+    async def exists_with_email(self, email: str) -> bool:
+        """Returns True if user with the specified email exists, otherwise False."""
+
     async def get_by_username(self, username: str) -> User:
         """
         Retrieves a user by username
 
         Raises:
-            User.NotFound: If User with a target username does not exists.
+            User.NotFound: If User with a target username does not exist.
         """
 
     async def get_by_id(self, user_id: StrOrUUID) -> User:
@@ -32,10 +40,8 @@ class IUserRepository(Protocol):
         Saves a user to the database.
 
         Raises:
-            User.AlreadyExists: If user with a target username already exists.
+            User.AlreadyExists: If user with a target username already exist.
         """
 
-    async def set_email_verified(self, user_id: UUID, *, verified: bool) -> None:
-        """
-        Sets `email_verified` for the specified user ID.
-        """
+    async def update(self, user_id: UUID, **fields: Unpack[UserUpdate]) -> User:
+        """Updates user with provided fields."""

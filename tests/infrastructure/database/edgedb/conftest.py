@@ -118,7 +118,10 @@ if TYPE_CHECKING:
 
     class UserFactory(Protocol):
         async def __call__(
-            self, username: str | None = None, password: str | None = None
+            self,
+            username: str | None = None,
+            password: str | None = None,
+            email: str | None = None,
         ) -> User:
             ...
 
@@ -399,13 +402,17 @@ def shared_link_factory(shared_link_repo: ISharedLinkRepository) -> SharedLinkFa
 @pytest.fixture
 def user_factory(user_repo: IUserRepository):
     """A factory to persist User to the EdgeDB."""
-    async def factory(username: str | None = None, password: str | None = None):
+    async def factory(
+        username: str | None = None,
+        password: str | None = None,
+        email: str | None = None,
+    ):
         return await user_repo.save(
             User(
                 id=SENTINEL_ID,
                 username=username or fake.unique.user_name(),
                 password=password or fake.password(),
-                email=None,
+                email=email,
                 email_verified=False,
                 display_name="",
                 active=True,

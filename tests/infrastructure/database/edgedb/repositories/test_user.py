@@ -16,6 +16,8 @@ if TYPE_CHECKING:
     from app.app.users.repositories import IUserRepository
     from app.infrastructure.database.edgedb.repositories import UserRepository
 
+    from ..conftest import UserFactory
+
 pytestmark = [pytest.mark.anyio, pytest.mark.database]
 
 
@@ -50,6 +52,19 @@ async def _get_by_id(user_id: UUID) -> User:
         active=obj.active,
         superuser=obj.superuser,
     )
+
+
+class TestExistsWithEmail:
+    async def test(self, user_repo: UserRepository, user_factory: UserFactory):
+        # GIVEN / WHEN / THEN
+        email = "johndoe@example.com"
+        result = await user_repo.exists_with_email(email)
+        assert result is False
+
+        # GIVEN / WHEN / THEN
+        await user_factory(email=email)
+        result = await user_repo.exists_with_email(email)
+        assert result is True
 
 
 class TestGetByID:
@@ -115,12 +130,13 @@ class TestSave:
         assert str(excinfo.value) == "Username 'admin' is taken"
 
 
-class TestSetEmailVerified:
+class TestUpdate:
     async def test(self, user_repo: IUserRepository, user: User):
         # GIVEN
         assert user.email_verified is False
         # WHEN
-        await user_repo.set_email_verified(user.id, verified=True)
+        result = await user_repo.update(user.id, email_verified=True)
         # THEN
+        assert result.email_verified is True
         updated_user = await _get_by_id(user.id)
         assert updated_user.email_verified is True

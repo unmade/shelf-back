@@ -3,10 +3,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, NamedTuple, Protocol
 from uuid import UUID
 
+from app.app.users.domain import User
+
 if TYPE_CHECKING:
     from app.app.files.services import FileService, NamespaceService
     from app.app.infrastructure.database import IAtomic
-    from app.app.users.domain import Account, Bookmark, User
+    from app.app.users.domain import Account, Bookmark
     from app.app.users.services import BookmarkService, UserService
 
     class IUseCaseServices(IAtomic, Protocol):
@@ -45,6 +47,15 @@ class UserUseCase:
         """
         file = await self.file_service.get_by_id(ns_path, file_id)
         return await self.bookmark_service.add_bookmark(user_id, file.id)
+
+    async def change_email_complete(self, user_id: UUID, code: str) -> bool:
+        return await self.user_service.change_email_complete(user_id, code)
+
+    async def change_email_resend_code(self, user_id: UUID) -> None:
+        await self.user_service.change_email_resend_code(user_id)
+
+    async def change_email_start(self, user_id: UUID, email: str) -> None:
+        await self.user_service.change_email_start(user_id, email)
 
     async def create_superuser(self, username: str, password: str) -> User:
         """

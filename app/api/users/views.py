@@ -74,6 +74,6 @@ async def verify_email(
     user: CurrentUserDeps,
     usecases: UseCasesDeps,
 ) -> VerifyEmailResponse:
-    """Verifies user email."""
+    """Verifies current user email."""
     verified = await usecases.user.verify_email(user.id, payload.code)
     return VerifyEmailResponse(verified=verified)
