@@ -138,6 +138,7 @@ superuser on the first image run:
 |FEATURES__PRE_GENERATED_THUMBNAIL_SIZES | - | [72, 768, 2880] | Thumbnail sizes that are automatically generated on file upload. |
 |FEATURES__SIGN_UP_DISABLED    | - | False  | Whether sign up is disabled or not |
 |FEATURES__UPLOAD_FILE_MAX     | - | 100MB | Maximum upload file size. Default to 100 MB |
+|FEATURES__VERIFICATION_REQUIRED | - | False | Whether user account has to be verified to upload files. |
 |INDEXER__URL                  | - | None   | A URL to the Indexer service. If not specified, the file won't be indexed. |
 |INDEXER__TIMEOUT              | - | 10     | A timeout to wait response from indexer. |
 |MAIL__TYPE                    | - | smtp   | Backend to use for sending emails. |

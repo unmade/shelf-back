@@ -65,3 +65,10 @@ class UserNotFound(APIError):
     code = "USER_NOT_FOUND"
     code_verbose = "User not found"
     default_message = ""
+
+
+class UnverifiedUser(APIError):
+    status_code = 403
+    code = "UNVERIFIED_USER"
+    code_verbose = "Unverified user"
+    default_message = ""

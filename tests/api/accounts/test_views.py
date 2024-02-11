@@ -26,9 +26,9 @@ class TestGetCurrent:
         data = response.json()
         assert data["username"] == user.username
         assert data["email"] == user.email
-        assert data["email_verified"] is False
+        assert data["email_verified"] is user.email_verified
         assert data["display_name"] == user.display_name
-        assert data["superuser"] is False
+        assert data["superuser"] is user.superuser
         assert response.status_code == 200
 
 

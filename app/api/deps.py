@@ -23,6 +23,7 @@ __all__ = [
     "NamespaceDeps",
     "ServiceTokenDeps",
     "UseCasesDeps",
+    "VerifiedCurrentUserDeps",
     "WorkerDeps",
 ]
 
@@ -75,6 +76,13 @@ async def current_user(
     return user
 
 
+async def verified_current_user(user: CurrentUserDeps) -> User:
+    """Returns current user if it is a verified user."""
+    if config.features.verification_required and not user.is_verified():
+        raise exceptions.UnverifiedUser() from None
+    return user
+
+
 async def download_cache(key: str = Query(None)):
     value = await shortcuts.pop_download_cache(key)
     if not value:
@@ -110,4 +118,5 @@ DownloadCacheDeps: TypeAlias = Annotated[AnyFile, Depends(download_cache)]
 NamespaceDeps: TypeAlias = Annotated[Namespace, Depends(namespace)]
 ServiceTokenDeps: TypeAlias = Annotated[None, Depends(service_token)]
 UseCasesDeps: TypeAlias = Annotated[UseCases, Depends(usecases)]
+VerifiedCurrentUserDeps: TypeAlias = Annotated[User, Depends(verified_current_user)]
 WorkerDeps: TypeAlias = Annotated[IWorker, Depends(worker)]
