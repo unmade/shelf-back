@@ -36,6 +36,8 @@ class ThumbnailSize(enum.IntEnum):
     lg = 768
     xxl = 2880
 
+    ai = 768
+
 
 def _as_absolute_path(value: str) -> str | None:
     if value is None:
@@ -153,6 +155,7 @@ class FeatureConfig(BaseModel):
         ThumbnailSize.xs,
         ThumbnailSize.lg,
         ThumbnailSize.xxl,
+        ThumbnailSize.ai,
     }
     sign_up_disabled: bool = False
     upload_file_max_size: BytesSize = 100 * BytesSizeMultipliers.mb

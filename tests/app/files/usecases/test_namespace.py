@@ -67,9 +67,9 @@ class TestAddFile:
         file_service.create_file.assert_awaited_once_with(
             ns_path, path, content, modified_at
         )
-        content_service.process_async.assert_awaited_once_with(result.id)
-
         owner_id = ns_service.get_by_path.return_value.owner_id
+        content_service.process_async.assert_awaited_once_with(result.id, owner_id)
+
         user_service.get_account.assert_awaited_once_with(owner_id)
         ns_service.get_space_used_by_owner_id.assert_not_awaited()
         audit_trail.file_added.assert_called_once_with(result)
@@ -96,9 +96,9 @@ class TestAddFile:
         file_service.create_file.assert_awaited_once_with(
             ns_path, path, content, modified_at
         )
-        content_service.process_async.assert_awaited_once_with(result.id)
-
         owner_id = ns_service.get_by_path.return_value.owner_id
+        content_service.process_async.assert_awaited_once_with(result.id, owner_id)
+
         user_service.get_account.assert_awaited_once_with(owner_id)
         ns_service.get_space_used_by_owner_id.assert_awaited_once_with(owner_id)
         audit_trail.file_added.assert_called_once_with(result)

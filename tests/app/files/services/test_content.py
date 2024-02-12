@@ -46,7 +46,7 @@ class TestProcess:
         metadata = cast(mock.MagicMock, content_service.metadata)
         thumbnailer = cast(mock.MagicMock, content_service.thumbnailer)
         # WHEN
-        await content_service.process(file.id)
+        await content_service.process(file.id, uuid.uuid4())
         # THEN
         thumbnailer.generate_thumbnails.assert_awaited_once_with(
             file.id, sizes=config.features.pre_generated_thumbnail_sizes
@@ -70,7 +70,7 @@ class TestProcess:
         metadata = cast(mock.MagicMock, content_service.metadata)
         thumbnailer = cast(mock.MagicMock, content_service.thumbnailer)
         # WHEN
-        await content_service.process(file.id)
+        await content_service.process(file.id, uuid.uuid4())
         # THEN
         thumbnailer.generate_thumbnails.assert_awaited_once_with(
             file.id, sizes=config.features.pre_generated_thumbnail_sizes
@@ -83,12 +83,16 @@ class TestProcess:
 class TestProcessAsync:
     async def test(self, content_service: ContentService):
         # GIVEN
-        file_id = uuid.uuid4()
+        file_id, user_id = uuid.uuid4(), uuid.uuid4()
         worker = cast(mock.MagicMock, content_service.worker)
         # WHEN
-        await content_service.process_async(file_id)
+        await content_service.process_async(file_id, user_id)
         # THEN
-        worker.enqueue.assert_awaited_once_with("process_file_content", file_id=file_id)
+        worker.enqueue.assert_awaited_once_with(
+            "process_file_content",
+            file_id=file_id,
+            user_id=user_id,
+        )
 
 
 class TestReindexContents:

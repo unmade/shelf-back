@@ -29,13 +29,16 @@ class TestTrack:
     async def test(self, post_mock: MagicMock, indexer_cli: IndexerClient):
         # GIVEN
         file_id, storage_path = uuid.uuid4(), "ab/cd/ef/thumb_768.webp"
+        file_name, user_id = "some.jpg", uuid.uuid4()
         # WHEN
-        await indexer_cli.track(file_id, storage_path)
+        await indexer_cli.track(file_id, storage_path, file_name, user_id)
         # THEN
         post_mock.assert_awaited_once_with(
             "/api/photos/process",
             json={
                 "file_id": str(file_id),
-                "storage_path": storage_path
+                "storage_path": storage_path,
+                "file_name": file_name,
+                "owner": str(user_id),
             }
         )

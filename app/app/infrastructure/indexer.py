@@ -12,5 +12,11 @@ __all__ = [
 
 
 class IIndexerClient(AbstractAsyncContextManager["IIndexerClient"], Protocol):
-    async def track(self, file_id: UUID, storage_path: str) -> None:
+    async def track(
+        self,
+        file_id: UUID,
+        storage_path: str,
+        file_name: str,
+        user_id: UUID,
+    ) -> None:
         """Adds file to the index."""

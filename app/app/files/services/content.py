@@ -48,7 +48,7 @@ class ContentService:
         self.thumbnailer = thumbnailer
         self.worker = worker
 
-    async def process(self, file_id: UUID) -> None:
+    async def process(self, file_id: UUID, user_id: UUID) -> None:
         """
         Pre-generates thumbnails, calculates fingerprint and extract metadata from
         file content.
@@ -63,16 +63,22 @@ class ContentService:
                 sizes=config.features.pre_generated_thumbnail_sizes,
             )
             if self.indexer is not None:
-                size = ThumbnailSize.lg
+                size = ThumbnailSize.ai
                 storage_path = self.thumbnailer.get_storage_path(file.chash, size)
-                taskgroups.schedule(self.indexer.track(file.id, storage_path))
+                taskgroups.schedule(
+                    self.indexer.track(file.id, storage_path, file.name, user_id),
+                )
 
             await self.dupefinder.track(file.id, content)
             await self.metadata.track(file.id, content)
 
-    async def process_async(self, file_id: UUID) -> None:
+    async def process_async(self, file_id: UUID, user_id: UUID) -> None:
         """Schedules file content processing in a worker."""
-        await self.worker.enqueue("process_file_content", file_id=file_id)
+        await self.worker.enqueue(
+            "process_file_content",
+            file_id=file_id,
+            user_id=user_id,
+        )
 
     async def reindex_contents(self, ns_path: AnyPath) -> None:
         """
