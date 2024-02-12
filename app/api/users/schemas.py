@@ -1,7 +1,6 @@
-from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class IDRequest(BaseModel):
@@ -10,15 +9,3 @@ class IDRequest(BaseModel):
 
 class ListBookmarksResponse(BaseModel):
     items: list[UUID]
-
-
-class SetEmailRequest(BaseModel):
-    email: str
-
-
-class VerifyEmailRequest(BaseModel):
-    code: Annotated[str, Field(min_length=6)]
-
-
-class VerifyEmailResponse(BaseModel):
-    verified: bool

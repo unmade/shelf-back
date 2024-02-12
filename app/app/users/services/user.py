@@ -161,9 +161,9 @@ class UserService:
         """
         return await self.db.user.get_by_username(username.lower().strip())
 
-    async def send_email_verification_code(self, user_id: UUID) -> None:
+    async def verify_email_send_code(self, user_id: UUID) -> None:
         """
-        Sends verification code to the email.
+        Sends verification code to the user current email.
 
         Raises:
             User.EmailIsMissing: If user doesn't have email.
@@ -182,9 +182,10 @@ class UserService:
 
         await self._send_email_verification_code(user.display_name, user.email, code)
 
-    async def verify_email(self, user_id: UUID, code: str) -> bool:
+    async def verify_email_complete(self, user_id: UUID, code: str) -> bool:
         """Verifies user email based on provided code."""
         expected_code = await cache.get(_verify_email_key(user_id), default="")
         verified = secrets.compare_digest(code.encode(), expected_code.encode())
-        await self.db.user.update(user_id, email_verified=verified)
+        if verified:
+            await self.db.user.update(user_id, email_verified=verified)
         return verified

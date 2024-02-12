@@ -5,12 +5,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from app.api.exceptions import APIError
-from app.api.users.exceptions import (
-    FileNotFound,
-    UserEmailAlreadyVerified,
-    UserEmailIsMissing,
-)
+from app.api.users.exceptions import FileNotFound
 from app.app.files.domain import File
 from app.app.users.domain import Bookmark, User
 
@@ -110,54 +105,3 @@ class TestRemoveBookmark:
         assert response.json() is None
         assert response.status_code == 200
         user_use_case.remove_bookmark.assert_awaited_once_with(user.id, file_id)
-
-
-class TestSendEmailVerification:
-    url = "/users/send_email_verification_code"
-
-    async def test(self, client: TestClient, user_use_case: MagicMock, user: User):
-        # WHEN
-        client.mock_user(user)
-        response = await client.post(self.url)
-        # THEN
-        assert response.json() is None
-        assert response.status_code == 200
-        user_use_case.send_email_verification_code.assert_awaited_once_with(user.id)
-
-    @pytest.mark.parametrize(["error", "expected_error"], [
-        (User.EmailAlreadyVerified(), UserEmailAlreadyVerified()),
-        (User.EmailIsMissing(), UserEmailIsMissing()),
-    ])
-    async def test_reraising_app_errors_to_api_errors(
-        self,
-        client: TestClient,
-        user_use_case: MagicMock,
-        user: User,
-        error: Exception,
-        expected_error: APIError,
-    ):
-        # GIVEN
-        user_use_case.send_email_verification_code.side_effect = error
-        # WHEN
-        client.mock_user(user)
-        response = await client.post(self.url)
-        # THEN
-        assert response.json() == expected_error.as_dict()
-        assert response.status_code == expected_error.status_code
-        user_use_case.send_email_verification_code.assert_awaited_once_with(user.id)
-
-
-class TestVerifyEmail:
-    url = "/users/verify_email"
-
-    async def test(self, client: TestClient, user_use_case: MagicMock, user: User):
-        # GIVEN
-        code = "078243"
-        payload = {"code": code}
-        # WHEN
-        client.mock_user(user)
-        response = await client.post(self.url, json=payload)
-        # THEN
-        assert response.json()["verified"] is True
-        assert response.status_code == 200
-        user_use_case.verify_email.assert_awaited_once_with(user.id, code)

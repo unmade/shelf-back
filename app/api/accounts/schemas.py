@@ -49,3 +49,11 @@ class ChangeEmailStartRequest(BaseModel):
 class GetAccountSpaceUsageResponse(BaseModel):
     used: int
     quota: int | None
+
+
+class VerifyEmailCompleteRequest(BaseModel):
+    code: Annotated[str, Field(min_length=6)]
+
+
+class VerifyEmailCompleteResponse(BaseModel):
+    completed: bool

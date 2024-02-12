@@ -165,3 +165,54 @@ class TestGetSpaceUsage:
         assert response.json() == {"quota": space_usage.quota, "used": space_usage.used}
         assert response.status_code == 200
         user_use_case.get_account_space_usage.assert_awaited_once_with(user.id)
+
+
+class TestVerifyEmailSendCode:
+    url = "/accounts/verify_email/send_code"
+
+    async def test(self, client: TestClient, user_use_case: MagicMock, user: User):
+        # WHEN
+        client.mock_user(user)
+        response = await client.post(self.url)
+        # THEN
+        assert response.json() is None
+        assert response.status_code == 200
+        user_use_case.verify_email_send_code.assert_awaited_once_with(user.id)
+
+    @pytest.mark.parametrize(["error", "expected_error"], [
+        (User.EmailAlreadyVerified(), exceptions.UserEmailAlreadyVerified()),
+        (User.EmailIsMissing(), exceptions.UserEmailIsMissing()),
+    ])
+    async def test_reraising_app_errors_to_api_errors(
+        self,
+        client: TestClient,
+        user_use_case: MagicMock,
+        user: User,
+        error: Exception,
+        expected_error: APIError,
+    ):
+        # GIVEN
+        user_use_case.verify_email_send_code.side_effect = error
+        # WHEN
+        client.mock_user(user)
+        response = await client.post(self.url)
+        # THEN
+        assert response.json() == expected_error.as_dict()
+        assert response.status_code == expected_error.status_code
+        user_use_case.verify_email_send_code.assert_awaited_once_with(user.id)
+
+
+class TestVerifyEmailComplete:
+    url = "/accounts/verify_email/complete"
+
+    async def test(self, client: TestClient, user_use_case: MagicMock, user: User):
+        # GIVEN
+        code = "078243"
+        payload = {"code": code}
+        # WHEN
+        client.mock_user(user)
+        response = await client.post(self.url, json=payload)
+        # THEN
+        assert response.json()["completed"] is True
+        assert response.status_code == 200
+        user_use_case.verify_email_complete.assert_awaited_once_with(user.id, code)

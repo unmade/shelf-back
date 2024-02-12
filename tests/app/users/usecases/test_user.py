@@ -126,23 +126,23 @@ class TestRemoveBookmark:
         bookmark_service.remove_bookmark.assert_awaited_once_with(user_id, file_id)
 
 
-class TestSendEmailVerificationCode:
+class TestVerifyEmailSendCode:
     async def test(self, user_use_case: UserUseCase):
         # GIVEN
         user_id = uuid.uuid4()
         user_service = cast(mock.MagicMock, user_use_case.user_service)
         # WHEN
-        await user_use_case.send_email_verification_code(user_id)
+        await user_use_case.verify_email_send_code(user_id)
         # THEN
-        user_service.send_email_verification_code.assert_awaited_once_with(user_id)
+        user_service.verify_email_send_code.assert_awaited_once_with(user_id)
 
 
-class TestVerifyEmail:
+class TestVerifyEmailComplete:
     async def test(self, user_use_case: UserUseCase):
         # GIVEN
         user_id, code = uuid.uuid4(), "078243"
         user_service = cast(mock.MagicMock, user_use_case.user_service)
         # WHEN
-        await user_use_case.verify_email(user_id, code)
+        await user_use_case.verify_email_complete(user_id, code)
         # THEN
-        user_service.verify_email.assert_awaited_once_with(user_id, code)
+        user_service.verify_email_complete.assert_awaited_once_with(user_id, code)
