@@ -13,6 +13,8 @@ from .schemas import (
     ChangeEmailStartRequest,
     CurrentAccountSchema,
     GetAccountSpaceUsageResponse,
+    VerifyEmailCompleteRequest,
+    VerifyEmailCompleteResponse,
 )
 
 router = APIRouter()
@@ -77,3 +79,28 @@ async def get_space_usage(
     """Get the space usage information for the current account."""
     space_usage = await usecases.user.get_account_space_usage(user.id)
     return GetAccountSpaceUsageResponse(used=space_usage.used, quota=space_usage.quota)
+
+
+@router.post("/verify_email/send_code")
+async def verify_email_send_code(
+    user: CurrentUserDeps,
+    usecases: UseCasesDeps,
+) -> None:
+    """Sends a verification code to the user email."""
+    try:
+        await usecases.user.verify_email_send_code(user.id)
+    except User.EmailAlreadyVerified as exc:
+        raise exceptions.UserEmailAlreadyVerified() from exc
+    except User.EmailIsMissing as exc:
+        raise exceptions.UserEmailIsMissing() from exc
+
+
+@router.post("/verify_email/complete")
+async def verify_email_complete(
+    payload: VerifyEmailCompleteRequest,
+    user: CurrentUserDeps,
+    usecases: UseCasesDeps,
+) -> VerifyEmailCompleteResponse:
+    """Verifies current user email."""
+    completed = await usecases.user.verify_email_complete(user.id, payload.code)
+    return VerifyEmailCompleteResponse(completed=completed)

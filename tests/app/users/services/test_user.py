@@ -315,7 +315,7 @@ class TestGetByUsername:
         db.user.get_by_username.assert_awaited_once_with("admin")
 
 
-class TestSendEmailVerificationCode:
+class TestVerifyEmailSendCode:
     async def test(self, user_service: UserService):
         # GIVEN
         user = _make_user(email="johndoe@example.com")
@@ -323,7 +323,7 @@ class TestSendEmailVerificationCode:
         db.user.get_by_id.return_value = user
         mail = cast(mock.MagicMock, user_service.mail)
         # WHEN
-        await user_service.send_email_verification_code(user.id)
+        await user_service.verify_email_send_code(user.id)
         # THEN
         db.user.get_by_id.assert_awaited_once_with(user.id)
         mail.send.assert_awaited_once()
@@ -336,7 +336,7 @@ class TestSendEmailVerificationCode:
         mail = cast(mock.MagicMock, user_service.mail)
         # WHEN
         with pytest.raises(User.EmailIsMissing):
-            await user_service.send_email_verification_code(user.id)
+            await user_service.verify_email_send_code(user.id)
         # THEN
         db.user.get_by_id.assert_awaited_once_with(user.id)
         mail.send.assert_not_awaited()
@@ -349,13 +349,13 @@ class TestSendEmailVerificationCode:
         mail = cast(mock.MagicMock, user_service.mail)
         # WHEN
         with pytest.raises(User.EmailAlreadyVerified):
-            await user_service.send_email_verification_code(user.id)
+            await user_service.verify_email_send_code(user.id)
         # THEN
         db.user.get_by_id.assert_awaited_once_with(user.id)
         mail.send.assert_not_awaited()
 
 
-class TestVerifyEmail:
+class TestVerifyEmailComplete:
     @mock.patch("app.app.users.services.user.cache.get")
     async def test(self, cache_get_mock: MagicMock, user_service: UserService):
         # GIVEN
@@ -363,7 +363,7 @@ class TestVerifyEmail:
         cache_get_mock.return_value = code
         db = cast(mock.MagicMock, user_service.db)
         # WHEN
-        result = await user_service.verify_email(user_id, code)
+        result = await user_service.verify_email_complete(user_id, code)
         # THEN
         assert result is True
         db.user.update.assert_awaited_once_with(user_id, email_verified=result)
@@ -377,10 +377,10 @@ class TestVerifyEmail:
         cache_get_mock.return_value = ""
         db = cast(mock.MagicMock, user_service.db)
         # WHEN
-        result = await user_service.verify_email(user_id, code)
+        result = await user_service.verify_email_complete(user_id, code)
         # THEN
         assert result is False
-        db.user.update.assert_awaited_once_with(user_id, email_verified=result)
+        db.user.update.assert_not_awaited()
 
     @mock.patch("app.app.users.services.user.cache.get")
     async def test_when_code_is_invlaid(
@@ -391,7 +391,7 @@ class TestVerifyEmail:
         cache_get_mock.return_value = "078244"
         db = cast(mock.MagicMock, user_service.db)
         # WHEN
-        result = await user_service.verify_email(user_id, code)
+        result = await user_service.verify_email_complete(user_id, code)
         # THEN
         assert result is False
-        db.user.update.assert_awaited_once_with(user_id, email_verified=result)
+        db.user.update.assert_not_awaited()

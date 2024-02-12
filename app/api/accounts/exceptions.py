@@ -20,3 +20,17 @@ class EmailUpdateNotStarted(APIError):
     code = "EMAIL_UPDATE_NOT_STARTED"
     code_verbose = "Email update not started"
     default_message = "You should call change email first"
+
+
+class UserEmailAlreadyVerified(APIError):
+    status_code = 400
+    code = "USER_EMAIL_ALREADY_VERIFIED"
+    code_verbose = "User email already verified"
+    default_message = ""
+
+
+class UserEmailIsMissing(APIError):
+    status_code = 400
+    code = "USER_EMAIL_IS_MISSING"
+    code_verbose = "User email is missing"
+    default_message = "There is no email for the user"

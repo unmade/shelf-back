@@ -51,7 +51,6 @@ class Account(BaseModel):
 
 class User(BaseModel):
     AlreadyExists: ClassVar[type[UserAlreadyExists]] = UserAlreadyExists
-    EmailAlreadySet: ClassVar[type[UserEmailAlreadySet]] = UserEmailAlreadySet
     EmailAlreadyVerified: ClassVar[
         type[UserEmailAlreadyVerified]
     ] = UserEmailAlreadyVerified

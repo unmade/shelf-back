@@ -109,17 +109,17 @@ class UserUseCase:
         """
         await self.bookmark_service.remove_bookmark(user_id, file_id)
 
-    async def send_email_verification_code(self, user_id: UUID) -> None:
+    async def verify_email_send_code(self, user_id: UUID) -> None:
         """
-        Sends verification code to the email.
+        Sends verification code to the user current email.
 
         Raises:
             User.EmailIsMissing: If user doesn't have email.
             User.EmailAlreadyVerified: If user email already verified.
             User.NotFound: If user with specified ID does not exist.
         """
-        await self.user_service.send_email_verification_code(user_id)
+        await self.user_service.verify_email_send_code(user_id)
 
-    async def verify_email(self, user_id: UUID, code: str) -> bool:
+    async def verify_email_complete(self, user_id: UUID, code: str) -> bool:
         """Verifies user email based on provided code."""
-        return await self.user_service.verify_email(user_id, code)
+        return await self.user_service.verify_email_complete(user_id, code)
