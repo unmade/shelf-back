@@ -9,7 +9,7 @@ from app.app.users.domain import Account, User
 from app.app.users.email import EmailVerificationMessage
 from app.app.users.repositories import IAccountRepository, IUserRepository
 from app.cache import cache
-from app.toolkit import security
+from app.toolkit import security, taskgroups
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -106,7 +106,9 @@ class UserService:
             raise OTPCodeAlreadySent() from None
 
         user = await self.db.user.get_by_id(user_id)
-        await self._send_email_verification_code(user.display_name, email, code)
+        taskgroups.schedule(
+            self._send_email_verification_code(user.display_name, email, code)
+        )
 
     async def change_email_start(self, user_id: UUID, email: str) -> None:
         """
@@ -216,7 +218,9 @@ class UserService:
         if not await cache.set(key, code, expire="2m", exist=False):
             raise OTPCodeAlreadySent() from None
 
-        await self._send_email_verification_code(user.display_name, user.email, code)
+        taskgroups.schedule(
+            self._send_email_verification_code(user.display_name, user.email, code)
+        )
 
     async def verify_email_complete(self, user_id: UUID, code: str) -> bool:
         """Verifies current user email based on provided code."""

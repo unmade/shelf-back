@@ -14,6 +14,7 @@ from app.app.users.services.user import (
     EmailUpdateNotStarted,
     OTPCodeAlreadySent,
 )
+from app.toolkit import taskgroups
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
@@ -106,14 +107,17 @@ class TestChangeEmailResendCode:
     async def test(self, cache_mock: MagicMock, user_service: UserService):
         # GIVEN
         user_id = uuid.uuid4()
-        db = cast(mock.MagicMock, user_service.db)
         cache_mock.get.return_value = "johndoe@example.com"
+        db = cast(mock.MagicMock, user_service.db)
+        mail = cast(mock.MagicMock, user_service.mail)
         # WHEN
         await user_service.change_email_resend_code(user_id)
         # THEN
+        await taskgroups.wait_background_tasks()
         cache_mock.get.assert_awaited_once_with(f"email_update:{user_id}:email")
         cache_mock.set.assert_awaited_once()
         db.user.get_by_id.assert_awaited_once_with(user_id)
+        mail.send.assert_awaited_once()
 
     @mock.patch("app.app.users.services.user.cache", autospec=True)
     async def test_when_not_started(
@@ -123,15 +127,18 @@ class TestChangeEmailResendCode:
     ):
         # GIVEN
         user_id = uuid.uuid4()
-        db = cast(mock.MagicMock, user_service.db)
         cache_mock.get.return_value = None
+        db = cast(mock.MagicMock, user_service.db)
+        mail = cast(mock.MagicMock, user_service.mail)
         # WHEN
         with pytest.raises(EmailUpdateNotStarted):
             await user_service.change_email_resend_code(user_id)
         # THEN
+        await taskgroups.wait_background_tasks()
         cache_mock.get.assert_awaited_once_with(f"email_update:{user_id}:email")
         cache_mock.set.assert_not_awaited()
         db.user.get_by_id.assert_not_awaited()
+        mail.send.assert_not_awaited()
 
     @mock.patch("app.app.users.services.user.cache", autospec=True)
     async def test_when_code_already_sent(
@@ -141,16 +148,19 @@ class TestChangeEmailResendCode:
     ):
         # GIVEN
         user_id = uuid.uuid4()
-        db = cast(mock.MagicMock, user_service.db)
         cache_mock.get.return_value = "johndoe@example.com"
         cache_mock.set.return_value = False
+        db = cast(mock.MagicMock, user_service.db)
+        mail = cast(mock.MagicMock, user_service.mail)
         # WHEN
         with pytest.raises(OTPCodeAlreadySent):
             await user_service.change_email_resend_code(user_id)
         # THEN
+        await taskgroups.wait_background_tasks()
         cache_mock.get.assert_awaited_once_with(f"email_update:{user_id}:email")
         cache_mock.set.assert_awaited_once()
         db.user.get_by_id.assert_not_awaited()
+        mail.send.assert_not_awaited()
 
 
 class TestChangeEmailStart:
@@ -352,6 +362,7 @@ class TestVerifyEmailSendCode:
         # WHEN
         await user_service.verify_email_send_code(user.id)
         # THEN
+        await taskgroups.wait_background_tasks()
         db.user.get_by_id.assert_awaited_once_with(user.id)
         cache_mock.set.assert_awaited_once()
         mail.send.assert_awaited_once()
