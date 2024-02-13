@@ -145,8 +145,9 @@ superuser on the first image run:
 |MAIL__SENDER                  | - | <no-reply@getshelf.cloud>  | Email sender on behalf of application. |
 |MAIL__SMTP_HOSTNAME           | - | localhost  | SMTP hostname. |
 |MAIL__SMTP_PORT               | - | 1025   | SMTP port. |
-|MAIL__SMTP_USERNAME           | - | smtp   | SMTP username. |
-|MAIL__SMTP_PASSWORD           | - | smtp   | SMTP password. |
+|MAIL__SMTP_USERNAME           | - | None   | SMTP username. |
+|MAIL__SMTP_PASSWORD           | - | None   | SMTP password. |
+|MAIL__SMTP_USE_TLS            | - | false  | Whether to use TLS connection to SMTP server. |
 |SENTRY__DSN                   | - | None   | Sentry DSN |
 |SENTRY__ENV                   | - | None   | Sentry environment |
 |STORAGE__TYPE                 | - | filesystem | A primary storage type. Either `filesystem` or `s3` options are available |

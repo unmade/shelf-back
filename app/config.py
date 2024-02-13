@@ -185,6 +185,7 @@ class MailSMTPConfig(BaseModel):
     smtp_port: int
     smtp_username: str | None = None
     smtp_password: str | None = None
+    smtp_use_tls: bool = False
 
 
 class S3StorageConfig(BaseModel):

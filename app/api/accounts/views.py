@@ -1,10 +1,14 @@
-from __future__ import annotations
-
 from fastapi import APIRouter
 
 from app.api.deps import CurrentUserDeps, UseCasesDeps
 from app.app.users.domain import User
-from app.app.users.services.user import EmailUpdateAlreadyStarted, EmailUpdateNotStarted
+from app.app.users.services.user import (
+    EmailUpdateAlreadyStarted,
+    EmailUpdateNotStarted,
+    OTPCodeAlreadySent,
+)
+from app.app.users.usecases.user import EmailUpdateLimitReached
+from app.cache import cache
 
 from . import exceptions
 from .schemas import (
@@ -21,6 +25,12 @@ router = APIRouter()
 
 
 @router.post("/change_email/complete")
+@cache.rate_limit(
+    key="change_email:{user.id}",
+    limit=5,
+    period="30m",
+    ttl="30m",
+)
 async def change_email_complete(
     payload: ChangeEmailCompleteRequest,
     user: CurrentUserDeps,
@@ -35,6 +45,12 @@ async def change_email_complete(
 
 
 @router.post("/change_email/resend_code")
+@cache.rate_limit(
+    key="change_email:{user.id}:send_code",
+    limit=6,
+    period="30m",
+    ttl="30m",
+)
 async def change_email_resend_code(
     user: CurrentUserDeps,
     usecases: UseCasesDeps,
@@ -42,11 +58,19 @@ async def change_email_resend_code(
     """Resends verification to the new email."""
     try:
         await usecases.user.change_email_resend_code(user.id)
+    except OTPCodeAlreadySent as exc:
+        raise exceptions.OTPCodeAlreadySent() from exc
     except EmailUpdateNotStarted as exc:
         raise exceptions.EmailUpdateNotStarted() from exc
 
 
 @router.post("/change_email/start")
+@cache.rate_limit(
+    key="change_email:{user.id}",
+    limit=5,
+    period="30m",
+    ttl="30m",
+)
 async def change_email_start(
     payload: ChangeEmailStartRequest,
     user: CurrentUserDeps,
@@ -61,6 +85,8 @@ async def change_email_start(
         raise exceptions.EmailAlreadyTaken() from exc
     except EmailUpdateAlreadyStarted as exc:
         raise exceptions.EmailUpdateStarted() from exc
+    except EmailUpdateLimitReached as exc:
+        raise exceptions.EmailUpdateLimitReached() from exc
 
 
 @router.get("/get_current")
@@ -82,6 +108,12 @@ async def get_space_usage(
 
 
 @router.post("/verify_email/send_code")
+@cache.rate_limit(
+    key="verify_email:{user.id}:send_code",
+    limit=6,
+    period="30m",
+    ttl="30m",
+)
 async def verify_email_send_code(
     user: CurrentUserDeps,
     usecases: UseCasesDeps,
@@ -89,6 +121,8 @@ async def verify_email_send_code(
     """Sends a verification code to the user email."""
     try:
         await usecases.user.verify_email_send_code(user.id)
+    except OTPCodeAlreadySent as exc:
+        raise exceptions.OTPCodeAlreadySent() from exc
     except User.EmailAlreadyVerified as exc:
         raise exceptions.UserEmailAlreadyVerified() from exc
     except User.EmailIsMissing as exc:
@@ -96,6 +130,12 @@ async def verify_email_send_code(
 
 
 @router.post("/verify_email/complete")
+@cache.rate_limit(
+    key="verify_email:{user.id}",
+    limit=5,
+    period="30m",
+    ttl="30m",
+)
 async def verify_email_complete(
     payload: VerifyEmailCompleteRequest,
     user: CurrentUserDeps,

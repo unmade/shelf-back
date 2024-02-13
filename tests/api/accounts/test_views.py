@@ -7,8 +7,12 @@ import pytest
 from app.api.accounts import exceptions
 from app.api.exceptions import APIError
 from app.app.users.domain import User
-from app.app.users.services.user import EmailUpdateAlreadyStarted, EmailUpdateNotStarted
-from app.app.users.usecases.user import AccountSpaceUsage
+from app.app.users.services.user import (
+    EmailUpdateAlreadyStarted,
+    EmailUpdateNotStarted,
+    OTPCodeAlreadySent,
+)
+from app.app.users.usecases.user import AccountSpaceUsage, EmailUpdateLimitReached
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
@@ -70,6 +74,7 @@ class TestChangeEmailResendCode:
 
     @pytest.mark.parametrize(["error", "expected_error"], [
         (EmailUpdateNotStarted(), exceptions.EmailUpdateNotStarted()),
+        (OTPCodeAlreadySent(), exceptions.OTPCodeAlreadySent()),
     ])
     async def test_reraising_app_errors_to_api_errors(
         self,
@@ -107,6 +112,7 @@ class TestChangeEmailStart:
     @pytest.mark.parametrize(["error", "expected_error"], [
         (User.AlreadyExists(), exceptions.EmailAlreadyTaken()),
         (EmailUpdateAlreadyStarted(), exceptions.EmailUpdateStarted() ),
+        (EmailUpdateLimitReached(), exceptions.EmailUpdateLimitReached() ),
     ])
     async def test_reraising_app_errors_to_api_errors(
         self,
@@ -180,6 +186,7 @@ class TestVerifyEmailSendCode:
         user_use_case.verify_email_send_code.assert_awaited_once_with(user.id)
 
     @pytest.mark.parametrize(["error", "expected_error"], [
+        (OTPCodeAlreadySent(), exceptions.OTPCodeAlreadySent()),
         (User.EmailAlreadyVerified(), exceptions.UserEmailAlreadyVerified()),
         (User.EmailIsMissing(), exceptions.UserEmailIsMissing()),
     ])
