@@ -34,11 +34,19 @@ class IndexerClient:
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         await self._stack.aclose()
 
-    async def track(self, file_id: UUID, storage_path: str) -> None:
+    async def track(
+        self,
+        file_id: UUID,
+        storage_path: str,
+        file_name: str,
+        user_id: UUID,
+    ) -> None:
         await self.client.post(
             "/api/photos/process",
             json={
                 "file_id": str(file_id),
-                "storage_path": storage_path
+                "storage_path": storage_path,
+                "file_name": file_name,
+                "owner": str(user_id),
             }
         )

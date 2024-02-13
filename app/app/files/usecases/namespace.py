@@ -107,7 +107,7 @@ class NamespaceUseCase:
                 raise Account.StorageQuotaExceeded()
 
         file = await self.file.create_file(ns_path, path, content, modified_at)
-        await self.content.process_async(file.id)
+        await self.content.process_async(file.id, ns.owner_id)
 
         taskgroups.schedule(self.audit_trail.file_added(file))
         return file

@@ -158,9 +158,9 @@ async def move_to_trash_batch(
     return results
 
 
-async def process_file_content(ctx: ARQContext, file_id: UUID) -> None:
+async def process_file_content(ctx: ARQContext, file_id: UUID, user_id: UUID) -> None:
     content_service = ctx["usecases"].namespace.content
-    await content_service.process(file_id)
+    await content_service.process(file_id, user_id)
 
 
 async def process_file_pending_deletion(ctx: ARQContext, ids: Sequence[UUID]) -> None:
