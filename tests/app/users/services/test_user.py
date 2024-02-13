@@ -9,7 +9,11 @@ import pytest
 from app.app.infrastructure.database import SENTINEL_ID
 from app.app.users.domain import Account, User
 from app.app.users.services import UserService
-from app.app.users.services.user import EmailUpdateAlreadyStarted, EmailUpdateNotStarted
+from app.app.users.services.user import (
+    EmailUpdateAlreadyStarted,
+    EmailUpdateNotStarted,
+    OTPCodeAlreadySent,
+)
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
@@ -33,17 +37,17 @@ def _make_user(*, email: str | None, email_verified: bool = False) -> User:
 
 
 class TestChangeEmailComplete:
-    @mock.patch("app.app.users.services.user.cache.get_many")
-    async def test(self, get_many_mock: MagicMock, user_service: UserService):
+    @mock.patch("app.app.users.services.user.cache", autospec=True)
+    async def test(self, cache_mock: MagicMock, user_service: UserService):
         # GIVEN
         user_id, email, code = uuid.uuid4(), "johndoe@example.com", "078423"
         db = cast(mock.MagicMock, user_service.db)
-        get_many_mock.return_value = [email, code]
+        cache_mock.get_many.return_value = [email, code]
         # WHEN
         result = await user_service.change_email_complete(user_id, code)
         # THEN
         assert result is True
-        get_many_mock.assert_awaited_once_with(
+        cache_mock.get_many.assert_awaited_once_with(
             f"email_update:{user_id}:email",
             f"email_update:{user_id}:code",
         )
@@ -51,103 +55,125 @@ class TestChangeEmailComplete:
             user_id, email=email, email_verified=True
         )
 
-    @mock.patch("app.app.users.services.user.cache.get_many")
+    @mock.patch("app.app.users.services.user.cache", autospec=True)
     async def test_when_code_is_invalid(
-        self, get_many_mock: MagicMock, user_service: UserService
+        self, cache_mock: MagicMock, user_service: UserService
     ):
         # GIVEN
         user_id, email, code = uuid.uuid4(), "johndoe@example.com", "078423"
         db = cast(mock.MagicMock, user_service.db)
-        get_many_mock.return_value = [email, "078422"]
+        cache_mock.get_many.return_value = [email, "078422"]
         # WHEN
         result = await user_service.change_email_complete(user_id, code)
         # THEN
         assert result is False
-        get_many_mock.assert_awaited_once()
+        cache_mock.get_many.assert_awaited_once()
         db.user.update.assert_not_awaited()
 
-    @mock.patch("app.app.users.services.user.cache.get_many")
+    @mock.patch("app.app.users.services.user.cache", autospec=True)
     async def test_when_not_started(
-        self, get_many_mock: MagicMock, user_service: UserService
+        self, cache_mock: MagicMock, user_service: UserService
     ):
         # GIVEN
         user_id, code = uuid.uuid4(), "078423"
         db = cast(mock.MagicMock, user_service.db)
-        get_many_mock.return_value = [None, None]
+        cache_mock.get_many.return_value = [None, None]
         # WHEN
         with pytest.raises(EmailUpdateNotStarted):
             await user_service.change_email_complete(user_id, code)
         # THEN
-        get_many_mock.assert_awaited_once()
+        cache_mock.get_many.assert_awaited_once()
+        db.user.update.assert_not_awaited()
+
+    @mock.patch("app.app.users.services.user.cache", autospec=True)
+    async def test_when_code_expired(
+        self, cache_mock: MagicMock, user_service: UserService
+    ):
+        # GIVEN
+        user_id, email, code = uuid.uuid4(), "johndoe@example.com", "078423"
+        db = cast(mock.MagicMock, user_service.db)
+        cache_mock.get_many.return_value = [email, None]
+        # WHEN
+        result = await user_service.change_email_complete(user_id, code)
+        # THEN
+        assert result is False
+        cache_mock.get_many.assert_awaited_once()
         db.user.update.assert_not_awaited()
 
 
 class TestChangeEmailResendCode:
-    @mock.patch("app.app.users.services.user.cache.get")
-    @mock.patch("app.app.users.services.user.cache.set")
-    async def test(
-        self,
-        set_mock: MagicMock,
-        get_mock: MagicMock,
-        user_service: UserService,
-    ):
+    @mock.patch("app.app.users.services.user.cache", autospec=True)
+    async def test(self, cache_mock: MagicMock, user_service: UserService):
         # GIVEN
         user_id = uuid.uuid4()
         db = cast(mock.MagicMock, user_service.db)
-        get_mock.return_value = "johndoe@example.com"
+        cache_mock.get.return_value = "johndoe@example.com"
         # WHEN
         await user_service.change_email_resend_code(user_id)
         # THEN
-        get_mock.assert_awaited_once_with(f"email_update:{user_id}:email")
-        set_mock.assert_awaited_once()
+        cache_mock.get.assert_awaited_once_with(f"email_update:{user_id}:email")
+        cache_mock.set.assert_awaited_once()
         db.user.get_by_id.assert_awaited_once_with(user_id)
 
-    @mock.patch("app.app.users.services.user.cache.get")
-    @mock.patch("app.app.users.services.user.cache.set")
+    @mock.patch("app.app.users.services.user.cache", autospec=True)
     async def test_when_not_started(
         self,
-        set_mock: MagicMock,
-        get_mock: MagicMock,
+        cache_mock: MagicMock,
         user_service: UserService,
     ):
         # GIVEN
         user_id = uuid.uuid4()
         db = cast(mock.MagicMock, user_service.db)
-        get_mock.return_value = None
+        cache_mock.get.return_value = None
         # WHEN
         with pytest.raises(EmailUpdateNotStarted):
             await user_service.change_email_resend_code(user_id)
         # THEN
-        get_mock.assert_awaited_once_with(f"email_update:{user_id}:email")
-        set_mock.assert_not_awaited()
+        cache_mock.get.assert_awaited_once_with(f"email_update:{user_id}:email")
+        cache_mock.set.assert_not_awaited()
+        db.user.get_by_id.assert_not_awaited()
+
+    @mock.patch("app.app.users.services.user.cache", autospec=True)
+    async def test_when_code_already_sent(
+        self,
+        cache_mock: MagicMock,
+        user_service: UserService,
+    ):
+        # GIVEN
+        user_id = uuid.uuid4()
+        db = cast(mock.MagicMock, user_service.db)
+        cache_mock.get.return_value = "johndoe@example.com"
+        cache_mock.set.return_value = False
+        # WHEN
+        with pytest.raises(OTPCodeAlreadySent):
+            await user_service.change_email_resend_code(user_id)
+        # THEN
+        cache_mock.get.assert_awaited_once_with(f"email_update:{user_id}:email")
+        cache_mock.set.assert_awaited_once()
         db.user.get_by_id.assert_not_awaited()
 
 
 class TestChangeEmailStart:
-    @mock.patch("app.app.users.services.user.cache.set")
-    async def test(
-        self,
-        set_mock: MagicMock,
-        user_service: UserService,
-    ):
+    @mock.patch("app.app.users.services.user.cache", autospec=True)
+    async def test(self, cache_mock: MagicMock, user_service: UserService):
         # GIVEN
         user_id, email = uuid.uuid4(), "johndoe@example.com"
         db = cast(mock.MagicMock, user_service.db)
         db.user.exists_with_email.return_value = False
-        set_mock.return_value = True
+        cache_mock.set.return_value = True
         target = "change_email_resend_code"
         # WHEN
         with mock.patch.object(user_service.__class__, target) as resend_mock:
             await user_service.change_email_start(user_id, email)
         # THEN
         db.user.exists_with_email.assert_awaited_once_with(email)
-        set_mock.assert_awaited_once()
+        cache_mock.set.assert_awaited_once()
         resend_mock.assert_awaited_once_with(user_id)
 
-    @mock.patch("app.app.users.services.user.cache.set")
+    @mock.patch("app.app.users.services.user.cache", autospec=True)
     async def test_when_email_already_exists(
         self,
-        set_mock: MagicMock,
+        cache_mock: MagicMock,
         user_service: UserService,
     ):
         # GIVEN
@@ -163,20 +189,20 @@ class TestChangeEmailStart:
             await user_service.change_email_start(user_id, email)
         # THEN
         db.user.exists_with_email.assert_awaited_once_with(email)
-        set_mock.assert_not_awaited()
+        cache_mock.set.assert_not_awaited()
         resend_mock.assert_not_awaited()
 
-    @mock.patch("app.app.users.services.user.cache.set")
+    @mock.patch("app.app.users.services.user.cache", autospec=True)
     async def test_when_already_started(
         self,
-        set_mock: MagicMock,
+        cache_mock: MagicMock,
         user_service: UserService,
     ):
         # GIVEN
         user_id, email = uuid.uuid4(), "johndoe@example.com"
         db = cast(mock.MagicMock, user_service.db)
         db.user.exists_with_email.return_value = False
-        set_mock.return_value = False
+        cache_mock.set.return_value = False
         target = "change_email_resend_code"
         # WHEN
         with (
@@ -186,7 +212,7 @@ class TestChangeEmailStart:
             await user_service.change_email_start(user_id, email)
         # THEN
         db.user.exists_with_email.assert_awaited_once_with(email)
-        set_mock.assert_awaited_once()
+        cache_mock.set.assert_awaited_once()
         resend_mock.assert_not_awaited()
 
 
@@ -316,7 +342,8 @@ class TestGetByUsername:
 
 
 class TestVerifyEmailSendCode:
-    async def test(self, user_service: UserService):
+    @mock.patch("app.app.users.services.user.cache", autospec=True)
+    async def test(self, cache_mock: MagicMock, user_service: UserService):
         # GIVEN
         user = _make_user(email="johndoe@example.com")
         db = cast(mock.MagicMock, user_service.db)
@@ -326,9 +353,13 @@ class TestVerifyEmailSendCode:
         await user_service.verify_email_send_code(user.id)
         # THEN
         db.user.get_by_id.assert_awaited_once_with(user.id)
+        cache_mock.set.assert_awaited_once()
         mail.send.assert_awaited_once()
 
-    async def test_when_email_is_missing(self, user_service: UserService):
+    @mock.patch("app.app.users.services.user.cache", autospec=True)
+    async def test_when_email_is_missing(
+        self, cache_mock: MagicMock, user_service: UserService
+    ):
         # GIVEN
         user = _make_user(email=None)
         db = cast(mock.MagicMock, user_service.db)
@@ -339,9 +370,13 @@ class TestVerifyEmailSendCode:
             await user_service.verify_email_send_code(user.id)
         # THEN
         db.user.get_by_id.assert_awaited_once_with(user.id)
+        cache_mock.set.assert_not_awaited()
         mail.send.assert_not_awaited()
 
-    async def test_when_email_is_verified(self, user_service: UserService):
+    @mock.patch("app.app.users.services.user.cache", autospec=True)
+    async def test_when_email_is_verified(
+        self, cache_mock: MagicMock, user_service: UserService
+    ):
         # GIVEN
         user = _make_user(email="johndoe@example.com", email_verified=True)
         db = cast(mock.MagicMock, user_service.db)
@@ -352,46 +387,68 @@ class TestVerifyEmailSendCode:
             await user_service.verify_email_send_code(user.id)
         # THEN
         db.user.get_by_id.assert_awaited_once_with(user.id)
+        cache_mock.set.assert_not_awaited()
+        mail.send.assert_not_awaited()
+
+    @mock.patch("app.app.users.services.user.cache", autospec=True)
+    async def test_when_code_already_sent(
+        self, cache_mock: MagicMock, user_service: UserService
+    ):
+        # GIVEN
+        user = _make_user(email="johndoe@example.com")
+        db = cast(mock.MagicMock, user_service.db)
+        db.user.get_by_id.return_value = user
+        cache_mock.set.return_value = False
+        mail = cast(mock.MagicMock, user_service.mail)
+        # WHEN
+        with pytest.raises(OTPCodeAlreadySent):
+            await user_service.verify_email_send_code(user.id)
+        # THEN
+        db.user.get_by_id.assert_awaited_once_with(user.id)
+        cache_mock.set.assert_awaited_once()
         mail.send.assert_not_awaited()
 
 
 class TestVerifyEmailComplete:
-    @mock.patch("app.app.users.services.user.cache.get")
-    async def test(self, cache_get_mock: MagicMock, user_service: UserService):
+    @mock.patch("app.app.users.services.user.cache", autospec=True)
+    async def test(self, cache_mock: MagicMock, user_service: UserService):
         # GIVEN
         user_id, code = uuid.uuid4(), "078243"
-        cache_get_mock.return_value = code
+        cache_mock.get.return_value = code
         db = cast(mock.MagicMock, user_service.db)
         # WHEN
         result = await user_service.verify_email_complete(user_id, code)
         # THEN
         assert result is True
+        cache_mock.get.assert_awaited_once()
         db.user.update.assert_awaited_once_with(user_id, email_verified=result)
 
-    @mock.patch("app.app.users.services.user.cache.get")
+    @mock.patch("app.app.users.services.user.cache", autospec=True)
     async def test_when_code_not_set(
-        self, cache_get_mock: MagicMock, user_service: UserService
+        self, cache_mock: MagicMock, user_service: UserService
     ):
         # GIVEN
         user_id, code = uuid.uuid4(), "078243"
-        cache_get_mock.return_value = ""
+        cache_mock.get.return_value = None
         db = cast(mock.MagicMock, user_service.db)
         # WHEN
         result = await user_service.verify_email_complete(user_id, code)
         # THEN
         assert result is False
+        cache_mock.get.assert_awaited_once()
         db.user.update.assert_not_awaited()
 
-    @mock.patch("app.app.users.services.user.cache.get")
+    @mock.patch("app.app.users.services.user.cache", autospec=True)
     async def test_when_code_is_invlaid(
-        self, cache_get_mock: MagicMock, user_service: UserService
+        self, cache_mock: MagicMock, user_service: UserService
     ):
         # GIVEN
         user_id, code = uuid.uuid4(), "078243"
-        cache_get_mock.return_value = "078244"
+        cache_mock.get.return_value = "078244"
         db = cast(mock.MagicMock, user_service.db)
         # WHEN
         result = await user_service.verify_email_complete(user_id, code)
         # THEN
         assert result is False
+        cache_mock.get.assert_awaited_once()
         db.user.update.assert_not_awaited()

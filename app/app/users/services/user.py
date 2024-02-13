@@ -16,7 +16,12 @@ if TYPE_CHECKING:
 
     from app.typedefs import StrOrUUID
 
-__all__ = ["UserService"]
+__all__ = [
+    "EmailUpdateAlreadyStarted",
+    "EmailUpdateNotStarted",
+    "OTPCodeAlreadySent",
+    "UserService",
+]
 
 
 def _verify_email_key(user_id: UUID) -> str:
@@ -40,6 +45,10 @@ class EmailUpdateNotStarted(UserServiceError):
     pass
 
 
+class OTPCodeAlreadySent(UserServiceError):
+    pass
+
+
 class UserService:
     __slots__ = ["db", "mail"]
 
@@ -57,6 +66,12 @@ class UserService:
             await self.mail.send(content)
 
     async def change_email_complete(self, user_id: UUID, code: str) -> bool:
+        """
+        Completes the process of changing email.
+
+        Raises:
+            EmailUpdateNotStarted: If process of changing email hasn't been started.
+        """
         email, expected_code = await cache.get_many(
             f"email_update:{user_id}:email",
             f"email_update:{user_id}:code",
@@ -74,16 +89,34 @@ class UserService:
         return verified
 
     async def change_email_resend_code(self, user_id: UUID) -> None:
+        """
+        Resends the verification code to the new email.
+
+        Raises:
+            EmailUpdateNotStarted: If process of changing email hasn't been started.
+            OTPCodeAlreadySent: If previous OTP code hasn't expired yet.
+        """
         email = await cache.get(f"email_update:{user_id}:email")
         if not email:
             raise EmailUpdateNotStarted() from None
 
-        user = await self.db.user.get_by_id(user_id)
+        key = f"email_update:{user_id}:code"
         code = security.make_otp_code()
-        await cache.set(f"email_update:{user_id}:code", code, expire="2m")
+        if not await cache.set(key, code, expire="2m", exist=False):
+            raise OTPCodeAlreadySent() from None
+
+        user = await self.db.user.get_by_id(user_id)
         await self._send_email_verification_code(user.display_name, email, code)
 
     async def change_email_start(self, user_id: UUID, email: str) -> None:
+        """
+        Starts the process of changing user email and sends verification code to the
+        provided email. At this point it doesn't change email in the DB.
+
+        Raises:
+            User.AlreadyExists: If user with provided email already exists.
+            EmailUpdateAlreadyStarted: If email update already started.
+        """
         if await self.db.user.exists_with_email(email):
             raise User.AlreadyExists() from None
 
@@ -166,8 +199,9 @@ class UserService:
         Sends verification code to the user current email.
 
         Raises:
-            User.EmailIsMissing: If user doesn't have email.
+            OTPCodeAlreadySent: If previous OTP code hasn't expired yet.
             User.EmailAlreadyVerified: If user email already verified.
+            User.EmailIsMissing: If user doesn't have email.
             User.NotFound: If user with specified ID does not exist.
         """
         user = await self.db.user.get_by_id(user_id)
@@ -177,14 +211,19 @@ class UserService:
         if user.email_verified:
             raise User.EmailAlreadyVerified()
 
+        key = _verify_email_key(user_id)
         code = security.make_otp_code()
-        await cache.set(_verify_email_key(user_id), code, expire="2m")
+        if not await cache.set(key, code, expire="2m", exist=False):
+            raise OTPCodeAlreadySent() from None
 
         await self._send_email_verification_code(user.display_name, user.email, code)
 
     async def verify_email_complete(self, user_id: UUID, code: str) -> bool:
-        """Verifies user email based on provided code."""
-        expected_code = await cache.get(_verify_email_key(user_id), default="")
+        """Verifies current user email based on provided code."""
+        expected_code = await cache.get(_verify_email_key(user_id))
+        if not expected_code:
+            return False
+
         verified = secrets.compare_digest(code.encode(), expected_code.encode())
         if verified:
             await self.db.user.update(user_id, email_verified=verified)

@@ -6,7 +6,11 @@ from unittest import mock
 
 import pytest
 
+from app.app.users.usecases.user import EmailUpdateLimitReached
+
 if TYPE_CHECKING:
+    from unittest.mock import MagicMock
+
     from app.app.users.usecases import UserUseCase
 
 pytestmark = [pytest.mark.anyio]
@@ -28,7 +32,8 @@ class TestAddBookmark:
 
 
 class TestChangeEmailComplete:
-    async def test(self, user_use_case: UserUseCase):
+    @mock.patch("app.app.users.usecases.user.cache", autospec=True)
+    async def test(self, cache_mock: MagicMock, user_use_case: UserUseCase):
         # GIVEN
         user_id, code = uuid.uuid4(), "078243"
         user_service = cast(mock.MagicMock, user_use_case.user_service)
@@ -36,6 +41,9 @@ class TestChangeEmailComplete:
         await user_use_case.change_email_complete(user_id, code)
         # THEN
         user_service.change_email_complete.assert_awaited_once_with(user_id, code)
+        cache_mock.set.assert_awaited_once_with(
+            f"change_email:{user_id}:completed", 1, expire="6h"
+        )
 
 
 class TestChangeEmailResendCode:
@@ -50,14 +58,32 @@ class TestChangeEmailResendCode:
 
 
 class TestChangeEmailStart:
-    async def test(self, user_use_case: UserUseCase):
+    @mock.patch("app.app.users.usecases.user.cache", autospec=True)
+    async def test(self, cache_mock: MagicMock, user_use_case: UserUseCase):
         # GIVEN
         user_id, email = uuid.uuid4(), "johndoe@example.com"
         user_service = cast(mock.MagicMock, user_use_case.user_service)
+        cache_mock.exists.return_value = False
         # WHEN
         await user_use_case.change_email_start(user_id, email)
         # THEN
+        cache_mock.exists.assert_awaited_once_with(f"change_email:{user_id}:completed")
         user_service.change_email_start.assert_awaited_once_with(user_id, email)
+
+    @mock.patch("app.app.users.usecases.user.cache", autospec=True)
+    async def test_when_limit_reached(
+        self, cache_mock: MagicMock, user_use_case: UserUseCase
+    ):
+        # GIVEN
+        user_id, email = uuid.uuid4(), "johndoe@example.com"
+        user_service = cast(mock.MagicMock, user_use_case.user_service)
+        cache_mock.exists.return_value = True
+        # WHEN
+        with pytest.raises(EmailUpdateLimitReached):
+            await user_use_case.change_email_start(user_id, email)
+        # THEN
+        cache_mock.exists.assert_awaited_once_with(f"change_email:{user_id}:completed")
+        user_service.change_email_start.assert_not_awaited()
 
 
 class TestCreateSuperUser:

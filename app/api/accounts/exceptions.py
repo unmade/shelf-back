@@ -8,6 +8,20 @@ class EmailAlreadyTaken(APIError):
     default_message = "Email is already taken by other user"
 
 
+class EmailUpdateLimitReached(APIError):
+    status_code = 400
+    code = "EMAIL_UPDATE_LIMIT_REACHED"
+    code_verbose = "Email update too frequent"
+    default_message = "Email can be updated once every 6 hours"
+
+
+class EmailUpdateNotStarted(APIError):
+    status_code = 400
+    code = "EMAIL_UPDATE_NOT_STARTED"
+    code_verbose = "Email update not started"
+    default_message = "Change email must be started first"
+
+
 class EmailUpdateStarted(APIError):
     status_code = 400
     code = "EMAIL_UPDATE_STARTED"
@@ -15,11 +29,11 @@ class EmailUpdateStarted(APIError):
     default_message = "Email update in progress"
 
 
-class EmailUpdateNotStarted(APIError):
+class OTPCodeAlreadySent(APIError):
     status_code = 400
-    code = "EMAIL_UPDATE_NOT_STARTED"
-    code_verbose = "Email update not started"
-    default_message = "You should call change email first"
+    code = "OTP_CODE_ALREADY_SENT"
+    code_verbose = "OTP code was sent"
+    default_message = "Please wait before requesting a new one"
 
 
 class UserEmailAlreadyVerified(APIError):

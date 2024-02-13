@@ -26,6 +26,7 @@ class SMTPEmailBackend:
             port=config.smtp_port,
             username=config.smtp_username,
             password=config.smtp_password,
+            use_tls=config.smtp_use_tls,
         )
         self._stack = AsyncExitStack()
 
