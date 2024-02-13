@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Email Verification{% endblock %}</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            background-color: transparent;
+        }
+    </style>
+</head>
+<body>
+    <div style="width: 100%; background-color: transparent;">
+        <div style="margin: 0 auto; max-width: 36rem; padding-top: 1rem; padding-left: 1rem; padding-right: 1rem; border-radius: 0.5rem; border-width: 2px; border-color: rgb(243 244 246); border-style: solid;">
+            {# logo #}
+            <div style="text-align: center;">
+                <div>
+                    <svg viewBox="0 0 18 18" style="width: 36px; height: 36px;">
+                    <path
+                        fill="#99F6E4"
+                        id="svg_1"
+                        clip-rule="evenodd"
+                        d="m8.765,0.55905a0.5,0.5 0 0 1 0.47,0l7.5,4a0.5,0.5 0 0 1 0,0.882l-7.5,4a0.5,0.5 0 0 1 -0.47,0l-7.5,-4a0.5,0.5 0 0 1 0,-0.882l7.5,-4z"
+                        fill-rule="evenodd"
+                    />
+                    <path
+                        fill="#34D399"
+                        id="svg_2"
+                        clip-rule="evenodd"
+                        d="m3.125,7.56705l-1.86,0.992a0.5,0.5 0 0 0 0,0.882l7.5,4a0.5,0.5 0 0 0 0.47,0l7.5,-4a0.5,0.5 0 0 0 0,-0.882l-1.86,-0.992l-5.17,2.756a1.5,1.5 0 0 1 -1.41,0l0.418,-0.785l-0.419,0.785l-5.169,-2.756z"
+                        fill-rule="evenodd"
+                    />
+                    <path
+                        fill="#059669"
+                        id="svg_3"
+                        clip-rule="evenodd"
+                        d="m3.125,11.56695l-1.86,0.992a0.5,0.5 0 0 0 0,0.882l7.5,4a0.5,0.5 0 0 0 0.47,0l7.5,-4a0.5,0.5 0 0 0 0,-0.882l-1.86,-0.992l-5.17,2.756a1.5,1.5 0 0 1 -1.41,0l0.418,-0.785l-0.419,0.785l-5.169,-2.756z"
+                        fill-rule="evenodd"
+                    />
+                    </svg>
+                </div>
+                <p style="font-size: 1.25rem; line-height: 1.75rem; margin: 0; font-weight: 300;">Shelf Cloud</p>
+            </div>
+
+            <div style="padding: 1rem">
+                {% block content %}{% endblock %}
+
+            </div>
+        </div>
+    </div>
+</body>
+</html>

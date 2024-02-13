@@ -30,5 +30,9 @@ async def list_all() -> ListFeatureResponse:
                 name=FeatureName.upload_file_max_size,
                 value=config.features.upload_file_max_size,
             ),
+            Feature(
+                name=FeatureName.verification_required,
+                value=config.features.verification_required,
+            ),
         ],
     )

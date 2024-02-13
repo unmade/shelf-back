@@ -6,7 +6,11 @@ from unittest import mock
 
 import pytest
 
+from app.app.users.usecases.user import EmailUpdateLimitReached
+
 if TYPE_CHECKING:
+    from unittest.mock import MagicMock
+
     from app.app.users.usecases import UserUseCase
 
 pytestmark = [pytest.mark.anyio]
@@ -25,6 +29,61 @@ class TestAddBookmark:
         file_service.get_by_id.assert_awaited_once_with(ns_path, file_id)
         file = file_service.get_by_id.return_value
         bookmark_service.add_bookmark.assert_awaited_once_with(user_id, file.id)
+
+
+class TestChangeEmailComplete:
+    @mock.patch("app.app.users.usecases.user.cache", autospec=True)
+    async def test(self, cache_mock: MagicMock, user_use_case: UserUseCase):
+        # GIVEN
+        user_id, code = uuid.uuid4(), "078243"
+        user_service = cast(mock.MagicMock, user_use_case.user_service)
+        # WHEN
+        await user_use_case.change_email_complete(user_id, code)
+        # THEN
+        user_service.change_email_complete.assert_awaited_once_with(user_id, code)
+        cache_mock.set.assert_awaited_once_with(
+            f"change_email:{user_id}:completed", 1, expire="6h"
+        )
+
+
+class TestChangeEmailResendCode:
+    async def test(self, user_use_case: UserUseCase):
+        # GIVEN
+        user_id = uuid.uuid4()
+        user_service = cast(mock.MagicMock, user_use_case.user_service)
+        # WHEN
+        await user_use_case.change_email_resend_code(user_id)
+        # THEN
+        user_service.change_email_resend_code.assert_awaited_once_with(user_id)
+
+
+class TestChangeEmailStart:
+    @mock.patch("app.app.users.usecases.user.cache", autospec=True)
+    async def test(self, cache_mock: MagicMock, user_use_case: UserUseCase):
+        # GIVEN
+        user_id, email = uuid.uuid4(), "johndoe@example.com"
+        user_service = cast(mock.MagicMock, user_use_case.user_service)
+        cache_mock.exists.return_value = False
+        # WHEN
+        await user_use_case.change_email_start(user_id, email)
+        # THEN
+        cache_mock.exists.assert_awaited_once_with(f"change_email:{user_id}:completed")
+        user_service.change_email_start.assert_awaited_once_with(user_id, email)
+
+    @mock.patch("app.app.users.usecases.user.cache", autospec=True)
+    async def test_when_limit_reached(
+        self, cache_mock: MagicMock, user_use_case: UserUseCase
+    ):
+        # GIVEN
+        user_id, email = uuid.uuid4(), "johndoe@example.com"
+        user_service = cast(mock.MagicMock, user_use_case.user_service)
+        cache_mock.exists.return_value = True
+        # WHEN
+        with pytest.raises(EmailUpdateLimitReached):
+            await user_use_case.change_email_start(user_id, email)
+        # THEN
+        cache_mock.exists.assert_awaited_once_with(f"change_email:{user_id}:completed")
+        user_service.change_email_start.assert_not_awaited()
 
 
 class TestCreateSuperUser:
@@ -91,3 +150,25 @@ class TestRemoveBookmark:
         await user_use_case.remove_bookmark(user_id, file_id)
         # THEN
         bookmark_service.remove_bookmark.assert_awaited_once_with(user_id, file_id)
+
+
+class TestVerifyEmailSendCode:
+    async def test(self, user_use_case: UserUseCase):
+        # GIVEN
+        user_id = uuid.uuid4()
+        user_service = cast(mock.MagicMock, user_use_case.user_service)
+        # WHEN
+        await user_use_case.verify_email_send_code(user_id)
+        # THEN
+        user_service.verify_email_send_code.assert_awaited_once_with(user_id)
+
+
+class TestVerifyEmailComplete:
+    async def test(self, user_use_case: UserUseCase):
+        # GIVEN
+        user_id, code = uuid.uuid4(), "078243"
+        user_service = cast(mock.MagicMock, user_use_case.user_service)
+        # WHEN
+        await user_use_case.verify_email_complete(user_id, code)
+        # THEN
+        user_service.verify_email_complete.assert_awaited_once_with(user_id, code)

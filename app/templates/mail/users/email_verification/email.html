@@ -1,0 +1,16 @@
+{% extends 'mail/base.html' %}
+
+{% block title %}Verify Your Email Address{% endblock %}
+
+{% block content %}
+    <div style="margin-bottom: 2rem; text-align: center;">
+        <h1 style="margin: 0; font-size: 1.75rem; font-weight: 500; margin-top: 0.25rem; margin-bottom: 0.5rem;">E-mail address verification on</h1>
+        <a href="mailto:{{ email }}">{{ email }}</a>
+    </div>
+    <p>Dear {{ display_name or 'User' }},</p>
+    <p>Please use the following code to verify your email:</p>
+    <p style="font-size: 1.25rem; line-height: 1.75rem"><strong>{{ code }}</strong></p>
+    <hr style="border-color: rgb(243 244 246);  border-style: solid;" />
+    <p>If you did not request this verification code, please disregard this email. Your account will remain inactive until you verify your email address.</p>
+    <p>Thank you,<br>Shelf Cloud Team</p>
+{% endblock %}

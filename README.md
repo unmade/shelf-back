@@ -138,8 +138,16 @@ superuser on the first image run:
 |FEATURES__PRE_GENERATED_THUMBNAIL_SIZES | - | [72, 768, 2880] | Thumbnail sizes that are automatically generated on file upload. |
 |FEATURES__SIGN_UP_DISABLED    | - | False  | Whether sign up is disabled or not |
 |FEATURES__UPLOAD_FILE_MAX     | - | 100MB | Maximum upload file size. Default to 100 MB |
+|FEATURES__VERIFICATION_REQUIRED | - | False | Whether user account has to be verified to upload files. |
 |INDEXER__URL                  | - | None   | A URL to the Indexer service. If not specified, the file won't be indexed. |
 |INDEXER__TIMEOUT              | - | 10     | A timeout to wait response from indexer. |
+|MAIL__TYPE                    | - | smtp   | Backend to use for sending emails. |
+|MAIL__SENDER                  | - | <no-reply@getshelf.cloud>  | Email sender on behalf of application. |
+|MAIL__SMTP_HOSTNAME           | - | localhost  | SMTP hostname. |
+|MAIL__SMTP_PORT               | - | 1025   | SMTP port. |
+|MAIL__SMTP_USERNAME           | - | None   | SMTP username. |
+|MAIL__SMTP_PASSWORD           | - | None   | SMTP password. |
+|MAIL__SMTP_USE_TLS            | - | false  | Whether to use TLS connection to SMTP server. |
 |SENTRY__DSN                   | - | None   | Sentry DSN |
 |SENTRY__ENV                   | - | None   | Sentry environment |
 |STORAGE__TYPE                 | - | filesystem | A primary storage type. Either `filesystem` or `s3` options are available |

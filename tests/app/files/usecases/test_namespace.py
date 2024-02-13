@@ -37,10 +37,7 @@ def _make_file(
 def _make_account(storage_quota: int | None = None) -> Account:
     return Account(
         id=uuid.uuid4(),
-        username="admin",
-        email=None,
-        first_name="",
-        last_name="",
+        user_id=uuid.uuid4(),
         storage_quota=storage_quota or None,
     )
 

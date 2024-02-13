@@ -11,6 +11,7 @@ from app.api.deps import (
     DownloadCacheDeps,
     NamespaceDeps,
     UseCasesDeps,
+    VerifiedCurrentUserDeps,
     WorkerDeps,
 )
 from app.app.files.domain import ContentMetadata, File, mediatypes
@@ -428,6 +429,7 @@ async def move_to_trash_batch(
 @router.post("/upload")
 async def upload_file(
     request: Request,
+    _: VerifiedCurrentUserDeps,
     namespace: NamespaceDeps,
     usecases: UseCasesDeps,
     file: Annotated[UploadContent, FileParam()],

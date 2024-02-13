@@ -3,10 +3,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, NamedTuple, Protocol
 from uuid import UUID
 
+from app.app.users.domain import User
+from app.cache import cache
+
 if TYPE_CHECKING:
     from app.app.files.services import FileService, NamespaceService
     from app.app.infrastructure.database import IAtomic
-    from app.app.users.domain import Account, Bookmark, User
+    from app.app.users.domain import Account, Bookmark
     from app.app.users.services import BookmarkService, UserService
 
     class IUseCaseServices(IAtomic, Protocol):
@@ -15,10 +18,20 @@ if TYPE_CHECKING:
         namespace: NamespaceService
         user: UserService
 
+__all__ = [
+    "AccountSpaceUsage",
+    "EmailUpdateLimitReached",
+    "UserUseCase",
+]
+
 
 class AccountSpaceUsage(NamedTuple):
     used: int
     quota: int | None
+
+
+class EmailUpdateLimitReached(Exception):
+    pass
 
 
 class UserUseCase:
@@ -45,6 +58,41 @@ class UserUseCase:
         """
         file = await self.file_service.get_by_id(ns_path, file_id)
         return await self.bookmark_service.add_bookmark(user_id, file.id)
+
+    async def change_email_complete(self, user_id: UUID, code: str) -> bool:
+        """
+        Completes the process of changing email.
+
+        Raises:
+            EmailUpdateNotStarted: If process of changing email hasn't been started.
+        """
+        completed = await self.user_service.change_email_complete(user_id, code)
+        await cache.set(f"change_email:{user_id}:completed", 1, expire="6h")
+        return completed
+
+    async def change_email_resend_code(self, user_id: UUID) -> None:
+        """
+        Resends the verification code to the new email.
+
+        Raises:
+            EmailUpdateNotStarted: If process of changing email hasn't been started.
+            OTPCodeAlreadySent: If previous OTP code hasn't expired yet.
+        """
+        await self.user_service.change_email_resend_code(user_id)
+
+    async def change_email_start(self, user_id: UUID, email: str) -> None:
+        """
+        Starts the process of changing user email and sends verification code to the
+        provided email. At this point it doesn't change email in the DB.
+
+        Raises:
+            EmailUpdateAlreadyStarted: If email update already started.
+            EmailUpdateLimitReached: If user tries to change email frequently.
+            User.AlreadyExists: If user with provided email already exists.
+        """
+        if await cache.exists(f"change_email:{user_id}:completed"):
+            raise EmailUpdateLimitReached() from None
+        await self.user_service.change_email_start(user_id, email)
 
     async def create_superuser(self, username: str, password: str) -> User:
         """
@@ -97,3 +145,19 @@ class UserUseCase:
             User.NotFound: If User with a target user_id does not exist.
         """
         await self.bookmark_service.remove_bookmark(user_id, file_id)
+
+    async def verify_email_send_code(self, user_id: UUID) -> None:
+        """
+        Sends verification code to the user current email.
+
+        Raises:
+            OTPCodeAlreadySent: If previous OTP code hasn't expired yet.
+            User.EmailAlreadyVerified: If user email already verified.
+            User.EmailIsMissing: If user doesn't have email.
+            User.NotFound: If user with specified ID does not exist.
+        """
+        await self.user_service.verify_email_send_code(user_id)
+
+    async def verify_email_complete(self, user_id: UUID, code: str) -> bool:
+        """Verifies user email based on provided code."""
+        return await self.user_service.verify_email_complete(user_id, code)

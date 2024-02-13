@@ -5,6 +5,7 @@ from contextlib import AbstractAsyncContextManager
 from typing import AsyncIterator, TypedDict
 
 import sentry_sdk
+from cashews import RateLimitError
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -65,6 +66,9 @@ def create_app(
 
     app.add_exception_handler(
         exceptions.APIError, exceptions.api_error_exception_handler,
+    )
+    app.add_exception_handler(
+        RateLimitError, exceptions.rate_limit_exception_handler,
     )
 
     return app

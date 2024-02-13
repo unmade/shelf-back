@@ -23,6 +23,7 @@ __all__ = [
     "NamespaceDeps",
     "ServiceTokenDeps",
     "UseCasesDeps",
+    "VerifiedCurrentUserDeps",
     "WorkerDeps",
 ]
 
@@ -48,24 +49,38 @@ def token_payload(token: str | None = Depends(reusable_oauth2)) -> AccessToken:
         raise exceptions.InvalidToken() from exc
 
 
-async def current_user_ctx(
+async def _user(
     usecases: UseCasesDeps,
     payload: AccessToken = Depends(token_payload),
-) -> AsyncIterator[CurrentUserContext]:
-    """Sets context about current user."""
+) -> User:
+    """Returns currently authenticated user."""
     try:
-        user = await usecases.user.user_service.get_by_id(payload.sub)
+        return await usecases.user.user_service.get_by_id(payload.sub)
     except User.NotFound as exc:
         raise exceptions.UserNotFound() from exc
 
+
+async def current_user_ctx(
+    user: User = Depends(_user)
+) -> AsyncIterator[CurrentUserContext]:
+    """Sets context about current user."""
     current_user = CurrentUser(id=user.id, username=user.username)
     with CurrentUserContext(user=current_user) as ctx:
         yield ctx
 
 
-async def current_user(ctx: CurrentUserContextDeps) -> CurrentUser:
+async def current_user(
+    _: CurrentUserContextDeps, user: User = Depends(_user)
+) -> User:
     """Returns current user."""
-    return ctx.user
+    return user
+
+
+async def verified_current_user(user: CurrentUserDeps) -> User:
+    """Returns current user if it is a verified user."""
+    if config.features.verification_required and not user.is_verified():
+        raise exceptions.UnverifiedUser() from None
+    return user
 
 
 async def download_cache(key: str = Query(None)):
@@ -95,7 +110,7 @@ async def service_token(token: str | None = Depends(reusable_oauth2)):
         raise exceptions.InvalidToken() from None
 
 
-CurrentUserDeps: TypeAlias = Annotated[CurrentUser, Depends(current_user)]
+CurrentUserDeps: TypeAlias = Annotated[User, Depends(current_user)]
 CurrentUserContextDeps: TypeAlias = Annotated[
     CurrentUserContext, Depends(current_user_ctx)
 ]
@@ -103,4 +118,5 @@ DownloadCacheDeps: TypeAlias = Annotated[AnyFile, Depends(download_cache)]
 NamespaceDeps: TypeAlias = Annotated[Namespace, Depends(namespace)]
 ServiceTokenDeps: TypeAlias = Annotated[None, Depends(service_token)]
 UseCasesDeps: TypeAlias = Annotated[UseCases, Depends(usecases)]
+VerifiedCurrentUserDeps: TypeAlias = Annotated[User, Depends(verified_current_user)]
 WorkerDeps: TypeAlias = Annotated[IWorker, Depends(worker)]

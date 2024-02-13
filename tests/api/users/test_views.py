@@ -7,13 +7,12 @@ import pytest
 
 from app.api.users.exceptions import FileNotFound
 from app.app.files.domain import File
-from app.app.users.domain import Bookmark
+from app.app.users.domain import Bookmark, User
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
     from app.app.files.domain import Namespace
-    from app.app.users.domain import User
     from tests.api.conftest import TestClient
 
 pytestmark = [pytest.mark.anyio]

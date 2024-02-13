@@ -10,6 +10,7 @@ class FeatureName(enum.StrEnum):
     photos_library_path = "photos_library_path"
     sign_up_disabled = "sign_up_disabled"
     upload_file_max_size = "upload_file_max_size"
+    verification_required = "verification_required"
 
 
 class Feature(BaseModel):

@@ -1,15 +1,21 @@
 from __future__ import annotations
 
+from contextlib import AsyncExitStack
 from unittest import mock
 
 import pytest
 
+from app.app.infrastructure import IMailBackend
 from app.app.users.repositories import (
     IAccountRepository,
     IBookmarkRepository,
     IUserRepository,
 )
 from app.app.users.services import BookmarkService, UserService
+
+
+async def _atomic():
+    yield AsyncExitStack()
 
 
 @pytest.fixture
@@ -27,5 +33,7 @@ def user_service() -> UserService:
     database = mock.MagicMock(
         account=mock.AsyncMock(IAccountRepository),
         user=mock.AsyncMock(IUserRepository),
+        atomic=_atomic,
     )
-    return UserService(database=database)
+    mail = mock.MagicMock(IMailBackend)
+    return UserService(database=database, mail=mail)

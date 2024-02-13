@@ -1,15 +1,9 @@
 module default {
     type Account {
-        email: str {
-            constraint exclusive;
-        };
-        required first_name: str;
-        required last_name: str;
-        required created_at: datetime;
-
         storage_quota: int64;
 
         required user: User {
+            constraint exclusive;
             on target delete DELETE SOURCE;
         };
     }
@@ -152,6 +146,17 @@ module default {
             constraint exclusive;
         };
         required password: str;
+
+        email: str {
+            constraint exclusive;
+        };
+        required email_verified: bool;
+
+        required display_name: str;
+        required created_at: datetime;
+        last_login_at: datetime;
+
+        required active: bool;
         required superuser: bool;
 
         multi bookmarks: File {

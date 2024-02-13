@@ -15,7 +15,7 @@ from app.app.files.domain import Namespace
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
 from app.app.infrastructure.worker import IWorker
 from app.app.photos.usecases.photos import PhotosUseCase
-from app.app.users.domain import Account, User
+from app.app.users.domain import User
 from app.app.users.usecases import UserUseCase
 from app.infrastructure.context import UseCases
 
@@ -51,7 +51,7 @@ class TestClient(AsyncClient):
 
     def mock_user(self, user: User) -> Self:
         async def get_current_user():
-            return CurrentUserContext.User(id=user.id, username=user.username)
+            return user
 
         self.app.dependency_overrides[deps.current_user] = get_current_user
         return self
@@ -113,7 +113,7 @@ def user_use_case(_usecases: UseCases):
 
 
 @pytest.fixture(autouse=True)
-async def mock_usecases_deps(app: FastAPI, _usecases: UseCases):
+async def mock_usecases_deps(anyio_backend, app: FastAPI, _usecases: UseCases):
     async def get_usecases():
         return _usecases
     app.dependency_overrides[deps.usecases] = get_usecases
@@ -133,17 +133,14 @@ async def mock_worker_deps(app: FastAPI, worker_mock: mock.MagicMock):
 
 @pytest.fixture
 async def user():
-    return User(id=uuid.uuid4(), username="admin", password="psswd")
-
-
-@pytest.fixture
-async def account(user: User):
-    return Account(
+    return User(
         id=uuid.uuid4(),
-        email=None,
-        username=user.username,
-        first_name="John",
-        last_name="Doe",
+        username="admin",
+        password="psswd",
+        email="admin@getshelf.cloud",
+        email_verified=True,
+        display_name="",
+        active=True,
     )
 
 
