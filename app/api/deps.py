@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Annotated, AsyncIterator, TypeAlias
+from uuid import UUID
 
 from fastapi import Depends, Query, Request
 from fastapi.security import OAuth2PasswordBearer
@@ -55,7 +56,7 @@ async def _user(
 ) -> User:
     """Returns currently authenticated user."""
     try:
-        return await usecases.user.user_service.get_by_id(payload.sub)
+        return await usecases.user.user_service.get_by_id(UUID(payload.sub))
     except User.NotFound as exc:
         raise exceptions.UserNotFound() from exc
 

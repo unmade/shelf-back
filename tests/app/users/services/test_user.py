@@ -116,7 +116,7 @@ class TestChangeEmailResendCode:
         await taskgroups.wait_background_tasks()
         cache_mock.get.assert_awaited_once_with(f"email_update:{user_id}:email")
         cache_mock.set.assert_awaited_once()
-        db.user.get_by_id.assert_awaited_once_with(user_id)
+        db.user.get.assert_awaited_once_with(id=user_id)
         mail.send.assert_awaited_once()
 
     @mock.patch("app.app.users.services.user.cache", autospec=True)
@@ -137,7 +137,7 @@ class TestChangeEmailResendCode:
         await taskgroups.wait_background_tasks()
         cache_mock.get.assert_awaited_once_with(f"email_update:{user_id}:email")
         cache_mock.set.assert_not_awaited()
-        db.user.get_by_id.assert_not_awaited()
+        db.user.get.assert_not_awaited()
         mail.send.assert_not_awaited()
 
     @mock.patch("app.app.users.services.user.cache", autospec=True)
@@ -159,7 +159,7 @@ class TestChangeEmailResendCode:
         await taskgroups.wait_background_tasks()
         cache_mock.get.assert_awaited_once_with(f"email_update:{user_id}:email")
         cache_mock.set.assert_awaited_once()
-        db.user.get_by_id.assert_not_awaited()
+        db.user.get.assert_not_awaited()
         mail.send.assert_not_awaited()
 
 
@@ -317,8 +317,8 @@ class TestGetByID:
         # WHEN
         retrieved_user = await user_service.get_by_id(user_id)
         # THEN
-        assert retrieved_user == db.user.get_by_id.return_value
-        db.user.get_by_id.assert_awaited_once_with(user_id)
+        assert retrieved_user == db.user.get.return_value
+        db.user.get.assert_awaited_once_with(id=user_id)
 
 
 class TestGetByUsername:
@@ -329,8 +329,8 @@ class TestGetByUsername:
         # WHEN
         retrieved_user = await user_service.get_by_username(username)
         # THEN
-        assert retrieved_user == db.user.get_by_username.return_value
-        db.user.get_by_username.assert_awaited_once_with(username)
+        assert retrieved_user == db.user.get.return_value
+        db.user.get.assert_awaited_once_with(username=username)
 
     async def test_case_insensitiveness(self, user_service: UserService):
         # GIVEN
@@ -339,7 +339,7 @@ class TestGetByUsername:
         # WHEN
         await user_service.get_by_username(username)
         # THEN
-        db.user.get_by_username.assert_awaited_once_with("admin")
+        db.user.get.assert_awaited_once_with(username="admin")
 
     async def test_stripping_spaces(self, user_service: UserService):
         # GIVEN
@@ -348,7 +348,47 @@ class TestGetByUsername:
         # WHEN
         await user_service.get_by_username(username)
         # THEN
-        db.user.get_by_username.assert_awaited_once_with("admin")
+        db.user.get.assert_awaited_once_with(username="admin")
+
+
+class TestGetByLogin:
+    async def test_by_username(self, user_service: UserService):
+        # GIVEN
+        login = "admin"
+        db = cast(mock.MagicMock, user_service.db)
+        # WHEN
+        retrieved_user = await user_service.get_by_login(login)
+        # THEN
+        assert retrieved_user == db.user.get.return_value
+        db.user.get.assert_awaited_once_with(username=login)
+
+    async def test_by_email(self, user_service: UserService):
+        # GIVEN
+        login = "admin@example.com"
+        db = cast(mock.MagicMock, user_service.db)
+        # WHEN
+        retrieved_user = await user_service.get_by_login(login)
+        # THEN
+        assert retrieved_user == db.user.get.return_value
+        db.user.get.assert_awaited_once_with(email=login)
+
+    async def test_case_insensitiveness(self, user_service: UserService):
+        # GIVEN
+        username = "AdMiN"
+        db = cast(mock.MagicMock, user_service.db)
+        # WHEN
+        await user_service.get_by_login(username)
+        # THEN
+        db.user.get.assert_awaited_once_with(username="admin")
+
+    async def test_stripping_spaces(self, user_service: UserService):
+        # GIVEN
+        username = " admin "
+        db = cast(mock.MagicMock, user_service.db)
+        # WHEN
+        await user_service.get_by_login(username)
+        # THEN
+        db.user.get.assert_awaited_once_with(username="admin")
 
 
 class TestVerifyEmailSendCode:
@@ -357,13 +397,13 @@ class TestVerifyEmailSendCode:
         # GIVEN
         user = _make_user(email="johndoe@example.com")
         db = cast(mock.MagicMock, user_service.db)
-        db.user.get_by_id.return_value = user
+        db.user.get.return_value = user
         mail = cast(mock.MagicMock, user_service.mail)
         # WHEN
         await user_service.verify_email_send_code(user.id)
         # THEN
         await taskgroups.wait_background_tasks()
-        db.user.get_by_id.assert_awaited_once_with(user.id)
+        db.user.get.assert_awaited_once_with(id=user.id)
         cache_mock.set.assert_awaited_once()
         mail.send.assert_awaited_once()
 
@@ -374,13 +414,13 @@ class TestVerifyEmailSendCode:
         # GIVEN
         user = _make_user(email=None)
         db = cast(mock.MagicMock, user_service.db)
-        db.user.get_by_id.return_value = user
+        db.user.get.return_value = user
         mail = cast(mock.MagicMock, user_service.mail)
         # WHEN
         with pytest.raises(User.EmailIsMissing):
             await user_service.verify_email_send_code(user.id)
         # THEN
-        db.user.get_by_id.assert_awaited_once_with(user.id)
+        db.user.get.assert_awaited_once_with(id=user.id)
         cache_mock.set.assert_not_awaited()
         mail.send.assert_not_awaited()
 
@@ -391,13 +431,13 @@ class TestVerifyEmailSendCode:
         # GIVEN
         user = _make_user(email="johndoe@example.com", email_verified=True)
         db = cast(mock.MagicMock, user_service.db)
-        db.user.get_by_id.return_value = user
+        db.user.get.return_value = user
         mail = cast(mock.MagicMock, user_service.mail)
         # WHEN
         with pytest.raises(User.EmailAlreadyVerified):
             await user_service.verify_email_send_code(user.id)
         # THEN
-        db.user.get_by_id.assert_awaited_once_with(user.id)
+        db.user.get.assert_awaited_once_with(id=user.id)
         cache_mock.set.assert_not_awaited()
         mail.send.assert_not_awaited()
 
@@ -408,14 +448,14 @@ class TestVerifyEmailSendCode:
         # GIVEN
         user = _make_user(email="johndoe@example.com")
         db = cast(mock.MagicMock, user_service.db)
-        db.user.get_by_id.return_value = user
+        db.user.get.return_value = user
         cache_mock.set.return_value = False
         mail = cast(mock.MagicMock, user_service.mail)
         # WHEN
         with pytest.raises(OTPCodeAlreadySent):
             await user_service.verify_email_send_code(user.id)
         # THEN
-        db.user.get_by_id.assert_awaited_once_with(user.id)
+        db.user.get.assert_awaited_once_with(id=user.id)
         cache_mock.set.assert_awaited_once()
         mail.send.assert_not_awaited()
 

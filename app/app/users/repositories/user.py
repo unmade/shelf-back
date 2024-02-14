@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol, TypedDict, Unpack
+from uuid import UUID
 
 from app.app.users.domain import User
 
 if TYPE_CHECKING:
-    from uuid import UUID
+    pass
 
-    from app.typedefs import StrOrUUID
+
+class GetKwargs(TypedDict, total=False):
+    id: UUID
+    username: str
+    email: str
 
 
 class UserUpdate(TypedDict, total=False):
@@ -19,20 +24,13 @@ class IUserRepository(Protocol):
     async def exists_with_email(self, email: str) -> bool:
         """Returns True if user with the specified email exists, otherwise False."""
 
-    async def get_by_username(self, username: str) -> User:
+    async def get(self, **fields: Unpack[GetKwargs]) -> User:
         """
-        Retrieves a user by username
+        Retrieves a user if at least one of the provided matches. Normally you want to
+        provide only one field.
 
         Raises:
-            User.NotFound: If User with a target username does not exist.
-        """
-
-    async def get_by_id(self, user_id: StrOrUUID) -> User:
-        """
-        Returns a user with a given user ID.
-
-        Raises:
-            User.NotFound: If user with a target user ID does not exist.
+            User.NotFound: If matching User does not exist.
         """
 
     async def save(self, user: User) -> User:

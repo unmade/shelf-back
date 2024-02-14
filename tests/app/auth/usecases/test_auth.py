@@ -21,13 +21,13 @@ class TestSignIn:
         audit_trail = cast(mock.MagicMock, auth_use_case.audit_trail)
         token_service = cast(mock.MagicMock, auth_use_case.token_service)
         user_service = cast(mock.MagicMock, auth_use_case.user_service)
-        user = user_service.get_by_username.return_value
+        user = user_service.get_by_login.return_value
         user.check_password = mock.Mock(return_value=True)
         # WHEN
         result = await auth_use_case.signin(username, password)
         # THEN
         assert result == token_service.create.return_value
-        user_service.get_by_username.assert_awaited_once_with(username)
+        user_service.get_by_login.assert_awaited_once_with(username)
         audit_trail.user_signed_in.assert_called_once_with(user)
         token_service.create.assert_awaited_once_with(str(user.id))
 
@@ -37,12 +37,12 @@ class TestSignIn:
         audit_trail = cast(mock.MagicMock, auth_use_case.audit_trail)
         token_service = cast(mock.MagicMock, auth_use_case.token_service)
         user_service = cast(mock.MagicMock, auth_use_case.user_service)
-        user_service.get_by_username.side_effect = User.NotFound()
+        user_service.get_by_login.side_effect = User.NotFound()
         # WHEN
         with pytest.raises(User.InvalidCredentials):
             await auth_use_case.signin(username, password)
         # THEN
-        user_service.get_by_username.assert_awaited_once_with(username)
+        user_service.get_by_login.assert_awaited_once_with(username)
         audit_trail.user_signed_in.assert_not_called()
         token_service.create.assert_not_awaited()
 
@@ -52,13 +52,13 @@ class TestSignIn:
         audit_trail = cast(mock.MagicMock, auth_use_case.audit_trail)
         token_service = cast(mock.MagicMock, auth_use_case.token_service)
         user_service = cast(mock.MagicMock, auth_use_case.user_service)
-        user = user_service.get_by_username.return_value
+        user = user_service.get_by_login.return_value
         user.check_password = mock.Mock(return_value=False)
         # WHEN
         with pytest.raises(User.InvalidCredentials):
             await auth_use_case.signin(username, password)
         # THEN
-        user_service.get_by_username.assert_awaited_once_with(username)
+        user_service.get_by_login.assert_awaited_once_with(username)
         user.check_password.assert_called_once_with(password)
         audit_trail.user_signed_in.assert_not_called()
         token_service.create.assert_not_awaited()
