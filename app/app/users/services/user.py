@@ -3,6 +3,8 @@ from __future__ import annotations
 import secrets
 from typing import TYPE_CHECKING, Protocol
 
+from pydantic import validate_email
+
 from app.app.infrastructure import IMailBackend
 from app.app.infrastructure.database import SENTINEL_ID, IDatabase
 from app.app.users.domain import Account, User
@@ -105,7 +107,7 @@ class UserService:
         if not await cache.set(key, code, expire="2m", exist=False):
             raise OTPCodeAlreadySent() from None
 
-        user = await self.db.user.get_by_id(user_id)
+        user = await self.db.user.get(id=user_id)
         taskgroups.schedule(
             self._send_email_verification_code(user.display_name, email, code)
         )
@@ -178,14 +180,14 @@ class UserService:
         """
         return await self.db.account.get_by_user_id(user_id)
 
-    async def get_by_id(self, user_id: StrOrUUID) -> User:
+    async def get_by_id(self, user_id: UUID) -> User:
         """
         Returns a user with a given user ID.
 
         Raises:
             User.NotFound: If user with a target user ID does not exist.
         """
-        return await self.db.user.get_by_id(user_id)
+        return await self.db.user.get(id=user_id)
 
     async def get_by_username(self, username: str) -> User:
         """
@@ -194,7 +196,21 @@ class UserService:
         Raises:
             User.NotFound: If User with a target username does not exist.
         """
-        return await self.db.user.get_by_username(username.lower().strip())
+        return await self.db.user.get(username=username.lower().strip())
+
+    async def get_by_login(self, email_or_username: str) -> User:
+        """
+        Retrieves a user by username. Username can be either a username or email.
+
+        Raises:
+            User.NotFound: If User with a target username does not exist.
+        """
+        login = email_or_username.lower().strip()
+        try:
+            validate_email(login)
+        except ValueError:
+            return await self.db.user.get(username=login)
+        return await self.db.user.get(email=login)
 
     async def verify_email_send_code(self, user_id: UUID) -> None:
         """
@@ -206,7 +222,7 @@ class UserService:
             User.EmailIsMissing: If user doesn't have email.
             User.NotFound: If user with specified ID does not exist.
         """
-        user = await self.db.user.get_by_id(user_id)
+        user = await self.db.user.get(id=user_id)
         if not user.email:
             raise User.EmailIsMissing()
 

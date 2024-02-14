@@ -6,14 +6,13 @@ import edgedb
 
 from app.app.users.domain import User
 from app.app.users.repositories import IUserRepository
-from app.app.users.repositories.user import UserUpdate
+from app.app.users.repositories.user import GetKwargs, UserUpdate
 from app.infrastructure.database.edgedb import autocast
 
 if TYPE_CHECKING:
     from uuid import UUID
 
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
-    from app.typedefs import StrOrUUID
 
 __all__ = ["UserRepository"]
 
@@ -52,10 +51,19 @@ class UserRepository(IUserRepository):
         """
         return cast(bool, await self.conn.query_required_single(query, email=email))
 
-    async def get_by_username(self, username: str) -> User:
-        query = """
+    async def get(self, **fields: Unpack[GetKwargs]) -> User:
+        assert fields, "One of the fields must be provided"
+
+        hints = get_type_hints(GetKwargs)
+
+        filter_clause = [
+            f".{key} = {autocast.autocast(hints[key])}${key}"
+            for key in fields
+        ]
+
+        query = f"""
             SELECT
-                User {
+                User {{
                     id,
                     username,
                     password,
@@ -66,37 +74,14 @@ class UserRepository(IUserRepository):
                     last_login_at,
                     active,
                     superuser,
-                }
+                }}
             FILTER
-                .username = <str>$username
+                {" AND ".join(filter_clause)}
             LIMIT 1
         """
-        try:
-            obj = await self.conn.query_required_single(query, username=username)
-        except edgedb.NoDataError as exc:
-            raise User.NotFound() from exc
-        return _from_db(obj)
 
-    async def get_by_id(self, user_id: StrOrUUID) -> User:
-        query = """
-            SELECT
-                User {
-                    id,
-                    username,
-                    password,
-                    email,
-                    email_verified,
-                    display_name,
-                    created_at,
-                    last_login_at,
-                    active,
-                    superuser,
-                }
-            FILTER
-                .id = <uuid>$user_id
-        """
         try:
-            obj = await self.conn.query_required_single(query, user_id=user_id)
+            obj = await self.conn.query_required_single(query, **fields)
         except edgedb.NoDataError as exc:
             raise User.NotFound() from exc
         return _from_db(obj)

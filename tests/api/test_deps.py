@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 from unittest import mock
+from uuid import UUID
 
 import pytest
 from fastapi import Request
@@ -133,7 +134,7 @@ class TestUser:
         result = await deps._user(usecases, payload)
         # THEN
         assert result == user
-        usecases.user.user_service.get_by_id.assert_awaited_once_with(payload.sub)
+        usecases.user.user_service.get_by_id.assert_awaited_once_with(UUID(payload.sub))
 
     async def test_when_user_not_found(self, payload: AccessToken, usecases: MagicMock):
         # GIVEN
@@ -141,7 +142,7 @@ class TestUser:
         # WHEN / THEN
         with pytest.raises(exceptions.UserNotFound):
             await deps._user(usecases, payload)
-        usecases.user.user_service.get_by_id.assert_awaited_once_with(payload.sub)
+        usecases.user.user_service.get_by_id.assert_awaited_once_with(UUID(payload.sub))
 
 
 class TestVerifiedUser:

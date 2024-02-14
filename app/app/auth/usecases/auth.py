@@ -35,9 +35,9 @@ class AuthUseCase:
         self.token_service = services.token
         self.user_service = services.user
 
-    async def signin(self, username: str, password: str) -> Tokens:
+    async def signin(self, email_or_username: str, password: str) -> Tokens:
         try:
-            user = await self.user_service.get_by_username(username)
+            user = await self.user_service.get_by_login(email_or_username)
         except User.NotFound as exc:
             raise User.InvalidCredentials() from exc
         if not user.check_password(password):
