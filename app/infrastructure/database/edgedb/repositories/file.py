@@ -462,6 +462,8 @@ class FileRepository(IFileRepository):
                 }}
             FILTER
                 {" AND ".join(filter_clauses)}
+            ORDER BY
+                .path
             OFFSET
                 <int64>$offset
             LIMIT
