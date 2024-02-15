@@ -13,6 +13,7 @@ from app.api.sharing.exceptions import FileMemberAlreadyExists, SharedLinkNotFou
 from app.api.sharing.schemas import FileMemberAccessLevel
 from app.app.files.domain import File, FileMember, Path, SharedLink
 from app.app.users.domain import User
+from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
@@ -208,14 +209,21 @@ class TestGetSharedLinkDownloadUrl:
     url = "/sharing/get_shared_link_download_url"
 
     @mock.patch("app.api.shortcuts.create_download_cache")
+    @pytest.mark.parametrize(["mediatype", "expected_path"], [
+        (MediaType.PLAIN_TEXT, "/download?"),
+        (MediaType.FOLDER, "/download_folder?"),
+    ])
     async def test(
         self,
         download_cache_mock: MagicMock,
         client: TestClient,
         sharing_use_case: MagicMock,
+        mediatype: MediaType,
+        expected_path: str,
     ):
         # GIVEN
-        file = _make_file("admin", "f.txt")
+        file = _make_file("admin", "f", mediatype=mediatype)
+        sharing_use_case.get_shared_item.return_value = file
         download_key = uuid.uuid4().hex
         download_cache_mock.return_value = download_key
         payload = {"token": "link-token", "filename": file.name}
@@ -226,6 +234,7 @@ class TestGetSharedLinkDownloadUrl:
         # THEN
         download_url = response.json()["download_url"]
         assert download_url.startswith(str(client.base_url))
+        assert expected_path in download_url
         assert response.status_code == 200
 
         parts = urllib.parse.urlsplit(download_url)
