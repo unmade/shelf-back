@@ -104,7 +104,10 @@ async def get_shared_link_download_url(
 
     key = await shortcuts.create_download_cache(file)
 
-    download_url = request.url_for("download")
+    if file.is_folder():
+        download_url = request.url_for("download_folder")
+    else:
+        download_url = request.url_for("download")
     return GetSharedLinkDownloadUrlResponse(download_url=f"{download_url}?key={key}")
 
 
