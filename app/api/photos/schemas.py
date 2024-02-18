@@ -90,7 +90,7 @@ class AddCategoryRequest(BaseModel):
     ]
 
     file_id: UUID
-    categories: Categories
+    categories: AddCategoryRequest.Categories
 
 
 class DeleteMediaItemBatchRequest(BaseModel):
@@ -117,4 +117,4 @@ class SetMediaItemCategoriesRequest(BaseModel):
     ]
 
     file_id: UUID
-    categories: Categories
+    categories: SetMediaItemCategoriesRequest.Categories

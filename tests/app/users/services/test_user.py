@@ -351,44 +351,70 @@ class TestGetByUsername:
         db.user.get.assert_awaited_once_with(username="admin")
 
 
-class TestGetByLogin:
+class TestSignIn:
     async def test_by_username(self, user_service: UserService):
         # GIVEN
-        login = "admin"
+        login, password = "admin", "password"
         db = cast(mock.MagicMock, user_service.db)
+        user = db.user.get.return_value
+        user.check_password = mock.Mock(return_value=True)
         # WHEN
-        retrieved_user = await user_service.get_by_login(login)
+        result = await user_service.signin(login, password)
         # THEN
-        assert retrieved_user == db.user.get.return_value
+        assert result == db.user.get.return_value
         db.user.get.assert_awaited_once_with(username=login)
+        db.user.update.assert_awaited_once_with(result.id, last_login_at=mock.ANY)
 
     async def test_by_email(self, user_service: UserService):
         # GIVEN
-        login = "admin@example.com"
+        login, password = "admin@example.com", "password"
         db = cast(mock.MagicMock, user_service.db)
+        user = db.user.get.return_value
+        user.check_password = mock.Mock(return_value=True)
         # WHEN
-        retrieved_user = await user_service.get_by_login(login)
+        result = await user_service.signin(login, password)
         # THEN
-        assert retrieved_user == db.user.get.return_value
+        assert result == db.user.get.return_value
         db.user.get.assert_awaited_once_with(email=login)
+        db.user.update.assert_awaited_once_with(result.id, last_login_at=mock.ANY)
 
     async def test_case_insensitiveness(self, user_service: UserService):
         # GIVEN
-        username = "AdMiN"
+        username, password = "AdMiN", "password"
         db = cast(mock.MagicMock, user_service.db)
+        user = db.user.get.return_value
+        user.check_password = mock.Mock(return_value=True)
         # WHEN
-        await user_service.get_by_login(username)
+        result = await user_service.signin(username, password)
         # THEN
         db.user.get.assert_awaited_once_with(username="admin")
+        db.user.update.assert_awaited_once_with(result.id, last_login_at=mock.ANY)
 
     async def test_stripping_spaces(self, user_service: UserService):
         # GIVEN
-        username = " admin "
+        username, password = " admin ", "password"
         db = cast(mock.MagicMock, user_service.db)
+        user = db.user.get.return_value
+        user.check_password = mock.Mock(return_value=True)
         # WHEN
-        await user_service.get_by_login(username)
+        result = await user_service.signin(username, password)
         # THEN
         db.user.get.assert_awaited_once_with(username="admin")
+        db.user.update.assert_awaited_once_with(result.id, last_login_at=mock.ANY)
+
+    async def test_when_password_not_match(self, user_service: UserService):
+        # GIVEN
+        username, password = "admin", "root"
+        db = cast(mock.MagicMock, user_service.db)
+        user = db.user.get.return_value
+        user.check_password = mock.Mock(return_value=False)
+        # WHEN
+        with pytest.raises(User.InvalidCredentials):
+            await user_service.signin(username, password)
+        # THEN
+        db.user.get.assert_awaited_once_with(username=username)
+        user.check_password.assert_called_once_with(password)
+        db.user.update.assert_not_awaited()
 
 
 class TestVerifyEmailSendCode:

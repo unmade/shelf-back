@@ -11,7 +11,7 @@ from app.app.users.domain import Account, User
 from app.app.users.email import EmailVerificationMessage
 from app.app.users.repositories import IAccountRepository, IUserRepository
 from app.cache import cache
-from app.toolkit import security, taskgroups
+from app.toolkit import security, taskgroups, timezone
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -198,19 +198,27 @@ class UserService:
         """
         return await self.db.user.get(username=username.lower().strip())
 
-    async def get_by_login(self, email_or_username: str) -> User:
+    async def signin(self, email_or_username: str, password: str) -> User:
         """
-        Retrieves a user by username. Username can be either a username or email.
+        Retrieves a user by login
 
         Raises:
             User.NotFound: If User with a target username does not exist.
+            User.InvalidCredentials: If User password is invalid.
         """
         login = email_or_username.lower().strip()
         try:
             validate_email(login)
         except ValueError:
-            return await self.db.user.get(username=login)
-        return await self.db.user.get(email=login)
+            user = await self.db.user.get(username=login)
+        else:
+            user = await self.db.user.get(email=login)
+
+        if not user.check_password(password):
+            raise User.InvalidCredentials() from None
+
+        await self.db.user.update(user.id, last_login_at=timezone.now())
+        return user
 
     async def verify_email_send_code(self, user_id: UUID) -> None:
         """

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Protocol, TypedDict, Unpack
 from uuid import UUID
 
@@ -18,6 +19,7 @@ class GetKwargs(TypedDict, total=False):
 class UserUpdate(TypedDict, total=False):
     email: str
     email_verified: bool
+    last_login_at: datetime
 
 
 class IUserRepository(Protocol):

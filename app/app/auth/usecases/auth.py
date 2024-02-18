@@ -37,11 +37,9 @@ class AuthUseCase:
 
     async def signin(self, email_or_username: str, password: str) -> Tokens:
         try:
-            user = await self.user_service.get_by_login(email_or_username)
+            user = await self.user_service.signin(email_or_username, password)
         except User.NotFound as exc:
             raise User.InvalidCredentials() from exc
-        if not user.check_password(password):
-            raise User.InvalidCredentials() from None
 
         taskgroups.schedule(self.audit_trail.user_signed_in(user))
         return await self.token_service.create(str(user.id))
