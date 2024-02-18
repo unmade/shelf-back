@@ -4,6 +4,7 @@ import contextlib
 from typing import TYPE_CHECKING, Protocol
 
 from app.app.files.domain import AnyFile, File, FileMember
+from app.config import config
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -89,6 +90,12 @@ class SharingUseCase:
         return member
 
     async def create_link(self, ns_path: str, path: AnyPath) -> SharedLink:
+        """Creates a shared link for a file at the given path."""
+        if config.features.shared_links_disabled:
+            user = await self.user.get_by_username(ns_path)
+            if not user.superuser:
+                raise File.ActionNotAllowed()
+
         file = await self.file.get_at_path(ns_path, path)
         return await self.sharing.create_link(file.id)
 

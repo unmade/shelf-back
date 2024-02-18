@@ -27,6 +27,10 @@ async def list_all() -> ListFeatureResponse:
                 value=config.features.sign_up_disabled,
             ),
             Feature(
+                name=FeatureName.shared_links_disabled,
+                value=config.features.shared_links_disabled,
+            ),
+            Feature(
                 name=FeatureName.upload_file_max_size,
                 value=config.features.upload_file_max_size,
             ),

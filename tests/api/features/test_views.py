@@ -29,6 +29,10 @@ async def test_list_features(client: TestClient):
                 "value": config.features.sign_up_disabled,
             },
             {
+                "name": "shared_links_disabled",
+                "value": config.features.shared_links_disabled,
+            },
+            {
                 "name": "upload_file_max_size",
                 "value": config.features.upload_file_max_size,
             },
