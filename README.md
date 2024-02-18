@@ -137,6 +137,7 @@ superuser on the first image run:
 |FEATURES__PHOTOS_LIBRARY_PATH | - | Photos/Library | All media files within that path will appear in the Photos. |
 |FEATURES__PRE_GENERATED_THUMBNAIL_SIZES | - | [72, 768, 2880] | Thumbnail sizes that are automatically generated on file upload. |
 |FEATURES__SIGN_UP_DISABLED    | - | False  | Whether sign up is disabled or not |
+|FEATURES__SHARED_LINKS_DISABLED | - | False  | Whether via link disabled. Note, this setting doesn't affect superusers. |
 |FEATURES__UPLOAD_FILE_MAX     | - | 100MB | Maximum upload file size. Default to 100 MB |
 |FEATURES__VERIFICATION_REQUIRED | - | False | Whether user account has to be verified to upload files. |
 |INDEXER__URL                  | - | None   | A URL to the Indexer service. If not specified, the file won't be indexed. |

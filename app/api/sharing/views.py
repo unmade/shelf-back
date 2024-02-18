@@ -66,6 +66,8 @@ async def create_shared_link(
     ns_path = str(namespace.path)
     try:
         link = await usecases.sharing.create_link(ns_path, payload.path)
+    except File.ActionNotAllowed as exc:
+       raise FileActionNotAllowed() from exc
     except File.NotFound as exc:
         raise PathNotFound(path=payload.path) from exc
 

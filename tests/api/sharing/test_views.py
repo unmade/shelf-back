@@ -143,18 +143,27 @@ class TestCreateSharedLink:
         assert response.status_code == 200
         sharing_use_case.create_link.assert_awaited_once_with(ns_path, "f.txt")
 
-    async def test_when_file_not_found(
-        self, client: TestClient, namespace: Namespace, sharing_use_case: MagicMock
+    @pytest.mark.parametrize(["error", "expected_error"], [
+        (File.ActionNotAllowed(), FileActionNotAllowed()),
+        (File.NotFound(), PathNotFound(path="im.jpeg")),
+    ])
+    async def test_reraising_app_errors_to_api_errors(
+        self,
+        client: TestClient,
+        namespace: Namespace,
+        sharing_use_case: MagicMock,
+        error: Exception,
+        expected_error: APIError,
     ):
         # GIVEN
-        sharing_use_case.create_link.side_effect = File.NotFound
+        sharing_use_case.create_link.side_effect = error
         payload = {"path": "im.jpeg"}
         # WHEN
         client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
-        assert response.json() == PathNotFound(path="im.jpeg").as_dict()
-        assert response.status_code == 404
+        assert response.json() == expected_error.as_dict()
+        assert response.status_code == expected_error.status_code
 
 
 class TestGetSharedLink:
