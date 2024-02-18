@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Optional, Union
 
 import pytest
@@ -13,6 +14,7 @@ from app.infrastructure.database.edgedb import autocast
     (Union[None, str], '<OPTIONAL str>'),
     (Union[str, None], '<OPTIONAL str>'),
     (str | None, '<OPTIONAL str>'),
+    (datetime, '<REQUIRED datetime>'),
 ])
 def test_autocast(pytype, dbtype) -> None:
     assert autocast.autocast(pytype) == dbtype

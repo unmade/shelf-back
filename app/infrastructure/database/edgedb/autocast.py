@@ -7,6 +7,7 @@ __all__ = ["autocast"]
 
 _TYPE_NAME = {
     "bool": "bool",
+    "datetime": "datetime",
     "float": "float64",
     "int": "int64",
     "str": "str",
@@ -16,16 +17,12 @@ _TYPE_NAME = {
 
 def autocast(pytype) -> str:
     """
-    Casts python type to appropriate EdgeDB type.
-
-    Args:
-        pytype: Python type.
+    Casts python type to appropriate EdgeDB type and returns it in formats:
+      - '<REQUIRED str>'
+      - '<OPTIONAL str>'
 
     Raises:
         TypeError: If type casting fails.
-
-    Returns:
-        str: EdgeDB type, for example: '<REQUIRED str>'.
     """
     marker = "REQUIRED"
     typename = ""
