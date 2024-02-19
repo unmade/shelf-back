@@ -15,7 +15,17 @@ class TestSignUpRequest:
             display_name="John Doe",
         )
 
-    def test_email_is_lowercased(self):
+    @pytest.mark.parametrize("name", ["John", "John Doe", "Алексей", "Алексей М"])
+    def test_display_name(self, name: str):
+        schema = SignUpRequest(
+            email="User@Example.com",
+            password="Password-1",
+            confirm_password="Password-1",
+            display_name=name,
+        )
+        assert schema.display_name == name
+
+    def test_email_is_lowercased(self) -> None:
         schema = SignUpRequest(
             email="User@Example.com",
             password="Password-1",
@@ -24,7 +34,7 @@ class TestSignUpRequest:
         )
         assert schema.email == "user@example.com"
 
-    def test_when_display_name_contain_forbidden_characters(self):
+    def test_when_display_name_contain_forbidden_characters(self) -> None:
         with pytest.raises(ValidationError) as excinfo:
             SignUpRequest(
                 email="user123@example.com",

@@ -13,6 +13,9 @@ from pydantic import (
 
 from app.toolkit import security
 
+NAME_ALLOWED_SYMBOLS = [" ", ".", "'", "-"]
+NAME_DISALLOWED_SYMBOLS = re.compile(r"[\W\d_]")
+
 
 class SignUpRequest(BaseModel):
     email: EmailStr
@@ -28,8 +31,11 @@ class SignUpRequest(BaseModel):
     @field_validator("display_name")
     @classmethod
     def validate_display_name(cls, value: str) -> str:
-        pattern = r'^[A-Za-z\-\'\s]+$'
-        assert re.match(pattern, value), (
+        sanitized_value = value[:]
+        for symbol in NAME_ALLOWED_SYMBOLS:
+            sanitized_value = sanitized_value.replace(symbol, "")
+
+        assert not NAME_DISALLOWED_SYMBOLS.search(sanitized_value), (
             "Display name can only contain letters, spaces, hyphens, and apostrophes."
         )
         return value.strip()
