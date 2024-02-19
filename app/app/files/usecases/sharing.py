@@ -9,7 +9,7 @@ from app.config import config
 if TYPE_CHECKING:
     from uuid import UUID
 
-    from app.app.files.domain import AnyPath, SharedLink
+    from app.app.files.domain import SharedLink
     from app.app.files.domain.file_member import FileMemberActions
     from app.app.files.services import (
         FileMemberService,
@@ -89,18 +89,18 @@ class SharingUseCase:
                 await self.file.mount(file_id, at_folder=(user.username, "."))
         return member
 
-    async def create_link(self, ns_path: str, path: AnyPath) -> SharedLink:
+    async def create_link(self, ns_path: str, file_id: UUID) -> SharedLink:
         """Creates a shared link for a file at the given path."""
         if config.features.shared_links_disabled:
             user = await self.user.get_by_username(ns_path)
             if not user.superuser:
                 raise File.ActionNotAllowed()
 
-        file = await self.file.get_at_path(ns_path, path)
+        file = await self.file.get_by_id(ns_path, file_id)
         return await self.sharing.create_link(file.id)
 
-    async def get_link(self, ns_path: str, path: AnyPath) -> SharedLink:
-        file = await self.file.get_at_path(ns_path, path)
+    async def get_link(self, ns_path: str, file_id: UUID) -> SharedLink:
+        file = await self.file.get_by_id(ns_path, file_id)
         return await self.sharing.get_link_by_file_id(file.id)
 
     async def get_link_thumbnail(

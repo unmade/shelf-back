@@ -146,6 +146,10 @@ class AddFileMemberRequest(BaseModel):
     username: str
 
 
+class FileIDRequest(BaseModel):
+    file_id: UUID
+
+
 class GetSharedLinkDownloadUrlRequest(BaseModel):
     token: str
     filename: str
