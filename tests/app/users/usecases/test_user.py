@@ -96,7 +96,7 @@ class TestCreateSuperUser:
         result = await user_use_case.create_superuser(username, password)
         # THEN
         assert result == user_service.create.return_value
-        user_service.create.assert_awaited_once_with(username, password)
+        user_service.create.assert_awaited_once_with(username, password, superuser=True)
         user = user_service.create.return_value
         ns_service.create.assert_awaited_once_with(user.username, owner_id=user.id)
 
