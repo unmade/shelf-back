@@ -99,12 +99,14 @@ class UserUseCase:
         Create a superuser with unlimited storage quote.
 
         Raises:
-            NamespaceAlreadyExists: If namespace with a given `path` already exists.
-            UserAlreadyExists: If user with a username already exists.
+            Namespace.AlreadyExists: If namespace with a given `path` already exists.
+            User.AlreadyExists: If user with a username already exists.
         """
         async for tx in self._services.atomic():
             async with tx:
-                user = await self.user_service.create(username, password)
+                user = await self.user_service.create(
+                    username, password, superuser=True
+                )
                 await self.ns_service.create(user.username, owner_id=user.id)
         return user
 
