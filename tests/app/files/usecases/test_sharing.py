@@ -140,23 +140,23 @@ class TestAddMember:
 class TestCreateLink:
     async def test(self, sharing_use_case: SharingUseCase):
         # GIVEN
-        ns_path, path = "admin", "f.txt"
+        ns_path, file_id = "admin", uuid.uuid4()
         file_service = cast(mock.MagicMock, sharing_use_case.file)
         sharing_service = cast(mock.MagicMock, sharing_use_case.sharing)
         user_service = cast(mock.MagicMock, sharing_use_case.user)
         # WHEN
         with mock.patch.object(config.features, "shared_links_disabled", False):
-            link = await sharing_use_case.create_link(ns_path, path)
+            link = await sharing_use_case.create_link(ns_path, file_id)
         # THEN
         assert link == sharing_service.create_link.return_value
-        file_service.get_at_path.assert_awaited_once_with(ns_path, path)
-        file = file_service.get_at_path.return_value
+        file_service.get_by_id.assert_awaited_once_with(ns_path, file_id)
+        file = file_service.get_by_id.return_value
         sharing_service.create_link.assert_awaited_once_with(file.id)
         user_service.get_by_username.assert_not_awaited()
 
     async def test_always_enabled_for_superuser(self, sharing_use_case: SharingUseCase):
         # GIVEN
-        ns_path, path = "admin", "f.txt"
+        ns_path, file_id = "admin", uuid.uuid4()
         file_service = cast(mock.MagicMock, sharing_use_case.file)
         sharing_service = cast(mock.MagicMock, sharing_use_case.sharing)
         user_service = cast(mock.MagicMock, sharing_use_case.user)
@@ -166,17 +166,17 @@ class TestCreateLink:
         with (
             mock.patch.object(config.features, "shared_links_disabled", True),
         ):
-            link = await sharing_use_case.create_link(ns_path, path)
+            link = await sharing_use_case.create_link(ns_path, file_id)
         # THEN
         assert link == sharing_service.create_link.return_value
-        file_service.get_at_path.assert_awaited_once_with(ns_path, path)
-        file = file_service.get_at_path.return_value
+        file_service.get_by_id.assert_awaited_once_with(ns_path, file_id)
+        file = file_service.get_by_id.return_value
         sharing_service.create_link.assert_awaited_once_with(file.id)
         user_service.get_by_username.assert_awaited_once_with(ns_path)
 
     async def test_when_disabled(self, sharing_use_case: SharingUseCase):
         # GIVEN
-        ns_path, path = "admin", "f.txt"
+        ns_path, file_id = "admin", uuid.uuid4()
         file_service = cast(mock.MagicMock, sharing_use_case.file)
         sharing_service = cast(mock.MagicMock, sharing_use_case.sharing)
         user_service = cast(mock.MagicMock, sharing_use_case.user)
@@ -187,9 +187,9 @@ class TestCreateLink:
             mock.patch.object(config.features, "shared_links_disabled", True),
             pytest.raises(File.ActionNotAllowed),
         ):
-            await sharing_use_case.create_link(ns_path, path)
+            await sharing_use_case.create_link(ns_path, file_id)
         # THEN
-        file_service.get_at_path.assert_not_awaited()
+        file_service.get_by_id.assert_not_awaited()
         sharing_service.create_link.assert_not_awaited()
         user_service.get_by_username.assert_awaited_once_with(ns_path)
 
@@ -197,13 +197,13 @@ class TestCreateLink:
 class TestGetLink:
     async def test(self, sharing_use_case: SharingUseCase):
         # GIVEN
-        ns_path, path = "admin", "f.txt"
+        ns_path, file_id = "admin", uuid.uuid4()
         file_service = cast(mock.MagicMock, sharing_use_case.file)
         sharing_service = cast(mock.MagicMock, sharing_use_case.sharing)
         # WHEN
-        link = await sharing_use_case.get_link(ns_path, path)
+        link = await sharing_use_case.get_link(ns_path, file_id)
         # THEN
-        file_service.get_at_path.assert_awaited_once_with(ns_path, path)
+        file_service.get_by_id.assert_awaited_once_with(ns_path, file_id)
         assert link == sharing_service.get_link_by_file_id.return_value
 
 
