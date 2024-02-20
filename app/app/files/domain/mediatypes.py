@@ -39,6 +39,7 @@ IMAGE_HEIC = "image/heic"
 IMAGE_HEIF = "image/heif"
 IMAGE_JPEG = "image/jpeg"
 IMAGE_PNG = "image/png"
+IMAGE_TIFF = "image/tiff"
 IMAGE_WEBP = "image/webp"
 IMAGE_ICON = "image/x-icon"
 

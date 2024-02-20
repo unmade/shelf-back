@@ -4,6 +4,7 @@ import asyncio
 from typing import IO
 
 from app.app.files.domain import Exif, mediatypes
+from app.toolkit.mediatypes import MediaType
 
 from .image import load_image_data
 
@@ -13,11 +14,13 @@ __all__ = [
 ]
 
 _SUPPORTED_IMAGES = {
-    mediatypes.IMAGE_HEIC,
-    mediatypes.IMAGE_HEIF,
-    mediatypes.IMAGE_JPEG,
-    mediatypes.IMAGE_PNG,
-    mediatypes.IMAGE_WEBP,
+    MediaType.IMAGE_BMP,
+    MediaType.IMAGE_HEIC,
+    MediaType.IMAGE_HEIF,
+    MediaType.IMAGE_JPEG,
+    MediaType.IMAGE_PNG,
+    MediaType.IMAGE_TIFF,
+    MediaType.IMAGE_WEBP,
 }
 
 SUPPORTED_TYPES = _SUPPORTED_IMAGES
