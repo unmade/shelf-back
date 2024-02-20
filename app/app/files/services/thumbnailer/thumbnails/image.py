@@ -7,7 +7,8 @@ from typing import IO, TYPE_CHECKING
 from PIL import Image, ImageSequence
 from PIL.ImageOps import exif_transpose
 
-from app.app.files.domain import File, mediatypes
+from app.app.files.domain import File
+from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
     from PIL.Image import Image as ImageType
@@ -17,12 +18,14 @@ __all__ = [
 ]
 
 _SUPPORTED_IMAGES = {
-    mediatypes.IMAGE_GIF,
-    mediatypes.IMAGE_HEIC,
-    mediatypes.IMAGE_HEIF,
-    mediatypes.IMAGE_JPEG,
-    mediatypes.IMAGE_PNG,
-    mediatypes.IMAGE_WEBP,
+    MediaType.IMAGE_BMP,
+    MediaType.IMAGE_GIF,
+    MediaType.IMAGE_HEIC,
+    MediaType.IMAGE_HEIF,
+    MediaType.IMAGE_JPEG,
+    MediaType.IMAGE_PNG,
+    MediaType.IMAGE_TIFF,
+    MediaType.IMAGE_WEBP,
 }
 
 _SUPPORTED_PDF = {
