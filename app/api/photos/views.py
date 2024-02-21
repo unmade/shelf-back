@@ -10,6 +10,7 @@ from app.api.photos import exceptions
 from app.app.photos.domain import MediaItem
 
 from .schemas import (
+    CountMediaItemsResponse,
     DeleteMediaItemBatchRequest,
     DeleteMediaItemImmediatelyBatchRequest,
     FileIDRequest,
@@ -22,6 +23,16 @@ from .schemas import (
 )
 
 router = APIRouter()
+
+
+@router.get("/count_media_items")
+async def count_media_items(
+    usecases: UseCasesDeps,
+    user: CurrentUserDeps,
+) -> CountMediaItemsResponse:
+    """Returns total number of media items."""
+    result = await usecases.photos.count_media_items(user.id)
+    return CountMediaItemsResponse(total=result.total, deleted=result.deleted)
 
 
 @router.post("/delete_media_item_batch")
@@ -78,7 +89,7 @@ async def list_media_items(
     usecases: UseCasesDeps,
     favourites: Annotated[bool, Query(...)] = False,
     page: Annotated[int, Query(ge=1)] = 1,
-    page_size: Annotated[int, Query(ge=25, le=100)] = 1000,
+    page_size: Annotated[int, Query(ge=100, le=1000)] = 100,
 ) -> Page[MediaItemSchema]:
     """List media items current user has."""
     offset = get_offset(page, page_size)
@@ -134,7 +145,7 @@ async def list_media_item_categories(
 
 
 @router.post("/restore_media_item_batch")
-async def restore_media_item(
+async def restore_media_item_batch(
     request: Request,
     payload: RestoreMediaItemBatchRequest,
     usecases: UseCasesDeps,

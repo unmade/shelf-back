@@ -9,6 +9,7 @@ import edgedb
 from app.app.photos.domain import MediaItem
 from app.app.photos.domain.media_item import MediaItemCategory
 from app.app.photos.repositories import IMediaItemRepository
+from app.app.photos.repositories.media_item import CountResult
 from app.config import config
 from app.toolkit import json_
 
@@ -105,6 +106,49 @@ class MediaItemRepository(IMediaItemRepository):
             )
         except edgedb.NoDataError as exc:
             raise MediaItem.NotFound() from exc
+
+    async def count(self, user_id: UUID) -> CountResult:
+        query = """
+            WITH
+                mediatypes := (
+                    SELECT
+                        MediaType
+                    FILTER
+                        .name IN {array_unpack(<array<str>>$mediatypes)}
+                ),
+            SELECT {
+                total := count(
+                        File
+                    FILTER
+                        .path ILIKE <str>$prefix ++ '%'
+                        AND
+                        .namespace.owner.id = <uuid>$user_id
+                        AND
+                        .mediatype IN mediatypes
+                        AND
+                        NOT EXISTS(.deleted_at)
+                ),
+                deleted := count(
+                        File
+                    FILTER
+                        .path ILIKE <str>$prefix ++ '%'
+                        AND
+                        .namespace.owner.id = <uuid>$user_id
+                        AND
+                        .mediatype IN mediatypes
+                        AND
+                        EXISTS(.deleted_at)
+                )
+            }
+        """
+
+        result = await self.conn.query_required_single(
+            query,
+            user_id=user_id,
+            prefix=config.features.photos_library_path,
+            mediatypes=list(MediaItem.ALLOWED_MEDIA_TYPES),
+        )
+        return CountResult(total=result.total, deleted=result.deleted)
 
     async def get_by_id_batch(self, file_ids: Sequence[UUID]) -> list[MediaItem]:
         query = """

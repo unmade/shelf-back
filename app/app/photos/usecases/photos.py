@@ -14,6 +14,7 @@ if TYPE_CHECKING:
         MediaItemCategory,
         MediaItemCategoryName,
     )
+    from app.app.photos.repositories.media_item import CountResult
     from app.app.photos.services import MediaItemService
 
     class IUseCaseServices(Protocol):
@@ -47,6 +48,10 @@ class PhotosUseCase:
             MediaItem.NotFound: If media item with a given `file_id` does not exist.
         """
         await self.media_item.auto_add_category_batch(file_id, categories=categories)
+
+    async def count_media_items(self, user_id: UUID) -> CountResult:
+        """Returns total number of media items user has."""
+        return await self.media_item.count(user_id)
 
     async def delete_media_item_batch(
         self, user_id: UUID, file_ids: Sequence[UUID]

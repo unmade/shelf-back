@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, NamedTuple, Protocol
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -11,11 +11,19 @@ if TYPE_CHECKING:
     from app.app.photos.domain.media_item import MediaItemCategory
 
 
+class CountResult(NamedTuple):
+    total: int
+    deleted: int
+
+
 class IMediaItemRepository(Protocol):
     async def add_category_batch(
         self, file_id: UUID, categories: Sequence[MediaItemCategory]
     ) -> None:
         """Adds multiple categories at once for the specified media item."""
+
+    async def count(self, user_id: UUID) -> CountResult:
+        """Returns total number of media items user with specified ID has."""
 
     async def get_by_id_batch(self, file_ids: Sequence[UUID]) -> list[MediaItem]:
         """Gets all media items with target IDs."""

@@ -15,6 +15,7 @@ if TYPE_CHECKING:
         MediaItemCategoryName,
     )
     from app.app.photos.repositories import IMediaItemRepository
+    from app.app.photos.repositories.media_item import CountResult
 
     class IServiceDatabase(IDatabase, Protocol):
         media_item: IMediaItemRepository
@@ -48,6 +49,10 @@ class MediaItemService:
                 for name, probability in categories
             ]
         )
+
+    async def count(self, user_id: UUID) -> CountResult:
+        """Returns total number of media items user with specified ID has."""
+        return await self.db.media_item.count(user_id)
 
     async def delete_batch(
         self, user_id: UUID, file_ids: Sequence[UUID]

@@ -57,6 +57,18 @@ class TestAutoAddCategoryBatch:
         )
 
 
+class TestCountMediaItems:
+    async def test(self, photos_use_case: PhotosUseCase):
+        # GIVEN
+        user_id = uuid.uuid4()
+        media_item_service = cast(mock.MagicMock, photos_use_case.media_item)
+        # WHEN
+        result = await photos_use_case.count_media_items(user_id)
+        # THEN
+        assert result == media_item_service.count.return_value
+        media_item_service.count.assert_awaited_once_with(user_id)
+
+
 class TestDeleteMediaItemBatch:
     async def test(self, photos_use_case: PhotosUseCase):
         # GIVEN

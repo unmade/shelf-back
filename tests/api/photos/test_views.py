@@ -8,6 +8,7 @@ import pytest
 from app.api.photos.exceptions import MediaItemNotFound
 from app.app.files.domain import SharedLink
 from app.app.photos.domain import MediaItem
+from app.app.photos.repositories.media_item import CountResult
 from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
@@ -36,6 +37,27 @@ def _make_shared_link(file_id: UUID) -> SharedLink:
         file_id=file_id,
         token=uuid.uuid4().hex,
     )
+
+
+class TestCountMediaItems:
+    url = "/photos/count_media_items"
+
+    async def test(
+        self, client: TestClient, photos_use_case: MagicMock, user: User,
+    ):
+        # GIVEN
+        count_result = CountResult(total=4, deleted=2)
+        photos_use_case.count_media_items.return_value = count_result
+        # WHEN
+        client.mock_user(user)
+        response = await client.get(self.url)
+        # THEN
+        photos_use_case.count_media_items.assert_awaited_once_with(user.id)
+        assert response.json() == {
+            "total": count_result.total,
+            "deleted": count_result.deleted,
+        }
+        assert response.status_code == 200
 
 
 class TestDeleteMediaItemBatch:
@@ -142,7 +164,7 @@ class TestListMediaItems:
         response = await client.get(self.url)
         # THEN
         photos_use_case.list_media_items.assert_awaited_once_with(
-            user.id, only_favourites=False, offset=0, limit=1000
+            user.id, only_favourites=False, offset=0, limit=100
         )
         assert response.status_code == 200
         assert len(response.json()["items"]) == len(items)
