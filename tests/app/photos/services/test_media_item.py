@@ -47,6 +47,19 @@ class TestAutoAddCategoryBatch:
         )
 
 
+class TestCount:
+    async def test(self, media_item_service: MediaItemService):
+        # GIVEN
+        user_id = uuid.uuid4()
+        db = cast(mock.AsyncMock, media_item_service.db)
+        # WHEN
+        result = await media_item_service.count(user_id)
+        # THEN
+        assert result == db.media_item.count.return_value
+        db.media_item.count.assert_awaited_once_with(user_id)
+
+
+
 class TestDeleteBatch:
     @mock.patch("app.app.photos.services.media_item.timezone")
     async def test(

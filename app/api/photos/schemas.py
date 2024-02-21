@@ -79,6 +79,11 @@ class FileIDRequest(BaseModel):
     file_id: UUID
 
 
+class CountMediaItemsResponse(BaseModel):
+    total: int
+    deleted: int
+
+
 class AddCategoryRequest(BaseModel):
     class _Category(BaseModel):
         name: MediaItemCategoryName

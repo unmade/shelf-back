@@ -136,6 +136,25 @@ class TestAddCategoryBatch:
             await media_item_repo.add_category_batch(file_id, categories=[])
 
 
+class TestCount:
+    @pytest.mark.usefixtures("namespace")
+    async def test(
+        self,
+        media_item_repo: MediaItemRepository,
+        media_item_factory: MediaItemFactory,
+        user: User,
+    ):
+        # GIVEN
+        await media_item_factory(user.id),
+        await media_item_factory(user.id),
+        await media_item_factory(user.id, deleted_at=timezone.now()),
+        # WHEN
+        result = await media_item_repo.count(user.id)
+        # THEN
+        assert result.total == 2
+        assert result.deleted == 1
+
+
 class TestGetByIDBatch:
     @pytest.mark.usefixtures("namespace")
     async def test(
