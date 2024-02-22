@@ -550,13 +550,13 @@ class TestGetDownloadURL:
     ):
         # GIVEN
         file = _make_file(namespace.path, "f.txt")
-        ns_use_case.get_item_at_path.return_value = file
-        payload = {"path": str(file.path)}
+        ns_use_case.get_item_by_id.return_value = file
+        payload = {"id": str(file.id)}
         # WHEN
         client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
-        ns_use_case.get_item_at_path.assert_awaited_once_with(file.ns_path, file.path)
+        ns_use_case.get_item_by_id.assert_awaited_once_with(file.ns_path, file.id)
         download_url = response.json()["download_url"]
         assert download_url.startswith(str(client.base_url))
         assert "/download?" in download_url
@@ -573,13 +573,13 @@ class TestGetDownloadURL:
     ):
         # GIVEN
         file = _make_file(namespace.path, "f", mediatype=mediatypes.FOLDER)
-        ns_use_case.get_item_at_path.return_value = file
-        payload = {"path": str(file.path)}
+        ns_use_case.get_item_by_id.return_value = file
+        payload = {"id": str(file.id)}
         # WHEN
         client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
-        ns_use_case.get_item_at_path.assert_awaited_once_with(file.ns_path, file.path)
+        ns_use_case.get_item_by_id.assert_awaited_once_with(file.ns_path, file.id)
         download_url = response.json()["download_url"]
         assert download_url.startswith(str(client.base_url))
         assert "/download_folder?" in download_url
@@ -605,19 +605,19 @@ class TestGetDownloadURL:
                 actions=MountPoint.Actions(can_download=False),
             ),
         )
-        ns_use_case.get_item_at_path.return_value = mounted_file
-        payload = {"path": str(mounted_file.path)}
+        ns_use_case.get_item_by_id.return_value = mounted_file
+        payload = {"id": str(mounted_file.id)}
         # WHEN
         client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
         assert response.json() == FileActionNotAllowed().as_dict()
         assert response.status_code == FileActionNotAllowed.status_code
-        ns_use_case.get_item_at_path.assert_awaited_once_with(file.ns_path, file.path)
+        ns_use_case.get_item_by_id.assert_awaited_once_with(file.ns_path, file.id)
 
     @pytest.mark.parametrize(["path", "error", "expected_error"], [
-        ("teamfolder/f.txt", File.ActionNotAllowed(), FileActionNotAllowed()),
-        ("path/not/found", File.NotFound(), PathNotFound(path="path/not/found")),
+        (_FILE_ID, File.ActionNotAllowed(), FileActionNotAllowed()),
+        (_FILE_ID, File.NotFound(), PathNotFound(path=str(_FILE_ID))),
     ])
     async def test_reraising_app_errors_to_api_errors(
         self,
@@ -629,14 +629,15 @@ class TestGetDownloadURL:
         expected_error: APIError,
     ):
         # GIVEN
-        ns_use_case.get_item_at_path.side_effect = error
-        payload = {"path": path}
+        ns_use_case.get_item_by_id.side_effect = error
+        payload = {"id": str(_FILE_ID)}
         # WHEN
         client.mock_namespace(namespace)
         response = await client.post(self.url, json=payload)
         # THEN
         assert response.json() == expected_error.as_dict()
         assert response.status_code == expected_error.status_code
+        ns_use_case.get_item_by_id.assert_awaited_once_with(namespace.path, _FILE_ID)
 
 
 class TestGetContentMetadata:

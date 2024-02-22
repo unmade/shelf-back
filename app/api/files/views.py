@@ -264,17 +264,17 @@ async def get_batch(
 @router.post("/get_download_url")
 async def get_download_url(
     request: Request,
-    payload: PathRequest,
+    payload: IDRequest,
     namespace: NamespaceDeps,
     usecases: UseCasesDeps,
 ) -> GetDownloadUrlResponse:
     """Return a link to download requested file or folder."""
     try:
-        file = await usecases.namespace.get_item_at_path(namespace.path, payload.path)
+        file = await usecases.namespace.get_item_by_id(namespace.path, payload.id)
     except File.ActionNotAllowed as exc:
         raise exceptions.FileActionNotAllowed() from exc
     except File.NotFound as exc:
-        raise exceptions.PathNotFound(path=payload.path) from exc
+        raise exceptions.PathNotFound(path=str(payload.id)) from exc
 
     if not file.can_download():
         raise exceptions.FileActionNotAllowed() from None
