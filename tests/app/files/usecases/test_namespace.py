@@ -314,6 +314,18 @@ class TestGetItemAtPath:
         file_service.get_at_path.assert_called_once_with(ns_path, path)
 
 
+class TestGetItemByID:
+    async def test(self, ns_use_case: NamespaceUseCase):
+        # GIVEN
+        ns_path, file_id = "admin", uuid.uuid4()
+        file_service = cast(mock.MagicMock, ns_use_case.file)
+        # WHEN
+        result = await ns_use_case.get_item_by_id(ns_path, file_id)
+        # THEN
+        assert result == file_service.get_by_id.return_value
+        file_service.get_by_id.assert_called_once_with(ns_path, file_id)
+
+
 class TestListFolder:
     async def test(self, ns_use_case: NamespaceUseCase):
         # GIVEN

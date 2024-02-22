@@ -238,6 +238,16 @@ class NamespaceUseCase:
         """
         return await self.file.get_at_path(ns_path, path)
 
+    async def get_item_by_id(self, ns_path: AnyPath, file_id: UUID) -> AnyFile:
+        """
+        Returns a file with specified ID.
+
+        Raises:
+            File.ActionNotAllowed: If getting a file is not allowed.
+            File.NotFound: If file with given ID does not exist.
+        """
+        return await self.file.get_by_id(ns_path, file_id)
+
     async def list_folder(self, ns_path: AnyPath, path: AnyPath) -> list[AnyFile]:
         """
         Lists all files in the folder at a given path.
