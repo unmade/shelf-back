@@ -39,20 +39,20 @@ def _make_shared_link(file_id: UUID) -> SharedLink:
     )
 
 
-class TestCountMediaItems:
-    url = "/photos/count_media_items"
+class TestCount:
+    url = "/photos/media_items/count"
 
     async def test(
         self, client: TestClient, photos_use_case: MagicMock, user: User,
     ):
         # GIVEN
         count_result = CountResult(total=4, deleted=2)
-        photos_use_case.count_media_items.return_value = count_result
+        photos_use_case.count.return_value = count_result
         # WHEN
         client.mock_user(user)
         response = await client.get(self.url)
         # THEN
-        photos_use_case.count_media_items.assert_awaited_once_with(user.id)
+        photos_use_case.count.assert_awaited_once_with(user.id)
         assert response.json() == {
             "total": count_result.total,
             "deleted": count_result.deleted,
@@ -60,8 +60,8 @@ class TestCountMediaItems:
         assert response.status_code == 200
 
 
-class TestDeleteMediaItemBatch:
-    url = "/photos/delete_media_item_batch"
+class TestDeletedBatch:
+    url = "/photos/media_items/delete_batch"
 
     async def test(
         self, client: TestClient, photos_use_case: MagicMock, user: User,
@@ -72,13 +72,13 @@ class TestDeleteMediaItemBatch:
             _make_media_item("img.png", mediatype="image/png"),
         ]
         file_ids = [item.file_id for item in items]
-        photos_use_case.delete_media_item_batch.return_value = items
+        photos_use_case.delete_batch.return_value = items
         payload = {"file_ids": [str(file_id) for file_id in file_ids]}
         # WHEN
         client.mock_user(user)
         response = await client.post(self.url, json=payload)
         # THEN
-        photos_use_case.delete_media_item_batch.assert_awaited_once_with(
+        photos_use_case.delete_batch.assert_awaited_once_with(
             user.id, file_ids
         )
         assert response.status_code == 200
@@ -89,22 +89,8 @@ class TestDeleteMediaItemBatch:
         assert response.json()["items"][1]["thumbnail_url"] is not None
 
 
-class TestEmptyTrash:
-    url = "/photos/empty_trash"
-
-    async def test(
-        self, client: TestClient, photos_use_case: MagicMock, user: User,
-    ):
-        # WHEN
-        client.mock_user(user)
-        response = await client.post(self.url)
-        # THEN
-        photos_use_case.empty_trash.assert_awaited_once_with(user.id)
-        assert response.status_code == 200
-
-
-class TestDeleteMediaItemImmediatelyBatch:
-    url = "/photos/delete_media_item_immediately_batch"
+class TestDeletedImmediatelyBatch:
+    url = "/photos/media_items/delete_immediately_batch"
 
     async def test(
         self, client: TestClient, photos_use_case: MagicMock, user: User,
@@ -116,39 +102,14 @@ class TestDeleteMediaItemImmediatelyBatch:
         client.mock_user(user)
         response = await client.post(self.url, json=payload)
         # THEN
-        photos_use_case.delete_media_item_immediately_batch.assert_awaited_once_with(
+        photos_use_case.delete_immediately_batch.assert_awaited_once_with(
             user.id, file_ids
         )
         assert response.status_code == 200
 
 
-class TestListDeletedMediaItems:
-    url = "/photos/list_deleted_media_items"
-
-    async def test(
-        self, client: TestClient, photos_use_case: MagicMock, user: User,
-    ):
-        # GIVEN
-        items = [
-            _make_media_item("img.jpeg", mediatype="image/jpeg"),
-            _make_media_item("img.png", mediatype="image/png"),
-        ]
-        photos_use_case.list_deleted_media_items.return_value = items
-        # WHEN
-        client.mock_user(user)
-        response = await client.get(self.url)
-        # THEN
-        photos_use_case.list_deleted_media_items.assert_awaited_once_with(user.id)
-        assert response.status_code == 200
-        assert len(response.json()["items"]) == len(items)
-        assert response.json()["items"][0]["name"] == "img.jpeg"
-        assert response.json()["items"][0]["thumbnail_url"] is not None
-        assert response.json()["items"][1]["name"] == "img.png"
-        assert response.json()["items"][1]["thumbnail_url"] is not None
-
-
-class TestListMediaItems:
-    url = "/photos/list_media_items"
+class TestList:
+    url = "/photos/media_items/list"
 
     async def test(
         self, client: TestClient, photos_use_case: MagicMock, user: User,
@@ -158,12 +119,12 @@ class TestListMediaItems:
             _make_media_item("img.jpeg", mediatype="image/jpeg"),
             _make_media_item("img.svg", mediatype="image/svg+xml"),
         ]
-        photos_use_case.list_media_items.return_value = items
+        photos_use_case.list_.return_value = items
         # WHEN
         client.mock_user(user)
         response = await client.get(self.url)
         # THEN
-        photos_use_case.list_media_items.assert_awaited_once_with(
+        photos_use_case.list_.assert_awaited_once_with(
             user.id, only_favourites=False, offset=0, limit=100
         )
         assert response.status_code == 200
@@ -174,15 +135,40 @@ class TestListMediaItems:
         assert response.json()["items"][1]["thumbnail_url"] is None
 
 
-class TestListMediaItemCategories:
-    url = "/photos/list_media_item_categories"
+class TestListDeleted:
+    url = "/photos/media_items/list_deleted"
+
+    async def test(
+        self, client: TestClient, photos_use_case: MagicMock, user: User,
+    ):
+        # GIVEN
+        items = [
+            _make_media_item("img.jpeg", mediatype="image/jpeg"),
+            _make_media_item("img.png", mediatype="image/png"),
+        ]
+        photos_use_case.list_deleted.return_value = items
+        # WHEN
+        client.mock_user(user)
+        response = await client.get(self.url)
+        # THEN
+        photos_use_case.list_deleted.assert_awaited_once_with(user.id)
+        assert response.status_code == 200
+        assert len(response.json()["items"]) == len(items)
+        assert response.json()["items"][0]["name"] == "img.jpeg"
+        assert response.json()["items"][0]["thumbnail_url"] is not None
+        assert response.json()["items"][1]["name"] == "img.png"
+        assert response.json()["items"][1]["thumbnail_url"] is not None
+
+
+class TestListCategories:
+    url = "/photos/media_items/list_categories"
 
     async def test(
         self, client: TestClient, photos_use_case: MagicMock, user: User,
     ):
         # GIVEN
         file_id = uuid.uuid4()
-        photos_use_case.list_media_item_categories.return_value = [
+        photos_use_case.list_categories.return_value = [
             MediaItem.Category(
                 name=MediaItem.Category.Name.ANIMALS,
                 origin=MediaItem.Category.Origin.AUTO,
@@ -200,7 +186,7 @@ class TestListMediaItemCategories:
         response = await client.post(self.url, json=payload)
         # THEN
         assert response.status_code == 200
-        photos_use_case.list_media_item_categories.assert_awaited_once_with(
+        photos_use_case.list_categories.assert_awaited_once_with(
             user.id, file_id
         )
 
@@ -212,20 +198,20 @@ class TestListMediaItemCategories:
     ):
         # GIVEN
         file_id = uuid.uuid4()
-        photos_use_case.list_media_item_categories.side_effect = MediaItem.NotFound
+        photos_use_case.list_categories.side_effect = MediaItem.NotFound
         payload = {"file_id": str(file_id)}
         # WHEN
         client.mock_user(user)
         response = await client.post(self.url, json=payload)
         # THEN
         assert response.status_code == 404
-        photos_use_case.list_media_item_categories.assert_awaited_once_with(
+        photos_use_case.list_categories.assert_awaited_once_with(
             user.id, file_id
         )
 
 
 class TestListSharedLinks:
-    url = "/photos/list_shared_links"
+    url = "/photos/media_items/list_shared_links"
 
     async def test(self, client: TestClient, photos_use_case: MagicMock, user: User):
         # GIVEN
@@ -242,8 +228,22 @@ class TestListSharedLinks:
         assert len(response.json()["items"]) == 3
 
 
-class TestRestoreMediaItemBatch:
-    url = "/photos/restore_media_item_batch"
+class TestPurge:
+    url = "/photos/media_items/purge"
+
+    async def test(
+        self, client: TestClient, photos_use_case: MagicMock, user: User,
+    ):
+        # WHEN
+        client.mock_user(user)
+        response = await client.post(self.url)
+        # THEN
+        photos_use_case.purge.assert_awaited_once_with(user.id)
+        assert response.status_code == 200
+
+
+class TestRestoreBatch:
+    url = "/photos/media_items/restore_batch"
 
     async def test(
         self, client: TestClient, photos_use_case: MagicMock, user: User,
@@ -254,13 +254,13 @@ class TestRestoreMediaItemBatch:
             _make_media_item("img.png", mediatype="image/png"),
         ]
         file_ids = [item.file_id for item in items]
-        photos_use_case.restore_media_item_batch.return_value = items
+        photos_use_case.restore_batch.return_value = items
         payload = {"file_ids": [str(file_id) for file_id in file_ids]}
         # WHEN
         client.mock_user(user)
         response = await client.post(self.url, json=payload)
         # THEN
-        photos_use_case.restore_media_item_batch.assert_awaited_once_with(
+        photos_use_case.restore_batch.assert_awaited_once_with(
             user.id, file_ids
         )
         assert response.status_code == 200
@@ -272,7 +272,7 @@ class TestRestoreMediaItemBatch:
 
 
 class TestSetCategories:
-    url = "/photos/set_media_item_categories"
+    url = "/photos/media_items/set_categories"
 
     async def test(self, client: TestClient, photos_use_case: MagicMock, user: User):
         # GIVEN
@@ -289,7 +289,7 @@ class TestSetCategories:
         client.mock_user(user)
         response = await client.post(self.url, json=payload)
         # THEN
-        photos_use_case.set_media_item_categories.assert_awaited_once_with(
+        photos_use_case.set_categories.assert_awaited_once_with(
             user.id, file_id, categories=categories
         )
         assert response.status_code == 200
@@ -306,12 +306,12 @@ class TestSetCategories:
             "file_id": str(file_id),
             "categories": [],
         }
-        photos_use_case.set_media_item_categories.side_effect = MediaItem.NotFound
+        photos_use_case.set_categories.side_effect = MediaItem.NotFound
         # WHEN
         client.mock_user(user)
         response = await client.post(self.url, json=payload)
         # THEN
-        photos_use_case.set_media_item_categories.assert_awaited_once_with(
+        photos_use_case.set_categories.assert_awaited_once_with(
             user.id, file_id, categories=[]
         )
         assert response.status_code == 404

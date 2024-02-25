@@ -3,9 +3,9 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from app.api.deps import ServiceTokenDeps, UseCasesDeps
+from app.api.photos.exceptions import MediaItemNotFound
 from app.app.photos.domain import MediaItem
 
-from .exceptions import MediaItemNotFound
 from .schemas import AddCategoryRequest
 
 router = APIRouter()
@@ -24,6 +24,8 @@ async def auto_add_category_batch(
         for category in payload.categories
     ]
     try:
-        await usecases.photos.auto_add_category_batch(file_id, categories=categories)
+        await usecases.media_item.auto_add_category_batch(
+            file_id, categories=categories
+        )
     except MediaItem.NotFound as exc:
         raise MediaItemNotFound() from exc

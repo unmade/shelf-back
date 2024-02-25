@@ -17,7 +17,7 @@ pytestmark = [pytest.mark.anyio]
 
 
 class TestAddAutoCategoryBatch:
-    url = "/-/photos/add_category_batch"
+    url = "/photos/-/media_items/add_category_batch"
 
     async def test(self, client: TestClient, photos_use_case: MagicMock):
         # GIVEN
