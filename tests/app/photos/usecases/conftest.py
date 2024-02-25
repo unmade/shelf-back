@@ -7,7 +7,7 @@ import pytest
 from app.app.files.services import NamespaceService, SharingService
 from app.app.files.services.file import FileCoreService
 from app.app.photos.services import MediaItemService
-from app.app.photos.usecases import PhotosUseCase
+from app.app.photos.usecases import MediaItemUseCase
 
 
 @pytest.fixture
@@ -19,4 +19,4 @@ def photos_use_case():
         namespace=mock.MagicMock(spec=NamespaceService),
         sharing=mock.MagicMock(spec=SharingService),
     )
-    return PhotosUseCase(services=services)
+    return MediaItemUseCase(services=services)

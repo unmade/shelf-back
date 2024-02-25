@@ -139,7 +139,7 @@ class TestListForUser:
         user_id = uuid.uuid4()
         db = cast(mock.AsyncMock, media_item_service.db)
         # WHEN
-        result = await media_item_service.list_for_user(user_id, offset=100, limit=50)
+        result = await media_item_service.list_(user_id, offset=100, limit=50)
         # THEN
         assert result == db.media_item.list_by_user_id.return_value
         db.media_item.list_by_user_id.assert_awaited_once_with(

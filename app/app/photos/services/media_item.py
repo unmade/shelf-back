@@ -95,6 +95,14 @@ class MediaItemService:
                 return
             yield items
 
+    async def list_(
+        self, user_id: UUID, *, only_favourites: bool = False, offset: int, limit: int
+    ) -> list[MediaItem]:
+        """Lists media items for a given user."""
+        return await self.db.media_item.list_by_user_id(
+            user_id, only_favourites=only_favourites, offset=offset, limit=limit
+        )
+
     async def list_deleted(
         self, user_id: UUID, *, offset: int, limit: int = 25
     ) -> list[MediaItem]:
@@ -103,17 +111,9 @@ class MediaItemService:
             user_id, offset=offset, limit=limit
         )
 
-    async def list_for_user(
-        self, user_id: UUID, *, only_favourites: bool = False, offset: int, limit: int
-    ) -> list[MediaItem]:
-        """Lists media items for a given user."""
-        return await self.db.media_item.list_by_user_id(
-            user_id, only_favourites=only_favourites, offset=offset, limit=limit
-        )
-
     async def list_categories(self, file_id: UUID) -> list[MediaItemCategory]:
         """
-        Lists categories of the MediaItem with specified file ID.
+        Return categories of the MediaItem with specified file ID.
 
         Raises:
             MediaItem.NotFound: If MediaItem does not exist.
