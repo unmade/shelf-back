@@ -61,16 +61,16 @@ class ThumbnailUnavailable(FileError):
 
 class _BaseFile(BaseModel):
     Error: ClassVar[type[Exception]] = FileError
-    ActionNotAllowed: ClassVar[type[Exception]] = FileActionNotAllowed
-    AlreadyExists: ClassVar[type[Exception]] = FileAlreadyExists
-    NotFound: ClassVar[type[Exception]] = FileNotFound
-    TooLarge: ClassVar[type[Exception]] = FileTooLarge
-    IsADirectory: ClassVar[type[Exception]] = IsADirectory
-    IsMounted: ClassVar[type[Exception]] = IsMounted
-    MalformedPath: ClassVar[type[Exception]] = MalformedPath
-    MissingParent: ClassVar[type[Exception]] = MissingParent
-    NotADirectory: ClassVar[type[Exception]] = NotADirectory
-    ThumbnailUnavailable: ClassVar[type[Exception]] = ThumbnailUnavailable
+    ActionNotAllowed: ClassVar[type[FileActionNotAllowed]] = FileActionNotAllowed
+    AlreadyExists: ClassVar[type[FileAlreadyExists]] = FileAlreadyExists
+    NotFound: ClassVar[type[FileNotFound]] = FileNotFound
+    TooLarge: ClassVar[type[FileTooLarge]] = FileTooLarge
+    IsADirectory: ClassVar[type[IsADirectory]] = IsADirectory
+    IsMounted: ClassVar[type[IsMounted]] = IsMounted
+    MalformedPath: ClassVar[type[MalformedPath]] = MalformedPath
+    MissingParent: ClassVar[type[MissingParent]] = MissingParent
+    NotADirectory: ClassVar[type[NotADirectory]] = NotADirectory
+    ThumbnailUnavailable: ClassVar[type[ThumbnailUnavailable]] = ThumbnailUnavailable
 
     id: UUID
     ns_path: str

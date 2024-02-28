@@ -2,30 +2,25 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.deps import CurrentUserDeps, NamespaceDeps, UseCasesDeps
-from app.app.files.domain import File
+from app.api.deps import CurrentUserDeps, UseCasesDeps
 
-from . import exceptions
-from .schemas import IDRequest, ListBookmarksResponse
+from .schemas import (
+    AddBookmarkBatchRequest,
+    ListBookmarksResponse,
+    RemoveBookmarkBatchRequest,
+)
 
 router = APIRouter()
 
 
-@router.post("/bookmarks/add")
-async def add_bookmark(
-    payload: IDRequest,
-    namespace: NamespaceDeps,
+@router.post("/bookmarks/add_batch")
+async def add_bookmark_batch(
+    payload: AddBookmarkBatchRequest,
+    user: CurrentUserDeps,
     usecases: UseCasesDeps,
 ) -> None:
-    """Adds a file to user bookmarks."""
-    try:
-        await usecases.user.add_bookmark(
-            user_id=namespace.owner_id,
-            file_id=payload.id,
-            ns_path=namespace.path,
-        )
-    except File.NotFound as exc:
-        raise exceptions.FileNotFound() from exc
+    """Adds multiple files to user bookmarks."""
+    await usecases.user.add_bookmark_batch(user.id, payload.file_ids)
 
 
 @router.get("/bookmarks/list")
@@ -38,11 +33,11 @@ async def list_bookmarks(
     return ListBookmarksResponse(items=[bookmark.file_id for bookmark in bookmarks])
 
 
-@router.post("/bookmarks/remove")
-async def remove_bookmark(
-    payload: IDRequest,
+@router.post("/bookmarks/remove_batch")
+async def remove_bookmark_batch(
+    payload: RemoveBookmarkBatchRequest,
     user: CurrentUserDeps,
     usecases: UseCasesDeps,
 ) -> None:
-    """Removes a file from user bookmarks."""
-    await usecases.user.remove_bookmark(user.id, payload.id)
+    """Removes multiple files from user bookmarks."""
+    await usecases.user.remove_bookmark_batch(user.id, payload.file_ids)

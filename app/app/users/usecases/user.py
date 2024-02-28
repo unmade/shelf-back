@@ -7,6 +7,8 @@ from app.app.users.domain import User
 from app.cache import cache
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from app.app.files.services import FileService, NamespaceService
     from app.app.infrastructure.database import IAtomic
     from app.app.users.domain import Account, Bookmark
@@ -46,18 +48,14 @@ class UserUseCase:
         self.ns_service = services.namespace
         self.user_service = services.user
 
-    async def add_bookmark(
-        self, user_id: UUID, file_id: UUID, ns_path: str
-    ) -> Bookmark:
-        """
-        Adds a file to user bookmarks.
-
-        Raises:
-            User.NotFound: If user with a ID does not exist.
-            File.NotFound: If file with a target ID does not exist.
-        """
-        file = await self.file_service.get_by_id(ns_path, file_id)
-        return await self.bookmark_service.add_bookmark(user_id, file.id)
+    async def add_bookmark_batch(self, user_id: UUID, file_ids: Iterable[UUID]) -> None:
+        """Adds multiple files to user bookmarks"""
+        namespace = await self.ns_service.get_by_owner_id(user_id)
+        files = await self.file_service.get_by_id_batch(namespace.path, file_ids)
+        return await self.bookmark_service.add_batch(
+            user_id,
+            file_ids=[file.id for file in files],
+        )
 
     async def change_email_complete(self, user_id: UUID, code: str) -> bool:
         """
@@ -139,14 +137,11 @@ class UserUseCase:
         """
         return await self.bookmark_service.list_bookmarks(user_id)
 
-    async def remove_bookmark(self, user_id: UUID, file_id: UUID) -> None:
-        """
-        Removes a file from user bookmarks.
-
-        Raises:
-            User.NotFound: If User with a target user_id does not exist.
-        """
-        await self.bookmark_service.remove_bookmark(user_id, file_id)
+    async def remove_bookmark_batch(
+        self, user_id: UUID, file_ids: Iterable[UUID]
+    ) -> None:
+        """Removes multiple files from user bookmarks."""
+        return await self.bookmark_service.remove_batch(user_id, file_ids=file_ids)
 
     async def verify_email_send_code(self, user_id: UUID) -> None:
         """

@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+import itertools
+import operator
 from typing import TYPE_CHECKING
 
 import edgedb
 
 from app.app.users.domain import Bookmark, User
 from app.app.users.repositories import IBookmarkRepository
+from app.toolkit import json_
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from uuid import UUID
 
     from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
@@ -23,29 +27,38 @@ class BookmarkRepository(IBookmarkRepository):
     def conn(self) -> EdgeDBAnyConn:
         return self.db_context.get()
 
-    async def delete(self, bookmark: Bookmark) -> None:
+    async def delete_batch(self, bookmarks: Iterable[Bookmark]) -> None:
         query = """
-            UPDATE
-                User
-            FILTER
-                .id = <uuid>$user_id
-            SET {
-                bookmarks -= (
-                    SELECT
-                        File
-                    FILTER
-                        .id = <uuid>$file_id
-                    LIMIT 1
-                )
-            }
+            WITH
+                entries := array_unpack(<array<json>>$entries),
+            FOR entry IN {entries}
+            UNION (
+                UPDATE
+                    User
+                FILTER
+                    .id = <uuid>entry['user_id']
+                SET {
+                    bookmarks -= (
+                        SELECT
+                            File
+                        FILTER
+                            .id IN array_unpack(<array<uuid>>entry['file_ids'])
+                    )
+                }
+            )
         """
 
-        try:
-            await self.conn.query_required_single(
-                query, user_id=bookmark.user_id, file_id=bookmark.file_id
-            )
-        except edgedb.NoDataError as exc:
-            raise User.NotFound() from exc
+        key = operator.attrgetter("user_id")
+        entities = sorted(bookmarks, key=key)
+        entries = [
+            json_.dumps({
+                "user_id": str(user_id),
+                "file_ids": [str(bookmark.file_id) for bookmark in bookmarks],
+            })
+            for user_id, bookmarks in itertools.groupby(entities, key=key)
+        ]
+
+        await self.conn.query(query, entries=entries)
 
     async def list_all(self, user_id: UUID) -> list[Bookmark]:
         query = """
@@ -65,28 +78,36 @@ class BookmarkRepository(IBookmarkRepository):
             for entry in user.bookmarks
         ]
 
-    async def save(self, bookmark: Bookmark) -> Bookmark:
+    async def save_batch(self, bookmarks: Iterable[Bookmark]) -> list[Bookmark]:
         query = """
-            UPDATE
-                User
-            FILTER
-                .id = <uuid>$user_id
-            SET {
-                bookmarks += (
-                    SELECT
-                        File
-                    FILTER
-                        .id = <uuid>$file_id
-                    LIMIT 1
-                )
-            }
+            WITH
+                entries := array_unpack(<array<json>>$entries),
+            FOR entry IN {entries}
+            UNION (
+                UPDATE
+                    User
+                FILTER
+                    .id = <uuid>entry['user_id']
+                SET {
+                    bookmarks += (
+                        SELECT
+                            File
+                        FILTER
+                            .id IN array_unpack(<array<uuid>>entry['file_ids'])
+                    )
+                }
+            )
         """
 
-        try:
-            await self.conn.query_required_single(
-                query, user_id=bookmark.user_id, file_id=bookmark.file_id,
-            )
-        except edgedb.NoDataError as exc:
-            raise User.NotFound() from exc
+        key = operator.attrgetter("user_id")
+        entities = sorted(bookmarks, key=key)
+        entries = [
+            json_.dumps({
+                "user_id": str(user_id),
+                "file_ids": [str(bookmark.file_id) for bookmark in bookmarks],
+            })
+            for user_id, bookmarks in itertools.groupby(entities, key=key)
+        ]
 
-        return bookmark
+        await self.conn.query(query, entries=entries)
+        return entities

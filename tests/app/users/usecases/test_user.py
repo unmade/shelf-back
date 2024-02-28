@@ -16,19 +16,24 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.anyio]
 
 
-class TestAddBookmark:
+class TestAddBookmarkBatch:
     async def test(self, user_use_case: UserUseCase):
         # GIVEN
-        user_id, ns_path, file_id  = uuid.uuid4(), "admin", uuid.uuid4()
+        user_id = uuid.uuid4()
+        file_ids = [uuid.uuid4() for _ in range(3)]
         bookmark_service = cast(mock.MagicMock, user_use_case.bookmark_service)
+        ns_service = cast(mock.MagicMock, user_use_case.ns_service)
         file_service = cast(mock.MagicMock, user_use_case.file_service)
         # WHEN
-        result = await user_use_case.add_bookmark(user_id, file_id, ns_path)
+        await user_use_case.add_bookmark_batch(user_id, file_ids)
         # THEN
-        assert result == bookmark_service.add_bookmark.return_value
-        file_service.get_by_id.assert_awaited_once_with(ns_path, file_id)
-        file = file_service.get_by_id.return_value
-        bookmark_service.add_bookmark.assert_awaited_once_with(user_id, file.id)
+        ns_service.get_by_owner_id.assert_awaited_once_with(user_id)
+        namespace = ns_service.get_by_owner_id.return_value
+        file_service.get_by_id_batch.assert_awaited_once_with(namespace.path, file_ids)
+        files = file_service.get_by_id_batch.return_value
+        bookmark_service.add_batch.assert_awaited_once_with(
+            user_id, file_ids=[file.id for file in files]
+        )
 
 
 class TestChangeEmailComplete:
@@ -141,15 +146,18 @@ class TestListBookmark:
         bookmark_service.list_bookmarks.assert_awaited_once_with(user_id)
 
 
-class TestRemoveBookmark:
+class TestRemoveBookmarkBatch:
     async def test(self, user_use_case: UserUseCase):
         # GIVEN
-        user_id, file_id = uuid.uuid4(), uuid.uuid4()
+        user_id = uuid.uuid4()
+        file_ids = [uuid.uuid4() for _ in range(3)]
         bookmark_service = cast(mock.MagicMock, user_use_case.bookmark_service)
         # WHEN
-        await user_use_case.remove_bookmark(user_id, file_id)
+        await user_use_case.remove_bookmark_batch(user_id, file_ids)
         # THEN
-        bookmark_service.remove_bookmark.assert_awaited_once_with(user_id, file_id)
+        bookmark_service.remove_batch.assert_awaited_once_with(
+            user_id, file_ids=file_ids
+        )
 
 
 class TestVerifyEmailSendCode:

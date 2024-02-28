@@ -14,15 +14,20 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.anyio]
 
 
-class TestAddBookmark:
+class TestAddBatch:
     async def test(self, bookmark_service: BookmarkService):
         # GIVEN
-        bookmark = Bookmark(user_id=uuid.uuid4(), file_id=uuid.uuid4())
+        user_id = uuid.uuid4()
+        file_ids = [uuid.uuid4() for _ in range(3)]
+        bookmarks = [
+            Bookmark(user_id=user_id, file_id=file_id)
+            for file_id in file_ids
+        ]
         db = cast(mock.MagicMock, bookmark_service.db)
         # WHEN
-        await bookmark_service.add_bookmark(bookmark.user_id, bookmark.file_id)
+        await bookmark_service.add_batch(user_id, file_ids)
         # THEN
-        db.bookmark.save.assert_awaited_once_with(bookmark)
+        db.bookmark.save_batch.assert_awaited_once_with(bookmarks)
 
 
 class TestListBookmarks:
@@ -37,12 +42,17 @@ class TestListBookmarks:
         db.bookmark.list_all.assert_awaited_once_with(user_id)
 
 
-class TestRemoveBook:
+class TestRemoveBatch:
     async def test(self, bookmark_service: BookmarkService):
         # GIVEN
-        bookmark = Bookmark(user_id=uuid.uuid4(), file_id=uuid.uuid4())
+        user_id = uuid.uuid4()
+        file_ids = [uuid.uuid4() for _ in range(3)]
+        bookmarks = [
+            Bookmark(user_id=user_id, file_id=file_id)
+            for file_id in file_ids
+        ]
         db = cast(mock.MagicMock, bookmark_service.db)
         # WHEN
-        await bookmark_service.remove_bookmark(bookmark.user_id, bookmark.file_id)
+        await bookmark_service.remove_batch(user_id, file_ids)
         # THEN
-        db.bookmark.delete.assert_awaited_once_with(bookmark)
+        db.bookmark.delete_batch.assert_awaited_once_with(bookmarks)
