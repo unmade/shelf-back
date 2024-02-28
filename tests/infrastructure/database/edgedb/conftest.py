@@ -211,7 +211,8 @@ def bookmark_factory(bookmark_repo: IBookmarkRepository) -> BookmarkFactory:
     """A factory to bookmark file for the given user."""
     async def factory(user_id: UUID, file_id: UUID) -> Bookmark:
         bookmark = Bookmark(user_id=user_id, file_id=file_id)
-        return await bookmark_repo.save(bookmark)
+        await bookmark_repo.save_batch([bookmark])
+        return bookmark
     return factory
 
 
@@ -491,9 +492,3 @@ async def user_b(user_factory: UserFactory):
 async def user(user_a: User):
     """A User instance saved to the EdgeDB."""
     return user_a
-
-
-@pytest.fixture
-async def bookmark(bookmark_factory: BookmarkFactory, user: User, file: File):
-    """Bookmarks `file` fixture for `user`."""
-    return await bookmark_factory(user.id, file.id)

@@ -15,6 +15,7 @@ from app.api import shortcuts
 from app.api.files.exceptions import (
     DownloadNotFound,
     FileActionNotAllowed,
+    FileAlreadyExists,
     FileContentMetadataNotFound,
     IsADirectory,
     MalformedPath,
@@ -138,6 +139,7 @@ class TestCreateFolder:
 
     @pytest.mark.parametrize(["path", "error", "expected_error"], [
         ("teamfolder/f.txt", File.ActionNotAllowed(), FileActionNotAllowed()),
+        ("f.txt", File.AlreadyExists(), FileAlreadyExists(path="f.txt")),
         ("file/folder", File.NotADirectory(), NotADirectory(path="file/folder")),
     ])
     async def test_reraising_app_errors_to_api_errors(

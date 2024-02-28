@@ -5,53 +5,33 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from app.api.users.exceptions import FileNotFound
-from app.app.files.domain import File
 from app.app.users.domain import Bookmark, User
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
-    from app.app.files.domain import Namespace
     from tests.api.conftest import TestClient
 
 pytestmark = [pytest.mark.anyio]
 
 
-class TestAddBookmark:
-    url = "/users/bookmarks/add"
+class TestAddBookmarkBatch:
+    url = "/users/bookmarks/add_batch"
 
     async def test(
-        self, client: TestClient, user_use_case: MagicMock, namespace: Namespace,
+        self, client: TestClient, user_use_case: MagicMock, user: User,
     ):
         # GIVEN
-        user_id, file_id = namespace.owner_id, uuid.uuid4()
-        payload = {"id": str(file_id)}
+        file_ids = [uuid.uuid4() for _ in range(3)]
+        payload = {"file_ids": [str(file_id) for file_id in file_ids]}
         # WHEN
-        client.mock_namespace(namespace)
+        client.mock_user(user)
         response = await client.post(self.url, json=payload)
         # THEN
         assert response.json() is None
         assert response.status_code == 200
-        user_use_case.add_bookmark.assert_awaited_once_with(
-            user_id=user_id, file_id=file_id, ns_path=namespace.path
-        )
-
-    async def test_when_namespace_does_not_have_file(
-        self, client: TestClient, user_use_case: MagicMock, namespace: Namespace,
-    ):
-        # GIVEN
-        user_id, file_id = namespace.owner_id, uuid.uuid4()
-        payload = {"id": str(file_id)}
-        user_use_case.add_bookmark.side_effect = File.NotFound
-        # WHEN
-        client.mock_namespace(namespace)
-        response = await client.post(self.url, json=payload)
-        # THEN
-        assert response.json() == FileNotFound().as_dict()
-        assert response.status_code == 404
-        user_use_case.add_bookmark.assert_awaited_once_with(
-            user_id=user_id, file_id=file_id, ns_path=namespace.path
+        user_use_case.add_bookmark_batch.assert_awaited_once_with(
+            user.id, set(file_ids)
         )
 
 
@@ -89,19 +69,21 @@ class TestListBookmarks:
         user_use_case.list_bookmarks.assert_awaited_once_with(user.id)
 
 
-class TestRemoveBookmark:
-    url = "/users/bookmarks/remove"
+class TestRemoveBookmarkBatch:
+    url = "/users/bookmarks/remove_batch"
 
-    async def test_remove_bookmark(
+    async def test(
         self, client: TestClient, user_use_case: MagicMock, user: User,
     ):
         # GIVEN
-        file_id = uuid.uuid4()
-        payload = {"id": str(file_id)}
+        file_ids = [uuid.uuid4() for _ in range(3)]
+        payload = {"file_ids": [str(file_id) for file_id in file_ids]}
         # WHEN
         client.mock_user(user)
         response = await client.post(self.url, json=payload)
         # THEN
         assert response.json() is None
         assert response.status_code == 200
-        user_use_case.remove_bookmark.assert_awaited_once_with(user.id, file_id)
+        user_use_case.remove_bookmark_batch.assert_awaited_once_with(
+            user.id, set(file_ids)
+        )

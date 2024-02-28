@@ -167,7 +167,7 @@ def bookmark_factory(edgedb_database: EdgeDBDatabase):
     """A factory to bookmark a file by ID for a given user ID."""
     bookmark_service = BookmarkService(edgedb_database)
     async def factory(user_id: UUID, file_id: UUID) -> None:
-        await bookmark_service.add_bookmark(user_id, file_id)
+        await bookmark_service.add_batch(user_id, file_ids=[file_id])
     return factory
 
 

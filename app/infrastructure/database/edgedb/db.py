@@ -121,22 +121,21 @@ class EdgeDBDatabase(IDatabase):
 
         tx_client = self.client.with_retry_options(edgedb.RetryOptions(attempts))
         async for tx in tx_client.transaction():
-            # try:
             yield Transaction(tx)
-            # finally:
-                # db_context.reset(token)
 
-    async def migrate(self) -> None:
+    async def migrate(self) -> None:  # pragma: no cover
         schema = Path(self.config.edgedb_schema).read_text()
         async for tx in self.client.transaction():
             async with tx:
-                await tx.execute(f"""
-                    START MIGRATION TO {{
-                        {schema}
-                    }};
-                    POPULATE MIGRATION;
-                    COMMIT MIGRATION;
-                """)
+                await tx.execute(
+                    f"""
+                        START MIGRATION TO {{
+                            {schema}
+                        }};
+                        POPULATE MIGRATION;
+                        COMMIT MIGRATION;
+                    """
+                )
 
     async def shutdown(self) -> None:
         await self._stack.aclose()
