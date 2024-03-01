@@ -18,7 +18,7 @@ from app.config import FileSystemStorageConfig
 from ._datastructures import StreamZipFile
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Iterable, Iterator
+    from collections.abc import AsyncIterator, Collection, Iterable, Iterator
 
     from app.app.files.domain import AnyPath, IFileContent
 
@@ -36,6 +36,18 @@ class FileSystemStorage(IStorage):
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         pass
+
+    @staticmethod
+    def _has_path(target: str, paths: Collection[AnyPath] | None) -> bool:
+        if paths is None:
+            return True
+
+        target = target.lower()
+        haystack = {str(p).lower() for p in paths}
+        if target in haystack:
+            return True
+
+        return any(target.startswith(prefix) for prefix in haystack)
 
     @staticmethod
     def _joinpath(path: AnyPath, *paths: AnyPath) -> str:
@@ -106,15 +118,21 @@ class FileSystemStorage(IStorage):
             for chunk in f:
                 yield chunk
 
-    def downloaddir(self, ns_path: AnyPath, path: AnyPath) -> Iterator[bytes]:
+    def downloaddir(
+        self,
+        ns_path: AnyPath,
+        path: AnyPath,
+        include_paths: Collection[AnyPath] | None = None,
+    ) -> Iterator[bytes]:
         return stream_zip.stream_zip(  # type: ignore[no-any-return]
-            self._downloaddir_iter(ns_path, path)
+            self._downloaddir_iter(ns_path, path, include_paths)
         )
 
     def _downloaddir_iter(
         self,
         ns_path: AnyPath,
         path: AnyPath,
+        include_paths: Collection[AnyPath] | None = None,
     ) -> Iterator[StreamZipFile]:
         fullpath = self._joinpath(self.location, ns_path, path)
         pathnames = glob.iglob(self._joinpath(fullpath, "**/*"), recursive=True)
@@ -122,6 +140,10 @@ class FileSystemStorage(IStorage):
             file = self._from_path(ns_path, pathname)
             if file.is_dir():
                 continue
+
+            if not self._has_path(str(file.path), include_paths):
+                continue
+
             with open(pathname, "rb") as content:
                 yield StreamZipFile(
                     path=os.path.relpath(str(file.path), str(path)),
