@@ -20,12 +20,14 @@ from .clients import (
 from .clients.exceptions import NoSuchKey, ResourceNotFound
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Iterable, Iterator
+    from collections.abc import AsyncIterator, Collection, Iterable, Iterator
 
     from app.app.files.domain import AnyPath, IFileContent
     from app.config import S3StorageConfig
 
 __all__ = ["S3Storage"]
+
+
 
 
 class S3Storage(IStorage):
@@ -53,7 +55,20 @@ class S3Storage(IStorage):
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         await self._stack.aclose()
 
-    def _joinpath(self, ns_path: AnyPath, path: AnyPath) -> str:
+    @staticmethod
+    def _has_path(target: str, paths: Collection[AnyPath] | None) -> bool:
+        if paths is None:
+            return True
+
+        target = target.lower()
+        haystack = {str(p).lower() for p in paths}
+        if target in haystack:
+            return True
+
+        return any(target.startswith(prefix) for prefix in haystack)
+
+    @staticmethod
+    def _joinpath(ns_path: AnyPath, path: AnyPath) -> str:
         return os.path.normpath(os.path.join(str(ns_path), str(path)))
 
     async def delete(self, ns_path: AnyPath, path: AnyPath) -> None:
@@ -87,7 +102,13 @@ class S3Storage(IStorage):
         except NoSuchKey as exc:
             raise File.NotFound() from exc
 
-    def downloaddir(self, ns_path: AnyPath, path: AnyPath) -> Iterator[bytes]:
+    def downloaddir(
+        self,
+        ns_path: AnyPath,
+        path: AnyPath,
+        include_paths: Collection[AnyPath] | None = None,
+    ) -> Iterator[bytes]:
+        ns_path = str(ns_path)
         prefix = self._joinpath(ns_path, path)
         return stream_zip.stream_zip(  # type: ignore[no-any-return]
             StreamZipFile(
@@ -98,6 +119,7 @@ class S3Storage(IStorage):
                 content=self.sync_s3.iter_download(self.bucket, entry.key),
             )
             for entry in self.sync_s3.list_objects(self.bucket, prefix)
+            if self._has_path(os.path.relpath(entry.key, ns_path), include_paths)
         )
 
     async def iterdir(

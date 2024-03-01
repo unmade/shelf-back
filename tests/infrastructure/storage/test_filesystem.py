@@ -178,6 +178,28 @@ class TestDownloadDir:
             assert archive.read("y.txt") == b"World"
             assert archive.read("c/f.txt") == b"!"
 
+    async def test_including_only_specified_paths(
+        self, fs_storage: FileSystemStorage, file_factory: FileFactory
+    ):
+        # GIVEN
+        await file_factory("user/a/x.txt", content=BytesIO(b"Hello"))
+        await file_factory("user/a/y.txt", content=BytesIO(b"World"))
+        await file_factory("user/a/c/f.txt", content=BytesIO(b"!"))
+        await file_factory("user/b/z.txt")
+
+        paths_to_include = ["a/x.txt", "a/c"]
+
+        # WHEN
+        chunks = fs_storage.downloaddir("user", "a", include_paths=paths_to_include)
+
+        # THEN
+        content = BytesIO(b"".join(chunk for chunk in chunks))
+
+        with ZipFile(content, "r") as archive:
+            assert set(archive.namelist()) == {"x.txt", "c/f.txt"}
+            assert archive.read("x.txt") == b"Hello"
+            assert archive.read("c/f.txt") == b"!"
+
     async def test_on_empty_dir(
         self, fs_storage: FileSystemStorage, file_factory: FileFactory
     ):
