@@ -6,19 +6,42 @@ from unittest import mock
 
 import pytest
 
-from app.app.files.domain import SharedLink
+from app.app.files.domain import File, Path, SharedLink
+from app.app.files.services.file.filecore import DownloadBatchItem
 from app.app.photos.domain import MediaItem
+from app.app.photos.usecases.media_item import _DOWNLOAD_CACHE_PREFIX
+from app.cache import cache
+from app.config import config
+from app.toolkit.chash import EMPTY_CONTENT_HASH
 from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from uuid import UUID
 
+    from app.app.files.domain.path import AnyPath
     from app.app.photos.usecases import MediaItemUseCase
 
 pytestmark = [pytest.mark.anyio]
 
 T = TypeVar("T")
+
+LIBRARY_PATH = Path(config.features.photos_library_path)
+
+
+def _make_media_item_file(
+    ns_path: str, path: AnyPath, size: int = 10, mediatype: str = "plain/text"
+) -> File:
+    path = LIBRARY_PATH / path
+    return File(
+        id=uuid.uuid4(),
+        ns_path=ns_path,
+        name=path.name,
+        path=path,
+        chash=EMPTY_CONTENT_HASH,
+        size=size,
+        mediatype=mediatype,
+    )
 
 
 def _make_media_item(
@@ -101,6 +124,69 @@ class TestDeleteImmediatelyBatch:
         ns_service.get_by_owner_id.assert_awaited_once_with(user_id)
         filecore.get_by_id_batch.assert_awaited_once_with(file_ids)
         filecore.delete_batch.assert_awaited_once_with(namespace.path, paths)
+
+
+class TestDownloadBatch:
+    async def test(self, photos_use_case: MediaItemUseCase):
+        # GIVEN
+        items = [
+            DownloadBatchItem("admin", path=LIBRARY_PATH / "im.jpg", is_dir=False),
+            DownloadBatchItem("admin", path=LIBRARY_PATH / "im.ong", is_dir=False),
+        ]
+        filecore = cast(mock.MagicMock, photos_use_case.filecore)
+        # WHEN
+        photos_use_case.download_batch(items)
+        # THEN
+        filecore.download_batch.assert_called_once_with(items)
+
+
+class TestDownloadBatchCreateSession:
+    async def test(self, photos_use_case: MediaItemUseCase):
+        # GIVEN
+        user_id = uuid.uuid4()
+        files = [
+            _make_media_item_file("admin", "im.jpeg", mediatype=MediaType.IMAGE_JPEG),
+            _make_media_item_file("admin", "f.txt", mediatype=MediaType.PLAIN_TEXT),
+        ]
+        file_ids = [file.id for file in files]
+        namespace = cast(mock.MagicMock, photos_use_case.namespace)
+        namespace.get_by_owner_id.return_value = mock.MagicMock(path="admin")
+        filecore = cast(mock.MagicMock, photos_use_case.filecore)
+        filecore.get_by_id_batch.return_value = files
+
+        # WHEN
+        key = await photos_use_case.download_batch_create_session(user_id, file_ids)
+
+        # THEN
+        namespace.get_by_owner_id.assert_awaited_once_with(user_id)
+        filecore.get_by_id_batch.assert_awaited_once_with(file_ids)
+        value = await cache.get(f"{_DOWNLOAD_CACHE_PREFIX}:{key}")
+        assert value == [
+            DownloadBatchItem("admin", path=LIBRARY_PATH / "im.jpeg", is_dir=False),
+        ]
+
+
+class TestDownloadBatchGetSession:
+    async def test(self, photos_use_case: MediaItemUseCase):
+        # GIVEN
+        key = uuid.uuid4().hex
+        items = [
+            DownloadBatchItem("admin", path=LIBRARY_PATH / "im.jpg", is_dir=False),
+            DownloadBatchItem("admin", path=LIBRARY_PATH / "im.ong", is_dir=False),
+        ]
+        await cache.set(f"{_DOWNLOAD_CACHE_PREFIX}:{key}", items, expire=10)
+        # WHEN
+        result = await photos_use_case.download_batch_get_session(key)
+        # THEN
+        assert result == items
+
+    async def test_when_there_is_no_session(self, photos_use_case: MediaItemUseCase):
+        # GIVEN
+        key = uuid.uuid4().hex
+        # WHEN
+        result = await photos_use_case.download_batch_get_session(key)
+        # THEN
+        assert result is None
 
 
 class TestList:

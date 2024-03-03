@@ -99,11 +99,19 @@ class AddCategoryRequest(BaseModel):
 
 
 class DeleteMediaItemBatchRequest(BaseModel):
-    file_ids: list[UUID]
+    file_ids: Annotated[list[UUID], Field(min_length=1, max_length=1000)]
 
 
 class DeleteMediaItemImmediatelyBatchRequest(BaseModel):
-    file_ids: list[UUID]
+    file_ids: Annotated[list[UUID], Field(min_length=1, max_length=1000)]
+
+
+class GetDownloadUrlRequest(BaseModel):
+    file_ids: Annotated[list[UUID], Field(min_length=2, max_length=1000)]
+
+
+class GetDownloadUrlResponse(BaseModel):
+    download_url: str
 
 
 class ListMediaItemCategoriesResponse(BaseModel):
@@ -112,7 +120,7 @@ class ListMediaItemCategoriesResponse(BaseModel):
 
 
 class RestoreMediaItemBatchRequest(BaseModel):
-    file_ids: list[UUID]
+    file_ids: Annotated[list[UUID], Field(min_length=1, max_length=1000)]
 
 
 class SetMediaItemCategoriesRequest(BaseModel):

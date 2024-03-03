@@ -23,11 +23,10 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Collection, Iterable, Iterator
 
     from app.app.files.domain import AnyPath, IFileContent
+    from app.app.infrastructure.storage import DownloadBatchItem
     from app.config import S3StorageConfig
 
 __all__ = ["S3Storage"]
-
-
 
 
 class S3Storage(IStorage):
@@ -102,6 +101,29 @@ class S3Storage(IStorage):
         except NoSuchKey as exc:
             raise File.NotFound() from exc
 
+    def download_batch(self, items: Iterable[DownloadBatchItem]) -> Iterator[bytes]:
+        return stream_zip.stream_zip(  # type: ignore[no-any-return]
+            self._download_batch_iter(items)
+        )
+
+    def _download_batch_iter(
+        self, items: Iterable[DownloadBatchItem]
+    ) -> Iterator[StreamZipFile]:
+        for ns_path, path, is_dir in items:
+            filename = os.path.basename(str(path))
+            fullpath = self._joinpath(ns_path, path)
+            if is_dir:
+                yield from self._downloaddir_iter(ns_path, fullpath, prefix=filename)
+            else:
+                entry = self.sync_s3.head_object(self.bucket, fullpath)
+                yield StreamZipFile(
+                    path=filename,
+                    modified_at=entry.last_modified,
+                    perms=0o600,
+                    compression=stream_zip.ZIP_32,
+                    content=self.sync_s3.iter_download(self.bucket, entry.key),
+                )
+
     def downloaddir(
         self,
         ns_path: AnyPath,
@@ -111,16 +133,32 @@ class S3Storage(IStorage):
         ns_path = str(ns_path)
         prefix = self._joinpath(ns_path, path)
         return stream_zip.stream_zip(  # type: ignore[no-any-return]
-            StreamZipFile(
-                path=os.path.relpath(entry.key, prefix),
-                modified_at=entry.last_modified,
-                perms=0o600,
-                compression=stream_zip.ZIP_32,
-                content=self.sync_s3.iter_download(self.bucket, entry.key),
+            self._downloaddir_iter(
+                ns_path,
+                prefix,
+                include_paths=include_paths,
             )
-            for entry in self.sync_s3.list_objects(self.bucket, prefix)
-            if self._has_path(os.path.relpath(entry.key, ns_path), include_paths)
         )
+    def _downloaddir_iter(
+        self,
+        ns_path: AnyPath,
+        path: AnyPath,
+        prefix: str = "",
+        include_paths: Collection[AnyPath] | None = None,
+    ) -> Iterator[StreamZipFile]:
+        ns_path = str(ns_path)
+        for entry in self.sync_s3.list_objects(self.bucket, str(path)):
+            if self._has_path(os.path.relpath(entry.key, ns_path), include_paths):
+                yield StreamZipFile(
+                    path=os.path.join(
+                        prefix,
+                        os.path.relpath(entry.key, str(path)),
+                    ),
+                    modified_at=entry.last_modified,
+                    perms=0o600,
+                    compression=stream_zip.ZIP_32,
+                    content=self.sync_s3.iter_download(self.bucket, entry.key),
+                )
 
     async def iterdir(
         self, ns_path: AnyPath, path: AnyPath

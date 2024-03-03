@@ -9,6 +9,7 @@ import pytest
 
 from app.app.files.domain import File, Path, mediatypes
 from app.app.files.services.file.filecore import ProcessFilePendingDeletionResult
+from app.app.infrastructure.storage import DownloadBatchItem
 from app.toolkit import chash, taskgroups
 from app.toolkit.mediatypes import MediaType
 
@@ -335,6 +336,21 @@ class TestDownload:
             with pytest.raises(File.IsADirectory):
                 await filecore.download(folder.id)
         storage_mock.downloaddir.assert_not_called()
+
+
+class TestDownloadBatch:
+    async def test(self, filecore: FileCoreService):
+        # GIVEN
+        items = [
+            DownloadBatchItem(ns_path="admin", path="f.txt", is_dir=False),
+            DownloadBatchItem(ns_path="admin", path="f.txt", is_dir=False),
+        ]
+        # WHEN
+        with mock.patch.object(filecore, "storage") as storage_mock:
+            result = filecore.download_batch(items)
+        # THEN
+        storage_mock.download_batch.assert_called_once_with(items)
+        assert result == storage_mock.download_batch.return_value
 
 
 class TestDownloadFolder:

@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from app.app.files.domain import File, FilePendingDeletion, Path, mediatypes
 from app.app.files.repositories.file import FileUpdate
 from app.app.infrastructure.database import SENTINEL_ID
+from app.app.infrastructure.storage import DownloadBatchItem
 from app.toolkit import chash, taskgroups, timezone
 from app.toolkit.chash import EMPTY_CONTENT_HASH
 
@@ -37,6 +38,8 @@ if TYPE_CHECKING:
 
 __all__ = [
     "FileCoreService",
+
+    "DownloadBatchItem",
     "ProcessFilePendingDeletionResult",
 ]
 
@@ -243,6 +246,10 @@ class FileCoreService:
         if file.is_folder():
             raise File.IsADirectory() from None
         return file, self.storage.download(file.ns_path, file.path)
+
+    def download_batch(self, items: Iterable[DownloadBatchItem]) -> Iterator[bytes]:
+        """Downloads multiple items as zip archive."""
+        return self.storage.download_batch(items)
 
     def download_folder(self, ns_path: AnyPath, path: AnyPath) -> Iterator[bytes]:
         """
