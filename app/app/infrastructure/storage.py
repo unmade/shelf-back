@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-from typing import TYPE_CHECKING, Protocol, Self
+from typing import TYPE_CHECKING, NamedTuple, Protocol, Self
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Collection, Iterable, Iterator
@@ -9,6 +9,12 @@ if TYPE_CHECKING:
     from app.app.files.domain import AnyPath, IFileContent
 
 __all__ = ["IStorage", "StorageFile"]
+
+
+class DownloadBatchItem(NamedTuple):
+    ns_path: str
+    path: AnyPath
+    is_dir: bool
 
 
 class StorageFile:
@@ -99,6 +105,10 @@ class IStorage(Protocol):
         Raises:
             File.NotFound: If path not found or path is a directory.
         """
+
+    @abc.abstractmethod
+    def download_batch(self, items: Iterable[DownloadBatchItem]) -> Iterator[bytes]:
+        """Return an iterator over a zipped files at given paths"""
 
     @abc.abstractmethod
     def downloaddir(

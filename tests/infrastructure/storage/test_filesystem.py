@@ -11,6 +11,7 @@ from zipfile import ZipFile
 import pytest
 
 from app.app.files.domain import File
+from app.app.infrastructure.storage import DownloadBatchItem
 from app.infrastructure.storage import FileSystemStorage
 
 if TYPE_CHECKING:
@@ -156,6 +157,31 @@ class TestDownload:
     async def test_when_file_does_not_exist(self, fs_storage: FileSystemStorage):
         with pytest.raises(File.NotFound):
             await anext(fs_storage.download("user", "f.txt"))
+
+
+class TestDownloadBatch:
+    async def test(self, fs_storage: FileSystemStorage, file_factory: FileFactory):
+        # GIVEN
+        await file_factory("user/a/x.txt", content=BytesIO(b"Hello"))
+        await file_factory("user/a/y.txt", content=BytesIO(b"World"))
+        await file_factory("user/a/c/f.txt", content=BytesIO(b"!"))
+        await file_factory("user/b/z.txt")
+
+        items = [
+            DownloadBatchItem(ns_path="user", path="a/x.txt", is_dir=False),
+            DownloadBatchItem(ns_path="user", path="a/c", is_dir=True),
+        ]
+
+        # WHEN
+        chunks = fs_storage.download_batch(items)
+
+        # THEN
+        content = BytesIO(b"".join(chunk for chunk in chunks))
+
+        with ZipFile(content, "r") as archive:
+            assert set(archive.namelist()) == {"x.txt", "c/f.txt"}
+            assert archive.read("x.txt") == b"Hello"
+            assert archive.read("c/f.txt") == b"!"
 
 
 class TestDownloadDir:

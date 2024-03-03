@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Collection, Iterable, Iterator
 
     from app.app.files.domain import AnyPath, IFileContent
+    from app.app.infrastructure.storage import DownloadBatchItem
 
 __all__ = ["FileSystemStorage"]
 
@@ -118,6 +119,29 @@ class FileSystemStorage(IStorage):
             for chunk in f:
                 yield chunk
 
+    def download_batch(self, items: Iterable[DownloadBatchItem]) -> Iterator[bytes]:
+        return stream_zip.stream_zip(  # type: ignore[no-any-return]
+            self._download_batch_iter(items)
+        )
+
+    def _download_batch_iter(
+        self, items: Iterable[DownloadBatchItem]
+    ) -> Iterator[StreamZipFile]:
+        for ns_path, path, _ in items:
+            fullpath = self._joinpath(self.location, ns_path, path)
+            file = self._from_path(ns_path, fullpath)
+            if file.is_dir():
+                yield from self._downloaddir_iter(ns_path, path, prefix=file.name)
+            else:
+                with open(fullpath, "rb") as content:
+                    yield StreamZipFile(
+                        path=file.name,
+                        modified_at=datetime.datetime.fromtimestamp(file.mtime),
+                        perms=0o600,
+                        compression=stream_zip.ZIP_32,
+                        content=content,
+                    )
+
     def downloaddir(
         self,
         ns_path: AnyPath,
@@ -125,13 +149,14 @@ class FileSystemStorage(IStorage):
         include_paths: Collection[AnyPath] | None = None,
     ) -> Iterator[bytes]:
         return stream_zip.stream_zip(  # type: ignore[no-any-return]
-            self._downloaddir_iter(ns_path, path, include_paths)
+            self._downloaddir_iter(ns_path, path, include_paths=include_paths)
         )
 
     def _downloaddir_iter(
         self,
         ns_path: AnyPath,
         path: AnyPath,
+        prefix: str = "",
         include_paths: Collection[AnyPath] | None = None,
     ) -> Iterator[StreamZipFile]:
         fullpath = self._joinpath(self.location, ns_path, path)
@@ -146,7 +171,10 @@ class FileSystemStorage(IStorage):
 
             with open(pathname, "rb") as content:
                 yield StreamZipFile(
-                    path=os.path.relpath(str(file.path), str(path)),
+                    path=os.path.join(
+                        prefix,
+                        os.path.relpath(file.path, str(path)),
+                    ),
                     modified_at=datetime.datetime.fromtimestamp(file.mtime),
                     perms=0o600,
                     compression=stream_zip.ZIP_32,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from email.utils import parsedate_to_datetime
 from typing import (
     TYPE_CHECKING,
     Iterator,
@@ -42,6 +43,19 @@ class S3Client:
 
     def _url(self, path: str) -> str:
         return f"{self.base_url}{quote(path)}"
+
+    def head_object(self, bucket: str, key: str) -> S3File:
+        """
+        https://docs.aws.amazon.com/AmazonS3/latest/API/API_HeadObject.html
+        """
+        url = self._url(f"{bucket}/{key}")
+        r = self.client.head(url)
+        return S3File(
+            key=key,
+            last_modified=parsedate_to_datetime(r.headers["Last-Modified"]),
+            size=int(r.headers["Content-Length"]),
+            etag=r.headers["ETag"],
+        )
 
     def iter_download(self, bucket: str, key: str) -> Iterator[bytes]:
         url = self._url(f"{bucket}/{key}")

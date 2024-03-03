@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import urllib.parse
 import uuid
+from io import BytesIO
 from typing import TYPE_CHECKING
 
 import pytest
 
-from app.api.photos.exceptions import MediaItemNotFound
+from app.api.photos.exceptions import DownloadNotFound, MediaItemNotFound
 from app.app.files.domain import SharedLink
 from app.app.photos.domain import MediaItem
 from app.app.photos.repositories.media_item import CountResult
@@ -106,6 +108,74 @@ class TestDeletedImmediatelyBatch:
             user.id, file_ids
         )
         assert response.status_code == 200
+
+
+class TestDownloadBatch:
+    def url(self, key: str) -> str:
+        return f"/photos/media_items/download_batch?key={key}"
+
+    async def test(
+        self, client: TestClient, photos_use_case: MagicMock, user: User,
+    ):
+        # GIVEN
+        key = uuid.uuid4().hex
+        photos_use_case.download_batch.return_value = BytesIO(b"I'm a ZIP archive")
+        session = photos_use_case.download_batch_get_session.return_value
+        # WHEN
+        client.mock_user(user)
+        response = await client.get(self.url(key))
+        # THEN
+        assert response.status_code == 200
+        content_disposition_value = 'attachment; filename="Shelf Cloud.zip"'
+        assert response.headers["Content-Disposition"] == content_disposition_value
+        assert "Content-Length" not in response.headers
+        assert response.content == b"I'm a ZIP archive"
+        photos_use_case.download_batch.assert_called_once_with(session)
+
+    async def test_when_key_is_invalid(
+        self,
+        client: TestClient,
+        photos_use_case: MagicMock,
+        user: User,
+    ):
+        # GIVEN
+        key = uuid.uuid4().hex
+        photos_use_case.download_batch_get_session.return_value = None
+        # WHEN
+        client.mock_user(user)
+        response = await client.get(self.url(key))
+        # THEN
+        assert response.status_code == 404
+        assert response.json() == DownloadNotFound().as_dict()
+        photos_use_case.download_batch_get_session.assert_awaited_once_with(key)
+
+
+class TestGetDownloadURL:
+    url = "/photos/media_items/get_download_url"
+
+    async def test(
+        self, client: TestClient, photos_use_case: MagicMock, user: User,
+    ):
+        # GIVEN
+        key = uuid.uuid4().hex
+        photos_use_case.download_batch_create_session.return_value = key
+        file_ids = [uuid.uuid4() for _ in range(3)]
+        payload = {"file_ids": [str(file_id) for file_id in file_ids]}
+        # WHEN
+        client.mock_user(user)
+        response = await client.post(self.url, json=payload)
+        # THEN
+        assert response.status_code == 200
+        download_url = response.json()["download_url"]
+        assert download_url.startswith(str(client.base_url))
+        assert "/download_batch?" in download_url
+        assert response.status_code == 200
+        parts = urllib.parse.urlsplit(download_url)
+        qs = urllib.parse.parse_qs(parts.query)
+        assert len(qs["key"]) == 1
+        photos_use_case.download_batch_create_session.assert_called_once_with(
+            user.id, file_ids
+        )
 
 
 class TestList:

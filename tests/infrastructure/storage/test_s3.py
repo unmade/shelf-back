@@ -9,6 +9,7 @@ import pytest
 
 from app.app.files.domain.content import InMemoryFileContent
 from app.app.files.domain.file import File
+from app.app.infrastructure.storage import DownloadBatchItem
 
 if TYPE_CHECKING:
     from app.app.files.domain import AnyPath, IFileContent
@@ -135,6 +136,31 @@ class TestDownload:
     async def test_when_file_does_not_exist(self, s3_storage: S3Storage):
         with pytest.raises(File.NotFound):
             await anext(s3_storage.download("user", "f.txt"))
+
+
+class TestDownloadBatch:
+    async def test(self, s3_storage: S3Storage, file_factory: FileFactory):
+        # GIVEN
+        await file_factory("user/a/x.txt", content=BytesIO(b"Hello"))
+        await file_factory("user/a/y.txt", content=BytesIO(b"World"))
+        await file_factory("user/a/c/f.txt", content=BytesIO(b"!"))
+        await file_factory("user/b/z.txt")
+
+        items = [
+            DownloadBatchItem(ns_path="user", path="a/x.txt", is_dir=False),
+            DownloadBatchItem(ns_path="user", path="a/c", is_dir=True),
+        ]
+
+        # WHEN
+        chunks = s3_storage.download_batch(items)
+
+        # THEN
+        content = BytesIO(b"".join(chunk for chunk in chunks))
+
+        with ZipFile(content, "r") as archive:
+            assert set(archive.namelist()) == {"x.txt", "c/f.txt"}
+            assert archive.read("x.txt") == b"Hello"
+            assert archive.read("c/f.txt") == b"!"
 
 
 class TestDownloadDir:

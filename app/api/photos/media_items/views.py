@@ -3,10 +3,12 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Query, Request
+from fastapi.responses import StreamingResponse
 
 from app.api.deps import CurrentUserDeps, UseCasesDeps
 from app.api.paginator import Page, get_offset
 from app.api.photos import exceptions
+from app.api.photos.media_items.deps import DownloadMediaItemBatchCache
 from app.app.photos.domain import MediaItem
 
 from .schemas import (
@@ -14,6 +16,8 @@ from .schemas import (
     DeleteMediaItemBatchRequest,
     DeleteMediaItemImmediatelyBatchRequest,
     FileIDRequest,
+    GetDownloadUrlRequest,
+    GetDownloadUrlResponse,
     ListMediaItemCategoriesResponse,
     MediaItemCategorySchema,
     MediaItemSchema,
@@ -58,6 +62,38 @@ async def delete_media_item_immediately_batch(
 ) -> None:
     """Delete multiple media items at once."""
     await usecases.media_item.delete_immediately_batch(user.id, payload.file_ids)
+
+
+@router.get("/download_batch")
+def download_media_items_batch(
+    usecases: UseCasesDeps,
+    value: DownloadMediaItemBatchCache,
+):
+    """
+    Downloads multiple media items as a zip archive.
+    """
+    content = usecases.media_item.download_batch(value)
+    filename = "Shelf Cloud.zip"
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"',
+        "Content-Type": "attachment/zip",
+    }
+    return StreamingResponse(content, headers=headers)
+
+
+@router.post("/get_download_url")
+async def get_download_url(
+    request: Request,
+    payload: GetDownloadUrlRequest,
+    usecases: UseCasesDeps,
+    user: CurrentUserDeps,
+) -> GetDownloadUrlResponse:
+    """Return a link to download requested media items."""
+    key = await usecases.media_item.download_batch_create_session(
+        user.id, payload.file_ids
+    )
+    download_url = request.url_for("download_media_items_batch")
+    return GetDownloadUrlResponse(download_url=f"{download_url}?key={key}")
 
 
 @router.get("/list")
