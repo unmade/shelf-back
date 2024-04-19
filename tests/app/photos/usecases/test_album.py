@@ -26,3 +26,17 @@ class TestCreate:
             owner_id=owner_id,
             created_at=mock.ANY,
         )
+
+
+class TestList:
+    async def test(self, album_use_case: AlbumUseCase):
+        # GIVEN
+        owner_id = uuid.uuid4()
+        album_service = cast(mock.MagicMock, album_use_case.album)
+        # WHEN
+        result = await album_use_case.list_(owner_id, offset=0, limit=10)
+        # THEN
+        assert result == album_service.list_.return_value
+        album_service.list_.assert_awaited_once_with(
+            owner_id, offset=0, limit=10
+        )

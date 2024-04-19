@@ -35,10 +35,10 @@ class AlbumUseCase:
 
     async def list_(
         self,
-        user_id: UUID,
+        owner_id: UUID,
         *,
         offset: int,
         limit: int = 25,
     ) -> list[Album]:
-        """Lists albums for given user."""
-        return []
+        """Lists albums of the given owner."""
+        return await self.album.list_(owner_id, offset=offset, limit=limit)

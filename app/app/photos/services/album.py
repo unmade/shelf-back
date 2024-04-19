@@ -30,3 +30,9 @@ class AlbumService:
                 created_at=created_at,
             )
         )
+
+    async def list_(self, owner_id: UUID, *, offset: int, limit: int) -> list[Album]:
+        """Lists albums of the given owner."""
+        return await self.db.album.list_by_owner_id(
+            owner_id, offset=offset, limit=limit
+        )

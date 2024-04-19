@@ -23,8 +23,9 @@ from app.app.files.domain import (
 )
 from app.app.files.repositories import IFileMemberRepository
 from app.app.infrastructure.database import SENTINEL_ID
-from app.app.photos.domain import MediaItem
+from app.app.photos.domain import Album, MediaItem
 from app.app.photos.domain.media_item import IMediaItemType
+from app.app.photos.repositories import IAlbumRepository
 from app.app.users.domain import (
     Account,
     User,
@@ -57,9 +58,11 @@ if TYPE_CHECKING:
     )
     from app.infrastructure.database.edgedb import EdgeDBDatabase
 
+    class AlbumFactory(Protocol):
+        async def __call__(self, owner_id: UUID) -> Album: ...
+
     class BookmarkFactory(Protocol):
-        async def __call__(self, user_id: UUID, file_id: UUID) -> Bookmark:
-            ...
+        async def __call__(self, user_id: UUID, file_id: UUID) -> Bookmark: ...
 
     class FileFactory(Protocol):
         async def __call__(
@@ -213,8 +216,17 @@ def user_repo(edgedb_database: EdgeDBDatabase):
 
 
 @pytest.fixture
+def album_factory(album_repo: IAlbumRepository) -> AlbumFactory:
+    """A factory to create an album."""
+    async def factory(owner_id: UUID) -> Album:
+        album = Album(id=SENTINEL_ID, title=fake.name(), owner_id=owner_id)
+        return await album_repo.save(album)
+    return factory
+
+
+@pytest.fixture
 def bookmark_factory(bookmark_repo: IBookmarkRepository) -> BookmarkFactory:
-    """A factory to bookmark file for the given user."""
+    """A factory to create a bookmark for a file."""
     async def factory(user_id: UUID, file_id: UUID) -> Bookmark:
         bookmark = Bookmark(user_id=user_id, file_id=file_id)
         await bookmark_repo.save_batch([bookmark])

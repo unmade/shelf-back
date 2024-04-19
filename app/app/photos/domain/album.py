@@ -4,7 +4,9 @@ from datetime import datetime
 from typing import ClassVar
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from app.toolkit import timezone
 
 __all__ = ["Album"]
 
@@ -19,5 +21,5 @@ class Album(BaseModel):
     id: UUID
     owner_id: UUID
     title: str
-    created_at: datetime
+    created_at: datetime = Field(default_factory=timezone.now)
     cover: AlbumCover | None = None
