@@ -10,6 +10,15 @@ module default {
 
     abstract type Auditable {}
 
+    type Album {
+        required title: str;
+        required owner: User {
+            on target delete DELETE SOURCE;
+        }
+        required created_at: datetime;
+        cover: File;
+    }
+
     type AuditTrailAction {
         required name: str {
             constraint exclusive;
