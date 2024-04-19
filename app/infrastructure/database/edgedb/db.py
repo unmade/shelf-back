@@ -9,6 +9,7 @@ import edgedb
 from edgedb.asyncio_client import AsyncIOIteration
 
 from app.app.infrastructure import IDatabase
+from app.app.photos.repositories import IAlbumRepository
 from app.app.users.repositories import (
     IAccountRepository,
     IBookmarkRepository,
@@ -67,6 +68,7 @@ class Transaction(AsyncExitStack):
 
 
 class EdgeDBDatabase(IDatabase):
+    album: IAlbumRepository
     account: IAccountRepository
     audit_trail: IAuditTrailRepository
     bookmark: IBookmarkRepository

@@ -1,0 +1,28 @@
+from __future__ import annotations
+
+import uuid
+from typing import TYPE_CHECKING, cast
+from unittest import mock
+
+import pytest
+
+if TYPE_CHECKING:
+    from app.app.photos.usecases import AlbumUseCase
+
+pytestmark = [pytest.mark.anyio]
+
+
+class TestCreate:
+    async def test(self, album_use_case: AlbumUseCase):
+        # GIVEN
+        title, owner_id = "New Album", uuid.uuid4()
+        album_service = cast(mock.MagicMock, album_use_case.album)
+        # WHEN
+        result = await album_use_case.create(title, owner_id=owner_id)
+        # THEN
+        assert result == album_service.create.return_value
+        album_service.create.assert_awaited_once_with(
+            title=title,
+            owner_id=owner_id,
+            created_at=mock.ANY,
+        )

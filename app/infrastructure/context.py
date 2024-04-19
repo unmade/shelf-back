@@ -20,7 +20,7 @@ from app.app.files.services.file import FileCoreService, MountService
 from app.app.files.services.file_member import FileMemberService
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
 from app.app.infrastructure.mail import IMailBackend
-from app.app.photos.services import MediaItemService
+from app.app.photos.services import AlbumService, MediaItemService
 from app.app.photos.usecases import AlbumUseCase, MediaItemUseCase
 from app.app.users.services import BookmarkService, UserService
 from app.app.users.usecases import UserUseCase
@@ -131,6 +131,7 @@ class Infrastructure:
 class Services:
     __slots__ = [
         "_database",
+        "album",
         "audit_trail",
         "bookmark",
         "content",
@@ -155,6 +156,7 @@ class Services:
 
         self._database = database
 
+        self.album = AlbumService(database=database)
         self.audit_trail = AuditTrailService(database=database)
         self.bookmark = BookmarkService(database=database)
         self.filecore = FileCoreService(
