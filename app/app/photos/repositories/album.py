@@ -10,4 +10,8 @@ __all__ = ["IAlbumRepository"]
 
 class IAlbumRepository(Protocol):
     async def save(self, entity: Album) -> Album:
-        """Save a new album."""
+        """
+        Saves a new album.
+
+        Note, that `cover` field will be ignored even if set on entity.
+        """

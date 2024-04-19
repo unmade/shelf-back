@@ -19,6 +19,7 @@ from app.config import EdgeDBConfig
 
 from .repositories import (
     AccountRepository,
+    AlbumRepository,
     AuditTrailRepository,
     BookmarkRepository,
     ContentMetadataRepository,
@@ -95,7 +96,8 @@ class EdgeDBDatabase(IDatabase):
         )
         db_context.set(self.client)
 
-        self.account= AccountRepository(db_context=db_context)
+        self.account = AccountRepository(db_context=db_context)
+        self.album = AlbumRepository(db_context=db_context)
         self.audit_trail = AuditTrailRepository(db_context=db_context)
         self.bookmark = BookmarkRepository(db_context=db_context)
         self.file = FileRepository(db_context=db_context)
