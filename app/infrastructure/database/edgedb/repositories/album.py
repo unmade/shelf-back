@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 from app.app.photos.domain import Album
 from app.app.photos.repositories import IAlbumRepository
@@ -13,14 +14,13 @@ __all__ = ["AlbumRepository"]
 
 
 def _from_db(obj) -> Album:
+    cover = Album.Cover(file_id=obj.cover.id) if obj.cover else None
     return Album(
         id=obj.id,
         owner_id=obj.owner.id,
         title=obj.title,
         created_at=obj.created_at,
-        cover=Album.Cover(
-            file_id=obj.cover.id,
-        ),
+        cover=cover,
     )
 
 
@@ -31,6 +31,28 @@ class AlbumRepository(IAlbumRepository):
     @property
     def conn(self) -> EdgeDBAnyConn:
         return self.db_context.get()
+
+    async def list_by_owner_id(
+        self, owner_id: UUID, *, offset: int, limit: int = 25
+    ) -> list[Album]:
+        query = """
+            SELECT
+                Album { title, owner, created_at, cover }
+            FILTER
+                .owner.id = <uuid>$owner_id
+            ORDER BY
+                .title
+            OFFSET
+                <int64>$offset
+            LIMIT
+                <int64>$limit
+        """
+
+        objs = await self.conn.query(
+            query, owner_id=owner_id, offset=offset, limit=limit
+        )
+
+        return [_from_db(obj) for obj in objs]
 
     async def save(self, entity: Album) -> Album:
         query = """

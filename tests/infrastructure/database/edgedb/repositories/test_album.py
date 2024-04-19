@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import operator
 from typing import TYPE_CHECKING
 
 import pytest
@@ -11,8 +12,37 @@ from app.toolkit import timezone
 
 if TYPE_CHECKING:
     from app.app.users.domain import User
+    from tests.infrastructure.database.edgedb.conftest import AlbumFactory
 
 pytestmark = [pytest.mark.anyio, pytest.mark.database]
+
+
+class TestListByOwnerID:
+    @pytest.mark.usefixtures("namespace")
+    async def test(
+        self,
+        album_repo: AlbumRepository,
+        album_factory: AlbumFactory,
+        user: User,
+    ):
+        # GIVEN
+        albums = [await album_factory(user.id) for _ in range(5)]
+        # WHEN
+        result = await album_repo.list_by_owner_id(user.id, offset=0)
+        # THEN
+        assert result == sorted(albums, key=operator.attrgetter("title"))
+
+        # WHEN
+        result = await album_repo.list_by_owner_id(user.id, offset=2, limit=2)
+        # THEN
+        assert result == sorted(albums, key=operator.attrgetter("title"))[2:4]
+
+    @pytest.mark.usefixtures("namespace")
+    async def test_when_empty(self, album_repo: AlbumRepository, user: User):
+        # WHEN
+        result = await album_repo.list_by_owner_id(user.id, offset=0)
+        # THEN
+        assert result == []
 
 
 class TestSave:
