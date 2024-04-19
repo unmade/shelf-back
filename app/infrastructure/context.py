@@ -21,7 +21,7 @@ from app.app.files.services.file_member import FileMemberService
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
 from app.app.infrastructure.mail import IMailBackend
 from app.app.photos.services import MediaItemService
-from app.app.photos.usecases import MediaItemUseCase
+from app.app.photos.usecases import AlbumUseCase, MediaItemUseCase
 from app.app.users.services import BookmarkService, UserService
 from app.app.users.usecases import UserUseCase
 from app.cache import cache
@@ -190,9 +190,10 @@ class Services:
 
 
 class UseCases:
-    __slots__ = ["auth", "namespace", "media_item", "sharing", "user"]
+    __slots__ = ["album", "auth", "namespace", "media_item", "sharing", "user"]
 
     def __init__(self, services: Services):
+        self.album = AlbumUseCase(services=services)
         self.auth = AuthUseCase(services=services)
         self.namespace = NamespaceUseCase(services=services)
         self.sharing = SharingUseCase(services=services)
