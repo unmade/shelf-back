@@ -14,7 +14,7 @@ from app.app.auth.usecases import AuthUseCase
 from app.app.files.domain import Namespace
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
 from app.app.infrastructure.worker import IWorker
-from app.app.photos.usecases import MediaItemUseCase
+from app.app.photos.usecases import AlbumUseCase, MediaItemUseCase
 from app.app.users.domain import User
 from app.app.users.usecases import UserUseCase
 from app.infrastructure.context import UseCases
@@ -74,12 +74,19 @@ async def client(app):
 def _usecases():
     return mock.MagicMock(
         UseCases,
+        album=mock.MagicMock(AlbumUseCase),
         auth=mock.MagicMock(AuthUseCase),
         namespace=mock.MagicMock(NamespaceUseCase),
         media_item=mock.MagicMock(MediaItemUseCase),
         sharing=mock.MagicMock(SharingUseCase),
         user=mock.MagicMock(UserUseCase),
     )
+
+
+@pytest.fixture
+def album_use_case(_usecases: UseCases):
+    """A mocked instance of AlbumUseCase."""
+    return _usecases.album
 
 
 @pytest.fixture
