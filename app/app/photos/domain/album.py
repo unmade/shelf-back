@@ -21,5 +21,6 @@ class Album(BaseModel):
     id: UUID
     owner_id: UUID
     title: str
-    created_at: datetime = Field(default_factory=timezone.now)
     cover: AlbumCover | None = None
+    items_count: int = 0
+    created_at: datetime = Field(default_factory=timezone.now)

@@ -16,6 +16,7 @@ module default {
             on target delete DELETE SOURCE;
         }
         required created_at: datetime;
+        required items_count: int32;
         cover: File;
     }
 
