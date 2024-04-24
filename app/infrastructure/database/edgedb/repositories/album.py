@@ -37,7 +37,7 @@ class AlbumRepository(IAlbumRepository):
     ) -> list[Album]:
         query = """
             SELECT
-                Album { title, owner, created_at, cover }
+                Album { title, owner, cover, items_count, created_at }
             FILTER
                 .owner.id = <uuid>$owner_id
             ORDER BY
@@ -61,6 +61,7 @@ class AlbumRepository(IAlbumRepository):
             INSERT Album {
                 title := <str>$title,
                 owner := owner,
+                items_count := <int32>$items_count,
                 created_at := <datetime>$created_at,
             }
         """
@@ -69,6 +70,7 @@ class AlbumRepository(IAlbumRepository):
             query,
             title=entity.title,
             owner_id=entity.owner_id,
+            items_count=entity.items_count,
             created_at=entity.created_at,
         )
 

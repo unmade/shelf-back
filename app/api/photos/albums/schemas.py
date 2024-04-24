@@ -38,18 +38,19 @@ class AlbumCoverSchema(BaseModel):
 class AlbumSchema(BaseModel):
     id: UUID
     title: str
-    created_at: datetime
     cover: AlbumCoverSchema | None
+    items_count: int
+    created_at: datetime
 
     @classmethod
     def from_entity(cls, entity: Album, *, request: Request) -> Self:
         return cls(
             id=entity.id,
             title=entity.title,
-            created_at=entity.created_at,
             cover=AlbumCoverSchema.from_entity(entity.cover, request=request),
+            items_count=entity.items_count,
+            created_at=entity.created_at,
         )
-
 
 
 class CreateAlbumRequest(BaseModel):
