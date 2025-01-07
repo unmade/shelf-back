@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Protocol
 from app.app.infrastructure.database import SENTINEL_ID
 from app.app.photos.domain import Album
 from app.app.photos.repositories import IAlbumRepository
+from app.contrib.slugify import slugify
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -22,14 +23,31 @@ class AlbumService:
 
     async def create(self, title: str, owner_id: UUID, created_at: datetime) -> Album:
         """Creates a new album."""
+        base_slug = slugify(title, allow_unicode=True)
+        slug = await self.get_available_slug(owner_id, slug=base_slug)
         return await self.db.album.save(
             Album(
                 id=SENTINEL_ID,
                 title=title,
+                slug=slug,
                 owner_id=owner_id,
                 created_at=created_at,
             )
         )
+
+    async def get_available_slug(self, owner_id: UUID, slug: str) -> str:
+        """
+        Returns modified slug if the current one is already taken, otherwise
+        returns it unchanged.
+
+        For example, if slug 'my-slug' exists, then method will return `my-slug-1`.
+        """
+        if not await self.db.album.exists_with_slug(owner_id, slug):
+            return slug
+
+        pattern = f"{slug}-[[:digit:]]+$".lower()
+        count = await self.db.album.count_by_slug_pattern(owner_id, pattern)
+        return f"{slug}-{count + 1}"
 
     async def list_(self, owner_id: UUID, *, offset: int, limit: int) -> list[Album]:
         """Lists albums of the given owner."""

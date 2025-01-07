@@ -12,12 +12,19 @@ module default {
 
     type Album {
         required title: str;
+        required slug: str;
         required owner: User {
             on target delete DELETE SOURCE;
-        }
+        };
         required created_at: datetime;
         required items_count: int32;
         cover: File;
+
+        multi items: File {
+            on target delete allow;
+        };
+
+        constraint exclusive on ((.owner, .slug));
     }
 
     type AuditTrailAction {

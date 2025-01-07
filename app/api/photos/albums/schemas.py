@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Self, overload
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
     from fastapi import Request
@@ -38,6 +38,7 @@ class AlbumCoverSchema(BaseModel):
 class AlbumSchema(BaseModel):
     id: UUID
     title: str
+    slug: str
     cover: AlbumCoverSchema | None
     items_count: int
     created_at: datetime
@@ -47,6 +48,7 @@ class AlbumSchema(BaseModel):
         return cls(
             id=entity.id,
             title=entity.title,
+            slug=entity.slug,
             cover=AlbumCoverSchema.from_entity(entity.cover, request=request),
             items_count=entity.items_count,
             created_at=entity.created_at,
@@ -54,4 +56,4 @@ class AlbumSchema(BaseModel):
 
 
 class CreateAlbumRequest(BaseModel):
-    title: str
+    title: str = Field(min_length=1, max_length=512)
