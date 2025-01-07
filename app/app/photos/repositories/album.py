@@ -11,6 +11,12 @@ __all__ = ["IAlbumRepository"]
 
 
 class IAlbumRepository(Protocol):
+    async def count_by_slug_pattern(self, owner_id: UUID, pattern: str) -> int:
+        """Returns the number of occurence of the given slug pattern."""
+
+    async def exists_with_slug(self, owner_id: UUID, slug: str) -> bool:
+        """Checks if album with the given slug exists."""
+
     async def list_by_owner_id(
         self,
         owner_id: UUID,

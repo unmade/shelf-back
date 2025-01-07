@@ -59,7 +59,7 @@ if TYPE_CHECKING:
     from app.infrastructure.database.edgedb import EdgeDBDatabase
 
     class AlbumFactory(Protocol):
-        async def __call__(self, owner_id: UUID) -> Album: ...
+        async def __call__(self, owner_id: UUID, title: str | None = None) -> Album: ...
 
     class BookmarkFactory(Protocol):
         async def __call__(self, user_id: UUID, file_id: UUID) -> Bookmark: ...
@@ -218,8 +218,9 @@ def user_repo(edgedb_database: EdgeDBDatabase):
 @pytest.fixture
 def album_factory(album_repo: IAlbumRepository) -> AlbumFactory:
     """A factory to create an album."""
-    async def factory(owner_id: UUID) -> Album:
-        album = Album(id=SENTINEL_ID, title=fake.name(), owner_id=owner_id)
+    async def factory(owner_id: UUID, title: str | None = None) -> Album:
+        title = title or fake.unique.name()
+        album = Album(id=SENTINEL_ID, title=title, owner_id=owner_id)
         return await album_repo.save(album)
     return factory
 

@@ -17,6 +17,59 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.anyio, pytest.mark.database]
 
 
+class TestCountBySlugPattern:
+    @pytest.mark.usefixtures("namespace")
+    async def test(
+        self,
+        album_repo: AlbumRepository,
+        album_factory: AlbumFactory,
+        user: User,
+    ):
+        # GIVEN
+        pattern = "album-[[:digit:]]+$"
+        await album_factory(user.id, title="album-1")
+        await album_factory(user.id, title="album-2")
+        # WHEN
+        result = await album_repo.count_by_slug_pattern(user.id, pattern)
+        # THEN
+        assert result == 2
+
+    @pytest.mark.usefixtures("namespace")
+    async def test_when_no_match_found(
+        self,
+        album_repo: AlbumRepository,
+        album_factory: AlbumFactory,
+        user: User,
+    ):
+        # GIVEN
+        pattern = "album-[[:digit:]]+$"
+        await album_factory(user.id, title="album")
+        # WHEN
+        result = await album_repo.count_by_slug_pattern(user.id, pattern)
+        # THEN
+        assert result == 0
+
+
+class TestExistsWithSlug:
+    async def test(
+        self,
+        album_repo: AlbumRepository,
+        album_factory: AlbumFactory,
+        user: User,
+    ):
+        # GIVEN
+        await album_factory(user.id, title="album")
+        # WHEN
+        result = await album_repo.exists_with_slug(user.id, "album")
+        # THEN
+        assert result is True
+
+        # WHEN
+        result = await album_repo.exists_with_slug(user.id, "non-existing")
+        # THEN
+        assert result is False
+
+
 class TestListByOwnerID:
     @pytest.mark.usefixtures("namespace")
     async def test(
