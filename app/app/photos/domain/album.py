@@ -12,12 +12,22 @@ from app.toolkit import timezone
 __all__ = ["Album"]
 
 
+class AlbumError(Exception):
+    pass
+
+
+class AlbumNotFound(AlbumError):
+    ...
+
+
 class AlbumCover(BaseModel):
     file_id: UUID
 
 
 class Album(BaseModel):
     Cover: ClassVar[type[AlbumCover]] = AlbumCover
+
+    NotFound: ClassVar[type[AlbumNotFound]] = AlbumNotFound
 
     id: UUID
     owner_id: UUID

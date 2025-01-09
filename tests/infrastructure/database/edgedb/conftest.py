@@ -25,7 +25,6 @@ from app.app.files.repositories import IFileMemberRepository
 from app.app.infrastructure.database import SENTINEL_ID
 from app.app.photos.domain import Album, MediaItem
 from app.app.photos.domain.media_item import IMediaItemType
-from app.app.photos.repositories import IAlbumRepository
 from app.app.users.domain import (
     Account,
     User,
@@ -36,6 +35,7 @@ from app.toolkit import chash
 from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from datetime import datetime
     from typing import Protocol
     from uuid import UUID
@@ -57,9 +57,17 @@ if TYPE_CHECKING:
         IUserRepository,
     )
     from app.infrastructure.database.edgedb import EdgeDBDatabase
+    from app.infrastructure.database.edgedb.repositories import AlbumRepository
 
     class AlbumFactory(Protocol):
-        async def __call__(self, owner_id: UUID, title: str | None = None) -> Album: ...
+        async def __call__(
+            self,
+            owner_id: UUID,
+            title: str | None = None,
+            *,
+            items: Iterable[MediaItem] | None = None,
+        ) -> Album:
+            ...
 
     class BookmarkFactory(Protocol):
         async def __call__(self, user_id: UUID, file_id: UUID) -> Bookmark: ...
@@ -216,12 +224,42 @@ def user_repo(edgedb_database: EdgeDBDatabase):
 
 
 @pytest.fixture
-def album_factory(album_repo: IAlbumRepository) -> AlbumFactory:
+def album_factory(album_repo: AlbumRepository) -> AlbumFactory:
     """A factory to create an album."""
-    async def factory(owner_id: UUID, title: str | None = None) -> Album:
+    async def factory(
+        owner_id: UUID,
+        title: str | None = None,
+        *,
+        items: Iterable[MediaItem] | None = None,
+    ) -> Album:
         title = title or fake.unique.name()
-        album = Album(id=SENTINEL_ID, title=title, owner_id=owner_id)
-        return await album_repo.save(album)
+        album = await album_repo.save(
+            Album(
+                id=SENTINEL_ID,
+                title=title,
+                owner_id=owner_id,
+            )
+        )
+
+        if items:
+            query = """
+                UPDATE
+                    Album
+                FILTER
+                    .id = <uuid>$album_id
+                SET {
+                    items += (
+                        SELECT
+                            File
+                        FILTER
+                            .id IN {array_unpack(<array<uuid>>$file_ids)}
+                    )
+                }
+            """
+            await album_repo.conn.query(
+                query, album_id=album.id, file_ids=[item.file_id for item in items]
+            )
+        return album
     return factory
 
 

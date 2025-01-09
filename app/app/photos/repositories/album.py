@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Protocol
 if TYPE_CHECKING:
     from uuid import UUID
 
-    from app.app.photos.domain import Album
+    from app.app.photos.domain import Album, MediaItem
 
 __all__ = ["IAlbumRepository"]
 
@@ -17,6 +17,14 @@ class IAlbumRepository(Protocol):
     async def exists_with_slug(self, owner_id: UUID, slug: str) -> bool:
         """Checks if album with the given slug exists."""
 
+    async def get_by_slug(self, owner_id: UUID, slug: str) -> Album:
+        """
+        Returns album by its slug.
+
+        Raises:
+            Album.NotFound: If Album does not exist.
+        """
+
     async def list_by_owner_id(
         self,
         owner_id: UUID,
@@ -25,6 +33,16 @@ class IAlbumRepository(Protocol):
         limit: int = 25,
     ) -> list[Album]:
         """Lists albums of a given owner."""
+
+    async def list_items(
+        self,
+        user_id: UUID,
+        slug: str,
+        *,
+        offset: int,
+        limit: int = 25,
+    ) -> list[MediaItem]:
+        """Lists media items in a given album."""
 
     async def save(self, entity: Album) -> Album:
         """

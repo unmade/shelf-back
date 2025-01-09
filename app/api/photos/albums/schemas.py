@@ -6,9 +6,12 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.api.photos.utils.urls import make_thumbnail_url
+
 if TYPE_CHECKING:
     from fastapi import Request
 
+    from app.app.photos.domain import MediaItem
     from app.app.photos.domain.album import Album, AlbumCover
 
 
@@ -55,5 +58,34 @@ class AlbumSchema(BaseModel):
         )
 
 
+class AlbumItemSchema(BaseModel):
+    file_id: UUID
+    name: str
+    size: int
+    mediatype: str
+    thumbnail_url: str | None
+    modified_at: datetime
+    deleted_at: datetime | None
+
+    @classmethod
+    def from_entity(cls, entity: MediaItem, request: Request) -> Self:
+        return cls(
+            file_id=entity.file_id,
+            name=entity.name,
+            size=entity.size,
+            mediatype=entity.mediatype,
+            thumbnail_url=make_thumbnail_url(request, entity),
+            modified_at=entity.modified_at,
+            deleted_at=entity.deleted_at,
+        )
+
+
+
 class CreateAlbumRequest(BaseModel):
     title: str = Field(min_length=1, max_length=512)
+
+
+class ListAlbumItemsResponse(BaseModel):
+    page: int
+    album: AlbumSchema
+    items: list[AlbumItemSchema]

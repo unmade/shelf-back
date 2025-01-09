@@ -12,7 +12,10 @@ from app.toolkit import timezone
 
 if TYPE_CHECKING:
     from app.app.users.domain import User
-    from tests.infrastructure.database.edgedb.conftest import AlbumFactory
+    from tests.infrastructure.database.edgedb.conftest import (
+        AlbumFactory,
+        MediaItemFactory,
+    )
 
 pytestmark = [pytest.mark.anyio, pytest.mark.database]
 
@@ -70,6 +73,35 @@ class TestExistsWithSlug:
         assert result is False
 
 
+class TestGetBySlug:
+    @pytest.mark.usefixtures("namespace")
+    async def test(
+        self,
+        album_repo: AlbumRepository,
+        album_factory: AlbumFactory,
+        user: User,
+    ):
+        # GIVEN
+        album = await album_factory(user.id, title="album")
+        # WHEN
+        result = await album_repo.get_by_slug(user.id, album.slug)
+        # THEN
+        assert result == album
+
+    @pytest.mark.usefixtures("namespace")
+    async def test_when_not_found(
+        self,
+        album_repo: AlbumRepository,
+        album_factory: AlbumFactory,
+        user: User,
+    ):
+        # GIVEN
+        await album_factory(user.id, title="album")
+        # WHEN
+        with pytest.raises(Album.NotFound):
+            await album_repo.get_by_slug(user.id, "non-existing")
+
+
 class TestListByOwnerID:
     @pytest.mark.usefixtures("namespace")
     async def test(
@@ -96,6 +128,34 @@ class TestListByOwnerID:
         result = await album_repo.list_by_owner_id(user.id, offset=0)
         # THEN
         assert result == []
+
+
+class TestListByAlbum:
+    @pytest.mark.usefixtures("namespace")
+    async def test(
+        self,
+        album_repo: AlbumRepository,
+        album_factory: AlbumFactory,
+        media_item_factory: MediaItemFactory,
+        user: User,
+    ):
+        # GIVEN
+        items = list(reversed([await media_item_factory(user.id) for _ in range(20)]))
+        album_a = await album_factory(user.id, items=items[:10])
+        album_b = await album_factory(user.id, items=items[15:])
+        # WHEN
+        result = await album_repo.list_items(user.id, album_a.slug, offset=0)
+        # THEN
+        assert result == items[:10]
+
+        # WHEN
+        result = await album_repo.list_items(user.id, album_a.slug, offset=5, limit=10)
+        # THEN
+        assert result == items[5:10]
+
+        # WHEN
+        result = await album_repo.list_items(user.id, album_b.slug, offset=0)
+        assert result == items[15:]
 
 
 class TestSave:

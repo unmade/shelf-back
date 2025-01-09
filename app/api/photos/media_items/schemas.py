@@ -7,20 +7,14 @@ from uuid import UUID
 from fastapi import Request
 from pydantic import BaseModel, Field
 
+from app.api.photos.utils.urls import make_thumbnail_url
 from app.app.files.domain import SharedLink
-from app.app.files.services.thumbnailer import thumbnails
 from app.app.photos.domain import MediaItem
 from app.app.photos.domain.media_item import (
     MediaItemCategory,
     MediaItemCategoryName,
     MediaItemCategoryOrigin,
 )
-
-
-def _make_thumbnail_url(request: Request, entity: MediaItem) -> str | None:
-    if thumbnails.is_supported(entity.mediatype):
-        return str(request.url_for("get_thumbnail", file_id=entity.file_id))
-    return None
 
 
 class MediaItemSchema(BaseModel):
@@ -39,7 +33,7 @@ class MediaItemSchema(BaseModel):
             name=entity.name,
             size=entity.size,
             mediatype=entity.mediatype,
-            thumbnail_url=_make_thumbnail_url(request, entity),
+            thumbnail_url=make_thumbnail_url(request, entity),
             modified_at=entity.modified_at,
             deleted_at=entity.deleted_at,
         )

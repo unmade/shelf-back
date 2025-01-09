@@ -3,7 +3,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 from uuid import UUID
 
-from app.app.photos.domain import Album
+import edgedb
+
+from app.app.photos.domain import Album, MediaItem
 from app.app.photos.repositories import IAlbumRepository
 
 if TYPE_CHECKING:
@@ -21,6 +23,17 @@ def _from_db(obj) -> Album:
         title=obj.title,
         created_at=obj.created_at,
         cover=cover,
+    )
+
+
+def _media_item_from_db(obj) -> MediaItem:
+    return MediaItem(
+        file_id=obj.id,
+        name=obj.name,
+        size=obj.size,
+        modified_at=obj.modified_at,
+        deleted_at=obj.deleted_at,
+        mediatype=obj.mediatype.name
     )
 
 
@@ -68,6 +81,28 @@ class AlbumRepository(IAlbumRepository):
         )
         return cast(bool, exists)
 
+    async def get_by_slug(self, owner_id: UUID, slug: str) -> Album:
+        query = """
+            WITH
+                owner := (SELECT User FILTER .id = <uuid>$owner_id),
+            SELECT
+                Album { title, owner, cover, items_count, created_at }
+            FILTER
+                .owner = owner
+                AND
+                .slug = <str>$slug
+            LIMIT 1
+        """
+
+        try:
+            obj = await self.conn.query_required_single(
+                query, owner_id=owner_id, slug=slug
+            )
+        except edgedb.NoDataError as exc:
+            raise Album.NotFound() from exc
+
+        return _from_db(obj)
+
     async def list_by_owner_id(
         self, owner_id: UUID, *, offset: int, limit: int = 25
     ) -> list[Album]:
@@ -89,6 +124,45 @@ class AlbumRepository(IAlbumRepository):
         )
 
         return [_from_db(obj) for obj in objs]
+
+    async def list_items(
+        self,
+        user_id: UUID,
+        album_slug: str,
+        *,
+        offset: int,
+        limit: int = 25,
+    ) -> list[MediaItem]:
+        query = """
+            WITH
+                owner := (SELECT User FILTER .id = <uuid>$user_id),
+            SELECT
+                Album {
+                    items := (
+                        SELECT
+                            .items {
+                                id, name, size, modified_at, deleted_at,
+                                mediatype: { name }
+                            }
+                        ORDER BY
+                            .modified_at DESC
+                        OFFSET
+                            <int64>$offset
+                        LIMIT
+                            <int64>$limit
+                    )
+                }
+            FILTER
+                .owner = owner
+                AND
+                .slug = <str>$slug
+            LIMIT 1
+        """
+
+        obj = await self.conn.query_required_single(
+            query, user_id=user_id, slug=album_slug, offset=offset, limit=limit
+        )
+        return [_media_item_from_db(item) for item in obj.items]
 
     async def save(self, entity: Album) -> Album:
         query = """

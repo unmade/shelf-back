@@ -11,6 +11,8 @@ if TYPE_CHECKING:
     from datetime import datetime
     from uuid import UUID
 
+    from app.app.photos.domain import MediaItem
+
     class IServiceDatabase(Protocol):
         album: IAlbumRepository
 
@@ -49,8 +51,25 @@ class AlbumService:
         count = await self.db.album.count_by_slug_pattern(owner_id, pattern)
         return f"{slug}-{count + 1}"
 
+    async def get_by_slug(self, owner_id: UUID, slug: str) -> Album:
+        """Returns album by its slug."""
+        return await self.db.album.get_by_slug(owner_id, slug)
+
     async def list_(self, owner_id: UUID, *, offset: int, limit: int) -> list[Album]:
         """Lists albums of the given owner."""
         return await self.db.album.list_by_owner_id(
             owner_id, offset=offset, limit=limit
+        )
+
+    async def list_items(
+        self,
+        owner_id: UUID,
+        slug: str,
+        *,
+        offset: int,
+        limit: int,
+    ) -> list[MediaItem]:
+        """Lists media items in the given album."""
+        return await self.db.album.list_items(
+            owner_id, slug, offset=offset, limit=limit
         )
