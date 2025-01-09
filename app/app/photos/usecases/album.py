@@ -8,6 +8,7 @@ from app.toolkit import timezone
 if TYPE_CHECKING:
     from uuid import UUID
 
+    from app.app.photos.domain import MediaItem
     from app.app.photos.services import AlbumService
 
     class IUseCaseServices(Protocol):
@@ -42,3 +43,16 @@ class AlbumUseCase:
     ) -> list[Album]:
         """Lists albums of the given owner."""
         return await self.album.list_(owner_id, offset=offset, limit=limit)
+
+    async def list_items(
+        self,
+        owner_id: UUID,
+        slug: str,
+        *,
+        offset: int,
+        limit: int = 25,
+    ) -> tuple[Album, list[MediaItem]]:
+        """Lists media items in the given album."""
+        album = await self.album.get_by_slug(owner_id, slug)
+        items = await self.album.list_items(owner_id, slug, offset=offset, limit=limit)
+        return album, items

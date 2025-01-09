@@ -40,3 +40,20 @@ class TestList:
         album_service.list_.assert_awaited_once_with(
             owner_id, offset=0, limit=10
         )
+
+
+class TestListItems:
+    async def test(self, album_use_case: AlbumUseCase):
+        # GIVEN
+        owner_id, slug = uuid.uuid4(), "new-album"
+        album_service = cast(mock.MagicMock, album_use_case.album)
+        album = album_service.get_by_slug.return_value
+        album_items = album_service.list_items.return_value
+        # WHEN
+        result = await album_use_case.list_items(owner_id, slug, offset=100, limit=200)
+        # THEN
+        assert result == (album, album_items)
+        album_service.get_by_slug.assert_awaited_once_with(owner_id, slug)
+        album_service.list_items.assert_awaited_once_with(
+            owner_id, slug, offset=100, limit=200
+        )

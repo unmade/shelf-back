@@ -77,6 +77,18 @@ class TestGetAvailableSlug:
         )
 
 
+class TestGetBySlug:
+    async def test(self, album_service: AlbumService):
+        # GIVEN
+        owner_id, slug = uuid.uuid4(), "new-album"
+        db = cast(mock.MagicMock, album_service.db)
+        # WHEN
+        result = await album_service.get_by_slug(owner_id, slug)
+        # THEN
+        assert result == db.album.get_by_slug.return_value
+        db.album.get_by_slug.assert_awaited_once_with(owner_id, slug)
+
+
 class TestList:
     async def test(self, album_service: AlbumService):
         # GIVEN
@@ -88,4 +100,19 @@ class TestList:
         assert result == db.album.list_by_owner_id.return_value
         db.album.list_by_owner_id.assert_awaited_once_with(
             owner_id, offset=0, limit=10
+        )
+
+
+class TestListItems:
+    async def test(self, album_service: AlbumService):
+        # GIVEN
+        owner_id, slug = uuid.uuid4(), "new-album"
+        db = cast(mock.MagicMock, album_service.db)
+        items = db.album.list_items.return_value
+        # WHEN
+        result = await album_service.list_items(owner_id, slug, offset=100, limit=200)
+        # THEN
+        assert result == items
+        db.album.list_items.assert_awaited_once_with(
+            owner_id, slug, offset=100, limit=200
         )

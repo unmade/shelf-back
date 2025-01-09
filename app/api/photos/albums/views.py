@@ -7,7 +7,12 @@ from fastapi import APIRouter, Query, Request
 from app.api.deps import CurrentUserDeps, UseCasesDeps
 from app.api.paginator import Page, get_offset
 
-from .schemas import AlbumSchema, CreateAlbumRequest
+from .schemas import (
+    AlbumItemSchema,
+    AlbumSchema,
+    CreateAlbumRequest,
+    ListAlbumItemsResponse,
+)
 
 router = APIRouter()
 
@@ -42,4 +47,28 @@ async def list_albums(
     return Page(
         page=page,
         items=[AlbumSchema.from_entity(item, request=request) for item in items],
+    )
+
+
+@router.get("/{slug}/list_items")
+async def list_album_items(
+    slug: str,
+    request: Request,
+    usecases: UseCasesDeps,
+    user: CurrentUserDeps,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=100, le=1000)] = 100,
+) -> ListAlbumItemsResponse:
+    """Lists media items in the given album."""
+    offset = get_offset(page, page_size)
+    album, items = await usecases.album.list_items(
+        user.id,
+        slug,
+        offset=offset,
+        limit=page_size,
+    )
+    return ListAlbumItemsResponse(
+        page=page,
+        album=AlbumSchema.from_entity(album, request=request),
+        items=[AlbumItemSchema.from_entity(item, request=request) for item in items],
     )
