@@ -15,13 +15,13 @@ if TYPE_CHECKING:
     from tests.api.conftest import TestClient
 
 
-def _make_album(owner_id: UUID) -> Album:
+def _make_album(owner_id: UUID, *, cover_id: UUID | None = None) -> Album:
     return Album(
         id=uuid.uuid4(),
         owner_id=owner_id,
         title="New Album",
         created_at=timezone.now(),
-        cover=None,
+        cover=Album.Cover(file_id=cover_id) if cover_id else None,
     )
 
 
@@ -37,7 +37,7 @@ def _make_media_item(
 
 
 class TestCreate:
-    url = "/photos/albums/create"
+    url = "/photos/albums"
 
     async def test(self, client: TestClient, album_use_case: MagicMock, user: User):
         # GIVEN
@@ -55,14 +55,44 @@ class TestCreate:
         )
 
 
+class TestGetAlbum:
+    url = "/photos/albums/{slug}"
+
+    async def test(self, client: TestClient, album_use_case: MagicMock, user: User):
+        # GIVEN
+        album = _make_album(user.id)
+        album_use_case.get_by_slug.return_value = album
+        client.mock_user(user)
+        # WHEN
+        response = await client.get(self.url.format(slug=album.slug))
+        # THEN
+        assert response.status_code == 200
+        assert response.json()["title"] == album.title
+        album_use_case.get_by_slug.assert_awaited_once_with(user.id, album.slug)
+
+    async def test_when_does_not_exist(
+        self, client: TestClient, album_use_case: MagicMock, user: User
+    ):
+        # GIVEN
+        album_use_case.get_by_slug.side_effect = Album.NotFound()
+        client.mock_user(user)
+        # WHEN
+        response = await client.get(self.url.format(slug="non-existent-album"))
+        # THEN
+        assert response.status_code == 404
+        album_use_case.get_by_slug.assert_awaited_once_with(
+            user.id, "non-existent-album"
+        )
+
+
 class TestList:
-    url = "/photos/albums/list"
+    url = "/photos/albums"
 
     async def test(self, client: TestClient, album_use_case: MagicMock, user: User):
         # GIVEN
         albums = [
             _make_album(user.id),
-            _make_album(user.id),
+            _make_album(user.id, cover_id=uuid.uuid4()),
         ]
         album_use_case.list_.return_value = albums
         # WHEN
@@ -77,7 +107,7 @@ class TestList:
 class TestListAlbumItems:
     @staticmethod
     def url(slug: str) -> str:
-        return f"/photos/albums/{slug}/list_items"
+        return f"/photos/albums/{slug}/items"
 
     async def test(self, client: TestClient, album_use_case: MagicMock, user: User):
         # GIVEN

@@ -28,6 +28,18 @@ class TestCreate:
         )
 
 
+class TestGetBySlug:
+    async def test(self, album_use_case: AlbumUseCase):
+        # GIVEN
+        owner_id, slug = uuid.uuid4(), "new-album"
+        album_service = cast(mock.MagicMock, album_use_case.album)
+        # WHEN
+        result = await album_use_case.get_by_slug(owner_id, slug)
+        # THEN
+        assert result == album_service.get_by_slug.return_value
+        album_service.get_by_slug.assert_awaited_once_with(owner_id, slug)
+
+
 class TestList:
     async def test(self, album_use_case: AlbumUseCase):
         # GIVEN
