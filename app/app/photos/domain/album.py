@@ -40,8 +40,8 @@ class Album(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def autogenerate_slug(cls, data: Any) -> Any:
-        if isinstance(data, dict):
-            if 'title' in data and isinstance(data["title"], str):
-                if "slug" not in data or not data["slug"]:
+        if isinstance(data, dict):  # pragma: no branch
+            if "slug" not in data or not data["slug"]:
+                if "title" in data and isinstance(data["title"], str):
                     data["slug"] = slugify(data["title"], allow_unicode=True)
         return data

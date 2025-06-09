@@ -18,7 +18,7 @@ exclude_lines =
     from __future__ import annotations
     assert_never
 omit =
-    app/contrib/aws_v4_auth.py
+    app/contrib/*
     app/infrastructure/storage/s3/clients/*
     app/typedefs.py
     tests/example_fixture_tests/*

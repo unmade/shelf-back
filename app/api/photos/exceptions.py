@@ -3,6 +3,13 @@ from __future__ import annotations
 from app.api.exceptions import APIError
 
 
+class AlbumNotFound(APIError):
+    status_code = 404
+    code = "ALBUM_NOT_FOUND"
+    code_verbose = "Album not found"
+    default_message = "The requested album does not exist"
+
+
 class DownloadNotFound(APIError):
     status_code = 404
     code = "DOWNLOAD_NOT_FOUND"

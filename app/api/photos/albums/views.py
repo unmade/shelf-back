@@ -6,6 +6,8 @@ from fastapi import APIRouter, Query, Request
 
 from app.api.deps import CurrentUserDeps, UseCasesDeps
 from app.api.paginator import Page, get_offset
+from app.api.photos import exceptions
+from app.app.photos.domain import Album
 
 from .schemas import (
     AlbumItemSchema,
@@ -17,7 +19,7 @@ from .schemas import (
 router = APIRouter()
 
 
-@router.post("/create")
+@router.post("")
 async def create_album(
     request: Request,
     payload: CreateAlbumRequest,
@@ -29,7 +31,22 @@ async def create_album(
     return AlbumSchema.from_entity(album, request=request)
 
 
-@router.get("/list")
+@router.get("/{slug}")
+async def get_album(
+    slug: str,
+    request: Request,
+    usecases: UseCasesDeps,
+    user: CurrentUserDeps,
+) -> AlbumSchema:
+    """Returns album by its slug."""
+    try:
+        album = await usecases.album.get_by_slug(user.id, slug)
+    except Album.NotFound as exc:
+        raise exceptions.AlbumNotFound() from exc
+    return AlbumSchema.from_entity(album, request=request)
+
+
+@router.get("")
 async def list_albums(
     request: Request,
     usecases: UseCasesDeps,
@@ -50,7 +67,7 @@ async def list_albums(
     )
 
 
-@router.get("/{slug}/list_items")
+@router.get("/{slug}/items")
 async def list_album_items(
     slug: str,
     request: Request,

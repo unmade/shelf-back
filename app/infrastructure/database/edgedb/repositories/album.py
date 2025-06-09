@@ -22,6 +22,7 @@ def _from_db(obj) -> Album:
         owner_id=obj.owner.id,
         title=obj.title,
         created_at=obj.created_at,
+        items_count=obj.items_count,
         cover=cover,
     )
 

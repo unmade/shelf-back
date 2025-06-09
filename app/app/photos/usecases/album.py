@@ -34,6 +34,10 @@ class AlbumUseCase:
             created_at=timezone.now(),
         )
 
+    async def get_by_slug(self, owner_id: UUID, slug: str) -> Album:
+        """Returns album by its slug."""
+        return await self.album.get_by_slug(owner_id, slug)
+
     async def list_(
         self,
         owner_id: UUID,
