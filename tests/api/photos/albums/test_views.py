@@ -113,7 +113,7 @@ class TestListAlbumItems:
         # GIVEN
         album = _make_album(user.id)
         items = [_make_media_item() for _ in range(3)]
-        album_use_case.list_items.return_value = album, items
+        album_use_case.list_items.return_value = items
         client.mock_user(user)
 
         # WHEN

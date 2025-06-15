@@ -55,8 +55,6 @@ class AlbumUseCase:
         *,
         offset: int,
         limit: int = 25,
-    ) -> tuple[Album, list[MediaItem]]:
+    ) -> list[MediaItem]:
         """Lists media items in the given album."""
-        album = await self.album.get_by_slug(owner_id, slug)
-        items = await self.album.list_items(owner_id, slug, offset=offset, limit=limit)
-        return album, items
+        return await self.album.list_items(owner_id, slug, offset=offset, limit=limit)
