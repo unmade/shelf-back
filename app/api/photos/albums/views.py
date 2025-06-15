@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, TypeAlias
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Path, Query, Request
 
 from app.api.deps import CurrentUserDeps, UseCasesDeps
 from app.api.paginator import Page, get_offset
@@ -10,12 +10,30 @@ from app.api.photos import exceptions
 from app.app.photos.domain import Album
 
 from .schemas import (
+    AddAlbumItemsRequest,
     AlbumItemSchema,
     AlbumSchema,
     CreateAlbumRequest,
 )
 
 router = APIRouter()
+
+AlbumSlugParam: TypeAlias = Annotated[str, Path(min_length=1, max_length=512)]
+
+
+@router.put("/{slug}/items")
+async def add_album_items(
+    slug: AlbumSlugParam,
+    payload: AddAlbumItemsRequest,
+    usecases: UseCasesDeps,
+    user: CurrentUserDeps,
+) -> None:
+    """Adds items to the album."""
+    await usecases.album.add_album_items(
+        user.id,
+        slug,
+        file_ids=payload.file_ids,
+    )
 
 
 @router.post("")
@@ -32,7 +50,7 @@ async def create_album(
 
 @router.get("/{slug}")
 async def get_album(
-    slug: str,
+    slug: AlbumSlugParam,
     request: Request,
     usecases: UseCasesDeps,
     user: CurrentUserDeps,
@@ -68,7 +86,7 @@ async def list_albums(
 
 @router.get("/{slug}/items")
 async def list_album_items(
-    slug: str,
+    slug: AlbumSlugParam,
     request: Request,
     usecases: UseCasesDeps,
     user: CurrentUserDeps,

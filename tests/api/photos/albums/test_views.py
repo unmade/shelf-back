@@ -36,6 +36,24 @@ def _make_media_item(
     )
 
 
+class TestAddItems:
+    url = "/photos/albums/{slug}/items"
+
+    async def test(self, client: TestClient, album_use_case: MagicMock, user: User):
+        # GIVEN
+        album = _make_album(user.id)
+        items = [_make_media_item() for _ in range(3)]
+        payload = {"file_ids": [str(item.file_id) for item in items]}
+        client.mock_user(user)
+        # WHEN
+        response = await client.put(self.url.format(slug=album.slug), json=payload)
+        # THEN
+        assert response.status_code == 200
+        album_use_case.add_album_items.assert_awaited_once_with(
+            user.id, album.slug, file_ids=payload["file_ids"]
+        )
+
+
 class TestCreate:
     url = "/photos/albums"
 

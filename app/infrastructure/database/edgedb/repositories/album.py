@@ -46,6 +46,33 @@ class AlbumRepository(IAlbumRepository):
     def conn(self) -> EdgeDBAnyConn:
         return self.db_context.get()
 
+    async def add_items(
+        self, owner_id: UUID, slug: str, file_ids: list[UUID]
+    ) -> None:
+        query = """
+            WITH
+                owner := (SELECT User FILTER .id = <uuid>$owner_id),
+                album := (
+                    SELECT
+                        Album
+                    FILTER
+                        .owner = owner
+                        AND
+                        .slug = <str>$slug
+                ),
+            UPDATE Album
+            SET {
+                items += (
+                    SELECT
+                        File
+                    FILTER
+                        .id IN {array_unpack(<array<uuid>>$file_ids)}
+                )
+            }
+        """
+
+        await self.conn.query(query, owner_id=owner_id, slug=slug, file_ids=file_ids)
+
     async def count_by_slug_pattern(self, owner_id: UUID, pattern: str) -> int:
         query = """
             WITH

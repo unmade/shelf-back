@@ -12,6 +12,20 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.anyio]
 
 
+class TestAddItems:
+    async def test(self, album_use_case: AlbumUseCase):
+        # GIVEN
+        owner_id, slug = uuid.uuid4(), "new-album"
+        file_ids = [uuid.uuid4() for _ in range(5)]
+        album_service = cast(mock.MagicMock, album_use_case.album)
+        # WHEN
+        await album_use_case.add_album_items(owner_id, slug, file_ids)
+        # THEN
+        album_service.add_items.assert_awaited_once_with(
+            owner_id, slug, file_ids,
+        )
+
+
 class TestCreate:
     async def test(self, album_use_case: AlbumUseCase):
         # GIVEN
