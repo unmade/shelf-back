@@ -23,6 +23,13 @@ class AlbumService:
     def __init__(self, database: IServiceDatabase):
         self.db = database
 
+    async def add_items(self, owner_id: UUID, slug: str, file_ids: list[UUID]) -> None:
+        """Adds items to the album."""
+        if not await self.db.album.exists_with_slug(owner_id, slug):
+            raise Album.NotFound()
+
+        await self.db.album.add_items(owner_id, slug, file_ids)
+
     async def create(self, title: str, owner_id: UUID, created_at: datetime) -> Album:
         """Creates a new album."""
         base_slug = slugify(title, allow_unicode=True)

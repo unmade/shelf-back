@@ -11,6 +11,11 @@ __all__ = ["IAlbumRepository"]
 
 
 class IAlbumRepository(Protocol):
+    async def add_items(
+        self, owner_id: UUID, slug: str, file_ids: list[UUID]
+    ) -> None:
+        """Adds items to the album."""
+
     async def count_by_slug_pattern(self, owner_id: UUID, pattern: str) -> int:
         """Returns the number of occurence of the given slug pattern."""
 

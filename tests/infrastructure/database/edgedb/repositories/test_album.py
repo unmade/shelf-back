@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import operator
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 import pytest
 
 from app.app.infrastructure.database import SENTINEL_ID
 from app.app.photos.domain import Album
+from app.infrastructure.database.edgedb.db import db_context
 from app.infrastructure.database.edgedb.repositories import AlbumRepository
 from app.toolkit import timezone
 
@@ -18,6 +20,37 @@ if TYPE_CHECKING:
     )
 
 pytestmark = [pytest.mark.anyio, pytest.mark.database]
+
+
+async def _list_item_ids(album_id: UUID) -> list[UUID]:
+    query = """
+        SELECT
+            Album { items }
+        FILTER
+            .id = <uuid>$album_id
+        LIMIT 1
+    """
+    obj = await db_context.get().query_required_single(query, album_id=album_id)
+    return sorted(item.id for item in obj.items)
+
+
+class TestAddItems:
+    @pytest.mark.usefixtures("namespace")
+    async def test(
+        self,
+        album_repo: AlbumRepository,
+        album_factory: AlbumFactory,
+        media_item_factory: MediaItemFactory,
+        user: User,
+    ):
+        # GIVEN
+        album = await album_factory(user.id, title="album")
+        items = [await media_item_factory(user.id) for _ in range(5)]
+        file_ids = sorted(item.file_id for item in items)
+        # WHEN
+        await album_repo.add_items(user.id, album.slug, file_ids=file_ids)
+        # THEN
+        assert await _list_item_ids(album.id) == file_ids
 
 
 class TestCountBySlugPattern:

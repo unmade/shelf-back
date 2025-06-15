@@ -26,6 +26,12 @@ class AlbumUseCase:
         self._services = services
         self.album = services.album
 
+    async def add_album_items(
+        self, owner_id: UUID, slug: str, file_ids: list[UUID]
+    ) -> None:
+        """Adds items to the album."""
+        await self.album.add_items(owner_id, slug, file_ids)
+
     async def create(self, title: str, owner_id: UUID) -> Album:
         """Creates a new album."""
         return await self.album.create(
