@@ -13,7 +13,6 @@ from .schemas import (
     AlbumItemSchema,
     AlbumSchema,
     CreateAlbumRequest,
-    ListAlbumItemsResponse,
 )
 
 router = APIRouter()
@@ -75,17 +74,16 @@ async def list_album_items(
     user: CurrentUserDeps,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=100, le=1000)] = 100,
-) -> ListAlbumItemsResponse:
+) -> Page[AlbumItemSchema]:
     """Lists media items in the given album."""
     offset = get_offset(page, page_size)
-    album, items = await usecases.album.list_items(
+    items = await usecases.album.list_items(
         user.id,
         slug,
         offset=offset,
         limit=page_size,
     )
-    return ListAlbumItemsResponse(
+    return Page(
         page=page,
-        album=AlbumSchema.from_entity(album, request=request),
         items=[AlbumItemSchema.from_entity(item, request=request) for item in items],
     )

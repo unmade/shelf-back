@@ -83,9 +83,3 @@ class AlbumItemSchema(BaseModel):
 
 class CreateAlbumRequest(BaseModel):
     title: str = Field(min_length=1, max_length=512)
-
-
-class ListAlbumItemsResponse(BaseModel):
-    page: int
-    album: AlbumSchema
-    items: list[AlbumItemSchema]
