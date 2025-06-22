@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import operator
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from uuid import UUID
 
 import pytest
@@ -20,6 +20,20 @@ if TYPE_CHECKING:
     )
 
 pytestmark = [pytest.mark.anyio, pytest.mark.database]
+
+
+async def _count_album_items(album_id: UUID) -> int:
+    query = """
+        SELECT count((
+            SELECT
+                Album { items }
+            FILTER
+                .id = <uuid>$album_id
+            LIMIT 1
+        ).items)
+    """
+    result = await db_context.get().query_required_single(query, album_id=album_id)
+    return cast(int, result)
 
 
 async def _list_item_ids(album_id: UUID) -> list[UUID]:
@@ -44,13 +58,15 @@ class TestAddItems:
         user: User,
     ):
         # GIVEN
-        album = await album_factory(user.id, title="album")
-        items = [await media_item_factory(user.id) for _ in range(5)]
-        file_ids = sorted(item.file_id for item in items)
+        max_items = 5
+        items = [await media_item_factory(user.id) for _ in range(max_items)]
+        album = await album_factory(user.id, title="album", items=items[:2])
+        file_ids = sorted(item.file_id for item in items[2:])
         # WHEN
         await album_repo.add_items(user.id, album.slug, file_ids=file_ids)
         # THEN
-        assert await _list_item_ids(album.id) == file_ids
+        assert await _list_item_ids(album.id) == [item.file_id for item in items]
+        assert await _count_album_items(album.id) == max_items
 
 
 class TestCountBySlugPattern:

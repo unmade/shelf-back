@@ -60,14 +60,16 @@ class AlbumRepository(IAlbumRepository):
                         AND
                         .slug = <str>$slug
                 ),
-            UPDATE Album
+            UPDATE
+                album
             SET {
                 items += (
                     SELECT
                         File
                     FILTER
                         .id IN {array_unpack(<array<uuid>>$file_ids)}
-                )
+                ),
+                items_count := .items_count + <int32>len(<array<uuid>>$file_ids)
             }
         """
 
