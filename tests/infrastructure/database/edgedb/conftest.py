@@ -253,7 +253,8 @@ def album_factory(album_repo: AlbumRepository) -> AlbumFactory:
                             File
                         FILTER
                             .id IN {array_unpack(<array<uuid>>$file_ids)}
-                    )
+                    ),
+                    items_count := <int32>count(<array<uuid>>$file_ids)
                 }
             """
             await album_repo.conn.query(
