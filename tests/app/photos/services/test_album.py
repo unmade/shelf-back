@@ -143,3 +143,30 @@ class TestListItems:
         db.album.list_items.assert_awaited_once_with(
             owner_id, slug, offset=100, limit=200
         )
+
+
+class TestRemoveItems:
+    async def test(self, album_service: AlbumService):
+        # GIVEN
+        owner_id, slug = uuid.uuid4(), "new-album"
+        file_ids = [uuid.uuid4() for _ in range(5)]
+        db = cast(mock.MagicMock, album_service.db)
+        db.album.exists_with_slug.return_value = True
+        # WHEN
+        await album_service.remove_items(owner_id, slug, file_ids)
+        # THEN
+        db.album.exists_with_slug.assert_awaited_once_with(owner_id, slug)
+        db.album.remove_items.assert_awaited_once_with(owner_id, slug, file_ids)
+
+    async def test_when_album_does_not_exist(self, album_service: AlbumService):
+        # GIVEN
+        owner_id, slug = uuid.uuid4(), "new-album"
+        file_ids = [uuid.uuid4() for _ in range(5)]
+        db = cast(mock.MagicMock, album_service.db)
+        db.album.exists_with_slug.return_value = False
+        # WHEN
+        with pytest.raises(Album.NotFound):
+            await album_service.remove_items(owner_id, slug, file_ids)
+        # THEN
+        db.album.exists_with_slug.assert_awaited_once_with(owner_id, slug)
+        db.album.remove_items.assert_not_awaited()

@@ -86,3 +86,7 @@ class AddAlbumItemsRequest(BaseModel):
 
 class CreateAlbumRequest(BaseModel):
     title: str = Field(min_length=1, max_length=512)
+
+
+class RemoveAlbumItemsRequest(BaseModel):
+    file_ids: list[UUID] = Field(..., min_length=1, max_length=1_000)
