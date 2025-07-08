@@ -81,3 +81,17 @@ class TestListItems:
         album_service.list_items.assert_awaited_once_with(
             owner_id, slug, offset=100, limit=200
         )
+
+
+class TestRemoveItems:
+    async def test(self, album_use_case: AlbumUseCase):
+        # GIVEN
+        owner_id, slug = uuid.uuid4(), "new-album"
+        file_ids = [uuid.uuid4() for _ in range(5)]
+        album_service = cast(mock.MagicMock, album_use_case.album)
+        # WHEN
+        await album_use_case.remove_album_items(owner_id, slug, file_ids)
+        # THEN
+        album_service.remove_items.assert_awaited_once_with(
+            owner_id, slug, file_ids,
+        )

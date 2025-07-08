@@ -43,14 +43,15 @@ class TestAddItems:
         # GIVEN
         album = _make_album(user.id)
         items = [_make_media_item() for _ in range(3)]
-        payload = {"file_ids": [str(item.file_id) for item in items]}
+        file_ids = [item.file_id for item in items]
+        payload = {"file_ids": [str(file_id) for file_id in file_ids]}
         client.mock_user(user)
         # WHEN
         response = await client.put(self.url.format(slug=album.slug), json=payload)
         # THEN
         assert response.status_code == 200
         album_use_case.add_album_items.assert_awaited_once_with(
-            user.id, album.slug, file_ids=payload["file_ids"]
+            user.id, album.slug, file_ids=file_ids
         )
 
 
@@ -142,4 +143,26 @@ class TestListAlbumItems:
         assert len(response.json()["items"]) == len(items)
         album_use_case.list_items.assert_awaited_once_with(
             user.id, album.slug, offset=0, limit=100
+        )
+
+
+class TestRemoveItems:
+    url = "/photos/albums/{slug}/items"
+
+    async def test(self, client: TestClient, album_use_case: MagicMock, user: User):
+        # GIVEN
+        album = _make_album(user.id)
+        items = [_make_media_item() for _ in range(3)]
+        file_ids = [item.file_id for item in items]
+        payload = {"file_ids": [str(file_id) for file_id in file_ids]}
+        client.mock_user(user)
+        # WHEN
+        # see: https://www.python-httpx.org/compatibility/#request-body-on-http-methods
+        response = await client.request(
+            "DELETE", self.url.format(slug=album.slug), json=payload
+        )
+        # THEN
+        assert response.status_code == 200
+        album_use_case.remove_album_items.assert_awaited_once_with(
+            user.id, album.slug, file_ids=file_ids
         )

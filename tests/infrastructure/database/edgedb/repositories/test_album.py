@@ -22,18 +22,16 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.anyio, pytest.mark.database]
 
 
-async def _count_album_items(album_id: UUID) -> int:
+async def _get_album_items_count(album_id: UUID) -> int:
     query = """
-        SELECT count((
-            SELECT
-                Album { items }
-            FILTER
-                .id = <uuid>$album_id
-            LIMIT 1
-        ).items)
+        SELECT
+            Album { items_count }
+        FILTER
+            .id = <uuid>$album_id
+        LIMIT 1
     """
-    result = await db_context.get().query_required_single(query, album_id=album_id)
-    return cast(int, result)
+    obj = await db_context.get().query_required_single(query, album_id=album_id)
+    return cast(int, obj.items_count)
 
 
 async def _list_item_ids(album_id: UUID) -> list[UUID]:
@@ -66,7 +64,7 @@ class TestAddItems:
         await album_repo.add_items(user.id, album.slug, file_ids=file_ids)
         # THEN
         assert await _list_item_ids(album.id) == [item.file_id for item in items]
-        assert await _count_album_items(album.id) == max_items
+        assert await _get_album_items_count(album.id) == max_items
 
 
 class TestCountBySlugPattern:
@@ -205,6 +203,27 @@ class TestListByAlbum:
         # WHEN
         result = await album_repo.list_items(user.id, album_b.slug, offset=0)
         assert result == items[15:]
+
+
+class TestRemoveItems:
+    @pytest.mark.usefixtures("namespace")
+    async def test(
+        self,
+        album_repo: AlbumRepository,
+        album_factory: AlbumFactory,
+        media_item_factory: MediaItemFactory,
+        user: User,
+    ):
+        # GIVEN
+        items = [await media_item_factory(user.id) for _ in range(5)]
+        album = await album_factory(user.id, title="album", items=items)
+        file_ids = sorted(item.file_id for item in items[:2])
+        # WHEN
+        await album_repo.remove_items(user.id, album.slug, file_ids=file_ids)
+        # THEN
+        expected_ids = sorted(item.file_id for item in items[2:])
+        assert await _list_item_ids(album.id) == expected_ids
+        assert await _get_album_items_count(album.id) == 3
 
 
 class TestSave:

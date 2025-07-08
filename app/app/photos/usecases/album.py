@@ -64,3 +64,9 @@ class AlbumUseCase:
     ) -> list[MediaItem]:
         """Lists media items in the given album."""
         return await self.album.list_items(owner_id, slug, offset=offset, limit=limit)
+
+    async def remove_album_items(
+        self, owner_id: UUID, slug: str, file_ids: list[UUID]
+    ) -> None:
+        """Removes items from the album."""
+        await self.album.remove_items(owner_id, slug, file_ids)

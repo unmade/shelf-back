@@ -194,6 +194,33 @@ class AlbumRepository(IAlbumRepository):
         )
         return [_media_item_from_db(item) for item in obj.items]
 
+    async def remove_items(
+        self, owner_id: UUID, slug: str, file_ids: list[UUID]
+    ) -> None:
+        query = """
+            WITH
+                owner := (SELECT User FILTER .id = <uuid>$owner_id),
+                album := (
+                    SELECT
+                        Album
+                    FILTER
+                        .owner = owner
+                        AND
+                        .slug = <str>$slug
+                ),
+            UPDATE album
+            SET {
+                items -= (
+                    SELECT
+                        File
+                    FILTER
+                        .id IN {array_unpack(<array<uuid>>$file_ids)}
+                ),
+                items_count := .items_count - <int32>len(<array<uuid>>$file_ids)
+            }
+        """
+        await self.conn.query(query, owner_id=owner_id, slug=slug, file_ids=file_ids)
+
     async def save(self, entity: Album) -> Album:
         query = """
             WITH

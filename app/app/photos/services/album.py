@@ -80,3 +80,12 @@ class AlbumService:
         return await self.db.album.list_items(
             owner_id, slug, offset=offset, limit=limit
         )
+
+    async def remove_items(
+        self, owner_id: UUID, slug: str, file_ids: list[UUID]
+    ) -> None:
+        """Removes items from the album."""
+        if not await self.db.album.exists_with_slug(owner_id, slug):
+            raise Album.NotFound()
+
+        await self.db.album.remove_items(owner_id, slug, file_ids)

@@ -14,6 +14,7 @@ from .schemas import (
     AlbumItemSchema,
     AlbumSchema,
     CreateAlbumRequest,
+    RemoveAlbumItemsRequest,
 )
 
 router = APIRouter()
@@ -104,4 +105,19 @@ async def list_album_items(
     return Page(
         page=page,
         items=[AlbumItemSchema.from_entity(item, request=request) for item in items],
+    )
+
+
+@router.delete("/{slug}/items")
+async def remove_album_items(
+    slug: AlbumSlugParam,
+    payload: RemoveAlbumItemsRequest,
+    usecases: UseCasesDeps,
+    user: CurrentUserDeps,
+) -> None:
+    """Removes items from the album."""
+    await usecases.album.remove_album_items(
+        user.id,
+        slug,
+        file_ids=payload.file_ids,
     )

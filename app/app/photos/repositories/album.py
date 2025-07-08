@@ -49,6 +49,11 @@ class IAlbumRepository(Protocol):
     ) -> list[MediaItem]:
         """Lists media items in a given album."""
 
+    async def remove_items(
+        self, owner_id: UUID, slug: str, file_ids: list[UUID]
+    ) -> None:
+        """Removes items from the album."""
+
     async def save(self, entity: Album) -> Album:
         """
         Saves a new album.
