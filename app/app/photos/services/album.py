@@ -24,10 +24,12 @@ class AlbumService:
         self.db = database
 
     async def add_items(self, owner_id: UUID, slug: str, file_ids: list[UUID]) -> None:
-        """Adds items to the album."""
-        if not await self.db.album.exists_with_slug(owner_id, slug):
-            raise Album.NotFound()
+        """
+        Adds items to the album.
 
+        Raises:
+            Album.NotFound: If album does not exist.
+        """
         await self.db.album.add_items(owner_id, slug, file_ids)
 
     async def create(self, title: str, owner_id: UUID, created_at: datetime) -> Album:
@@ -59,7 +61,12 @@ class AlbumService:
         return f"{slug}-{count + 1}"
 
     async def get_by_slug(self, owner_id: UUID, slug: str) -> Album:
-        """Returns album by its slug."""
+        """
+        Returns album by its slug.
+
+        Raises:
+            Album.NotFound: If Album does not exist.
+        """
         return await self.db.album.get_by_slug(owner_id, slug)
 
     async def list_(self, owner_id: UUID, *, offset: int, limit: int) -> list[Album]:
@@ -84,10 +91,12 @@ class AlbumService:
     async def remove_items(
         self, owner_id: UUID, slug: str, file_ids: list[UUID]
     ) -> None:
-        """Removes items from the album."""
-        if not await self.db.album.exists_with_slug(owner_id, slug):
-            raise Album.NotFound()
+        """
+        Removes items from the album.
 
+        Raises:
+            Album.NotFound: If album does not exist.
+        """
         await self.db.album.remove_items(owner_id, slug, file_ids)
 
     async def set_cover(self, owner_id: UUID, slug: str, file_id: UUID) -> None:

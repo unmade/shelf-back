@@ -30,12 +30,14 @@ async def add_album_items(
     user: CurrentUserDeps,
 ) -> None:
     """Adds items to the album."""
-    await usecases.album.add_album_items(
-        user.id,
-        slug,
-        file_ids=payload.file_ids,
-    )
-
+    try:
+        await usecases.album.add_album_items(
+            user.id,
+            slug,
+            file_ids=payload.file_ids,
+        )
+    except Album.NotFound as exc:
+        raise exceptions.AlbumNotFound() from exc
 
 @router.post("")
 async def create_album(
@@ -116,8 +118,11 @@ async def remove_album_items(
     user: CurrentUserDeps,
 ) -> None:
     """Removes items from the album."""
-    await usecases.album.remove_album_items(
-        user.id,
-        slug,
-        file_ids=payload.file_ids,
-    )
+    try:
+        await usecases.album.remove_album_items(
+            user.id,
+            slug,
+            file_ids=payload.file_ids,
+        )
+    except Album.NotFound as exc:
+        raise exceptions.AlbumNotFound() from exc

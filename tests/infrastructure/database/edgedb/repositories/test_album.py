@@ -79,6 +79,19 @@ class TestAddItems:
         assert await _list_item_ids(album.id) == [item.file_id for item in items]
         assert await _get_album_items_count(album.id) == max_items
 
+    @pytest.mark.usefixtures("namespace")
+    async def test_when_album_does_not_exist(
+        self,
+        album_repo: AlbumRepository,
+        user: User,
+    ):
+        # GIVEN
+        slug = "nonexistent-album"
+        file_ids = [uuid.uuid4() for _ in range(2)]
+        # WHEN / THEN
+        with pytest.raises(Album.NotFound):
+            await album_repo.add_items(user.id, slug, file_ids)
+
 
 class TestCountBySlugPattern:
     @pytest.mark.usefixtures("namespace")
@@ -237,6 +250,19 @@ class TestRemoveItems:
         expected_ids = sorted(item.file_id for item in items[2:])
         assert await _list_item_ids(album.id) == expected_ids
         assert await _get_album_items_count(album.id) == 3
+
+    @pytest.mark.usefixtures("namespace")
+    async def test_when_album_does_not_exist(
+        self,
+        album_repo: AlbumRepository,
+        user: User,
+    ):
+        # GIVEN
+        slug = "nonexistent-album"
+        file_ids = [uuid.uuid4() for _ in range(2)]
+        # WHEN / THEN
+        with pytest.raises(Album.NotFound):
+            await album_repo.remove_items(user.id, slug, file_ids)
 
 
 class TestSave:

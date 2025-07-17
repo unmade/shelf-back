@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol
 
+from app.app.infrastructure.database import IAtomic
 from app.app.photos.domain import Album
 from app.toolkit import timezone
 
@@ -11,7 +12,7 @@ if TYPE_CHECKING:
     from app.app.photos.domain import MediaItem
     from app.app.photos.services import AlbumService
 
-    class IUseCaseServices(Protocol):
+    class IUseCaseServices(IAtomic, Protocol):
         album: AlbumService
 
 __all__ = [
@@ -29,7 +30,12 @@ class AlbumUseCase:
     async def add_album_items(
         self, owner_id: UUID, slug: str, file_ids: list[UUID]
     ) -> None:
-        """Adds items to the album."""
+        """
+        Adds items to the album.
+
+        Raises:
+            Album.NotFound: If album does not exist.
+        """
         await self.album.add_items(owner_id, slug, file_ids)
         album = await self.album.get_by_slug(owner_id, slug)
         if album.cover is None and file_ids:
@@ -44,7 +50,12 @@ class AlbumUseCase:
         )
 
     async def get_by_slug(self, owner_id: UUID, slug: str) -> Album:
-        """Returns album by its slug."""
+        """
+        Returns album by its slug.
+
+        Raises:
+            Album.NotFound: If album does not exist.
+        """
         return await self.album.get_by_slug(owner_id, slug)
 
     async def list_(
@@ -71,5 +82,10 @@ class AlbumUseCase:
     async def remove_album_items(
         self, owner_id: UUID, slug: str, file_ids: list[UUID]
     ) -> None:
-        """Removes items from the album."""
+        """
+        Removes items from the album.
+
+        Raises:
+            Album.NotFound: If album does not exist.
+        """
         await self.album.remove_items(owner_id, slug, file_ids)
