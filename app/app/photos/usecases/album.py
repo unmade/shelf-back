@@ -81,7 +81,7 @@ class AlbumUseCase:
 
     async def remove_album_items(
         self, owner_id: UUID, slug: str, file_ids: list[UUID]
-    ) -> None:
+    ) -> Album:
         """
         Removes items from the album.
 
@@ -92,6 +92,7 @@ class AlbumUseCase:
         if album.cover and album.cover.file_id in file_ids:
             if album.items_count > 0:
                 items = await self.album.list_items(owner_id, slug, offset=0, limit=1)
-                await self.album.set_cover(owner_id, slug, items[0].file_id)
+                album = await self.album.set_cover(owner_id, slug, items[0].file_id)
             else:
-                await self.album.clear_cover(owner_id, slug)
+                album = await self.album.clear_cover(owner_id, slug)
+        return album

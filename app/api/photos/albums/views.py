@@ -24,20 +24,24 @@ AlbumSlugParam: TypeAlias = Annotated[str, Path(min_length=1, max_length=512)]
 
 @router.put("/{slug}/items")
 async def add_album_items(
+    request: Request,
     slug: AlbumSlugParam,
     payload: AddAlbumItemsRequest,
     usecases: UseCasesDeps,
     user: CurrentUserDeps,
-) -> None:
+) -> AlbumSchema:
     """Adds items to the album."""
     try:
-        await usecases.album.add_album_items(
+        album = await usecases.album.add_album_items(
             user.id,
             slug,
             file_ids=payload.file_ids,
         )
     except Album.NotFound as exc:
         raise exceptions.AlbumNotFound() from exc
+
+    return AlbumSchema.from_entity(album, request=request)
+
 
 @router.post("")
 async def create_album(
@@ -112,17 +116,20 @@ async def list_album_items(
 
 @router.delete("/{slug}/items")
 async def remove_album_items(
+    request: Request,
     slug: AlbumSlugParam,
     payload: RemoveAlbumItemsRequest,
     usecases: UseCasesDeps,
     user: CurrentUserDeps,
-) -> None:
+) -> AlbumSchema:
     """Removes items from the album."""
     try:
-        await usecases.album.remove_album_items(
+        album = await usecases.album.remove_album_items(
             user.id,
             slug,
             file_ids=payload.file_ids,
         )
     except Album.NotFound as exc:
         raise exceptions.AlbumNotFound() from exc
+
+    return AlbumSchema.from_entity(album, request=request)

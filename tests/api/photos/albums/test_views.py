@@ -42,6 +42,7 @@ class TestAddItems:
     async def test(self, client: TestClient, album_use_case: MagicMock, user: User):
         # GIVEN
         album = _make_album(user.id)
+        album_use_case.add_album_items.return_value = album
         items = [_make_media_item() for _ in range(3)]
         file_ids = [item.file_id for item in items]
         payload = {"file_ids": [str(file_id) for file_id in file_ids]}
@@ -169,6 +170,7 @@ class TestRemoveItems:
     async def test(self, client: TestClient, album_use_case: MagicMock, user: User):
         # GIVEN
         album = _make_album(user.id)
+        album_use_case.remove_album_items.return_value = album
         items = [_make_media_item() for _ in range(3)]
         file_ids = [item.file_id for item in items]
         payload = {"file_ids": [str(file_id) for file_id in file_ids]}
