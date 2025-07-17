@@ -54,6 +54,23 @@ class TestAddItems:
             user.id, album.slug, file_ids=file_ids
         )
 
+    async def test_when_album_not_found(
+        self, client: TestClient, album_use_case: MagicMock, user: User
+    ):
+        # GIVEN
+        album = _make_album(user.id)
+        album_use_case.add_album_items.side_effect = Album.NotFound()
+        file_ids = [uuid.uuid4() for _ in range(2)]
+        payload = {"file_ids": [str(file_id) for file_id in file_ids]}
+        client.mock_user(user)
+        # WHEN
+        response = await client.put(self.url.format(slug=album.slug), json=payload)
+        # THEN
+        assert response.status_code == 404
+        album_use_case.add_album_items.assert_awaited_once_with(
+            user.id, album.slug, file_ids=file_ids
+        )
+
 
 class TestCreate:
     url = "/photos/albums"
@@ -163,6 +180,25 @@ class TestRemoveItems:
         )
         # THEN
         assert response.status_code == 200
+        album_use_case.remove_album_items.assert_awaited_once_with(
+            user.id, album.slug, file_ids=file_ids
+        )
+
+    async def test_when_album_not_found(
+        self, client: TestClient, album_use_case: MagicMock, user: User
+    ):
+        # GIVEN
+        album = _make_album(user.id)
+        album_use_case.remove_album_items.side_effect = Album.NotFound()
+        file_ids = [uuid.uuid4() for _ in range(2)]
+        payload = {"file_ids": [str(file_id) for file_id in file_ids]}
+        client.mock_user(user)
+        # WHEN
+        response = await client.request(
+            "DELETE", self.url.format(slug=album.slug), json=payload
+        )
+        # THEN
+        assert response.status_code == 404
         album_use_case.remove_album_items.assert_awaited_once_with(
             user.id, album.slug, file_ids=file_ids
         )

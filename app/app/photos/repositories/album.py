@@ -14,7 +14,12 @@ class IAlbumRepository(Protocol):
     async def add_items(
         self, owner_id: UUID, slug: str, file_ids: list[UUID]
     ) -> None:
-        """Adds items to the album."""
+        """
+        Adds items to the album.
+
+        Raises:
+            Album.NotFound: If album does not exist.
+        """
 
     async def count_by_slug_pattern(self, owner_id: UUID, pattern: str) -> int:
         """Returns the number of occurence of the given slug pattern."""
@@ -27,7 +32,7 @@ class IAlbumRepository(Protocol):
         Returns album by its slug.
 
         Raises:
-            Album.NotFound: If Album does not exist.
+            Album.NotFound: If album does not exist.
         """
 
     async def list_by_owner_id(
@@ -52,7 +57,12 @@ class IAlbumRepository(Protocol):
     async def remove_items(
         self, owner_id: UUID, slug: str, file_ids: list[UUID]
     ) -> None:
-        """Removes items from the album."""
+        """
+        Removes items from the album.
+
+        Raises:
+            Album.NotFound: If album does not exist.
+        """
 
     async def save(self, entity: Album) -> Album:
         """

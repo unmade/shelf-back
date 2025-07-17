@@ -74,7 +74,12 @@ class AlbumRepository(IAlbumRepository):
             }
         """
 
-        await self.conn.query(query, owner_id=owner_id, slug=slug, file_ids=file_ids)
+        try:
+            await self.conn.query_required_single(
+                query, owner_id=owner_id, slug=slug, file_ids=file_ids
+            )
+        except edgedb.NoDataError as exc:
+            raise Album.NotFound() from exc
 
     async def count_by_slug_pattern(self, owner_id: UUID, pattern: str) -> int:
         query = """
@@ -220,7 +225,13 @@ class AlbumRepository(IAlbumRepository):
                 items_count := .items_count - <int32>len(<array<uuid>>$file_ids)
             }
         """
-        await self.conn.query(query, owner_id=owner_id, slug=slug, file_ids=file_ids)
+
+        try:
+            await self.conn.query_required_single(
+                query, owner_id=owner_id, slug=slug, file_ids=file_ids
+            )
+        except edgedb.NoDataError as exc:
+            raise Album.NotFound() from exc
 
     async def save(self, entity: Album) -> Album:
         query = """

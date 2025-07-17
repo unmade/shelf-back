@@ -6,6 +6,8 @@ from unittest import mock
 
 import pytest
 
+from app.app.photos.domain import Album
+
 if TYPE_CHECKING:
     from app.app.photos.usecases import AlbumUseCase
 
@@ -77,6 +79,15 @@ class TestGetBySlug:
         assert result == album_service.get_by_slug.return_value
         album_service.get_by_slug.assert_awaited_once_with(owner_id, slug)
 
+    async def test_when_album_does_not_exist(self, album_use_case: AlbumUseCase):
+        # GIVEN
+        owner_id, slug = uuid.uuid4(), "nonexistent-album"
+        album_service = cast(mock.MagicMock, album_use_case.album)
+        album_service.get_by_slug.side_effect = Album.NotFound()
+        # WHEN / THEN
+        with pytest.raises(Album.NotFound):
+            await album_use_case.get_by_slug(owner_id, slug)
+
 
 class TestList:
     async def test(self, album_use_case: AlbumUseCase):
@@ -119,3 +130,12 @@ class TestRemoveItems:
         album_service.remove_items.assert_awaited_once_with(
             owner_id, slug, file_ids,
         )
+    async def test_when_album_does_not_exist(self, album_use_case: AlbumUseCase):
+        # GIVEN
+        owner_id, slug = uuid.uuid4(), "nonexistent-album"
+        file_ids = [uuid.uuid4() for _ in range(2)]
+        album_service = cast(mock.MagicMock, album_use_case.album)
+        album_service.remove_items.side_effect = Album.NotFound()
+        # WHEN / THEN
+        with pytest.raises(Album.NotFound):
+            await album_use_case.remove_album_items(owner_id, slug, file_ids)
