@@ -25,8 +25,9 @@ class TestAddItems:
         file_ids = [uuid.uuid4() for _ in range(5)]
         db = cast(mock.MagicMock, album_service.db)
         # WHEN
-        await album_service.add_items(owner_id, slug, file_ids)
+        result = await album_service.add_items(owner_id, slug, file_ids)
         # THEN
+        assert result == db.album.add_items.return_value
         db.album.add_items.assert_awaited_once_with(owner_id, slug, file_ids)
 
     async def test_when_album_does_not_exist(self, album_service: AlbumService):
@@ -40,6 +41,18 @@ class TestAddItems:
             await album_service.add_items(owner_id, slug, file_ids)
         # THEN
         db.album.add_items.assert_awaited_once_with(owner_id, slug, file_ids)
+
+
+class TestClearCover:
+    async def test(self, album_service: AlbumService):
+        # GIVEN
+        owner_id, slug = uuid.uuid4(), "album"
+        db = cast(mock.MagicMock, album_service.db)
+        # WHEN
+        result = await album_service.clear_cover(owner_id, slug)
+        # THEN
+        assert result == db.album.set_cover.return_value
+        db.album.set_cover.assert_awaited_once_with(owner_id, slug, file_id=None)
 
 
 class TestCreate:
@@ -160,8 +173,9 @@ class TestRemoveItems:
         file_ids = [uuid.uuid4() for _ in range(5)]
         db = cast(mock.MagicMock, album_service.db)
         # WHEN
-        await album_service.remove_items(owner_id, slug, file_ids)
+        result = await album_service.remove_items(owner_id, slug, file_ids)
         # THEN
+        assert result == db.album.remove_items.return_value
         db.album.remove_items.assert_awaited_once_with(owner_id, slug, file_ids)
 
     async def test_when_album_does_not_exist(self, album_service: AlbumService):
@@ -183,6 +197,7 @@ class TestSetCover:
         owner_id, slug, file_id = uuid.uuid4(), "album", uuid.uuid4()
         db = cast(mock.MagicMock, album_service.db)
         # WHEN
-        await album_service.set_cover(owner_id, slug, file_id)
+        result = await album_service.set_cover(owner_id, slug, file_id)
         # THEN
+        assert result == db.album.set_cover.return_value
         db.album.set_cover.assert_awaited_once_with(owner_id, slug, file_id)
