@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import operator
+import uuid
 from typing import TYPE_CHECKING, cast
 from uuid import UUID
 
@@ -20,6 +21,18 @@ if TYPE_CHECKING:
     )
 
 pytestmark = [pytest.mark.anyio, pytest.mark.database]
+
+
+async def _get_album_cover_id(album_id: UUID) -> UUID | None:
+    query = """
+        SELECT
+            Album { cover }
+        FILTER
+            .id = <uuid>$album_id
+        LIMIT 1
+    """
+    obj = await db_context.get().query_required_single(query, album_id=album_id)
+    return obj.cover.id if obj.cover else None
 
 
 async def _get_album_items_count(album_id: UUID) -> int:
@@ -248,3 +261,34 @@ class TestSave:
         assert result.created_at == entity.created_at
         assert result.owner_id == entity.owner_id
         assert result.cover is None
+
+
+class TestSetCover:
+    @pytest.mark.usefixtures("namespace")
+    async def test(
+        self,
+        album_repo: AlbumRepository,
+        album_factory: AlbumFactory,
+        media_item_factory: MediaItemFactory,
+        user: User,
+    ):
+        # GIVEN
+        items = [await media_item_factory(user.id) for _ in range(2)]
+        album = await album_factory(user.id, title="album", items=items)
+        # WHEN
+        await album_repo.set_cover(user.id, album.slug, items[1].file_id)
+        # THEN
+        cover_id = await _get_album_cover_id(album.id)
+        assert cover_id == items[1].file_id
+
+    @pytest.mark.usefixtures("namespace")
+    async def test_when_album_does_not_exist(
+        self,
+        album_repo: AlbumRepository,
+        user: User,
+    ):
+        # GIVEN
+        file_ids = [uuid.uuid4() for _ in range(2)]
+        # WHEN / THEN
+        with pytest.raises(Album.NotFound):
+            await album_repo.set_cover(user.id, "non-existing-album", file_ids[1])

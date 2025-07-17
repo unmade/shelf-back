@@ -60,3 +60,11 @@ class IAlbumRepository(Protocol):
 
         Note, that `cover` field will be ignored even if set on entity.
         """
+
+    async def set_cover(self, owner_id: UUID, slug: str, file_id: UUID) -> None:
+        """
+        Sets the album cover.
+
+        Raises:
+            Album.NotFound: If album does not exist.
+        """

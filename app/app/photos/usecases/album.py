@@ -31,6 +31,9 @@ class AlbumUseCase:
     ) -> None:
         """Adds items to the album."""
         await self.album.add_items(owner_id, slug, file_ids)
+        album = await self.album.get_by_slug(owner_id, slug)
+        if album.cover is None and file_ids:
+            await self.album.set_cover(owner_id, slug, file_ids[0])
 
     async def create(self, title: str, owner_id: UUID) -> Album:
         """Creates a new album."""
