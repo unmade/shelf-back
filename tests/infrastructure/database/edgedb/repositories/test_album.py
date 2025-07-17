@@ -74,10 +74,11 @@ class TestAddItems:
         album = await album_factory(user.id, title="album", items=items[:2])
         file_ids = sorted(item.file_id for item in items[2:])
         # WHEN
-        await album_repo.add_items(user.id, album.slug, file_ids=file_ids)
+        result = await album_repo.add_items(user.id, album.slug, file_ids=file_ids)
         # THEN
-        assert await _list_item_ids(album.id) == [item.file_id for item in items]
+        assert result.items_count == max_items
         assert await _get_album_items_count(album.id) == max_items
+        assert await _list_item_ids(album.id) == [item.file_id for item in items]
 
     @pytest.mark.usefixtures("namespace")
     async def test_when_album_does_not_exist(
@@ -162,7 +163,7 @@ class TestGetBySlug:
         assert result == album
 
     @pytest.mark.usefixtures("namespace")
-    async def test_when_not_found(
+    async def test_when_does_not_exist(
         self,
         album_repo: AlbumRepository,
         album_factory: AlbumFactory,
@@ -245,11 +246,12 @@ class TestRemoveItems:
         album = await album_factory(user.id, title="album", items=items)
         file_ids = sorted(item.file_id for item in items[:2])
         # WHEN
-        await album_repo.remove_items(user.id, album.slug, file_ids=file_ids)
+        result = await album_repo.remove_items(user.id, album.slug, file_ids=file_ids)
         # THEN
+        assert result.items_count == 3
+        assert await _get_album_items_count(album.id) == 3
         expected_ids = sorted(item.file_id for item in items[2:])
         assert await _list_item_ids(album.id) == expected_ids
-        assert await _get_album_items_count(album.id) == 3
 
     @pytest.mark.usefixtures("namespace")
     async def test_when_album_does_not_exist(
@@ -299,13 +301,35 @@ class TestSetCover:
         user: User,
     ):
         # GIVEN
-        items = [await media_item_factory(user.id) for _ in range(2)]
+        items = [await media_item_factory(user.id) for _ in range(3)]
         album = await album_factory(user.id, title="album", items=items)
+        expected_cover_id = items[1].file_id
         # WHEN
-        await album_repo.set_cover(user.id, album.slug, items[1].file_id)
+        result = await album_repo.set_cover(user.id, album.slug, expected_cover_id)
         # THEN
-        cover_id = await _get_album_cover_id(album.id)
-        assert cover_id == items[1].file_id
+        assert result.cover
+        assert result.cover.file_id == expected_cover_id
+        assert await _get_album_cover_id(album.id) == expected_cover_id
+
+    @pytest.mark.usefixtures("namespace")
+    async def test_sets_empty_cover(
+        self,
+        album_repo: AlbumRepository,
+        album_factory: AlbumFactory,
+        media_item_factory: MediaItemFactory,
+        user: User,
+    ):
+        # GIVEN
+        items = [await media_item_factory(user.id) for _ in range(3)]
+        cover_file_id = items[1].file_id
+        album = await album_factory(
+            user.id, title="album", items=items, cover_file_id=cover_file_id
+        )
+        # WHEN
+        result = await album_repo.set_cover(user.id, album.slug, file_id=None)
+        # THEN
+        assert result.cover is None
+        assert await _get_album_cover_id(album.id) is None
 
     @pytest.mark.usefixtures("namespace")
     async def test_when_album_does_not_exist(

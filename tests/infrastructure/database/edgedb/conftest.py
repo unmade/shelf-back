@@ -65,6 +65,7 @@ if TYPE_CHECKING:
             owner_id: UUID,
             title: str | None = None,
             *,
+            cover_file_id: UUID | None = None,
             items: Iterable[MediaItem] | None = None,
         ) -> Album:
             ...
@@ -230,6 +231,7 @@ def album_factory(album_repo: AlbumRepository) -> AlbumFactory:
         owner_id: UUID,
         title: str | None = None,
         *,
+        cover_file_id: UUID | None = None,
         items: Iterable[MediaItem] | None = None,
     ) -> Album:
         title = title or fake.unique.name()
@@ -242,24 +244,12 @@ def album_factory(album_repo: AlbumRepository) -> AlbumFactory:
         )
 
         if items:
-            query = """
-                UPDATE
-                    Album
-                FILTER
-                    .id = <uuid>$album_id
-                SET {
-                    items += (
-                        SELECT
-                            File
-                        FILTER
-                            .id IN {array_unpack(<array<uuid>>$file_ids)}
-                    ),
-                    items_count := .items_count + <int32>len(<array<uuid>>$file_ids)
-                }
-            """
-            await album_repo.conn.query(
-                query, album_id=album.id, file_ids=[item.file_id for item in items]
-            )
+            file_ids = [item.file_id for item in items]
+            album = await album_repo.add_items(owner_id, album.slug, file_ids=file_ids)
+
+        if cover_file_id:
+            album = await album_repo.set_cover(owner_id, album.slug, cover_file_id)
+
         return album
     return factory
 

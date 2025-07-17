@@ -29,17 +29,17 @@ class AlbumUseCase:
 
     async def add_album_items(
         self, owner_id: UUID, slug: str, file_ids: list[UUID]
-    ) -> None:
+    ) -> Album:
         """
         Adds items to the album.
 
         Raises:
             Album.NotFound: If album does not exist.
         """
-        await self.album.add_items(owner_id, slug, file_ids)
-        album = await self.album.get_by_slug(owner_id, slug)
+        album = await self.album.add_items(owner_id, slug, file_ids)
         if album.cover is None and file_ids:
-            await self.album.set_cover(owner_id, slug, file_ids[0])
+            album = await self.album.set_cover(owner_id, slug, file_ids[0])
+        return album
 
     async def create(self, title: str, owner_id: UUID) -> Album:
         """Creates a new album."""
@@ -88,4 +88,10 @@ class AlbumUseCase:
         Raises:
             Album.NotFound: If album does not exist.
         """
-        await self.album.remove_items(owner_id, slug, file_ids)
+        album = await self.album.remove_items(owner_id, slug, file_ids)
+        if album.cover and album.cover.file_id in file_ids:
+            if album.items_count > 0:
+                items = await self.album.list_items(owner_id, slug, offset=0, limit=1)
+                await self.album.set_cover(owner_id, slug, items[0].file_id)
+            else:
+                await self.album.clear_cover(owner_id, slug)

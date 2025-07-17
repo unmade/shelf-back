@@ -23,14 +23,23 @@ class AlbumService:
     def __init__(self, database: IServiceDatabase):
         self.db = database
 
-    async def add_items(self, owner_id: UUID, slug: str, file_ids: list[UUID]) -> None:
+    async def add_items(self, owner_id: UUID, slug: str, file_ids: list[UUID]) -> Album:
         """
         Adds items to the album.
 
         Raises:
             Album.NotFound: If album does not exist.
         """
-        await self.db.album.add_items(owner_id, slug, file_ids)
+        return await self.db.album.add_items(owner_id, slug, file_ids)
+
+    async def clear_cover(self, owner_id: UUID, slug: str) -> Album:
+        """
+        Clears the album cover.
+
+        Raises:
+            Album.NotFound: If album does not exist.
+        """
+        return await self.db.album.set_cover(owner_id, slug, file_id=None)
 
     async def create(self, title: str, owner_id: UUID, created_at: datetime) -> Album:
         """Creates a new album."""
@@ -90,20 +99,20 @@ class AlbumService:
 
     async def remove_items(
         self, owner_id: UUID, slug: str, file_ids: list[UUID]
-    ) -> None:
+    ) -> Album:
         """
         Removes items from the album.
 
         Raises:
             Album.NotFound: If album does not exist.
         """
-        await self.db.album.remove_items(owner_id, slug, file_ids)
+        return await self.db.album.remove_items(owner_id, slug, file_ids)
 
-    async def set_cover(self, owner_id: UUID, slug: str, file_id: UUID) -> None:
+    async def set_cover(self, owner_id: UUID, slug: str, file_id: UUID | None) -> Album:
         """
         Sets the album cover.
 
         Raises:
             Album.NotFound: If album does not exist.
         """
-        await self.db.album.set_cover(owner_id, slug, file_id)
+        return await self.db.album.set_cover(owner_id, slug, file_id)

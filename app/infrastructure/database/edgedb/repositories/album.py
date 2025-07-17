@@ -49,7 +49,7 @@ class AlbumRepository(IAlbumRepository):
 
     async def add_items(
         self, owner_id: UUID, slug: str, file_ids: list[UUID]
-    ) -> None:
+    ) -> Album:
         query = """
             WITH
                 owner := (SELECT User FILTER .id = <uuid>$owner_id),
@@ -61,25 +61,29 @@ class AlbumRepository(IAlbumRepository):
                         AND
                         .slug = <str>$slug
                 ),
-            UPDATE
-                album
-            SET {
-                items += (
-                    SELECT
-                        File
-                    FILTER
-                        .id IN {array_unpack(<array<uuid>>$file_ids)}
-                ),
-                items_count := .items_count + <int32>len(<array<uuid>>$file_ids)
-            }
+            SELECT (
+                UPDATE
+                    album
+                SET {
+                    items += (
+                        SELECT
+                            File
+                        FILTER
+                            .id IN {array_unpack(<array<uuid>>$file_ids)}
+                    ),
+                    items_count := .items_count + <int32>len(<array<uuid>>$file_ids)
+                }
+            ) { title, slug, owner, cover, items_count, created_at }
         """
 
         try:
-            await self.conn.query_required_single(
+            obj = await self.conn.query_required_single(
                 query, owner_id=owner_id, slug=slug, file_ids=file_ids
             )
         except edgedb.NoDataError as exc:
             raise Album.NotFound() from exc
+
+        return _from_db(obj)
 
     async def count_by_slug_pattern(self, owner_id: UUID, pattern: str) -> int:
         query = """
@@ -202,7 +206,7 @@ class AlbumRepository(IAlbumRepository):
 
     async def remove_items(
         self, owner_id: UUID, slug: str, file_ids: list[UUID]
-    ) -> None:
+    ) -> Album:
         query = """
             WITH
                 owner := (SELECT User FILTER .id = <uuid>$owner_id),
@@ -214,24 +218,28 @@ class AlbumRepository(IAlbumRepository):
                         AND
                         .slug = <str>$slug
                 ),
-            UPDATE album
-            SET {
-                items -= (
-                    SELECT
-                        File
-                    FILTER
-                        .id IN {array_unpack(<array<uuid>>$file_ids)}
-                ),
-                items_count := .items_count - <int32>len(<array<uuid>>$file_ids)
-            }
+            SELECT (
+                UPDATE album
+                SET {
+                    items -= (
+                        SELECT
+                            File
+                        FILTER
+                            .id IN {array_unpack(<array<uuid>>$file_ids)}
+                    ),
+                    items_count := .items_count - <int32>len(<array<uuid>>$file_ids)
+                }
+            ) { title, slug, owner, cover, items_count, created_at }
         """
 
         try:
-            await self.conn.query_required_single(
+            obj = await self.conn.query_required_single(
                 query, owner_id=owner_id, slug=slug, file_ids=file_ids
             )
         except edgedb.NoDataError as exc:
             raise Album.NotFound() from exc
+
+        return _from_db(obj)
 
     async def save(self, entity: Album) -> Album:
         query = """
@@ -257,7 +265,7 @@ class AlbumRepository(IAlbumRepository):
 
         return entity.model_copy(update={"id": obj.id})
 
-    async def set_cover(self, owner_id: UUID, slug: str, file_id: UUID) -> None:
+    async def set_cover(self, owner_id: UUID, slug: str, file_id: UUID | None) -> Album:
         query = """
             WITH
                 owner := (SELECT User FILTER .id = <uuid>$owner_id),
@@ -269,14 +277,21 @@ class AlbumRepository(IAlbumRepository):
                         AND
                         .slug = <str>$slug
                 ),
-                file := (SELECT File FILTER .id = <uuid>$file_id),
-            UPDATE album SET {
-                cover := file
-            }
+                file_id := <OPTIONAL uuid>$file_id,
+                file := (
+                    SELECT (SELECT File FILTER .id = file_id) if exists file_id else {}
+                ),
+            SELECT (
+                UPDATE album SET {
+                    cover := file
+                }
+            ) { title, slug, owner, cover, items_count, created_at }
         """
         try:
-            await self.conn.query_required_single(
+            obj = await self.conn.query_required_single(
                 query, owner_id=owner_id, slug=slug, file_id=file_id
             )
         except edgedb.NoDataError as exc:
             raise Album.NotFound() from exc
+
+        return _from_db(obj)
