@@ -21,6 +21,7 @@ def _from_db(obj) -> Album:
         id=obj.id,
         owner_id=obj.owner.id,
         title=obj.title,
+        slug=obj.slug,
         created_at=obj.created_at,
         items_count=obj.items_count,
         cover=cover,
@@ -116,7 +117,7 @@ class AlbumRepository(IAlbumRepository):
             WITH
                 owner := (SELECT User FILTER .id = <uuid>$owner_id),
             SELECT
-                Album { title, owner, cover, items_count, created_at }
+                Album { title, slug, owner, cover, items_count, created_at }
             FILTER
                 .owner = owner
                 AND
@@ -138,7 +139,7 @@ class AlbumRepository(IAlbumRepository):
     ) -> list[Album]:
         query = """
             SELECT
-                Album { title, owner, cover, items_count, created_at }
+                Album { title, slug, owner, cover, items_count, created_at }
             FILTER
                 .owner.id = <uuid>$owner_id
             ORDER BY
