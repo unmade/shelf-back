@@ -170,3 +170,14 @@ class TestRemoveItems:
         # THEN
         db.album.exists_with_slug.assert_awaited_once_with(owner_id, slug)
         db.album.remove_items.assert_not_awaited()
+
+
+class TestSetCover:
+    async def test(self, album_service: AlbumService):
+        # GIVEN
+        owner_id, slug, file_id = uuid.uuid4(), "album", uuid.uuid4()
+        db = cast(mock.MagicMock, album_service.db)
+        # WHEN
+        await album_service.set_cover(owner_id, slug, file_id)
+        # THEN
+        db.album.set_cover.assert_awaited_once_with(owner_id, slug, file_id)

@@ -89,3 +89,12 @@ class AlbumService:
             raise Album.NotFound()
 
         await self.db.album.remove_items(owner_id, slug, file_ids)
+
+    async def set_cover(self, owner_id: UUID, slug: str, file_id: UUID) -> None:
+        """
+        Sets the album cover.
+
+        Raises:
+            Album.NotFound: If album does not exist.
+        """
+        await self.db.album.set_cover(owner_id, slug, file_id)

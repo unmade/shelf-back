@@ -244,3 +244,27 @@ class AlbumRepository(IAlbumRepository):
         )
 
         return entity.model_copy(update={"id": obj.id})
+
+    async def set_cover(self, owner_id: UUID, slug: str, file_id: UUID) -> None:
+        query = """
+            WITH
+                owner := (SELECT User FILTER .id = <uuid>$owner_id),
+                album := (
+                    SELECT
+                        Album
+                    FILTER
+                        .owner = owner
+                        AND
+                        .slug = <str>$slug
+                ),
+                file := (SELECT File FILTER .id = <uuid>$file_id),
+            UPDATE album SET {
+                cover := file
+            }
+        """
+        try:
+            await self.conn.query_required_single(
+                query, owner_id=owner_id, slug=slug, file_id=file_id
+            )
+        except edgedb.NoDataError as exc:
+            raise Album.NotFound() from exc
