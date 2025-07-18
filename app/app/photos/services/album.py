@@ -55,6 +55,15 @@ class AlbumService:
             )
         )
 
+    async def delete(self, owner_id: UUID, slug: str) -> Album:
+        """
+        Deletes the album.
+
+        Raises:
+            Album.NotFound: If album does not exist.
+        """
+        return await self.db.album.delete(owner_id, slug)
+
     async def get_available_slug(self, owner_id: UUID, slug: str) -> str:
         """
         Returns modified slug if the current one is already taken, otherwise

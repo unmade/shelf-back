@@ -23,6 +23,28 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.anyio, pytest.mark.database]
 
 
+async def _exists_with_slug(owner_id: UUID, slug: str) -> bool:
+    query = """
+        SELECT EXISTS(
+            SELECT
+                Album
+            FILTER
+                .owner.id = <uuid>$owner_id
+                AND
+                .slug = <str>$slug
+            LIMIT 1
+        )
+    """
+    return cast(
+        bool,
+        await db_context.get().query_required_single(
+            query,
+            owner_id=owner_id,
+            slug=slug,
+        )
+    )
+
+
 async def _get_album_cover_id(album_id: UUID) -> UUID | None:
     query = """
         SELECT
@@ -125,6 +147,35 @@ class TestCountBySlugPattern:
         result = await album_repo.count_by_slug_pattern(user.id, pattern)
         # THEN
         assert result == 0
+
+
+class TestDelete:
+    @pytest.mark.usefixtures("namespace")
+    async def test(
+        self,
+        album_repo: AlbumRepository,
+        album_factory: AlbumFactory,
+        user: User,
+    ):
+        # GIVEN
+        album = await album_factory(user.id, title="album")
+        # WHEN
+        result = await album_repo.delete(user.id, album.slug)
+        # THEN
+        assert await _exists_with_slug(user.id, album.slug) is False
+        assert result.id == album.id
+
+    @pytest.mark.usefixtures("namespace")
+    async def test_when_does_not_exist(
+        self,
+        album_repo: AlbumRepository,
+        user: User,
+    ):
+        # GIVEN
+        slug = "non-existing-album"
+        # WHEN / THEN
+        with pytest.raises(Album.NotFound):
+            await album_repo.delete(user.id, slug)
 
 
 class TestExistsWithSlug:

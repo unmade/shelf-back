@@ -27,6 +27,14 @@ class IAlbumRepository(Protocol):
     async def exists_with_slug(self, owner_id: UUID, slug: str) -> bool:
         """Checks if album with the given slug exists."""
 
+    async def delete(self, owner_id: UUID, slug: str) -> Album:
+        """
+        Deletes the album.
+
+        Raises:
+            Album.NotFound: If album does not exist.
+        """
+
     async def get_by_slug(self, owner_id: UUID, slug: str) -> Album:
         """
         Returns album by its slug.
