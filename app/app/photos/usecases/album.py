@@ -38,7 +38,7 @@ class AlbumUseCase:
         """
         album = await self.album.add_items(owner_id, slug, file_ids)
         if album.cover is None and file_ids:
-            album = await self.album.set_cover(owner_id, slug, file_ids[0])
+            return await self.album.set_cover(owner_id, slug, file_ids[0])
         return album
 
     async def create(self, title: str, owner_id: UUID) -> Album:
@@ -92,7 +92,7 @@ class AlbumUseCase:
         if album.cover and album.cover.file_id in file_ids:
             if album.items_count > 0:
                 items = await self.album.list_items(owner_id, slug, offset=0, limit=1)
-                album = await self.album.set_cover(owner_id, slug, items[0].file_id)
-            else:
-                album = await self.album.clear_cover(owner_id, slug)
+                if items:
+                    return await self.album.set_cover(owner_id, slug, items[0].file_id)
+            return await self.album.clear_cover(owner_id, slug)
         return album

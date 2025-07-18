@@ -135,7 +135,7 @@ class TestRemoveItems:
         album_service.set_cover.assert_not_awaited()
         album_service.clear_cover.assert_not_awaited()
 
-    async def test_clears_cover_if_removed_items_includes_cover(
+    async def test_sets_a_new_cover_if_current_cover_in_removed_items(
         self, album_use_case: AlbumUseCase
     ):
         # GIVEN
@@ -155,6 +155,30 @@ class TestRemoveItems:
         album_service.set_cover.assert_awaited_once_with(
             owner_id, slug, album_items[0].file_id
         )
+
+    async def test_clears_cover_if_list_items_returns_empty_list(
+        self, album_use_case: AlbumUseCase
+    ):
+        # GIVEN
+        owner_id, slug = uuid.uuid4(), "new-album"
+        file_ids = [uuid.uuid4() for _ in range(2)]
+
+        album_service = cast(mock.MagicMock, album_use_case.album)
+        album_service.list_items.return_value = []
+
+        album = album_service.remove_items.return_value
+        album.cover = mock.Mock(file_id=file_ids[0])
+        album.items_count = 5
+
+        # WHEN
+        await album_use_case.remove_album_items(owner_id, slug, file_ids)
+
+        # THEN
+        album_service.list_items.assert_awaited_once_with(
+            owner_id, slug, offset=0, limit=1
+        )
+        album_service.set_cover.assert_not_awaited()
+        album_service.clear_cover.assert_awaited_once_with(owner_id, slug)
 
     async def test_clears_cover_if_no_items_left(
         self, album_use_case: AlbumUseCase
