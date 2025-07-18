@@ -81,6 +81,19 @@ class TestCreate:
         )
 
 
+class TestDelete:
+    async def test(self, album_service: AlbumService):
+        # GIVEN
+        owner_id, slug = uuid.uuid4(), "my-slug"
+        db = cast(mock.MagicMock, album_service.db)
+        album = db.album.delete.return_value
+        # WHEN
+        result = await album_service.delete(owner_id, slug)
+        # THEN
+        assert result == album
+        db.album.delete.assert_awaited_once_with(owner_id, slug)
+
+
 class TestGetAvailableSlug:
     async def test_slug_returned_as_is(self, album_service: AlbumService):
         # GIVEN

@@ -53,17 +53,13 @@ class AlbumRepository(IAlbumRepository):
         query = """
             WITH
                 owner := (SELECT User FILTER .id = <uuid>$owner_id),
-                album := (
-                    SELECT
-                        Album
-                    FILTER
-                        .owner = owner
-                        AND
-                        .slug = <str>$slug
-                ),
             SELECT (
                 UPDATE
-                    album
+                    Album
+                FILTER
+                    .owner = owner
+                    AND
+                    .slug = <str>$slug
                 SET {
                     items += (
                         SELECT
@@ -103,6 +99,29 @@ class AlbumRepository(IAlbumRepository):
                 query, owner_id=owner_id, pattern=pattern
             )
         )
+
+    async def delete(self, owner_id: UUID, slug: str) -> Album:
+        query = """
+            WITH
+                owner := (SELECT User FILTER .id = <uuid>$owner_id),
+            SELECT (
+                DELETE
+                    Album
+                FILTER
+                    .owner = owner
+                    AND
+                    .slug = <str>$slug
+            ) { title, slug, owner, cover, items_count, created_at }
+        """
+
+        try:
+            obj = await self.conn.query_required_single(
+                query, owner_id=owner_id, slug=slug
+            )
+        except edgedb.NoDataError as exc:
+            raise Album.NotFound() from exc
+
+        return _from_db(obj)
 
     async def exists_with_slug(self, owner_id: UUID, slug: str) -> bool:
         query = """
@@ -210,16 +229,13 @@ class AlbumRepository(IAlbumRepository):
         query = """
             WITH
                 owner := (SELECT User FILTER .id = <uuid>$owner_id),
-                album := (
-                    SELECT
-                        Album
-                    FILTER
+            SELECT (
+                UPDATE
+                    Album
+                FILTER
                         .owner = owner
                         AND
                         .slug = <str>$slug
-                ),
-            SELECT (
-                UPDATE album
                 SET {
                     items -= (
                         SELECT

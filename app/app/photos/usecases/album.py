@@ -49,6 +49,15 @@ class AlbumUseCase:
             created_at=timezone.now(),
         )
 
+    async def delete(self, owner_id: UUID, slug: str) -> Album:
+        """
+        Deletes the album.
+
+        Raises:
+            Album.NotFound: If album does not exist.
+        """
+        return await self.album.delete(owner_id, slug)
+
     async def get_by_slug(self, owner_id: UUID, slug: str) -> Album:
         """
         Returns album by its slug.

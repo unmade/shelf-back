@@ -55,6 +55,22 @@ async def create_album(
     return AlbumSchema.from_entity(album, request=request)
 
 
+@router.delete("/{slug}")
+async def delete_album(
+    request: Request,
+    slug: AlbumSlugParam,
+    usecases: UseCasesDeps,
+    user: CurrentUserDeps,
+) -> AlbumSchema:
+    """Deletes the album."""
+    try:
+        album = await usecases.album.delete(user.id, slug)
+    except Album.NotFound as exc:
+        raise exceptions.AlbumNotFound() from exc
+
+    return AlbumSchema.from_entity(album, request=request)
+
+
 @router.get("/{slug}")
 async def get_album(
     slug: AlbumSlugParam,

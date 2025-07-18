@@ -92,6 +92,34 @@ class TestCreate:
         )
 
 
+class TestDelete:
+    url = "/photos/albums/{slug}"
+
+    async def test(self, client: TestClient, album_use_case: MagicMock, user: User):
+        # GIVEN
+        album = _make_album(user.id)
+        album_use_case.delete.return_value = album
+        client.mock_user(user)
+        # WHEN
+        response = await client.delete(self.url.format(slug=album.slug))
+        # THEN
+        assert response.status_code == 200
+        album_use_case.delete.assert_awaited_once_with(user.id, album.slug)
+
+    async def test_when_album_not_found(
+        self, client: TestClient, album_use_case: MagicMock, user: User
+    ):
+        # GIVEN
+        album = _make_album(user.id)
+        album_use_case.delete.side_effect = Album.NotFound()
+        client.mock_user(user)
+        # WHEN
+        response = await client.delete(self.url.format(slug=album.slug))
+        # THEN
+        assert response.status_code == 404
+        album_use_case.delete.assert_awaited_once_with(user.id, album.slug)
+
+
 class TestGetAlbum:
     url = "/photos/albums/{slug}"
 
