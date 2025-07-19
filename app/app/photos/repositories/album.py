@@ -1,13 +1,18 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, TypedDict, Unpack
 
 if TYPE_CHECKING:
     from uuid import UUID
 
     from app.app.photos.domain import Album, MediaItem
 
-__all__ = ["IAlbumRepository"]
+__all__ = ["IAlbumRepository", "AlbumUpdate"]
+
+
+class AlbumUpdate(TypedDict, total=False):
+    title: str
+    slug: str
 
 
 class IAlbumRepository(Protocol):
@@ -82,6 +87,16 @@ class IAlbumRepository(Protocol):
     async def set_cover(self, owner_id: UUID, slug: str, file_id: UUID | None) -> Album:
         """
         Sets the album cover.
+
+        Raises:
+            Album.NotFound: If album does not exist.
+        """
+
+    async def update(
+        self, entity: Album, **fields: Unpack[AlbumUpdate]
+    ) -> Album:
+        """
+        Renames the album.
 
         Raises:
             Album.NotFound: If album does not exist.

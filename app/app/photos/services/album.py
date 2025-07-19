@@ -117,6 +117,22 @@ class AlbumService:
         """
         return await self.db.album.remove_items(owner_id, slug, file_ids)
 
+    async def rename(
+        self, owner_id: UUID, slug: str, new_title: str
+    ) -> Album:
+        """
+        Renames the album.
+
+        Raises:
+            Album.NotFound: If album does not exist.
+        """
+        album = await self.db.album.get_by_slug(owner_id, slug)
+        if album.title == new_title:
+            return album
+
+        new_slug = await self.get_available_slug(owner_id, slug=slugify(new_title))
+        return await self.db.album.update(album, title=new_title, slug=new_slug)
+
     async def set_cover(self, owner_id: UUID, slug: str, file_id: UUID | None) -> Album:
         """
         Sets the album cover.

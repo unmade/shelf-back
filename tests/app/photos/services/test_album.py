@@ -204,6 +204,46 @@ class TestRemoveItems:
         db.album.remove_items.assert_awaited_once_with(owner_id, slug, file_ids)
 
 
+class TestRename:
+    @mock.patch("app.app.photos.services.album.AlbumService.get_available_slug")
+    async def test(
+        self, get_available_slug_mock: MagicMock, album_service: AlbumService
+    ):
+        # GIVEN
+        owner_id, slug = uuid.uuid4(), "old-album"
+        new_title, new_slug = "New Album", "new-album"
+        db = cast(mock.MagicMock, album_service.db)
+        album = db.album.get_by_slug.return_value
+        get_available_slug_mock.return_value = new_slug
+        # WHEN
+        result = await album_service.rename(owner_id, slug, new_title)
+        # THEN
+        assert result == db.album.update.return_value
+        db.album.get_by_slug.assert_awaited_once_with(owner_id, slug)
+        get_available_slug_mock.assert_awaited_once_with(owner_id, slug=new_slug)
+        db.album.update.assert_awaited_once_with(
+            album,
+            title=new_title,
+            slug=new_slug
+        )
+
+    @mock.patch("app.app.photos.services.album.AlbumService.get_available_slug")
+    async def test_no_renaming_if_title_unchanged(
+        self, get_available_slug_mock: MagicMock, album_service: AlbumService
+    ):
+        # GIVEN
+        owner_id, slug = uuid.uuid4(), "old-album"
+        db = cast(mock.MagicMock, album_service.db)
+        album = db.album.get_by_slug.return_value
+        # WHEN
+        result = await album_service.rename(owner_id, slug, album.title)
+        # THEN
+        assert result.id == album.id
+        db.album.get_by_slug.assert_awaited_once_with(owner_id, slug)
+        get_available_slug_mock.assert_not_awaited()
+        db.album.update.assert_not_awaited()
+
+
 class TestSetCover:
     async def test(self, album_service: AlbumService):
         # GIVEN

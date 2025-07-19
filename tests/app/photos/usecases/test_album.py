@@ -218,3 +218,16 @@ class TestRemoveItems:
         # WHEN / THEN
         with pytest.raises(Album.NotFound):
             await album_use_case.remove_album_items(owner_id, slug, file_ids)
+
+
+class TestRename:
+    async def test(self, album_use_case: AlbumUseCase):
+        # GIVEN
+        owner_id, slug = uuid.uuid4(), "new-album"
+        new_title = "Renamed Album"
+        album_service = cast(mock.MagicMock, album_use_case.album)
+        # WHEN
+        result = await album_use_case.rename(owner_id, slug, new_title)
+        # THEN
+        assert result == album_service.rename.return_value
+        album_service.rename.assert_awaited_once_with(owner_id, slug, new_title)
