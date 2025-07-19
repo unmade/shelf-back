@@ -105,3 +105,14 @@ class AlbumUseCase:
                     return await self.album.set_cover(owner_id, slug, items[0].file_id)
             return await self.album.clear_cover(owner_id, slug)
         return album
+
+    async def rename(
+        self, owner_id: UUID, slug: str, new_title: str
+    ) -> Album:
+        """
+        Renames the album.
+
+        Raises:
+            Album.NotFound: If album does not exist.
+        """
+        return await self.album.rename(owner_id, slug, new_title)

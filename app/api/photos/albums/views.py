@@ -15,6 +15,7 @@ from .schemas import (
     AlbumSchema,
     CreateAlbumRequest,
     RemoveAlbumItemsRequest,
+    UpdateAlbumRequest,
 )
 
 router = APIRouter()
@@ -144,6 +145,27 @@ async def remove_album_items(
             user.id,
             slug,
             file_ids=payload.file_ids,
+        )
+    except Album.NotFound as exc:
+        raise exceptions.AlbumNotFound() from exc
+
+    return AlbumSchema.from_entity(album, request=request)
+
+
+@router.patch("/{slug}")
+async def update_album(
+    request: Request,
+    slug: AlbumSlugParam,
+    payload: UpdateAlbumRequest,
+    usecases: UseCasesDeps,
+    user: CurrentUserDeps,
+) -> AlbumSchema:
+    """Updates the album."""
+    try:
+        album = await usecases.album.rename(
+            user.id,
+            slug,
+            new_title=payload.title,
         )
     except Album.NotFound as exc:
         raise exceptions.AlbumNotFound() from exc

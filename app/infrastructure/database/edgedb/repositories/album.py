@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Unpack, cast, get_type_hints
 from uuid import UUID
 
 import edgedb
 
 from app.app.photos.domain import Album, MediaItem
 from app.app.photos.repositories import IAlbumRepository
+from app.app.photos.repositories.album import AlbumUpdate
+from app.infrastructure.database.edgedb import autocast
 
 if TYPE_CHECKING:
 
@@ -306,6 +308,41 @@ class AlbumRepository(IAlbumRepository):
         try:
             obj = await self.conn.query_required_single(
                 query, owner_id=owner_id, slug=slug, file_id=file_id
+            )
+        except edgedb.NoDataError as exc:
+            raise Album.NotFound() from exc
+
+        return _from_db(obj)
+
+    async def update(self, entity: Album, **fields: Unpack[AlbumUpdate]) -> Album:
+        assert fields, "`fields` must have at least one value"
+        hints = get_type_hints(AlbumUpdate)
+        statements = [
+            f"{key} := {autocast.autocast(hints[key])}${key}"
+            for key in fields
+        ]
+        query = f"""
+            WITH
+                owner := (SELECT User FILTER .id = <uuid>$owner_id),
+            SELECT (
+                UPDATE
+                    Album
+                FILTER
+                    .owner = owner
+                    AND
+                    .slug = <str>$current_slug
+                SET {{
+                    {', '.join(statements)}
+                }}
+            ) {{ title, slug, owner, cover, items_count, created_at }}
+        """
+
+        try:
+            obj = await self.conn.query_required_single(
+                query,
+                owner_id=entity.owner_id,
+                current_slug=entity.slug,
+                **fields,
             )
         except edgedb.NoDataError as exc:
             raise Album.NotFound() from exc

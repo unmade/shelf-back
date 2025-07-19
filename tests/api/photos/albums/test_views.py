@@ -232,3 +232,40 @@ class TestRemoveItems:
         album_use_case.remove_album_items.assert_awaited_once_with(
             user.id, album.slug, file_ids=file_ids
         )
+
+
+class TestUpdate:
+    url = "/photos/albums/{slug}"
+
+    async def test(self, client: TestClient, album_use_case: MagicMock, user: User):
+        # GIVEN
+        new_title = "Renamed Album"
+        album = _make_album(user.id)
+        album_use_case.rename.return_value = album
+        client.mock_user(user)
+        # WHEN
+        response = await client.patch(
+            self.url.format(slug=album.slug), json={"title": new_title}
+        )
+        # THEN
+        assert response.status_code == 200
+        album_use_case.rename.assert_awaited_once_with(
+            user.id, album.slug, new_title=new_title
+        )
+
+    async def test_when_album_not_found(
+        self, client: TestClient, album_use_case: MagicMock, user: User
+    ):
+        # GIVEN
+        slug, new_title = "album", "Renamed Album"
+        album_use_case.rename.side_effect = Album.NotFound()
+        client.mock_user(user)
+        # WHEN
+        response = await client.patch(
+            self.url.format(slug=slug), json={"title": new_title}
+        )
+        # THEN
+        assert response.status_code == 404
+        album_use_case.rename.assert_awaited_once_with(
+            user.id, slug, new_title=new_title
+        )

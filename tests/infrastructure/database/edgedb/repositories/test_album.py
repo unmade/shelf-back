@@ -393,3 +393,52 @@ class TestSetCover:
         # WHEN / THEN
         with pytest.raises(Album.NotFound):
             await album_repo.set_cover(user.id, "non-existing-album", file_ids[1])
+
+
+class TestUpdate:
+    @pytest.mark.usefixtures("namespace")
+    async def test(
+        self,
+        album_repo: AlbumRepository,
+        album_factory: AlbumFactory,
+        user: User,
+    ):
+        # GIVEN
+        album = await album_factory(user.id, title="Old Title")
+        new_title, new_slug = "New Title", "new-title"
+        # WHEN
+        result = await album_repo.update(album, title=new_title, slug=new_slug)
+        # THEN
+        assert result.title == new_title
+        assert result.slug == new_slug
+        assert await _exists_with_slug(user.id, album.slug) is False
+        assert await _exists_with_slug(user.id, new_slug) is True
+
+    @pytest.mark.usefixtures("namespace")
+    async def test_slug_is_not_changed(
+        self,
+        album_repo: AlbumRepository,
+        album_factory: AlbumFactory,
+        user: User,
+    ):
+        # GIVEN
+        album = await album_factory(user.id, title="Old Title")
+        new_title = "New Title"
+        # WHEN
+        result = await album_repo.update(album, title=new_title)
+        # THEN
+        assert result.title == new_title
+        assert result.slug == "old-title"
+        assert await _exists_with_slug(user.id, "old-title") is True
+
+    @pytest.mark.usefixtures("namespace")
+    async def test_when_album_does_not_exist(
+        self,
+        album_repo: AlbumRepository,
+        user: User,
+    ):
+        # GIVEN
+        album = Album(id=SENTINEL_ID, title="album", slug="album", owner_id=user.id)
+        # WHEN / THEN
+        with pytest.raises(Album.NotFound):
+            await album_repo.update(album, title="New Title")
