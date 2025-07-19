@@ -192,6 +192,35 @@ class TestListAlbumItems:
         )
 
 
+class TestRemoveCover:
+    url = "/photos/albums/{slug}/cover"
+
+    async def test(self, client: TestClient, album_use_case: MagicMock, user: User):
+        # GIVEN
+        album = _make_album(user.id, cover_id=uuid.uuid4())
+        album_use_case.remove_cover.return_value = album
+        client.mock_user(user)
+        # WHEN
+        response = await client.delete(self.url.format(slug=album.slug))
+        # THEN
+        assert response.status_code == 200
+        album_use_case.remove_cover.assert_awaited_once_with(user.id, album.slug)
+
+    async def test_when_album_not_found(
+        self, client: TestClient, album_use_case: MagicMock, user: User
+    ):
+        # GIVEN
+        album_use_case.remove_cover.side_effect = Album.NotFound()
+        client.mock_user(user)
+        # WHEN
+        response = await client.delete(self.url.format(slug="non-existent-album"))
+        # THEN
+        assert response.status_code == 404
+        album_use_case.remove_cover.assert_awaited_once_with(
+            user.id, "non-existent-album"
+        )
+
+
 class TestRemoveItems:
     url = "/photos/albums/{slug}/items"
 
@@ -231,6 +260,42 @@ class TestRemoveItems:
         assert response.status_code == 404
         album_use_case.remove_album_items.assert_awaited_once_with(
             user.id, album.slug, file_ids=file_ids
+        )
+
+
+class TestSetCover:
+    url = "/photos/albums/{slug}/cover"
+
+    async def test(self, client: TestClient, album_use_case: MagicMock, user: User):
+        # GIVEN
+        album = _make_album(user.id)
+        cover_id = uuid.uuid4()
+        payload = {"file_id": str(cover_id)}
+        album_use_case.set_cover.return_value = album
+        client.mock_user(user)
+        # WHEN
+        response = await client.put(self.url.format(slug=album.slug), json=payload)
+        # THEN
+        assert response.status_code == 200
+        album_use_case.set_cover.assert_awaited_once_with(
+            user.id, album.slug, file_id=cover_id
+        )
+
+    async def test_when_album_not_found(
+        self, client: TestClient, album_use_case: MagicMock, user: User
+    ):
+        # GIVEN
+        slug = "non-existent-album"
+        album_use_case.set_cover.side_effect = Album.NotFound()
+        cover_id = uuid.uuid4()
+        payload = {"file_id": str(cover_id)}
+        client.mock_user(user)
+        # WHEN
+        response = await client.put(self.url.format(slug=slug), json=payload)
+        # THEN
+        assert response.status_code == 404
+        album_use_case.set_cover.assert_awaited_once_with(
+            user.id, slug, file_id=cover_id
         )
 
 

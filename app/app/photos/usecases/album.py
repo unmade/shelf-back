@@ -88,6 +88,15 @@ class AlbumUseCase:
         """Lists media items in the given album."""
         return await self.album.list_items(owner_id, slug, offset=offset, limit=limit)
 
+    async def remove_cover(self, owner_id: UUID, slug: str) -> Album:
+        """
+        Removes the album cover.
+
+        Raises:
+            Album.NotFound: If album does not exist.
+        """
+        return await self.album.remove_cover(owner_id, slug)
+
     async def remove_album_items(
         self, owner_id: UUID, slug: str, file_ids: list[UUID]
     ) -> Album:
@@ -103,7 +112,7 @@ class AlbumUseCase:
                 items = await self.album.list_items(owner_id, slug, offset=0, limit=1)
                 if items:
                     return await self.album.set_cover(owner_id, slug, items[0].file_id)
-            return await self.album.clear_cover(owner_id, slug)
+            return await self.album.remove_cover(owner_id, slug)
         return album
 
     async def rename(
@@ -116,3 +125,14 @@ class AlbumUseCase:
             Album.NotFound: If album does not exist.
         """
         return await self.album.rename(owner_id, slug, new_title)
+
+    async def set_cover(
+        self, owner_id: UUID, slug: str, file_id: UUID | None
+    ) -> Album:
+        """
+        Sets the album cover.
+
+        Raises:
+            Album.NotFound: If album does not exist.
+        """
+        return await self.album.set_cover(owner_id, slug, file_id)
