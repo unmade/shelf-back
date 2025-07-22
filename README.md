@@ -57,22 +57,6 @@ Start the application:
 uvicorn app.api.main:app --host 0.0.0.0 --port 8000
 ```
 
-#### Running EdgeDB on Apple Silicon
-
-Starting from version 2.0 EdgeDB has native builds for arm64 arch.
-The easiest way to run EdgeDB is to install it locally following the
-[official docs](https://www.edgedb.com/install).
-
-Unfortunately running edgedb locally doesn't allow to configure port and
-certificates, so you have to set `DATABASE_DSN` environment variable to run test:
-
-```bash
-DATABASE__DSN=edgedb://edgedb:root@localhost:10700/edgedb  pytest
-```
-
-To run a uvicorn you have to unset `DATABASE__DSN` and `DATABASE__EDGEDB_TLS_CA_FILE`
-environment variables.
-
 ### Adding new requirements
 
 This project relies on [pip-tools](https://github.com/jazzband/pip-tools) to manage
@@ -96,8 +80,8 @@ pip-sync requirements/base.txt [requirements/test.txt] ...
 pytest
 ```
 
-> Before running tests, make sure EdgeDB instance is up and running. Test runner will
-> create a new database and drop it after.
+> Before running tests, make sure Gel (EdgeDB) instance is up and running.
+> Test runner will create a new database and drop it after.
 
 ### Building a Docker image
 
@@ -126,12 +110,12 @@ superuser on the first image run:
 |AUTH__SECRET_KEY              | + | -      | Application secret key. This is used to provide cryptographic signing, and should be set to a unique, unpredictable value |
 |AUTH__SERVICE_TOKEN           | - | None   | A service token that is used to authorize external services in internal API. |
 |AUTH__REFRESH_TOKEN_TTL       | - | 3d     | A time-to-live of the refresh token. |
-|CACHE__BACKEND_DSN            | - | mem:// | Cache backend DSN. See options [here](https://github.com/Krukov/cashews) |
+|CACHE__BACKEND_DSN            | - | mem:// | Cache backend DSN. See [options](https://github.com/Krukov/cashews) |
 |CACHE__DISK_CACHE_MAX_SIZE    | - | -      | Client cache size limit in bytes. Can be set in a format like "512MB", "1GB" |
 |CORS__ALLOWED_ORIGINS         | - | []     | A comma-separated list of origins that should be permitted to make cross-origin requests |
-|DATABASE__DSN                 | - | -      | Database DSN. If not set, then fallback to EdgeDB envs |
-|DATABASE__EDGEDB_TLS_CA_FILE  | - | -      | Path to TLS Certificate file to connect to the database. If not set, then fallback to EDGEDB_TLS_CA |
-|DATABASE__EDGEDB_TLS_SECURITY | - | -      | Set the TLS security mode |
+|DATABASE__DSN                 | - | -      | Database DSN. If not set, then fallback to Gel envs |
+|DATABASE__GEL_TLS_CA_FILE  | - | -      | Path to TLS Certificate file to connect to the database. If not set, then fallback to GEL_TLS_CA |
+|DATABASE__GEL_TLS_SECURITY | - | -      | Set the TLS security mode |
 |FEATURES__MAX_FILE_SIZE_TO_THUMBNAIL | - | 20MB | Thumbnails won't be generated for files larger than specified size. |
 |FEATURES__MAX_IMAGE_PIXELS | - | 89_478_485 | Don't process images if the number of pixels in an image is over limit. |
 |FEATURES__PHOTOS_LIBRARY_PATH | - | Photos/Library | All media files within that path will appear in the Photos. |
