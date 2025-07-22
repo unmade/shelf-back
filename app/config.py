@@ -148,7 +148,7 @@ class EdgeDBConfig(BaseModel):
     dsn: EdgeDBDSN | None = None
     edgedb_tls_ca_file: AbsPath | None = None
     edgedb_tls_security: str | None = None
-    edgedb_schema: AbsPath = str(_BASE_DIR / "./dbschema/default.esdl")
+    edgedb_schema: AbsPath = str(_BASE_DIR / "./dbschema/default.gel")
     edgedb_max_concurrency: int | None = None
 
     def with_pool_size(self, size: int) -> Self:
