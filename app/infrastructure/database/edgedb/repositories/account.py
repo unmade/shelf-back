@@ -8,7 +8,7 @@ from app.app.users.domain import Account, User
 from app.app.users.repositories import IAccountRepository
 
 if TYPE_CHECKING:
-    from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
+    from app.infrastructure.database.edgedb.typedefs import GelAnyConn, GelContext
     from app.typedefs import StrOrUUID
 
 __all__ = ["AccountRepository"]
@@ -23,11 +23,11 @@ def _from_db(obj) -> Account:
 
 
 class AccountRepository(IAccountRepository):
-    def __init__(self, db_context: EdgeDBContext):
+    def __init__(self, db_context: GelContext):
         self.db_context = db_context
 
     @property
-    def conn(self) -> EdgeDBAnyConn:
+    def conn(self) -> GelAnyConn:
         return self.db_context.get()
 
     async def get_by_user_id(self, user_id: StrOrUUID) -> Account:

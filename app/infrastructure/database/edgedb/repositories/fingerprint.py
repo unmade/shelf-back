@@ -11,7 +11,7 @@ from app.toolkit import json_
 if TYPE_CHECKING:
     from app.app.files.domain import AnyPath
     from app.app.files.repositories.fingerprint import MatchResult
-    from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
+    from app.infrastructure.database.edgedb.typedefs import GelAnyConn, GelContext
 
 __all__ = ["FingerprintRepository"]
 
@@ -42,11 +42,11 @@ def from_db(obj) -> Fingerprint:
 
 
 class FingerprintRepository(IFingerprintRepository):
-    def __init__(self, db_context: EdgeDBContext):
+    def __init__(self, db_context: GelContext):
         self.db_context = db_context
 
     @property
-    def conn(self) -> EdgeDBAnyConn:
+    def conn(self) -> GelAnyConn:
         return self.db_context.get()
 
     async def intersect_all_with_prefix(

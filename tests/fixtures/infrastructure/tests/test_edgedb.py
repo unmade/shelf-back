@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import pytest
 from gel.asyncio_client import AsyncIOClient, AsyncIOIteration
 
-from app.infrastructure.database.edgedb import EdgeDBDatabase
+from app.infrastructure.database.edgedb import GelDatabase
 from app.infrastructure.database.edgedb.db import db_context
 
 if TYPE_CHECKING:
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.metatest]
 
 
-class TestSetupEdgeDBDatabase:
+class TestSetupGelDatabase:
     EXAMPLES = PurePath("infrastructure/edgedb/test_setup_edgedb_database")
 
     @pytest.mark.parametrize("options", ["", "--reuse-db"])
@@ -45,20 +45,20 @@ class TestSetupEdgeDBDatabase:
 
 
 @pytest.mark.anyio
-class TestEdgeDBDatabase:
+class TestGelDatabase:
     def test_accessing_without_marker(self, request: FixtureRequest):
         with pytest.raises(RuntimeError) as excinfo:
-            request.getfixturevalue("edgedb_database")
+            request.getfixturevalue("gel_database")
         assert str(excinfo.value) == "Access to the database without `database` marker!"
 
     @pytest.mark.database
-    async def test_database_marker(self, edgedb_database: EdgeDBDatabase):
-        assert isinstance(edgedb_database, EdgeDBDatabase)
+    async def test_database_marker(self, gel_database: GelDatabase):
+        assert isinstance(gel_database, GelDatabase)
         assert isinstance(db_context.get(), AsyncIOIteration)
 
     @pytest.mark.database(transaction=True)
     async def test_when_database_marker_has_transaction(
-        self, edgedb_database: EdgeDBDatabase
+        self, gel_database: GelDatabase
     ):
-        assert isinstance(edgedb_database, EdgeDBDatabase)
+        assert isinstance(gel_database, GelDatabase)
         assert isinstance(db_context.get(), AsyncIOClient)

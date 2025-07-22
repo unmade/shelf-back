@@ -6,7 +6,7 @@ from unittest import mock
 import pytest
 
 from app.infrastructure.context import Infrastructure, Services
-from app.infrastructure.database.edgedb import EdgeDBDatabase
+from app.infrastructure.database.edgedb import GelDatabase
 from app.infrastructure.storage import FileSystemStorage, S3Storage
 
 if TYPE_CHECKING:
@@ -16,10 +16,10 @@ if TYPE_CHECKING:
 class TestInfrastructure:
     @pytest.mark.anyio
     async def test_as_context_manager(
-        self, edgedb_config, fs_storage_config, arq_worker_config, smtp_mail_config
+        self, gel_config, fs_storage_config, arq_worker_config, smtp_mail_config
     ):
         config = mock.MagicMock(
-            database=edgedb_config,
+            database=gel_config,
             mail=smtp_mail_config,
             storage=fs_storage_config,
             worker=arq_worker_config,
@@ -28,7 +28,7 @@ class TestInfrastructure:
             assert isinstance(infra, Infrastructure)
 
     @pytest.mark.parametrize(["config_name", "database_cls"], [
-        ("edgedb_config", EdgeDBDatabase),
+        ("gel_config", GelDatabase),
     ])
     def test_get_database(self, request: FixtureRequest, config_name, database_cls):
         config = request.getfixturevalue(config_name)

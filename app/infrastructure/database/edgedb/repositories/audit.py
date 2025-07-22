@@ -6,7 +6,7 @@ from app.app.audit.domain import AuditTrail
 from app.app.audit.repositories import IAuditTrailRepository
 
 if TYPE_CHECKING:
-    from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
+    from app.infrastructure.database.edgedb.typedefs import GelAnyConn, GelContext
 
 __all__ = ["AuditTrailRepository"]
 
@@ -14,11 +14,11 @@ __all__ = ["AuditTrailRepository"]
 class AuditTrailRepository(IAuditTrailRepository):
     __slots__ = ["db_context"]
 
-    def __init__(self, db_context: EdgeDBContext):
+    def __init__(self, db_context: GelContext):
         self.db_context = db_context
 
     @property
-    def conn(self) -> EdgeDBAnyConn:
+    def conn(self) -> GelAnyConn:
         return self.db_context.get()
 
     async def save(self, audit_trail: AuditTrail) -> AuditTrail:

@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 
     from app.app.files.domain import AnyPath, File, IFileContent, Namespace
     from app.app.users.domain import User
-    from app.infrastructure.database.edgedb import EdgeDBDatabase
+    from app.infrastructure.database.edgedb import GelDatabase
     from app.typedefs import StrOrUUID
 
     class BookmarkFactory(Protocol):
@@ -98,10 +98,10 @@ def dupefinder():
 
 
 @pytest.fixture
-def filecore(edgedb_database: EdgeDBDatabase, fs_storage: IStorage):
+def filecore(gel_database: GelDatabase, fs_storage: IStorage):
     """A filecore service instance."""
     worker = mock.MagicMock(IWorker)
-    return FileCoreService(database=edgedb_database, storage=fs_storage, worker=worker)
+    return FileCoreService(database=gel_database, storage=fs_storage, worker=worker)
 
 
 @pytest.fixture
@@ -130,9 +130,9 @@ def metadata_service():
 
 
 @pytest.fixture
-def namespace_service(edgedb_database: EdgeDBDatabase, filecore: FileCoreService):
+def namespace_service(gel_database: GelDatabase, filecore: FileCoreService):
     """A namespace service instance."""
-    return NamespaceService(database=edgedb_database, filecore=filecore)
+    return NamespaceService(database=gel_database, filecore=filecore)
 
 
 @pytest.fixture
@@ -151,10 +151,10 @@ def thumbnailer():
 
 
 @pytest.fixture
-def user_service(edgedb_database: EdgeDBDatabase):
+def user_service(gel_database: GelDatabase):
     """A user service instance."""
     mail = mock.MagicMock(IMailBackend)
-    return UserService(database=edgedb_database, mail=mail)
+    return UserService(database=gel_database, mail=mail)
 
 
 @pytest.fixture(scope="session")
@@ -163,9 +163,9 @@ def _hashed_password():
 
 
 @pytest.fixture
-def bookmark_factory(edgedb_database: EdgeDBDatabase):
+def bookmark_factory(gel_database: GelDatabase):
     """A factory to bookmark a file by ID for a given user ID."""
-    bookmark_service = BookmarkService(edgedb_database)
+    bookmark_service = BookmarkService(gel_database)
     async def factory(user_id: UUID, file_id: UUID) -> None:
         await bookmark_service.add_batch(user_id, file_ids=[file_id])
     return factory
@@ -266,11 +266,11 @@ async def folder(namespace: Namespace, folder_factory: FolderFactory):
 
 @pytest.fixture
 async def user_a(user_factory: UserFactory):
-    """A User instance saved to the EdgeDB."""
+    """A User instance saved to Gel."""
     return await user_factory("admin")
 
 
 @pytest.fixture
 async def user_b(user_factory: UserFactory):
-    """Another User instance saved to the EdgeDB."""
+    """Another User instance saved to Gel."""
     return await user_factory("user_b")

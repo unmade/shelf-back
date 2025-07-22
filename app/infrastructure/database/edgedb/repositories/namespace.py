@@ -9,7 +9,7 @@ from app.app.files.repositories import INamespaceRepository
 
 if TYPE_CHECKING:
     from app.app.files.domain import AnyPath
-    from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
+    from app.infrastructure.database.edgedb.typedefs import GelAnyConn, GelContext
     from app.typedefs import StrOrUUID
 
 __all__ = ["NamespaceRepository"]
@@ -24,11 +24,11 @@ def _from_db(obj) -> Namespace:
 
 
 class NamespaceRepository(INamespaceRepository):
-    def __init__(self, db_context: EdgeDBContext):
+    def __init__(self, db_context: GelContext):
         self.db_context = db_context
 
     @property
-    def conn(self) -> EdgeDBAnyConn:
+    def conn(self) -> GelAnyConn:
         return self.db_context.get()
 
     async def get_by_owner_id(self, owner_id: StrOrUUID) -> Namespace:

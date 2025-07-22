@@ -24,7 +24,7 @@ def test_autocast_but_type_is_unsupported() -> None:
     with pytest.raises(TypeError) as excinfo:
         autocast.autocast(list[int])
 
-    message = "Can't cast python type `list[int]` to EdgeDB type."
+    message = "Can't cast python type `list[int]` to Gel type."
     assert str(excinfo.value) == message
 
 
@@ -36,7 +36,7 @@ def test_autocast_but_type_is_union(pytype, pytype_as_str) -> None:
     with pytest.raises(TypeError) as excinfo:
         autocast.autocast(pytype)
 
-    message = f"Can't cast python type `{pytype_as_str}` to EdgeDB type."
+    message = f"Can't cast python type `{pytype_as_str}` to Gel type."
     assert str(excinfo.value) == message
 
 
@@ -44,5 +44,5 @@ def test_autocast_but_type_is_invalid() -> None:
     with pytest.raises(TypeError) as excinfo:
         autocast.autocast("invalid type")
 
-    message = "Can't cast python type `invalid type` to EdgeDB type."
+    message = "Can't cast python type `invalid type` to Gel type."
     assert str(excinfo.value) == message

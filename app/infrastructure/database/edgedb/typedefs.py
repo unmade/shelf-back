@@ -7,6 +7,6 @@ if TYPE_CHECKING:
 
     from gel.asyncio_client import AsyncIOClient, AsyncIOIteration
 
-    EdgeDBTransaction = AsyncIOIteration
-    EdgeDBAnyConn: TypeAlias = AsyncIOClient | AsyncIOIteration
-    EdgeDBContext = ContextVar[AsyncIOClient | AsyncIOIteration]
+    GelTransaction = AsyncIOIteration
+    GelAnyConn: TypeAlias = AsyncIOClient | AsyncIOIteration
+    GelContext = ContextVar[AsyncIOClient | AsyncIOIteration]
