@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Unpack, cast, get_type_hints
 
-import edgedb
+import gel
 
 from app.app.users.domain import User
 from app.app.users.repositories import IUserRepository
@@ -82,7 +82,7 @@ class UserRepository(IUserRepository):
 
         try:
             obj = await self.conn.query_required_single(query, **fields)
-        except edgedb.NoDataError as exc:
+        except gel.NoDataError as exc:
             raise User.NotFound() from exc
         return _from_db(obj)
 
@@ -116,7 +116,7 @@ class UserRepository(IUserRepository):
                 active=user.active,
                 superuser=user.superuser,
             )
-        except edgedb.ConstraintViolationError as exc:
+        except gel.ConstraintViolationError as exc:
             message = f"Username '{user.username}' is taken"
             raise User.AlreadyExists(message) from exc
 

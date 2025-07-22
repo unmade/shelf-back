@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import edgedb
+import gel
 
 from app.app.users.domain import Account, User
 from app.app.users.repositories import IAccountRepository
@@ -41,7 +41,7 @@ class AccountRepository(IAccountRepository):
         """
         try:
             obj = await self.conn.query_required_single(query, user_id=user_id)
-        except edgedb.NoDataError as exc:
+        except gel.NoDataError as exc:
             message = f"No account for user with id: {user_id}"
             raise User.NotFound(message) from exc
 

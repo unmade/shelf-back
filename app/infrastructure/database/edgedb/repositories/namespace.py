@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
 
-import edgedb
+import gel
 
 from app.app.files.domain import Namespace
 from app.app.files.repositories import INamespaceRepository
@@ -43,7 +43,7 @@ class NamespaceRepository(INamespaceRepository):
         """
         try:
             obj = await self.conn.query_required_single(query, owner_id=owner_id)
-        except edgedb.NoDataError as exc:
+        except gel.NoDataError as exc:
             msg = f"Namespace with owner_id={owner_id} does not exists"
             raise Namespace.NotFound(msg) from exc
         return _from_db(obj)
@@ -60,7 +60,7 @@ class NamespaceRepository(INamespaceRepository):
 
         try:
             obj = await self.conn.query_required_single(query, path=str(path))
-        except edgedb.NoDataError as exc:
+        except gel.NoDataError as exc:
             msg = f"Namespace with path={path} does not exists"
             raise Namespace.NotFound(msg) from exc
 

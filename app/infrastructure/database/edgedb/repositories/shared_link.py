@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import edgedb
+import gel
 
 from app.app.files.domain import File, SharedLink
 from app.app.files.repositories import ISharedLinkRepository
@@ -53,7 +53,7 @@ class SharedLinkRepository(ISharedLinkRepository):
 
         try:
             link = await self.conn.query_required_single(query, file_id=file_id)
-        except edgedb.NoDataError as exc:
+        except gel.NoDataError as exc:
             raise SharedLink.NotFound from exc
 
         return _from_db(link)
@@ -68,7 +68,7 @@ class SharedLinkRepository(ISharedLinkRepository):
 
         try:
             link = await self.conn.query_required_single(query, token=token)
-        except edgedb.NoDataError as exc:
+        except gel.NoDataError as exc:
             raise SharedLink.NotFound from exc
 
         return _from_db(link)
@@ -120,7 +120,7 @@ class SharedLinkRepository(ISharedLinkRepository):
                 token=shared_link.token,
                 created_at=shared_link.created_at,
             )
-        except edgedb.MissingRequiredError as exc:
+        except gel.MissingRequiredError as exc:
             raise File.NotFound() from exc
 
         return shared_link.model_copy(update={"id": link.id})

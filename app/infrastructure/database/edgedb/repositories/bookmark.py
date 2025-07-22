@@ -4,7 +4,7 @@ import itertools
 import operator
 from typing import TYPE_CHECKING
 
-import edgedb
+import gel
 
 from app.app.users.domain import Bookmark, User
 from app.app.users.repositories import IBookmarkRepository
@@ -70,7 +70,7 @@ class BookmarkRepository(IBookmarkRepository):
         """
         try:
             user = await self.conn.query_required_single(query, user_id=user_id)
-        except edgedb.NoDataError as exc:
+        except gel.NoDataError as exc:
             raise User.NotFound(f"No user with id: '{user_id}'") from exc
 
         return [

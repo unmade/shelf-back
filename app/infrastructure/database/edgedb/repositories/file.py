@@ -10,7 +10,7 @@ from typing import (
 )
 from uuid import UUID
 
-import edgedb
+import gel
 
 from app.app.files.domain import File, MountedFile
 from app.app.files.domain.mount import MountPoint
@@ -149,7 +149,7 @@ class FileRepository(IFileRepository):
             obj = await self.conn.query_required_single(
                 query, ns_path=str(ns_path), path=str(path)
             )
-        except edgedb.NoDataError as exc:
+        except gel.NoDataError as exc:
             raise File.NotFound() from exc
 
         return _from_db(str(ns_path), obj)
@@ -291,7 +291,7 @@ class FileRepository(IFileRepository):
         """
         try:
             obj = await self.conn.query_required_single(query, file_id=file_id)
-        except edgedb.NoDataError as exc:
+        except gel.NoDataError as exc:
             raise File.NotFound() from exc
         return _from_db(obj.namespace.path, obj)
 
@@ -336,7 +336,7 @@ class FileRepository(IFileRepository):
             obj = await self.conn.query_required_single(
                 query, ns_path=str(ns_path), path=str(path)
             )
-        except edgedb.NoDataError as exc:
+        except gel.NoDataError as exc:
             raise File.NotFound() from exc
 
         return _from_db(str(ns_path), obj)
@@ -663,7 +663,7 @@ class FileRepository(IFileRepository):
 
         try:
             obj = await self.conn.query_required_single(query, **params)
-        except edgedb.ConstraintViolationError as exc:
+        except gel.ConstraintViolationError as exc:
             raise File.AlreadyExists() from exc
 
         return _from_db(file.ns_path, obj)

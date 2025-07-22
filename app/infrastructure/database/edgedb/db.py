@@ -5,8 +5,8 @@ from contextvars import ContextVar
 from pathlib import Path
 from typing import TYPE_CHECKING, AsyncIterator, Self
 
-import edgedb
-from edgedb.asyncio_client import AsyncIOIteration
+import gel
+from gel.asyncio_client import AsyncIOIteration
 
 from app.app.infrastructure import IDatabase
 from app.app.photos.repositories import IAlbumRepository
@@ -88,7 +88,7 @@ class EdgeDBDatabase(IDatabase):
         self._stack = AsyncExitStack()
 
         self.config = config
-        self.client = edgedb.create_async_client(
+        self.client = gel.create_async_client(
             dsn=str(config.dsn),
             max_concurrency=config.edgedb_max_concurrency,
             tls_ca_file=config.edgedb_tls_ca_file,
@@ -123,7 +123,7 @@ class EdgeDBDatabase(IDatabase):
             yield Transaction(value)
             return
 
-        tx_client = self.client.with_retry_options(edgedb.RetryOptions(attempts))
+        tx_client = self.client.with_retry_options(gel.RetryOptions(attempts))
         async for tx in tx_client.transaction():
             yield Transaction(tx)
 

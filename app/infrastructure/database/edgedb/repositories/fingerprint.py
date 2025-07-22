@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Iterable
 
-import edgedb
+import gel
 
 from app.app.files.domain import File, Fingerprint
 from app.app.files.repositories import IFingerprintRepository
@@ -126,9 +126,9 @@ class FingerprintRepository(IFingerprintRepository):
                 part3=parts[2],
                 part4=parts[3],
             )
-        except edgedb.ConstraintViolationError as exc:
+        except gel.ConstraintViolationError as exc:
             raise Fingerprint.AlreadyExists() from exc
-        except edgedb.MissingRequiredError as exc:
+        except gel.MissingRequiredError as exc:
             raise File.NotFound() from exc
 
         return fingerprint
@@ -170,5 +170,5 @@ class FingerprintRepository(IFingerprintRepository):
 
         try:
             await self.conn.query(query, fingerprints=data)
-        except edgedb.MissingRequiredError as exc:
+        except gel.MissingRequiredError as exc:
             raise File.NotFound() from exc

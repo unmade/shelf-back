@@ -9,7 +9,7 @@ aiosmtpd
 aiosmtplib
 arq
 cashews
-edgedb
+gel
 fastapi
 httpx
 jinja2
