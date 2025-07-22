@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 import gel
 import pytest
 
-from app.config import EdgeDBConfig, config
-from app.infrastructure.database.edgedb import EdgeDBDatabase
+from app.config import GelConfig, config
+from app.infrastructure.database.edgedb import GelDatabase
 from app.infrastructure.database.edgedb.db import db_context
 
 if TYPE_CHECKING:
@@ -17,29 +17,29 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture(scope="session")
-def edgedb_config():
+def gel_config():
     assert config.database.dsn is not None
     db_name = f"{config.database.dsn.name}_test"
     return config.database.model_copy(
         update={
             "dsn": config.database.dsn.with_name(db_name),
-            "edgedb_max_concurrency": 4
+            "gel_max_concurrency": 4
         }
     )
 
 
 @pytest.fixture(scope="session")
-def setup_edgedb_database(reuse_db: bool, edgedb_config: EdgeDBConfig) -> None:
+def setup_gel_database(reuse_db: bool, gel_config: GelConfig) -> None:
     """
     Creates a test database and apply migration. If database already exists and
     no `--reuse-db` provided, then test database will be re-created.
     """
     async def _create_db():
-        assert edgedb_config.dsn is not None
-        db_name = edgedb_config.dsn.name
-        server_conf = edgedb_config.model_copy(update={"dsn": edgedb_config.dsn.origin})
+        assert gel_config.dsn is not None
+        db_name = gel_config.dsn.name
+        server_conf = gel_config.model_copy(update={"dsn": gel_config.dsn.origin})
         created = True
-        async with EdgeDBDatabase(server_conf) as db:
+        async with GelDatabase(server_conf) as db:
             try:
                 await db.client.execute(f"CREATE DATABASE {db_name};")
             except gel.DuplicateDatabaseDefinitionError:
@@ -51,7 +51,7 @@ def setup_edgedb_database(reuse_db: bool, edgedb_config: EdgeDBConfig) -> None:
         return created
 
     async def _migrate():
-        async with EdgeDBDatabase(edgedb_config) as db:
+        async with GelDatabase(gel_config) as db:
             await db.migrate()
 
     # fixture is synchronous, cause pytest-asyncio doesn't work well with pytester
@@ -61,7 +61,7 @@ def setup_edgedb_database(reuse_db: bool, edgedb_config: EdgeDBConfig) -> None:
 
 
 @pytest.fixture(autouse=True)
-def flush_edgedb_database_if_needed(request: FixtureRequest):
+def flush_gel_database_if_needed(request: FixtureRequest):
     """Flushes database after each tests."""
     try:
         yield
@@ -85,24 +85,24 @@ def flush_edgedb_database_if_needed(request: FixtureRequest):
 
 
 @pytest.fixture(scope="session")
-def _session_sync_client(edgedb_config: EdgeDBConfig):
+def _session_sync_client(gel_config: GelConfig):
     with gel.create_client(
-        str(edgedb_config.dsn),
+        str(gel_config.dsn),
         max_concurrency=4,
-        tls_ca_file=edgedb_config.edgedb_tls_ca_file,
-        tls_security=edgedb_config.edgedb_tls_security,
+        tls_ca_file=gel_config.gel_tls_ca_file,
+        tls_security=gel_config.gel_tls_security,
     ) as client:
         yield client
 
 
 @pytest.fixture(scope="session")
-async def _database(edgedb_config: EdgeDBConfig):
-    """Returns an EdgeDBDatabase instance."""
-    return EdgeDBDatabase(edgedb_config)
+async def _database(gel_config: GelConfig):
+    """Returns an GelDatabase instance."""
+    return GelDatabase(gel_config)
 
 
 @pytest.fixture
-async def _tx_database(_database: EdgeDBDatabase) -> AsyncIterator[EdgeDBDatabase]:
+async def _tx_database(_database: GelDatabase) -> AsyncIterator[GelDatabase]:
     """Yields a transaction and rollback it after each test."""
     async for transaction in _database.client.transaction():
         transaction._managed = True
@@ -115,8 +115,8 @@ async def _tx_database(_database: EdgeDBDatabase) -> AsyncIterator[EdgeDBDatabas
 
 
 @pytest.fixture
-def edgedb_database(request: FixtureRequest, setup_edgedb_database):
-    """Returns regular or a transactional EdgeDBDatabase based on a database marker."""
+def gel_database(request: FixtureRequest, setup_gel_database):
+    """Returns regular or a transactional GelDatabase based on a database marker."""
     marker = request.node.get_closest_marker("database")
     if not marker:
         raise RuntimeError("Access to the database without `database` marker!")

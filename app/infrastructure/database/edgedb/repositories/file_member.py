@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from app.app.files.domain.file_member import FileMemberActions
-    from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
+    from app.infrastructure.database.edgedb.typedefs import GelAnyConn, GelContext
 
 __all__ = ["FileMemberRepository"]
 
@@ -81,11 +81,11 @@ def _from_db(obj) -> FileMember:
 
 
 class FileMemberRepository(IFileMemberRepository):
-    def __init__(self, db_context: EdgeDBContext):
+    def __init__(self, db_context: GelContext):
         self.db_context = db_context
 
     @property
-    def conn(self) -> EdgeDBAnyConn:
+    def conn(self) -> GelAnyConn:
         return self.db_context.get()
 
     async def delete(self, file_id: UUID, user_id: UUID) -> None:

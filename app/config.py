@@ -94,7 +94,7 @@ BytesSize = Annotated[int, BeforeValidator(_parse_bytes_size)]
 TTL = Annotated[timedelta, BeforeValidator(_parse_timedelta_from_str)]
 
 
-class EdgeDBDSN(str):
+class GelDSN(str):
     __slots__ = ()
 
     @classmethod
@@ -144,15 +144,15 @@ class CORSConfig(BaseModel):
     allowed_headers: list[str] = ["*"]
 
 
-class EdgeDBConfig(BaseModel):
-    dsn: EdgeDBDSN | None = None
-    edgedb_tls_ca_file: AbsPath | None = None
-    edgedb_tls_security: str | None = None
-    edgedb_schema: AbsPath = str(_BASE_DIR / "./dbschema/default.gel")
-    edgedb_max_concurrency: int | None = None
+class GelConfig(BaseModel):
+    dsn: GelDSN | None = None
+    gel_tls_ca_file: AbsPath | None = None
+    gel_tls_security: str | None = None
+    gel_schema: AbsPath = str(_BASE_DIR / "./dbschema/default.gel")
+    gel_max_concurrency: int | None = None
 
     def with_pool_size(self, size: int) -> Self:
-        return self.model_copy(update={"edgedb_max_concurrency": size})
+        return self.model_copy(update={"gel_max_concurrency": size})
 
 
 class FeatureConfig(BaseModel):
@@ -207,7 +207,7 @@ class SentryConfig(BaseModel):
     environment: str | None = None
 
 
-DatabaseConfig: TypeAlias = EdgeDBConfig
+DatabaseConfig: TypeAlias = GelConfig
 
 MailConfig: TypeAlias = Annotated[
     MailSMTPConfig,

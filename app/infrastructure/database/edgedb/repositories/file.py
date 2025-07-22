@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from app.app.files.domain import AnyFile, AnyPath
-    from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
+    from app.infrastructure.database.edgedb.typedefs import GelAnyConn, GelContext
     from app.typedefs import StrOrUUID
 
 __all__ = ["FileRepository"]
@@ -87,11 +87,11 @@ def _from_db_v2(ns_path: str, obj) -> AnyFile:
 
 
 class FileRepository(IFileRepository):
-    def __init__(self, db_context: EdgeDBContext):
+    def __init__(self, db_context: GelContext):
         self.db_context = db_context
 
     @property
-    def conn(self) -> EdgeDBAnyConn:
+    def conn(self) -> GelAnyConn:
         return self.db_context.get()
 
     async def count_by_path_pattern(self, ns_path: AnyPath, pattern: str) -> int:

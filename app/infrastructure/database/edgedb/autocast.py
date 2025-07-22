@@ -17,7 +17,7 @@ _TYPE_NAME = {
 
 def autocast(pytype) -> str:
     """
-    Casts python type to appropriate EdgeDB type and returns it in formats:
+    Casts python type to appropriate Gel type and returns it in formats:
       - '<REQUIRED str>'
       - '<OPTIONAL str>'
 
@@ -39,4 +39,4 @@ def autocast(pytype) -> str:
     try:
         return f"<{marker} {_TYPE_NAME[typename]}>"
     except KeyError as exc:
-        raise TypeError(f"Can't cast python type `{pytype}` to EdgeDB type.") from exc
+        raise TypeError(f"Can't cast python type `{pytype}` to Gel type.") from exc

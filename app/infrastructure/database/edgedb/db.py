@@ -15,7 +15,7 @@ from app.app.users.repositories import (
     IBookmarkRepository,
     IUserRepository,
 )
-from app.config import EdgeDBConfig
+from app.config import GelConfig
 
 from .repositories import (
     AccountRepository,
@@ -49,9 +49,9 @@ if TYPE_CHECKING:
     from app.app.infrastructure.database import ITransaction
     from app.app.photos.repositories import IMediaItemRepository
 
-    from .typedefs import EdgeDBContext
+    from .typedefs import GelContext
 
-db_context: EdgeDBContext = ContextVar("db_context")
+db_context: GelContext = ContextVar("db_context")
 
 
 class Transaction(AsyncExitStack):
@@ -68,7 +68,7 @@ class Transaction(AsyncExitStack):
         return self
 
 
-class EdgeDBDatabase(IDatabase):
+class GelDatabase(IDatabase):
     album: IAlbumRepository
     account: IAccountRepository
     audit_trail: IAuditTrailRepository
@@ -84,15 +84,15 @@ class EdgeDBDatabase(IDatabase):
     shared_link: ISharedLinkRepository
     user: IUserRepository
 
-    def __init__(self, config: EdgeDBConfig) -> None:
+    def __init__(self, config: GelConfig) -> None:
         self._stack = AsyncExitStack()
 
         self.config = config
         self.client = gel.create_async_client(
             dsn=str(config.dsn),
-            max_concurrency=config.edgedb_max_concurrency,
-            tls_ca_file=config.edgedb_tls_ca_file,
-            tls_security=config.edgedb_tls_security,
+            max_concurrency=config.gel_max_concurrency,
+            tls_ca_file=config.gel_tls_ca_file,
+            tls_security=config.gel_tls_security,
         )
         db_context.set(self.client)
 
@@ -128,7 +128,7 @@ class EdgeDBDatabase(IDatabase):
             yield Transaction(tx)
 
     async def migrate(self) -> None:  # pragma: no cover
-        schema = Path(self.config.edgedb_schema).read_text()
+        schema = Path(self.config.gel_schema).read_text()
         async for tx in self.client.transaction():
             async with tx:
                 await tx.execute(

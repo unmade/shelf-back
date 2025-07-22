@@ -16,7 +16,7 @@ from app.toolkit import json_
 if TYPE_CHECKING:
     from uuid import UUID
 
-    from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
+    from app.infrastructure.database.edgedb.typedefs import GelAnyConn, GelContext
 
 __all__ = ["MediaItemRepository"]
 
@@ -56,11 +56,11 @@ def _from_db(obj) -> MediaItem:
 
 
 class MediaItemRepository(IMediaItemRepository):
-    def __init__(self, db_context: EdgeDBContext):
+    def __init__(self, db_context: GelContext):
         self.db_context = db_context
 
     @property
-    def conn(self) -> EdgeDBAnyConn:
+    def conn(self) -> GelAnyConn:
         return self.db_context.get()
 
     async def add_category_batch(

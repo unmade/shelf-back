@@ -56,7 +56,7 @@ if TYPE_CHECKING:
         IBookmarkRepository,
         IUserRepository,
     )
-    from app.infrastructure.database.edgedb import EdgeDBDatabase
+    from app.infrastructure.database.edgedb import GelDatabase
     from app.infrastructure.database.edgedb.repositories import AlbumRepository
 
     class AlbumFactory(Protocol):
@@ -141,87 +141,87 @@ fake = Faker()
 
 
 @pytest.fixture
-def account_repo(edgedb_database: EdgeDBDatabase):
-    """An EdgeDB instance of IAccountRepository"""
-    return edgedb_database.account
+def account_repo(gel_database: GelDatabase):
+    """A Gel instance of IAccountRepository"""
+    return gel_database.account
 
 
 @pytest.fixture
-def album_repo(edgedb_database: EdgeDBDatabase):
-    """An EdgeDB instance of IAlbumRepository"""
-    return edgedb_database.album
+def album_repo(gel_database: GelDatabase):
+    """A Gel instance of IAlbumRepository"""
+    return gel_database.album
 
 
 @pytest.fixture
-def audit_trail_repo(edgedb_database: EdgeDBDatabase):
-    """An EdgeDB instance of IAuditTrailRepository"""
-    return edgedb_database.audit_trail
+def audit_trail_repo(gel_database: GelDatabase):
+    """A Gel instance of IAuditTrailRepository"""
+    return gel_database.audit_trail
 
 
 @pytest.fixture
-def bookmark_repo(edgedb_database: EdgeDBDatabase):
-    """An EdgeDB instance of IBookmarkRepository"""
-    return edgedb_database.bookmark
+def bookmark_repo(gel_database: GelDatabase):
+    """A Gel instance of IBookmarkRepository"""
+    return gel_database.bookmark
 
 
 @pytest.fixture
-def file_repo(edgedb_database: EdgeDBDatabase):
-    """An EdgeDB instance of IFileRepository"""
-    return edgedb_database.file
+def file_repo(gel_database: GelDatabase):
+    """A Gel instance of IFileRepository"""
+    return gel_database.file
 
 
 @pytest.fixture
-def file_member_repo(edgedb_database: EdgeDBDatabase):
-    """An EdgeDB instance of IFileMemberRepository"""
-    return edgedb_database.file_member
+def file_member_repo(gel_database: GelDatabase):
+    """A Gel instance of IFileMemberRepository"""
+    return gel_database.file_member
 
 
 @pytest.fixture
-def file_pending_deletion_repo(edgedb_database: EdgeDBDatabase):
-    """And EdgeDB instance of IFilePendingDeletionRepository"""
-    return edgedb_database.file_pending_deletion
+def file_pending_deletion_repo(gel_database: GelDatabase):
+    """A Gel instance of IFilePendingDeletionRepository"""
+    return gel_database.file_pending_deletion
 
 
 @pytest.fixture
-def fingerprint_repo(edgedb_database: EdgeDBDatabase):
-    """An EdgeDB instance of IFingerprintRepository"""
-    return edgedb_database.fingerprint
+def fingerprint_repo(gel_database: GelDatabase):
+    """A Gel instance of IFingerprintRepository"""
+    return gel_database.fingerprint
 
 
 @pytest.fixture
-def media_item_repo(edgedb_database: EdgeDBDatabase):
-    """An EdgeDB instance of IMediaTypeRepository"""
-    return edgedb_database.media_item
+def media_item_repo(gel_database: GelDatabase):
+    """A Gel instance of IMediaTypeRepository"""
+    return gel_database.media_item
 
 
 @pytest.fixture
-def metadata_repo(edgedb_database: EdgeDBDatabase):
-    """An EdgeDB instance of IContentMetadataRepository"""
-    return edgedb_database.metadata
+def metadata_repo(gel_database: GelDatabase):
+    """A Gel instance of IContentMetadataRepository"""
+    return gel_database.metadata
 
 
 @pytest.fixture
-async def mount_repo(edgedb_database: EdgeDBDatabase):
-    """An EdgeDB instance of IMountRepository"""
-    return edgedb_database.mount
+async def mount_repo(gel_database: GelDatabase):
+    """A Gel instance of IMountRepository"""
+    return gel_database.mount
 
 
 @pytest.fixture
-def namespace_repo(edgedb_database: EdgeDBDatabase):
-    """An EdgeDB instance of INamespaceRepository"""
-    return edgedb_database.namespace
+def namespace_repo(gel_database: GelDatabase):
+    """A Gel instance of INamespaceRepository"""
+    return gel_database.namespace
 
 
 @pytest.fixture
-def shared_link_repo(edgedb_database: EdgeDBDatabase):
-    """An EdgeDB instance of ISharedLinkRepository"""
-    return edgedb_database.shared_link
+def shared_link_repo(gel_database: GelDatabase):
+    """A Gel instance of ISharedLinkRepository"""
+    return gel_database.shared_link
 
 
 @pytest.fixture
-def user_repo(edgedb_database: EdgeDBDatabase):
-    """An EdgeDB instance of IUserRepository"""
-    return edgedb_database.user
+def user_repo(gel_database: GelDatabase):
+    """A Gel instance of IUserRepository"""
+    return gel_database.user
 
 
 @pytest.fixture
@@ -266,7 +266,7 @@ def bookmark_factory(bookmark_repo: IBookmarkRepository) -> BookmarkFactory:
 
 @pytest.fixture
 def file_factory(file_repo: IFileRepository) -> FileFactory:
-    """A factory to create a saved File to the EdgeDB."""
+    """A factory to create a saved File to the Gel."""
     async def factory(
         ns_path: str, path: AnyPath | None = None, mediatype: str = "plain/text"
     ):
@@ -335,7 +335,7 @@ def fingerprint_factory(fingerprint_repo: IFingerprintRepository) -> Fingerprint
 
 @pytest.fixture
 def folder_factory(file_repo: IFileRepository) -> FolderFactory:
-    """A factory to create a saved Folder to the EdgeDB."""
+    """A factory to create a saved Folder to the Gel."""
     async def factory(ns_path: str, path: AnyPath | None = None):
         path = path or fake.unique.word()
         return await file_repo.save(
@@ -358,7 +358,7 @@ def media_item_factory(
     media_item_repo: IMediaItemRepository,
     file_factory: FileFactory,
 ) -> MediaItemFactory:
-    """A factory to create a saved MediaItem to the EdgeDB."""
+    """A factory to create a saved MediaItem to the Gel."""
     async def factory(
         user_id: UUID,
         name: str | None = None,
@@ -385,7 +385,7 @@ def media_item_factory(
 
 @pytest.fixture
 def namespace_factory(namespace_repo: INamespaceRepository):
-    """A factory to persist Namespace to the EdgeDB."""
+    """A factory to persist Namespace to the Gel."""
     async def factory(path: AnyPath, owner_id: UUID):
         return await namespace_repo.save(
             Namespace(
@@ -436,7 +436,7 @@ def mount_factory(mount_repo: IMountRepository) -> MountFactory:
 
 @pytest.fixture
 def shared_link_factory(shared_link_repo: ISharedLinkRepository) -> SharedLinkFactory:
-    """A factory to persist SharedLink to the EdgeDB."""
+    """A factory to persist SharedLink to Gel."""
     async def factory(file_id: UUID) -> SharedLink:
         return await shared_link_repo.save(
             SharedLink(
@@ -450,7 +450,7 @@ def shared_link_factory(shared_link_repo: ISharedLinkRepository) -> SharedLinkFa
 
 @pytest.fixture
 def user_factory(user_repo: IUserRepository):
-    """A factory to persist User to the EdgeDB."""
+    """A factory to persist User to Gel."""
     async def factory(
         username: str | None = None,
         password: str | None = None,
@@ -473,7 +473,7 @@ def user_factory(user_repo: IUserRepository):
 
 @pytest.fixture
 async def account(user: User, account_repo: IAccountRepository):
-    """An Account instance saved to the EdgeDB."""
+    """An Account instance saved to Gel."""
     return await account_repo.save(
         Account(
             id=SENTINEL_ID,
@@ -484,37 +484,37 @@ async def account(user: User, account_repo: IAccountRepository):
 
 @pytest.fixture
 async def file(namespace: Namespace, file_factory: FileFactory):
-    """A File instance saved to the EdgeDB."""
+    """A File instance saved to Gel."""
     return await file_factory(namespace.path)
 
 
 @pytest.fixture
 async def namespace_a(user_a: User, namespace_factory: NamespaceFactory):
-    """A Namespace instance saved to the EdgeDB."""
+    """A Namespace instance saved to Gel."""
     return await namespace_factory(user_a.username.lower(), owner_id=user_a.id)
 
 
 @pytest.fixture
 async def namespace_b(user_b: User, namespace_factory: NamespaceFactory):
-    """A Namespace instance saved to the EdgeDB."""
+    """A Namespace instance saved to Gel."""
     return await namespace_factory(user_b.username.lower(), owner_id=user_b.id)
 
 
 @pytest.fixture
 async def namespace(namespace_a: Namespace):
-    """A Namespace instance saved to the EdgeDB."""
+    """A Namespace instance saved to Gel."""
     return namespace_a
 
 
 @pytest.fixture
 async def shared_link(shared_link_factory: SharedLinkFactory, file: File):
-    """A SharedLink instance saved to the EdgeDB."""
+    """A SharedLink instance saved to Gel."""
     return await shared_link_factory(file.id)
 
 
 @pytest.fixture
 async def content_metadata(metadata_repo: IContentMetadataRepository, file: File):
-    """A ContentMetadata instance saved to the EdgeDB."""
+    """A ContentMetadata instance saved to Gel."""
     exif = Exif(width=1280, height=800)
     return await metadata_repo.save(
         ContentMetadata(
@@ -526,17 +526,17 @@ async def content_metadata(metadata_repo: IContentMetadataRepository, file: File
 
 @pytest.fixture
 async def user_a(user_factory: UserFactory):
-    """A User instance saved to the EdgeDB."""
+    """A User instance saved to Gel."""
     return await user_factory()
 
 
 @pytest.fixture
 async def user_b(user_factory: UserFactory):
-    """Another User instance saved to the EdgeDB."""
+    """Another User instance saved to Gel."""
     return await user_factory()
 
 
 @pytest.fixture
 async def user(user_a: User):
-    """A User instance saved to the EdgeDB."""
+    """A User instance saved to Gel."""
     return user_a

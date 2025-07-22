@@ -12,7 +12,7 @@ from app.infrastructure.database.edgedb import autocast
 
 if TYPE_CHECKING:
 
-    from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
+    from app.infrastructure.database.edgedb.typedefs import GelAnyConn, GelContext
 
 __all__ = ["AlbumRepository"]
 
@@ -42,11 +42,11 @@ def _media_item_from_db(obj) -> MediaItem:
 
 
 class AlbumRepository(IAlbumRepository):
-    def __init__(self, db_context: EdgeDBContext):
+    def __init__(self, db_context: GelContext):
         self.db_context = db_context
 
     @property
-    def conn(self) -> EdgeDBAnyConn:
+    def conn(self) -> GelAnyConn:
         return self.db_context.get()
 
     async def add_items(

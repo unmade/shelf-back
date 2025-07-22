@@ -11,7 +11,7 @@ from .file_member import ActionFlag
 
 if TYPE_CHECKING:
     from app.app.files.domain import AnyPath
-    from app.infrastructure.database.edgedb.typedefs import EdgeDBAnyConn, EdgeDBContext
+    from app.infrastructure.database.edgedb.typedefs import GelAnyConn, GelContext
 
 __all__ = ["MountRepository"]
 
@@ -33,11 +33,11 @@ def _from_db(ns_path, obj) -> MountPoint:
 
 
 class MountRepository(IMountRepository):
-    def __init__(self, db_context: EdgeDBContext):
+    def __init__(self, db_context: GelContext):
         self.db_context = db_context
 
     @property
-    def conn(self) -> EdgeDBAnyConn:
+    def conn(self) -> GelAnyConn:
         return self.db_context.get()
 
     async def count_by_name_pattern(

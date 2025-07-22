@@ -1,3 +1,3 @@
-from .db import EdgeDBDatabase
+from .db import GelDatabase
 
-__all__ = ["EdgeDBDatabase"]
+__all__ = ["GelDatabase"]

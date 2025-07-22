@@ -32,7 +32,7 @@ from app.config import (
     S3StorageConfig,
 )
 from app.infrastructure.clients.indexer import IndexerClient
-from app.infrastructure.database.edgedb import EdgeDBDatabase
+from app.infrastructure.database.edgedb import GelDatabase
 from app.infrastructure.mail import SMTPEmailBackend
 from app.infrastructure.storage import FileSystemStorage, S3Storage
 from app.infrastructure.worker import ARQWorker
@@ -100,8 +100,8 @@ class Infrastructure:
         await self._stack.aclose()
 
     @staticmethod
-    def _get_database(db_config: DatabaseConfig) -> EdgeDBDatabase:
-        return EdgeDBDatabase(db_config)
+    def _get_database(db_config: DatabaseConfig) -> GelDatabase:
+        return GelDatabase(db_config)
 
     @staticmethod
     def _get_indexer(indexer_config: IndexerClientConfig) -> IIndexerClient | None:
