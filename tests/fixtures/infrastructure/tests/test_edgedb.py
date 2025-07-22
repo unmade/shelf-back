@@ -4,7 +4,7 @@ from pathlib import PurePath
 from typing import TYPE_CHECKING
 
 import pytest
-from edgedb.asyncio_client import AsyncIOClient, AsyncIOIteration
+from gel.asyncio_client import AsyncIOClient, AsyncIOIteration
 
 from app.infrastructure.database.edgedb import EdgeDBDatabase
 from app.infrastructure.database.edgedb.db import db_context

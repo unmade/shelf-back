@@ -4,7 +4,7 @@ import uuid
 from typing import TYPE_CHECKING
 from unittest import mock
 
-import edgedb
+import gel
 import pytest
 
 from app.infrastructure.database.edgedb.db import EdgeDBDatabase
@@ -32,7 +32,7 @@ def test(request: FixtureRequest, edgedb_config: EdgeDBConfig):
     server_db_cls = mock.MagicMock(EdgeDBDatabase)
     server_db_instance = server_db_cls.__aenter__.return_value
     server_db_instance.client.execute.side_effect = [
-        edgedb.DuplicateDatabaseDefinitionError, None, None
+        gel.DuplicateDatabaseDefinitionError, None, None
     ]
 
     db_cls = mock.MagicMock(EdgeDBDatabase)

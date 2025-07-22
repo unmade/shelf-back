@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Iterable
 
-import edgedb
+import gel
 
 from app.app.files.domain import ContentMetadata, File
 from app.app.files.repositories import IContentMetadataRepository
@@ -42,7 +42,7 @@ class ContentMetadataRepository(IContentMetadataRepository):
 
         try:
             obj = await self.conn.query_required_single(query, file_id=file_id)
-        except edgedb.NoDataError as exc:
+        except gel.NoDataError as exc:
             raise ContentMetadata.NotFound() from exc
 
         return _from_db(obj)
@@ -64,7 +64,7 @@ class ContentMetadataRepository(IContentMetadataRepository):
 
         try:
             await self.conn.query_required_single(query, file_id=file_id, data=data)
-        except edgedb.MissingRequiredError as exc:
+        except gel.MissingRequiredError as exc:
             raise File.NotFound() from exc
 
         return metadata
@@ -98,5 +98,5 @@ class ContentMetadataRepository(IContentMetadataRepository):
 
         try:
             await self.conn.query(query, entries=entries)
-        except edgedb.MissingRequiredError as exc:
+        except gel.MissingRequiredError as exc:
             raise File.NotFound() from exc

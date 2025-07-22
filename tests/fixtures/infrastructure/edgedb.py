@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING
 
-import edgedb
+import gel
 import pytest
 
 from app.config import EdgeDBConfig, config
@@ -42,7 +42,7 @@ def setup_edgedb_database(reuse_db: bool, edgedb_config: EdgeDBConfig) -> None:
         async with EdgeDBDatabase(server_conf) as db:
             try:
                 await db.client.execute(f"CREATE DATABASE {db_name};")
-            except edgedb.DuplicateDatabaseDefinitionError:
+            except gel.DuplicateDatabaseDefinitionError:
                 if not reuse_db:
                     await db.client.execute(f"DROP DATABASE {db_name};")
                     await db.client.execute(f"CREATE DATABASE {db_name};")
@@ -86,7 +86,7 @@ def flush_edgedb_database_if_needed(request: FixtureRequest):
 
 @pytest.fixture(scope="session")
 def _session_sync_client(edgedb_config: EdgeDBConfig):
-    with edgedb.create_client(
+    with gel.create_client(
         str(edgedb_config.dsn),
         max_concurrency=4,
         tls_ca_file=edgedb_config.edgedb_tls_ca_file,

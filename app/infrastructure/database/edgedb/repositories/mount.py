@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import edgedb
+import gel
 
 from app.app.files.domain import MountPoint, Path
 from app.app.files.repositories.mount import IMountRepository, MountPointUpdate
@@ -126,7 +126,7 @@ class MountRepository(IMountRepository):
                 target_ns_path=target_ns_path,
                 paths=[str(path)] + [str(p) for p in parents if p != "."],
             )
-        except edgedb.NoDataError as exc:
+        except gel.NoDataError as exc:
             raise MountPoint.NotFound() from exc
 
         return _from_db(target_ns_path, obj)
@@ -173,7 +173,7 @@ class MountRepository(IMountRepository):
                 parents=[str(p) for p in parents],
                 names=[path.name] + [p.name for p in parents if p != "."],
             )
-        except edgedb.NoDataError as exc:
+        except gel.NoDataError as exc:
             raise MountPoint.NotFound() from exc
 
         mount_point = _from_db(ns_path, obj)

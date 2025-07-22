@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Unpack, cast, get_type_hints
 from uuid import UUID
 
-import edgedb
+import gel
 
 from app.app.photos.domain import Album, MediaItem
 from app.app.photos.repositories import IAlbumRepository
@@ -78,7 +78,7 @@ class AlbumRepository(IAlbumRepository):
             obj = await self.conn.query_required_single(
                 query, owner_id=owner_id, slug=slug, file_ids=file_ids
             )
-        except edgedb.NoDataError as exc:
+        except gel.NoDataError as exc:
             raise Album.NotFound() from exc
 
         return _from_db(obj)
@@ -120,7 +120,7 @@ class AlbumRepository(IAlbumRepository):
             obj = await self.conn.query_required_single(
                 query, owner_id=owner_id, slug=slug
             )
-        except edgedb.NoDataError as exc:
+        except gel.NoDataError as exc:
             raise Album.NotFound() from exc
 
         return _from_db(obj)
@@ -159,7 +159,7 @@ class AlbumRepository(IAlbumRepository):
             obj = await self.conn.query_required_single(
                 query, owner_id=owner_id, slug=slug
             )
-        except edgedb.NoDataError as exc:
+        except gel.NoDataError as exc:
             raise Album.NotFound() from exc
 
         return _from_db(obj)
@@ -254,7 +254,7 @@ class AlbumRepository(IAlbumRepository):
             obj = await self.conn.query_required_single(
                 query, owner_id=owner_id, slug=slug, file_ids=file_ids
             )
-        except edgedb.NoDataError as exc:
+        except gel.NoDataError as exc:
             raise Album.NotFound() from exc
 
         return _from_db(obj)
@@ -309,7 +309,7 @@ class AlbumRepository(IAlbumRepository):
             obj = await self.conn.query_required_single(
                 query, owner_id=owner_id, slug=slug, file_id=file_id
             )
-        except edgedb.NoDataError as exc:
+        except gel.NoDataError as exc:
             raise Album.NotFound() from exc
 
         return _from_db(obj)
@@ -344,7 +344,7 @@ class AlbumRepository(IAlbumRepository):
                 current_slug=entity.slug,
                 **fields,
             )
-        except edgedb.NoDataError as exc:
+        except gel.NoDataError as exc:
             raise Album.NotFound() from exc
 
         return _from_db(obj)

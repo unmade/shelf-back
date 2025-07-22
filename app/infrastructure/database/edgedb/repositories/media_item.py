@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-import edgedb
+import gel
 
 from app.app.photos.domain import MediaItem
 from app.app.photos.domain.media_item import MediaItemCategory
@@ -104,7 +104,7 @@ class MediaItemRepository(IMediaItemRepository):
                 file_id=file_id,
                 categories=[_dump_category(category) for category in categories],
             )
-        except edgedb.NoDataError as exc:
+        except gel.NoDataError as exc:
             raise MediaItem.NotFound() from exc
 
     async def count(self, user_id: UUID) -> CountResult:
@@ -193,7 +193,7 @@ class MediaItemRepository(IMediaItemRepository):
             obj = await self.conn.query_required_single(
                 query, user_id=user_id, file_id=file_id
             )
-        except edgedb.NoDataError as exc:
+        except gel.NoDataError as exc:
             raise MediaItem.NotFound() from exc
 
         return _from_db(obj)
@@ -279,7 +279,7 @@ class MediaItemRepository(IMediaItemRepository):
 
         try:
             obj = await self.conn.query_required_single(query, file_id=file_id)
-        except edgedb.NoDataError as exc:
+        except gel.NoDataError as exc:
             raise MediaItem.NotFound() from exc
 
         return [_load_category(category) for category in obj.categories]
@@ -371,7 +371,7 @@ class MediaItemRepository(IMediaItemRepository):
                 file_id=file_id,
                 categories=[_dump_category(category) for category in categories],
             )
-        except edgedb.NoDataError as exc:
+        except gel.NoDataError as exc:
             raise MediaItem.NotFound() from exc
 
     async def set_deleted_at_batch(

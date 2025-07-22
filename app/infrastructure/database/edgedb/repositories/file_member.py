@@ -3,7 +3,7 @@ from __future__ import annotations
 import enum
 from typing import TYPE_CHECKING
 
-import edgedb
+import gel
 
 from app.app.files.domain import File, FileMember
 from app.app.files.repositories import IFileMemberRepository
@@ -122,7 +122,7 @@ class FileMemberRepository(IFileMemberRepository):
                 file_id=file_id,
                 user_id=user_id,
             )
-        except edgedb.NoDataError as exc:
+        except gel.NoDataError as exc:
             raise FileMember.NotFound() from exc
 
         return _from_db(obj)
@@ -190,11 +190,11 @@ class FileMemberRepository(IFileMemberRepository):
                 actions=ActionFlag.dump(entity.actions),
                 created_at=entity.created_at,
             )
-        except edgedb.MissingRequiredError as exc:
+        except gel.MissingRequiredError as exc:
             if "missing value for required link 'user'" in str(exc):
                 raise User.NotFound() from exc
             raise File.NotFound() from exc
-        except edgedb.ConstraintViolationError as exc:
+        except gel.ConstraintViolationError as exc:
             raise FileMember.AlreadyExists() from exc
 
         return _from_db(obj)
@@ -222,7 +222,7 @@ class FileMemberRepository(IFileMemberRepository):
                 user_id=entity.user.id,
                 actions=actions,
             )
-        except edgedb.NoDataError as exc:
+        except gel.NoDataError as exc:
             raise FileMember.NotFound() from exc
 
         return _from_db(obj)

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, TypeAlias
 if TYPE_CHECKING:
     from contextvars import ContextVar
 
-    from edgedb.asyncio_client import AsyncIOClient, AsyncIOIteration
+    from gel.asyncio_client import AsyncIOClient, AsyncIOIteration
 
     EdgeDBTransaction = AsyncIOIteration
     EdgeDBAnyConn: TypeAlias = AsyncIOClient | AsyncIOIteration
