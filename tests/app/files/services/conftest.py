@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 
     from app.app.files.domain import AnyPath, File, IFileContent, Namespace
     from app.app.users.domain import User
-    from app.infrastructure.database.edgedb import GelDatabase
+    from app.infrastructure.database.gel import GelDatabase
     from app.typedefs import StrOrUUID
 
     class BookmarkFactory(Protocol):

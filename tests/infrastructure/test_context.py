@@ -6,7 +6,7 @@ from unittest import mock
 import pytest
 
 from app.infrastructure.context import Infrastructure, Services
-from app.infrastructure.database.edgedb import GelDatabase
+from app.infrastructure.database.gel import GelDatabase
 from app.infrastructure.storage import FileSystemStorage, S3Storage
 
 if TYPE_CHECKING:

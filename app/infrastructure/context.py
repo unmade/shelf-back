@@ -32,7 +32,7 @@ from app.config import (
     S3StorageConfig,
 )
 from app.infrastructure.clients.indexer import IndexerClient
-from app.infrastructure.database.edgedb import GelDatabase
+from app.infrastructure.database.gel import GelDatabase
 from app.infrastructure.mail import SMTPEmailBackend
 from app.infrastructure.storage import FileSystemStorage, S3Storage
 from app.infrastructure.worker import ARQWorker
