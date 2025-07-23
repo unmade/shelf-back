@@ -1,25 +1,32 @@
 FROM python:3.12-slim
 
-COPY ./requirements/base.txt /requirements/
+COPY --from=ghcr.io/astral-sh/uv:0.8.2 /uv /uvx /bin/
 
-RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements/base.txt
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
 
 ARG app_version
 ENV APP_VERSION=$app_version
 
-ENV HOME_DIR /usr/src/shelf-back
+ENV HOME_DIR=/usr/src/shelf-back
 ENV PYTHONPATH=${HOME_DIR}
+
+WORKDIR ${HOME_DIR}
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    --mount=type=bind,source=.python-version,target=.python-version \
+    uv sync --locked --no-default-groups
+
+ENV PATH="${HOME_DIR}/.venv/bin:$PATH"
 
 COPY ./docker-entrypoint.sh ${HOME_DIR}/docker-entrypoint.sh
 RUN chmod +x ${HOME_DIR}/docker-entrypoint.sh
 
-COPY ./dbschema ${HOME_DIR}/dbschema
-COPY ./gunicorn_conf.py ${HOME_DIR}/gunicorn_conf.py
-COPY ./LICENSE ${HOME_DIR}}/LICENSE
-COPY ./manage.py ${HOME_DIR}/manage.py
+COPY ./dbschema ./gunicorn_conf.py ./LICENSE ./manage.py ${HOME_DIR}/
 
 COPY ./app ${HOME_DIR}/app
-WORKDIR ${HOME_DIR}
 
 EXPOSE 80
 
