@@ -14,17 +14,13 @@ This is backend for the Shelf App - a self-hosted file storage.
 
 ### Running locally
 
-Create a new virtual environment:
-
-```bash
-python3 -m venv .venv
-source ./.venv/bin/activate
-```
+This project relies on [uv](https://docs.astral.sh/uv/) to manage
+requirements.
 
 Install requirements:
 
 ```bash
-pip install -r requirements/base.txt requirements/dev.txt requirements/lint.txt requirements/test.txt
+uv sync --locked --all-groups
 ```
 
 Install pre-commit hooks:
@@ -42,36 +38,19 @@ docker-compose up -d
 Apply migration:
 
 ```bash
-python manage.py migrate schema.esdl
+uv run python manage.py migrate schema.esdl
 ```
 
 Start the worker:
 
 ```bash
-arq app.worker.main.WorkerSettings
+uv run arq app.worker.main.WorkerSettings
 ```
 
 Start the application:
 
 ```bash
-uvicorn app.api.main:app --host 0.0.0.0 --port 8000
-```
-
-### Adding new requirements
-
-This project relies on [pip-tools](https://github.com/jazzband/pip-tools) to manage
-requirements.
-To add a new one update one of the *.in files in [requirements](requirements) directory,
-and then run:
-
-```bash
-pip-compile requirements/{updated_file}.in
-```
-
-To sync with your env:
-
-```bash
-pip-sync requirements/base.txt [requirements/test.txt] ...
+uv run uvicorn app.api.main:app --host 0.0.0.0 --port 8000
 ```
 
 ### Testing
