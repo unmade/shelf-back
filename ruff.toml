@@ -1,4 +1,3 @@
-[tool.ruff]
 line-length = 88
 select = [
     "E",  # pycodestyle errors
@@ -17,5 +16,5 @@ ignore = [
 
 target-version = "py311"
 
-[tool.ruff.isort]
-known-first-party=["app"]
+[isort]
+known-first-party = ["app"]
