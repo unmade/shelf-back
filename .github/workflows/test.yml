@@ -46,7 +46,7 @@ jobs:
           --health-retries 5
 
     steps:
-    - uses: actions/checkout@master
+    - uses: actions/checkout@v4
 
     - name: Setup minio
       env:
@@ -61,25 +61,19 @@ jobs:
           minio/minio server /data
 
     - name: Set up Python 3.12
-      uses: actions/setup-python@master
+      uses: actions/setup-python@v5
       with:
-        python-version: "3.12"
+        python-version-file: ".python-version"
 
-    - name: Cache pip dependencies
-      uses: actions/cache@master
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
       with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('requirements/**.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
+        version: "0.8.2"
+        enable-cache: true
 
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install wheel
-        pip install \
-          -r requirements/base.txt \
-          -r requirements/test.txt
+        uv sync --locked --no-default-groups --group test
 
     - name: Run Tests
       env:
@@ -95,7 +89,7 @@ jobs:
         STORAGE__S3_REGION_NAME: "us-east-1"
         WORKER__BROKER_DSN: "redis://localhost:6379"
       run: |
-        pytest --cov --cov-report=xml
+        uv run pytest --cov --cov-report=xml
 
     - name: Send coverage report
       uses: codecov/codecov-action@v3
