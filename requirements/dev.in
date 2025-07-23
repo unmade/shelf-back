@@ -1,5 +1,0 @@
--c base.txt
--c lint.txt
--c test.txt
-
-ipython
