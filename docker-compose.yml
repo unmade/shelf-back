@@ -21,11 +21,10 @@ services:
   minio:
     image: minio/minio:RELEASE.2025-07-23T15-54-02Z@sha256:f6efb212cad3b62f78ca02339f16d8bc28d5bb2fbe792dfc21225c6037d2af8b
     environment:
-      - MINIO_ACCESS_KEY=AKIAIOSFODNN7EXAMPLE
-      - MINIO_SECRET_KEY=wJalrXUtnFEMIK7MDENGbPxRfiCYEXAMPLEKEY
-      - MINIO_VOLUMES="/mnt/data"
+      - MINIO_ROOT_USER=AKIAIOSFODNN7EXAMPLE
+      - MINIO_ROOT_PASSWORD=wJalrXUtnFEMIK7MDENGbPxRfiCYEXAMPLEKEY
     volumes:
-      - shelf-minio-volume:/mnt/data
+      - shelf-minio-volume-test-1:/data
     ports:
       - "9000:9000"
       - "9090:9090"
@@ -40,3 +39,4 @@ services:
 volumes:
   dbvolume: {}
   shelf-minio-volume: {}
+  shelf-minio-volume-test-1: {}
