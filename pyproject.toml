@@ -7,7 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "aiosmtplib==3.0.1",
     "arq==0.25.0",
-    "bcrypt==4.1.2",
+    "bcrypt==4.3.0",
     "cashews[diskcache,redis]==6.4.0",
     "fastapi==0.109.1",
     "filetype==1.2.0",
