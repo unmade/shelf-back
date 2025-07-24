@@ -18,23 +18,10 @@ jobs:
       gel:
         image: geldata/gel:6.9
         env:
-          GEL_SERVER_USER: gel
-          GEL_SERVER_PASSWORD: root
-          GEL_SERVER_TLS_KEY: ${{ secrets.GEL_SERVER_TLS_KEY }}
-          GEL_SERVER_TLS_CERT: ${{ secrets.GEL_SERVER_TLS_CERT }}
+          GEL_SERVER_SECURITY: insecure_dev_mode
         ports:
-        - 5656:5656
-        options: >-
-          --health-cmd="
-            echo \"${GEL_SERVER_PASSWORD}\" | gel query \
-              --dsn gel://${GEL_SERVER_USER}@localhost:5656/main \
-              --password-from-stdin \
-              --tls-security=insecure \
-              'SELECT 1;'
-          "
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
+          - 5656:5656
+
       redis:
         image: redis
         ports:
@@ -47,6 +34,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Set up Gel
+      uses: geldata/setup-gel@v1
+      with:
+        server-dsn: gel://localhost:5656
 
     - name: Setup minio
       env:
@@ -79,8 +71,7 @@ jobs:
       env:
         PYTHONPATH: .
         AUTH__SECRET_KEY: github_actions
-        DATABASE__DSN: "gel://gel:root@localhost:5656/main"
-        DATABASE__GEL_TLS_CA_FILE: "./certs/edbtlscert.dev.pem"
+        DATABASE__DSN: "gel://localhost:5656/main"
         STORAGE__TYPE: "filesystem"
         STORAGE__FS_LOCATION: "./data"
         STORAGE__S3_LOCATION: "http://localhost:9000"
