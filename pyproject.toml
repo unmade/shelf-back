@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "aiosmtplib==3.0.1",
+    "aiosmtplib==4.0.1",
     "arq==0.25.0",
     "bcrypt==4.3.0",
     "cashews[diskcache,redis]==6.4.0",
