@@ -42,15 +42,15 @@ jobs:
 
     - name: Setup minio
       env:
-        MINIO_ROOT_USER: ${{ secrets.S3_ACCESS_KEY_ID }}
-        MINIO_ROOT_PASSWORD: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+        MINIO_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY_ID }}
+        MINIO_SECRET_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
       run: |
         docker run -d -p 9000:9000 --name minio \
-          -e "MINIO_ACCESS_KEY=$MINIO_ROOT_USER" \
-          -e "MINIO_SECRET_KEY=$MINIO_ROOT_PASSWORD" \
+          -e "MINIO_ACCESS_KEY=$MINIO_ACCESS_KEY" \
+          -e "MINIO_SECRET_KEY=$MINIO_SECRET_KEY" \
           -v /tmp/data:/data \
           -v /tmp/config:/root/.minio \
-          minio/minio server /data
+          minio/minio:RELEASE.2025-07-23T15-54-02Z@sha256:f6efb212cad3b62f78ca02339f16d8bc28d5bb2fbe792dfc21225c6037d2af8b server /data
 
     - name: Set up Python 3.12
       uses: actions/setup-python@v5
