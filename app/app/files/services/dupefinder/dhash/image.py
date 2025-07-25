@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import IO, TYPE_CHECKING
 
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -22,7 +22,7 @@ def dhash_image(content: IO[bytes], size: int = 8) -> int | None:
     width, height = size + 1, size
     try:
         data = _dhash_image_prepare_data(content, width=width, height=height)
-    except (Image.DecompressionBombError, Image.UnidentifiedImageError):
+    except (Image.DecompressionBombError, UnidentifiedImageError):
         return None
 
     result = 0
@@ -53,6 +53,6 @@ def _dhash_image_prepare_data(
         return (  # type: ignore
             im
             .convert("L")
-            .resize((width, height), Image.HAMMING)
+            .resize((width, height), Image.Resampling.HAMMING)
             .getdata()
         )
