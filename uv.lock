@@ -1096,15 +1096,15 @@ wheels = [
 
 [[package]]
 name = "sentry-sdk"
-version = "1.9.4"
+version = "2.33.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0d/22/d1e7062b7a975772cb8971ba5dfb911d22bb6d2bd236bc50526e5e51769a/sentry-sdk-1.9.4.tar.gz", hash = "sha256:f1e2333d1922dca3f91e57dad872c73b3cc449ac8542867664fb898b2eec342f", size = 122498, upload-time = "2022-08-11T14:43:38.059Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b0/82/dfe4a91fd38e048fbb55ca6c072710408e8802015aa27cde18e8684bb1e9/sentry_sdk-2.33.2.tar.gz", hash = "sha256:e85002234b7b8efac9b74c2d91dbd4f8f3970dc28da8798e39530e65cb740f94", size = 335804, upload-time = "2025-07-22T10:41:18.578Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ab/c9/3bc0544f77cf39ff97e6f732e01401f7e81a62a8c6d77e0a1d9addbdc695/sentry_sdk-1.9.4-py2.py3-none-any.whl", hash = "sha256:02b7bf195f209f51c9f9458098a8f541dbf82314d21477e68ad841668fcf9a46", size = 157634, upload-time = "2022-08-11T14:43:38.049Z" },
+    { url = "https://files.pythonhosted.org/packages/c2/dc/4d825d5eb6e924dfcc6a91c8185578a7b0a5c41fd2416a6f49c8226d6ef9/sentry_sdk-2.33.2-py2.py3-none-any.whl", hash = "sha256:8d57a3b4861b243aa9d558fda75509ad487db14f488cbdb6c78c614979d77632", size = 356692, upload-time = "2025-07-22T10:41:16.531Z" },
 ]
 
 [[package]]
@@ -1185,7 +1185,7 @@ requires-dist = [
     { name = "pymupdf", specifier = "==1.26.3" },
     { name = "python-jose", extras = ["cryptography"], specifier = "==3.5.0" },
     { name = "python-multipart", specifier = "==0.0.20" },
-    { name = "sentry-sdk", specifier = "==1.9.4" },
+    { name = "sentry-sdk", specifier = "==2.33.2" },
     { name = "stream-zip", specifier = "==0.0.70" },
     { name = "typer", specifier = "==0.9.0" },
     { name = "uvicorn", extras = ["standard"], specifier = "==0.27.0.post1" },
