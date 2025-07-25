@@ -1043,16 +1043,16 @@ wheels = [
 
 [[package]]
 name = "python-jose"
-version = "3.3.0"
+version = "3.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ecdsa" },
     { name = "pyasn1" },
     { name = "rsa" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e4/19/b2c86504116dc5f0635d29f802da858404d77d930a25633d2e86a64a35b3/python-jose-3.3.0.tar.gz", hash = "sha256:55779b5e6ad599c6336191246e95eb2293a9ddebd555f796a65f838f07e5d78a", size = 129068, upload-time = "2021-06-05T03:30:40.895Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c6/77/3a1c9039db7124eb039772b935f2244fbb73fc8ee65b9acf2375da1c07bf/python_jose-3.5.0.tar.gz", hash = "sha256:fb4eaa44dbeb1c26dcc69e4bd7ec54a1cb8dd64d3b4d81ef08d90ff453f2b01b", size = 92726, upload-time = "2025-05-28T17:31:54.288Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bd/2d/e94b2f7bab6773c70efc70a61d66e312e1febccd9e0db6b9e0adf58cbad1/python_jose-3.3.0-py2.py3-none-any.whl", hash = "sha256:9b1376b023f8b298536eedd47ae1089bcdb848f1535ab30555cd92002d78923a", size = 33530, upload-time = "2021-06-05T03:30:38.099Z" },
+    { url = "https://files.pythonhosted.org/packages/d9/c3/0bd11992072e6a1c513b16500a5d07f91a24017c5909b02c72c62d7ad024/python_jose-3.5.0-py2.py3-none-any.whl", hash = "sha256:abd1202f23d34dfad2c3d28cb8617b90acf34132c7afd60abd0b0b7d3cb55771", size = 34624, upload-time = "2025-05-28T17:31:52.802Z" },
 ]
 
 [package.optional-dependencies]
@@ -1199,7 +1199,7 @@ requires-dist = [
     { name = "pydantic", extras = ["email"], specifier = "==2.6.0" },
     { name = "pydantic-settings", specifier = "==2.1.0" },
     { name = "pymupdf", specifier = "==1.23.21" },
-    { name = "python-jose", extras = ["cryptography"], specifier = "==3.3.0" },
+    { name = "python-jose", extras = ["cryptography"], specifier = "==3.5.0" },
     { name = "python-multipart", specifier = "==0.0.20" },
     { name = "sentry-sdk", specifier = "==1.9.4" },
     { name = "stream-zip", specifier = "==0.0.70" },
