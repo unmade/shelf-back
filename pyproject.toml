@@ -21,7 +21,7 @@ dependencies = [
     "pillow==10.2.0",
     "pydantic-settings==2.1.0",
     "pydantic[email]==2.6.0",
-    "pymupdf==1.23.21",
+    "pymupdf==1.26.3",
     "python-jose[cryptography]==3.5.0",
     "python-multipart==0.0.20",
     "sentry-sdk==1.9.4",
