@@ -17,11 +17,11 @@ wheels = [
 
 [[package]]
 name = "aiosmtplib"
-version = "3.0.1"
+version = "4.0.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/4f/b4/f91e0715e81bfa56e17850357b7d603861ebb1fdd92481d68c8fedf6bf5a/aiosmtplib-3.0.1.tar.gz", hash = "sha256:43580604b152152a221598be3037f0ae6359c2817187ac4433bd857bc3fc6513", size = 57715, upload-time = "2023-11-02T18:50:29.848Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/cf/d1/0ee117510ae0513f945ff3ee42edee20a3f236b2020c954f12ccd0931f95/aiosmtplib-4.0.1.tar.gz", hash = "sha256:10d426afe923edeb28ce0f007da0ee4060e9e12dd3890c162b22e1958da35761", size = 60797, upload-time = "2025-04-26T14:32:06.933Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3b/2a/31fbf4dcfb7ad018e9148b94d5280f2fdb3b6657e9db562a58da7ef31a9f/aiosmtplib-3.0.1-py3-none-any.whl", hash = "sha256:abcceae7e820577307b4cda2041b2c25e5121469c0e186764ddf8e15b12064cd", size = 27059, upload-time = "2023-11-02T18:50:28.264Z" },
+    { url = "https://files.pythonhosted.org/packages/81/f9/44fb8e33f2624fbcd40adee97143f6324123d80818f939f90a80ef5bade2/aiosmtplib-4.0.1-py3-none-any.whl", hash = "sha256:5f56ad99fa0653f32e80636f917dc0251489917d6a363a9b58a586e575d21f28", size = 27031, upload-time = "2025-04-26T14:32:05.505Z" },
 ]
 
 [[package]]
@@ -1150,7 +1150,7 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiosmtplib", specifier = "==3.0.1" },
+    { name = "aiosmtplib", specifier = "==4.0.1" },
     { name = "arq", specifier = "==0.25.0" },
     { name = "bcrypt", specifier = "==4.3.0" },
     { name = "cashews", extras = ["diskcache", "redis"], specifier = "==6.4.0" },
