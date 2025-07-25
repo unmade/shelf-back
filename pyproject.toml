@@ -14,7 +14,7 @@ dependencies = [
     "gel==3.1.0",
     "gunicorn==21.2.0",
     "httpx[http2]==0.26.0",
-    "jinja2==3.1.3",
+    "jinja2==3.1.6",
     "orjson==3.9.13",
     "passlib==1.7.4",
     "pi-heif==0.15.0",
