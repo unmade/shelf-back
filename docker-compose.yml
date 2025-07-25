@@ -24,7 +24,7 @@ services:
       - MINIO_ROOT_USER=AKIAIOSFODNN7EXAMPLE
       - MINIO_ROOT_PASSWORD=wJalrXUtnFEMIK7MDENGbPxRfiCYEXAMPLEKEY
     volumes:
-      - shelf-minio-volume-test-1:/data
+      - shelf-minio-volume:/data
     ports:
       - "9000:9000"
       - "9090:9090"
@@ -39,4 +39,3 @@ services:
 volumes:
   dbvolume: {}
   shelf-minio-volume: {}
-  shelf-minio-volume-test-1: {}
