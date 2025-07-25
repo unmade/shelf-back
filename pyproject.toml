@@ -15,7 +15,7 @@ dependencies = [
     "gunicorn==21.2.0",
     "httpx[http2]==0.26.0",
     "jinja2==3.1.6",
-    "orjson==3.9.13",
+    "orjson==3.11.1",
     "passlib==1.7.4",
     "pi-heif==0.15.0",
     "pillow==10.2.0",
