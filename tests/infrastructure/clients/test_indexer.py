@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from unittest import mock
 
 import pytest
-from pydantic_core import Url
+from pydantic import AnyHttpUrl
 
 from app.config import IndexerClientConfig
 from app.infrastructure.clients import IndexerClient
@@ -19,7 +19,7 @@ pytestmark = [pytest.mark.anyio]
 
 @pytest.fixture
 async def indexer_cli():
-    config = IndexerClientConfig(url=Url("http://localhost"))
+    config = IndexerClientConfig(url=AnyHttpUrl("http://localhost"))
     async with IndexerClient(config) as cli:
         yield cli
 
