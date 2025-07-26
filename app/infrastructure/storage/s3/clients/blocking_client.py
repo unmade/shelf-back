@@ -94,9 +94,9 @@ class S3Client:
             # WARNING! order is important here, params need to be in alphabetical order
             params = {
                 "continuation-token": continuation_token,
-                "delimiter": quote(delimiter, safe="") if delimiter else None,
+                "delimiter": delimiter,
                 "list-type": 2,
-                "prefix": quote(prefix, safe="") if prefix else None,
+                "prefix": prefix,
             }
             params = {k: v for k, v in params.items() if v is not None}
             url = self._url(bucket)

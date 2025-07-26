@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import itertools
 from contextlib import AsyncExitStack
 from email.utils import parsedate_to_datetime
 from typing import (
@@ -126,7 +125,7 @@ class AsyncS3Client:
                         self._delete_1000_files(bucket, *files[i : i + chunk_size])
                     )
                 )
-        return list(itertools.chain.from_iterable(task.result() for task in tasks))
+        return [result for task in tasks for result in task.result()]
 
     async def delete_recursive(self, bucket: str, prefix: str | None) -> list[str]:
         """
@@ -144,7 +143,8 @@ class AsyncS3Client:
 
             if files:
                 tasks.append(tg.create_task(self._delete_1000_files(bucket, *files)))
-        return list(itertools.chain.from_iterable(task.result() for task in tasks))
+
+        return [result for task in tasks for result in task.result()]
 
     async def _delete_1000_files(self, bucket: str, *files: str | S3File) -> list[str]:
         """
@@ -213,10 +213,10 @@ class AsyncS3Client:
         while True:
             # WARNING! order is important here, params need to be in alphabetical order
             params = {
-                "continuation-token": quote(contoken, safe="") if contoken else None,
-                "delimiter": quote(delimiter, safe="") if delimiter else None,
+                "continuation-token": contoken,
+                "delimiter": delimiter,
                 "list-type": 2,
-                "prefix": quote(prefix, safe="") if prefix else None,
+                "prefix": prefix,
             }
             params = {k: v for k, v in params.items() if v is not None}
             url = self._url(bucket)

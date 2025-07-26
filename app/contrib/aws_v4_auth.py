@@ -29,6 +29,7 @@ from binascii import hexlify
 from datetime import UTC, datetime
 from functools import reduce
 from typing import TYPE_CHECKING, AsyncGenerator, Generator, Literal, TypeAlias
+from urllib.parse import parse_qsl, urlencode
 from urllib.parse import quote as url_quote
 
 from httpx import URL, Auth, RequestNotRead
@@ -105,7 +106,10 @@ class AWSv4Auth:
         canonical_request_parts = (
             method,
             url_quote(url.path),
-            url.query.decode(),
+            urlencode(
+                parse_qsl(url.query.decode(), keep_blank_values=True),
+                quote_via=url_quote,
+            ),
             "".join(f"{k}:{headers[k]}\n" for k in header_keys),
             signed_headers,
             payload_hash,

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Self
 from unittest import mock
 
 import pytest
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 
 from app.api import deps
 from app.api.main import create_app
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 class TestClient(AsyncClient):
     def __init__(self, *, app: FastAPI, **kwargs):
         self.app = app
-        super().__init__(app=app, **kwargs)
+        super().__init__(transport=ASGITransport(app=app), **kwargs)
 
     def mock_current_user_ctx(self, current_user_ctx: CurrentUserContext) -> Self:
         async def get_current_user_ctx():
