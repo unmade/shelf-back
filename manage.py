@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import functools
 
-import typer
+import click
 import uvloop
 
 from app.app.users.domain import User
 from app.config import config
 from app.infrastructure.context import AppContext
-
-cli = typer.Typer()
 
 
 def async_to_sync(func):
@@ -19,32 +17,38 @@ def async_to_sync(func):
     return wrapper
 
 
+@click.group()
+def cli():
+    pass
+
+
 @cli.command()
+@click.option(
+    "--username",
+    envvar="SHELF_SUPERUSER_USERNAME",
+    type=str,
+    prompt=True,
+    help="username",
+    required=True,
+)
+@click.option(
+    "--password",
+    envvar="SHELF_SUPERUSER_PASSWORD",
+    type=str,
+    prompt=True,
+    hide_input=True,
+    confirmation_prompt=True,
+    help="password",
+    required=True,
+)
+@click.option(
+    "--exist-ok",
+    is_flag=True,
+    default=False,
+    help="Whether to raise and exception if a user already exists.",
+)
 @async_to_sync
-async def createsuperuser(
-    username: str = typer.Option(
-        ...,
-        help="username",
-        envvar="SHELF_SUPERUSER_USERNAME",
-        prompt=True
-    ),
-    password: str = typer.Option(
-        ...,
-        help="password",
-        envvar="SHELF_SUPERUSER_PASSWORD",
-        prompt=True,
-        confirmation_prompt=True,
-        hide_input=True,
-    ),
-    exist_ok: bool = typer.Option(
-        False,
-        "--exist-ok",
-        help="""
-            If set to False and a user with a given username already exists,
-            then raise an exception
-        """,
-    ),
-) -> None:
+async def createsuperuser(username, password, exist_ok):
     """Create a new super user with namespace, home and trash directories."""
     config.database = config.database.with_pool_size(1)
     async with AppContext(config) as ctx:
@@ -53,12 +57,13 @@ async def createsuperuser(
         except User.AlreadyExists:
             if not exist_ok:
                 raise
-            typer.echo("User already exists, skipping...")
+            click.echo("User already exists, skipping...")
         else:
-            typer.echo("User created successfully.")
+            click.echo("User created successfully.")
 
 
 @cli.command()
+@click.argument("namespace", type=str)
 @async_to_sync
 async def reindex(namespace: str) -> None:
     """Reindex files in the storage for a given namespace."""
@@ -68,6 +73,7 @@ async def reindex(namespace: str) -> None:
 
 
 @cli.command()
+@click.argument("namespace", type=str)
 @async_to_sync
 async def reindex_content(namespace: str) -> None:
     """
