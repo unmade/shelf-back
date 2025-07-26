@@ -743,14 +743,14 @@ class TestGetThumbnail:
             # WHEN hits for the second time
             response_2 = await client.get(self.url(file.id))
             # THEN cache hit
-            call = [
-                {
-                    'ttl': _make_thumbnail_ttl,
-                    'name': 'simple',
-                    'template': '{file_id}:{size}',
-                },
-            ]
-            assert list(detector.calls.values()) == [call]
+            assert len(detector.calls_list) == 1
+            cache_key, cache_values = detector.calls_list[0]
+            assert cache_key == f"{file.id}:xs"
+            assert cache_values["ttl"] == 604800
+            assert cache_values["name"] == "simple"
+            assert cache_values["template"] == "{file_id}:{size}"
+            assert cache_values["value"].body == response_1.content
+
             assert response_1.status_code == response_2.status_code
             assert response_1.content == response_2.content
             ns_use_case.get_file_thumbnail.assert_awaited_once()
