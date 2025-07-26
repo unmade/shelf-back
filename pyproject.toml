@@ -20,7 +20,7 @@ dependencies = [
     "pi-heif==0.15.0",
     "pillow==11.3.0",
     "pydantic-settings==2.1.0",
-    "pydantic[email]==2.6.0",
+    "pydantic[email]==2.11.7",
     "pymupdf==1.26.3",
     "python-jose[cryptography]==3.5.0",
     "python-multipart==0.0.20",
