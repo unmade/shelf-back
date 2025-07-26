@@ -25,9 +25,18 @@ class S3File:
     def __str__(self) -> str:
         return self.key
 
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}("
+            f"key={self.key}, "
+            f"last_modified={self.last_modified}, "
+            f"size={self.size}, "
+            f"etag={self.etag}"
+            f")"
+        )
+
     @classmethod
     def from_xml(cls, node: Element) -> Self:
-
         return cls(
             key=node.find("Key").text,  # type: ignore[union-attr, arg-type]
             last_modified=datetime.fromisoformat(
