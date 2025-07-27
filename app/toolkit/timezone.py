@@ -8,7 +8,7 @@ __all__ = [
     "now",
 ]
 
-EPOCH = datetime.utcfromtimestamp(0)
+EPOCH = datetime.fromtimestamp(0, tz=UTC)
 
 
 def fromtimestamp(ts: int | float) -> datetime:
