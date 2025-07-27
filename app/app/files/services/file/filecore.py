@@ -540,7 +540,7 @@ class FileCoreService:
 
         chunk_size = min(len(missing), 500)
         await taskgroups.gather(*(
-            self.db.file.save_batch((file for file in chunk if file is not None))
+            self.db.file.save_batch(file for file in chunk if file is not None)
             for chunk in itertools.zip_longest(*[iter(missing.values())] * chunk_size)
         ))
 

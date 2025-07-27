@@ -2,16 +2,14 @@ from __future__ import annotations
 
 from typing import (
     TYPE_CHECKING,
-    Iterable,
     Protocol,
-    Sequence,
     TypedDict,
 )
 
 from app.app.files.domain import File
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Iterable, Mapping, Sequence
     from uuid import UUID
 
     from app.app.files.domain import AnyFile, AnyPath

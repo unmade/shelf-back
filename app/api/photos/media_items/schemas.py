@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, ClassVar, Self, TypeAlias
+from typing import Annotated, Self
 from uuid import UUID
 
 from fastapi import Request
@@ -78,18 +78,17 @@ class CountMediaItemsResponse(BaseModel):
     deleted: int
 
 
-class AddCategoryRequest(BaseModel):
-    class _Category(BaseModel):
-        name: MediaItemCategoryName
-        probability: int
+class AddCategoryRequestCategory(BaseModel):
+    name: MediaItemCategoryName
+    probability: int
 
-    Categories: ClassVar[TypeAlias] = Annotated[
-        list[_Category],
+
+class AddCategoryRequest(BaseModel):
+    file_id: UUID
+    categories: Annotated[
+        list[AddCategoryRequestCategory],
         Field(min_length=1, max_length=len(MediaItemCategoryName))
     ]
-
-    file_id: UUID
-    categories: AddCategoryRequest.Categories
 
 
 class DeleteMediaItemBatchRequest(BaseModel):
@@ -118,10 +117,8 @@ class RestoreMediaItemBatchRequest(BaseModel):
 
 
 class SetMediaItemCategoriesRequest(BaseModel):
-    Categories: ClassVar[TypeAlias] = Annotated[
+    file_id: UUID
+    categories: Annotated[
         list[MediaItemCategoryName],
         Field(max_length=len(MediaItemCategoryName))
     ]
-
-    file_id: UUID
-    categories: SetMediaItemCategoriesRequest.Categories

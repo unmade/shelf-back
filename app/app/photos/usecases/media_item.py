@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import secrets
-from typing import TYPE_CHECKING, Protocol, TypeAlias
+from typing import TYPE_CHECKING, Protocol
 
 from app.app.files.services.file.filecore import DownloadBatchItem
 from app.app.photos.domain import MediaItem
@@ -34,7 +34,7 @@ __all__ = [
 
 _DOWNLOAD_CACHE_PREFIX = "media_item:batch"
 
-DownloadBatchSession: TypeAlias = list[DownloadBatchItem]
+type DownloadBatchSession = list[DownloadBatchItem]
 
 
 class MediaItemUseCase:

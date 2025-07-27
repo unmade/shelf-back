@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import contextlib
-from typing import IO, TYPE_CHECKING, AsyncIterator, Protocol
+from typing import IO, TYPE_CHECKING, Protocol
 from uuid import UUID
 
 from app.app.files.domain import ContentMetadata
@@ -9,6 +9,8 @@ from app.app.files.domain import ContentMetadata
 from . import readers
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     from app.app.files.repositories.metadata import IContentMetadataRepository
 
     class IServiceDatabase(Protocol):

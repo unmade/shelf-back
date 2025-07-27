@@ -3,7 +3,6 @@ from __future__ import annotations
 from email.utils import parsedate_to_datetime
 from typing import (
     TYPE_CHECKING,
-    Iterator,
     overload,
 )
 from urllib.parse import quote
@@ -18,6 +17,8 @@ from .exceptions import raise_for_status
 from .models import S3File
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from .models import S3ClientConfig
 
 __all__ = [
@@ -60,8 +61,7 @@ class S3Client:
     def iter_download(self, bucket: str, key: str) -> Iterator[bytes]:
         url = self._url(f"{bucket}/{key}")
         with self.client.stream("GET", url) as r:
-            for chunk in r.iter_bytes():
-                yield chunk
+            yield from r.iter_bytes()
 
     @overload
     def list_objects(

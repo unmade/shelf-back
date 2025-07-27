@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import enum
 from datetime import datetime
-from typing import ClassVar, Literal, TypeAlias
+from typing import ClassVar, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -18,7 +18,7 @@ __all__ = [
 ]
 
 
-IMediaItemType: TypeAlias = Literal[
+type IMediaItemType = Literal[
     MediaType.IMAGE_BMP,
     MediaType.IMAGE_HEIC,
     MediaType.IMAGE_HEIF,

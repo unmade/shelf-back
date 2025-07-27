@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, TypeAlias
+from typing import Annotated
 
 from fastapi import Depends, Query
 
@@ -19,7 +19,7 @@ async def download_media_item_batch_cache(
     return value
 
 
-DownloadMediaItemBatchCache: TypeAlias = Annotated[
+DownloadMediaItemBatchCache = Annotated[
     DownloadBatchSession,
     Depends(download_media_item_batch_cache),
 ]

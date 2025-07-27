@@ -3,8 +3,6 @@ from __future__ import annotations
 import textwrap
 from typing import (
     TYPE_CHECKING,
-    Iterable,
-    Sequence,
     cast,
     get_type_hints,
 )
@@ -23,7 +21,7 @@ from app.toolkit import json_
 from .file_member import ActionFlag
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Iterable, Mapping, Sequence
 
     from app.app.files.domain import AnyFile, AnyPath
     from app.infrastructure.database.gel.typedefs import GelAnyConn, GelContext

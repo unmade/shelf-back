@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, TypeAlias
+from typing import Annotated
 
 from fastapi import APIRouter, Path, Query, Request
 
@@ -20,7 +20,7 @@ from .schemas import (
 
 router = APIRouter()
 
-AlbumSlugParam: TypeAlias = Annotated[str, Path(min_length=1, max_length=512)]
+AlbumSlugParam = Annotated[str, Path(min_length=1, max_length=512)]
 
 
 @router.put("/{slug}/items")

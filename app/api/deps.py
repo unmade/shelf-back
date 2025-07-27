@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Annotated, AsyncIterator, TypeAlias
+from collections.abc import AsyncIterator
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import Depends, Query, Request
@@ -111,13 +112,13 @@ async def service_token(token: str | None = Depends(reusable_oauth2)):
         raise exceptions.InvalidToken() from None
 
 
-CurrentUserDeps: TypeAlias = Annotated[User, Depends(current_user)]
-CurrentUserContextDeps: TypeAlias = Annotated[
+CurrentUserDeps = Annotated[User, Depends(current_user)]
+CurrentUserContextDeps = Annotated[
     CurrentUserContext, Depends(current_user_ctx)
 ]
-DownloadCacheDeps: TypeAlias = Annotated[AnyFile, Depends(download_cache)]
-NamespaceDeps: TypeAlias = Annotated[Namespace, Depends(namespace)]
-ServiceTokenDeps: TypeAlias = Annotated[None, Depends(service_token)]
-UseCasesDeps: TypeAlias = Annotated[UseCases, Depends(usecases)]
-VerifiedCurrentUserDeps: TypeAlias = Annotated[User, Depends(verified_current_user)]
-WorkerDeps: TypeAlias = Annotated[IWorker, Depends(worker)]
+DownloadCacheDeps = Annotated[AnyFile, Depends(download_cache)]
+NamespaceDeps = Annotated[Namespace, Depends(namespace)]
+ServiceTokenDeps = Annotated[None, Depends(service_token)]
+UseCasesDeps = Annotated[UseCases, Depends(usecases)]
+VerifiedCurrentUserDeps = Annotated[User, Depends(verified_current_user)]
+WorkerDeps = Annotated[IWorker, Depends(worker)]

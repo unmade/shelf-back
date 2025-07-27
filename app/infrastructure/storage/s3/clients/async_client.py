@@ -5,11 +5,8 @@ from contextlib import AsyncExitStack
 from email.utils import parsedate_to_datetime
 from typing import (
     TYPE_CHECKING,
-    AsyncIterable,
-    AsyncIterator,
     Protocol,
     Self,
-    TypeVar,
     overload,
 )
 from urllib.parse import quote
@@ -24,7 +21,7 @@ from .exceptions import araise_for_status
 from .models import S3ClientConfig, S3File
 
 if TYPE_CHECKING:
-    T = TypeVar("T")
+    from collections.abc import AsyncIterable, AsyncIterator
 
     class AsyncBytesReader(Protocol):
         size: int
@@ -39,7 +36,7 @@ __all__ = [
 _5_MB = 5 * 2**20
 
 
-async def _aenumerate(
+async def _aenumerate[T](
     iterable: AsyncIterable[T], start: int = 0
 ) -> AsyncIterator[tuple[int, T]]:
     n = start

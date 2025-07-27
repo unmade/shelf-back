@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable, Protocol, TypeAlias
+from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from app.app.files.domain import AnyPath, Fingerprint
 
-    MatchResult: TypeAlias = dict[Fingerprint, list[Fingerprint]]
+    type MatchResult = dict[Fingerprint, list[Fingerprint]]
 
 
 class IFingerprintRepository(Protocol):

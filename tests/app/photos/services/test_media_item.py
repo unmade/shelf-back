@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING, TypeVar, cast
+from typing import TYPE_CHECKING, cast
 from unittest import mock
 
 import pytest
@@ -14,8 +14,6 @@ if TYPE_CHECKING:
     from app.app.photos.services import MediaItemService
 
 pytestmark = [pytest.mark.anyio]
-
-T = TypeVar("T")
 
 
 class TestAutoAddCategoryBatch:
