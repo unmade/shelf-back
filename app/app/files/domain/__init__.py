@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import TypeAlias
-
 from .content import IFileContent
 from .content_metadata import ContentMetadata, Exif
 from .file import File, MountedFile
@@ -29,4 +27,4 @@ __all__ = [
     "SharedLink",
 ]
 
-AnyFile: TypeAlias = File | MountedFile
+type AnyFile = File | MountedFile

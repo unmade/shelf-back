@@ -4,7 +4,7 @@ import enum
 import re
 from datetime import timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Literal, Self, TypeAlias
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Self
 from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import AnyHttpUrl, BaseModel, Field, RedisDsn
@@ -19,6 +19,10 @@ if TYPE_CHECKING:
 _BASE_DIR = Path(__file__).absolute().resolve().parent.parent
 
 
+class DatabaseType(enum.StrEnum):
+    gel = "gel"
+
+
 class MailBackendType(enum.StrEnum):
     smtp = "smtp"
 
@@ -26,6 +30,10 @@ class MailBackendType(enum.StrEnum):
 class StorageType(str, enum.Enum):
     filesystem = "filesystem"
     s3 = "s3"
+
+
+class WorkerType(enum.StrEnum):
+    arq = "arq"
 
 
 class BytesSizeMultipliers(int, enum.Enum):
@@ -123,6 +131,7 @@ class GelDSN(str):
 
 
 class ARQWorkerConfig(BaseModel):
+    type: Literal[WorkerType.arq] = WorkerType.arq
     broker_dsn: Annotated[str, RedisDsn]
 
 
@@ -145,6 +154,7 @@ class CORSConfig(BaseModel):
 
 
 class GelConfig(BaseModel):
+    type: Literal[DatabaseType.gel] = DatabaseType.gel
     dsn: GelDSN | None = None
     gel_tls_ca_file: AbsPath | None = None
     gel_tls_security: str | None = None
@@ -207,19 +217,19 @@ class SentryConfig(BaseModel):
     environment: str | None = None
 
 
-DatabaseConfig: TypeAlias = GelConfig
+DatabaseConfig = Annotated[GelConfig, Field(discriminator="type")]
 
-MailConfig: TypeAlias = Annotated[
+MailConfig = Annotated[
     MailSMTPConfig,
     Field(discriminator="type"),
 ]
 
-StorageConfig: TypeAlias = Annotated[
+StorageConfig = Annotated[
     FileSystemStorageConfig | S3StorageConfig,
     Field(discriminator="type"),
 ]
 
-WorkerConfig: TypeAlias = ARQWorkerConfig
+WorkerConfig = Annotated[ARQWorkerConfig, Field(discriminator="type")]
 
 
 class AppConfig(BaseSettings):

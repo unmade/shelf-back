@@ -3,7 +3,7 @@ from __future__ import annotations
 import mimetypes
 import os.path
 from pathlib import PurePath
-from typing import TYPE_CHECKING, Any, Self, TypeAlias
+from typing import TYPE_CHECKING, Any, Self
 
 from pydantic_core import core_schema
 
@@ -173,4 +173,4 @@ def _splitext(name: str) -> tuple[str, str]:
     return stem, f"{suffix}{encoding}"
 
 
-AnyPath: TypeAlias = str | PurePath | Path
+type AnyPath = str | PurePath | Path
