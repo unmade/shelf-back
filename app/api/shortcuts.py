@@ -23,8 +23,8 @@ async def create_download_cache(file: AnyFile) -> str:
 
 async def pop_download_cache(token: str) -> AnyFile | None:
     """Return download metadata and remove it from cache."""
-    value: str | None = await cache.get(token)
+    value: AnyFile | None = await cache.get(token)
     if not value:
         return None
     await cache.delete(token)
-    return value  # type: ignore[return-value]
+    return value

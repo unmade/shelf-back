@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, AsyncIterator, Iterator
+from typing import TYPE_CHECKING
 
 from app.app.files.domain import File, MountedFile, MountPoint, Path
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import AsyncIterator, Iterable
     from datetime import datetime
     from uuid import UUID
 
@@ -141,7 +141,7 @@ class FileService:
         file, content = await self.filecore.download(file_id)
         return file, content
 
-    def download_folder(self, ns_path: AnyPath, path: AnyPath) -> Iterator[bytes]:
+    def download_folder(self, ns_path: AnyPath, path: AnyPath) -> Iterable[bytes]:
         """
         Downloads a folder at a given path.
 

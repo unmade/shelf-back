@@ -19,7 +19,6 @@ if TYPE_CHECKING:
     from collections.abc import (
         AsyncIterator,
         Iterable,
-        Iterator,
         Sequence,
     )
     from datetime import datetime
@@ -247,11 +246,11 @@ class FileCoreService:
             raise File.IsADirectory() from None
         return file, self.storage.download(file.ns_path, file.path)
 
-    def download_batch(self, items: Iterable[DownloadBatchItem]) -> Iterator[bytes]:
+    def download_batch(self, items: Iterable[DownloadBatchItem]) -> Iterable[bytes]:
         """Downloads multiple items as zip archive."""
         return self.storage.download_batch(items)
 
-    def download_folder(self, ns_path: AnyPath, path: AnyPath) -> Iterator[bytes]:
+    def download_folder(self, ns_path: AnyPath, path: AnyPath) -> Iterable[bytes]:
         """
         Downloads a file at a given path.
 

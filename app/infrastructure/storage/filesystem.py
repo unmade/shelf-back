@@ -119,8 +119,8 @@ class FileSystemStorage(IStorage):
             for chunk in f:
                 yield chunk
 
-    def download_batch(self, items: Iterable[DownloadBatchItem]) -> Iterator[bytes]:
-        return stream_zip.stream_zip(  # type: ignore[no-any-return]
+    def download_batch(self, items: Iterable[DownloadBatchItem]) -> Iterable[bytes]:
+        return stream_zip.stream_zip(
             self._download_batch_iter(items)
         )
 
@@ -147,8 +147,8 @@ class FileSystemStorage(IStorage):
         ns_path: AnyPath,
         path: AnyPath,
         include_paths: Collection[AnyPath] | None = None,
-    ) -> Iterator[bytes]:
-        return stream_zip.stream_zip(  # type: ignore[no-any-return]
+    ) -> Iterable[bytes]:
+        return stream_zip.stream_zip(
             self._downloaddir_iter(ns_path, path, include_paths=include_paths)
         )
 
