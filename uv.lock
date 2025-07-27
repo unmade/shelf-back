@@ -197,14 +197,14 @@ wheels = [
 
 [[package]]
 name = "click"
-version = "8.1.7"
+version = "8.2.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/96/d3/f04c7bfcf5c1862a2a5b845c6b2b360488cf47af55dfa79c98f6a6bf98b5/click-8.1.7.tar.gz", hash = "sha256:ca9853ad459e787e2192211578cc907e7594e294c7ccc834310722b41b9ca6de", size = 336121, upload-time = "2023-08-17T17:29:11.868Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/60/6c/8ca2efa64cf75a977a0d7fac081354553ebe483345c734fb6b6515d96bbc/click-8.2.1.tar.gz", hash = "sha256:27c491cc05d968d271d5a1db13e3b5a184636d9d930f148c50b038f0d0646202", size = 286342, upload-time = "2025-05-20T23:19:49.832Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/00/2e/d53fa4befbf2cfa713304affc7ca780ce4fc1fd8710527771b58311a3229/click-8.1.7-py3-none-any.whl", hash = "sha256:ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28", size = 97941, upload-time = "2023-08-17T17:29:10.08Z" },
+    { url = "https://files.pythonhosted.org/packages/85/32/10bb5764d90a8eee674e9dc6f4db6a0ab47c8c4d0d83c27f7c39ac415a4d/click-8.2.1-py3-none-any.whl", hash = "sha256:61a3265b914e850b85317d0b3109c7f8cd35a670f963866005d6ef1d5175a12b", size = 102215, upload-time = "2025-05-20T23:19:47.796Z" },
 ]
 
 [[package]]
@@ -1190,6 +1190,7 @@ dependencies = [
     { name = "arq" },
     { name = "bcrypt" },
     { name = "cashews", extra = ["diskcache", "redis"] },
+    { name = "click" },
     { name = "fastapi" },
     { name = "filetype" },
     { name = "gel" },
@@ -1207,7 +1208,6 @@ dependencies = [
     { name = "python-multipart" },
     { name = "sentry-sdk" },
     { name = "stream-zip" },
-    { name = "typer" },
     { name = "uvicorn", extra = ["standard"] },
     { name = "uvloop" },
 ]
@@ -1235,6 +1235,7 @@ requires-dist = [
     { name = "arq", specifier = "==0.26.3" },
     { name = "bcrypt", specifier = "==4.3.0" },
     { name = "cashews", extras = ["diskcache", "redis"], specifier = "==7.4.1" },
+    { name = "click", specifier = "==8.2.1" },
     { name = "fastapi", specifier = "==0.109.1" },
     { name = "filetype", specifier = "==1.2.0" },
     { name = "gel", specifier = "==3.1.0" },
@@ -1252,7 +1253,6 @@ requires-dist = [
     { name = "python-multipart", specifier = "==0.0.20" },
     { name = "sentry-sdk", specifier = "==2.33.2" },
     { name = "stream-zip", specifier = "==0.0.70" },
-    { name = "typer", specifier = "==0.9.0" },
     { name = "uvicorn", extras = ["standard"], specifier = "==0.27.0.post1" },
     { name = "uvloop", specifier = "==0.21.0" },
 ]
@@ -1335,19 +1335,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f1/b9/19206da568095bbf2e57f9f7f7cb6b3b2af2af2670f8c83c23a53d6c00cd/traitlets-5.14.1.tar.gz", hash = "sha256:8585105b371a04b8316a43d5ce29c098575c2e477850b62b848b964f1444527e", size = 161107, upload-time = "2024-01-02T13:45:43.141Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/45/34/5dc77fdc7bb4bd198317eea5679edf9cc0a186438b5b19dbb9062fb0f4d5/traitlets-5.14.1-py3-none-any.whl", hash = "sha256:2e5a030e6eff91737c643231bfcf04a65b0132078dad75e4936700b213652e74", size = 85370, upload-time = "2024-01-02T13:45:38.824Z" },
-]
-
-[[package]]
-name = "typer"
-version = "0.9.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "click" },
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/5b/49/39f10d0f75886439ab3dac889f14f8ad511982a754e382c9b6ca895b29e9/typer-0.9.0.tar.gz", hash = "sha256:50922fd79aea2f4751a8e0408ff10d2662bd0c8bbfa84755a699f3bada2978b2", size = 273985, upload-time = "2023-05-02T05:20:57.63Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/bf/0e/c68adf10adda05f28a6ed7b9f4cd7b8e07f641b44af88ba72d9c89e4de7a/typer-0.9.0-py3-none-any.whl", hash = "sha256:5d96d986a21493606a358cae4461bd8cdf83cbf33a5aa950ae629ca3b51467ee", size = 45861, upload-time = "2023-05-02T05:20:55.675Z" },
 ]
 
 [[package]]

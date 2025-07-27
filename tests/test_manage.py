@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 from unittest import mock
 
 import pytest
-from typer.testing import CliRunner
+from click.testing import CliRunner
 
 from app.app.infrastructure import IDatabase
 from app.app.users.domain import User
