@@ -83,4 +83,9 @@ def _get_timestamp(value: str | None) -> float | None:
 def _get_exposure(value: IFDRational | None) -> str | None:
     if not value:
         return None
-    return str(Fraction(value.numerator, value.denominator).limit_denominator(8000))
+    return str(
+        Fraction(  # type: ignore[call-overload]
+            value.numerator,
+            value.denominator
+        ).limit_denominator(8000)
+    )
