@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING, TypeVar, cast
+from collections.abc import Callable
+from typing import TYPE_CHECKING, cast
 from unittest import mock
 
 import pytest
@@ -23,8 +24,6 @@ if TYPE_CHECKING:
     from app.app.photos.usecases import MediaItemUseCase
 
 pytestmark = [pytest.mark.anyio]
-
-T = TypeVar("T")
 
 LIBRARY_PATH = Path(config.features.photos_library_path)
 
@@ -259,7 +258,9 @@ class TestListSharedLinks:
 
 class TestPurge:
     @staticmethod
-    def _aiter_items_factory(batches: list[list[T]]):
+    def _aiter_items_factory[T](
+        batches: list[list[T]]
+    ) -> Callable[[UUID], AsyncIterator[list[T]]]:
         async def _aiter_items(user_id: UUID) -> AsyncIterator[list[T]]:
             for batch in batches:
                 yield batch
@@ -274,6 +275,7 @@ class TestPurge:
         ns_service = cast(mock.MagicMock, photos_use_case.namespace)
 
         namespace = ns_service.get_by_owner_id.return_value
+
         media_item_service.iter_deleted = self._aiter_items_factory(items)
         file_ids = [item.file_id for item in items[0]]
         files = filecore.get_by_id_batch.return_value

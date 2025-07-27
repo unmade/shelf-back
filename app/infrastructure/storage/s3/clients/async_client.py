@@ -7,7 +7,6 @@ from typing import (
     TYPE_CHECKING,
     Protocol,
     Self,
-    TypeVar,
     overload,
 )
 from urllib.parse import quote
@@ -24,8 +23,6 @@ from .models import S3ClientConfig, S3File
 if TYPE_CHECKING:
     from collections.abc import AsyncIterable, AsyncIterator
 
-    T = TypeVar("T")
-
     class AsyncBytesReader(Protocol):
         size: int
 
@@ -39,7 +36,7 @@ __all__ = [
 _5_MB = 5 * 2**20
 
 
-async def _aenumerate(
+async def _aenumerate[T](
     iterable: AsyncIterable[T], start: int = 0
 ) -> AsyncIterator[tuple[int, T]]:
     n = start
