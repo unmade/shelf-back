@@ -73,7 +73,7 @@ def guess(content: IO[bytes], *, name: AnyPath | None = None) -> str:
     if name is not None:
         mime = guess_unsafe(name)
         if mime not in _STRICT_MEDIATYPES:
-            return cast(str, mime)
+            return mime
 
     return OCTET_STREAM
 

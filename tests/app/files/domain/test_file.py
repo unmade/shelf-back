@@ -23,7 +23,7 @@ def _make_file(
     pathname = path or fake.file_path(depth=3)
 
     return File(
-        id=fake.uuid4(),
+        id=fake.uuid4(cast_to=None),
         ns_path=ns_path or fake.file_path(depth=1),
         name=Path(pathname).name,
         path=Path(pathname),
