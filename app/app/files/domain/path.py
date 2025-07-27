@@ -3,11 +3,13 @@ from __future__ import annotations
 import mimetypes
 import os.path
 from pathlib import PurePath
-from typing import TYPE_CHECKING, Any, Callable, Iterator, Self, TypeAlias
+from typing import TYPE_CHECKING, Any, Self, TypeAlias
 
 from pydantic_core import core_schema
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
+
     from pydantic import GetJsonSchemaHandler
     from pydantic.json_schema import JsonSchemaValue
     from pydantic_core.core_schema import CoreSchema

@@ -5,7 +5,7 @@ import urllib.parse
 import uuid
 from datetime import UTC, datetime
 from io import BytesIO
-from typing import TYPE_CHECKING, AsyncIterator
+from typing import TYPE_CHECKING
 from unittest import mock
 
 import pytest
@@ -44,6 +44,7 @@ from app.worker.jobs.files import ErrorCode as TaskErrorCode
 from app.worker.jobs.files import FileTaskResult
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
     from unittest.mock import MagicMock
     from uuid import UUID
 

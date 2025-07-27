@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable, Protocol, TypeAlias
+from typing import TYPE_CHECKING, Protocol, TypeAlias
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from app.app.files.domain import AnyPath, Fingerprint
 
     MatchResult: TypeAlias = dict[Fingerprint, list[Fingerprint]]

@@ -125,6 +125,6 @@ class TestSaveBatch:
         await bookmark_repo.save_batch(bookmarks_a + bookmarks_b)
         # THEN
         bookmarks = await _list_bookmarks_id(namespace_a.owner_id)
-        assert set(bookmarks) == set(b.file_id for b in bookmarks_a)  # noqa: C401
+        assert set(bookmarks) == {b.file_id for b in bookmarks_a}  # noqa: C401
         bookmarks = await _list_bookmarks_id(namespace_b.owner_id)
-        assert set(bookmarks) == set(b.file_id for b in bookmarks_b)  # noqa: C401
+        assert set(bookmarks) == {b.file_id for b in bookmarks_b}  # noqa: C401

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import contextlib
+from collections.abc import AsyncIterator
 from contextlib import AbstractAsyncContextManager
-from typing import AsyncIterator, TypedDict
+from typing import TypedDict
 
 import sentry_sdk
 from cashews import RateLimitError

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING
 
 import gel
 
@@ -9,6 +9,8 @@ from app.app.files.repositories import IFingerprintRepository
 from app.toolkit import json_
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from app.app.files.domain import AnyPath
     from app.app.files.repositories.fingerprint import MatchResult
     from app.infrastructure.database.gel.typedefs import GelAnyConn, GelContext

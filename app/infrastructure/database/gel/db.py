@@ -3,7 +3,7 @@ from __future__ import annotations
 from contextlib import AsyncExitStack
 from contextvars import ContextVar
 from pathlib import Path
-from typing import TYPE_CHECKING, AsyncIterator, Self
+from typing import TYPE_CHECKING, Self
 
 import gel
 from gel.asyncio_client import AsyncIOIteration
@@ -35,6 +35,8 @@ from .repositories import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     from app.app.audit.repositories import IAuditTrailRepository
     from app.app.files.repositories import (
         IContentMetadataRepository,

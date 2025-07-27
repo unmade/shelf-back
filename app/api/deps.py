@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Annotated, AsyncIterator, TypeAlias
+from collections.abc import AsyncIterator
+from typing import Annotated, TypeAlias
 from uuid import UUID
 
 from fastapi import Depends, Query, Request

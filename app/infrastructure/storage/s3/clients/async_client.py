@@ -5,8 +5,6 @@ from contextlib import AsyncExitStack
 from email.utils import parsedate_to_datetime
 from typing import (
     TYPE_CHECKING,
-    AsyncIterable,
-    AsyncIterator,
     Protocol,
     Self,
     TypeVar,
@@ -24,6 +22,8 @@ from .exceptions import araise_for_status
 from .models import S3ClientConfig, S3File
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterable, AsyncIterator
+
     T = TypeVar("T")
 
     class AsyncBytesReader(Protocol):

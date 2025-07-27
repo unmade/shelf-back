@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import uuid
 from contextlib import AbstractAsyncContextManager
-from typing import AsyncIterator, Protocol, Self
+from typing import TYPE_CHECKING, Protocol, Self
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
 
 __all__ = [
     "SENTINEL_ID",

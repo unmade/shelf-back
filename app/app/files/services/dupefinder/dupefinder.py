@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import contextlib
 from collections import defaultdict
-from typing import IO, TYPE_CHECKING, AsyncIterator, Protocol
+from typing import IO, TYPE_CHECKING, Protocol
 
 from app.app.files.domain import Fingerprint
 
 from . import dhash
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
     from uuid import UUID
 
     from app.app.files.domain import AnyPath

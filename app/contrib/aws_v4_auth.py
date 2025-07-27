@@ -28,13 +28,15 @@ import hmac
 from binascii import hexlify
 from datetime import UTC, datetime
 from functools import reduce
-from typing import TYPE_CHECKING, AsyncGenerator, Generator, Literal, TypeAlias
+from typing import TYPE_CHECKING, Literal, TypeAlias
 from urllib.parse import parse_qsl, urlencode
 from urllib.parse import quote as url_quote
 
 from httpx import URL, Auth, RequestNotRead
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator, Generator
+
     from httpx import Request, Response
 
 _AWS_AUTH_REQUEST = "aws4_request"

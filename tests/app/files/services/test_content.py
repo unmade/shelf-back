@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import IO, TYPE_CHECKING, AsyncIterator, cast
+from typing import IO, TYPE_CHECKING, cast
 from unittest import mock
 
 import pytest
@@ -10,6 +10,8 @@ from app.app.files.domain import File, Path
 from app.config import ThumbnailSize, config
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     from app.app.files.domain import AnyPath, IFileContent
     from app.app.files.services import ContentService
 
