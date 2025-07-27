@@ -1252,7 +1252,7 @@ requires-dist = [
     { name = "python-jose", extras = ["cryptography"], specifier = "==3.5.0" },
     { name = "python-multipart", specifier = "==0.0.20" },
     { name = "sentry-sdk", specifier = "==2.33.2" },
-    { name = "stream-zip", specifier = "==0.0.70" },
+    { name = "stream-zip", specifier = "==0.0.83" },
     { name = "uvicorn", extras = ["standard"], specifier = "==0.27.0.post1" },
     { name = "uvloop", specifier = "==0.21.0" },
 ]
@@ -1318,14 +1318,14 @@ wheels = [
 
 [[package]]
 name = "stream-zip"
-version = "0.0.70"
+version = "0.0.83"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pycryptodome" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6f/a5/54c63b322f416ef0086608746ad66afa097178a0f6ad3abb007bf45422b2/stream_zip-0.0.70.tar.gz", hash = "sha256:135f73f414feef5a786e11e3cc2f5643fc0bdd9b936e79ef4c27e763423fee20", size = 8218, upload-time = "2024-01-06T10:55:28.285Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/08/8a/0674a98c1d3d8edf1461b92474ed9cfe19298a297aab9a8ccd9ae1f15b07/stream_zip-0.0.83.tar.gz", hash = "sha256:87d755f0ce43dfc6b0ae555b733f162c76e2eafcf3c7805d3f591e966b316716", size = 9961, upload-time = "2024-09-20T17:22:23.856Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/cd/ee/b52e737c27be4a49ee977ff3b8d104d721a6f6c512a4c11fd9a55ba06a9f/stream_zip-0.0.70-py3-none-any.whl", hash = "sha256:43835a128e4cbff01f40a30ff3e053f2719379f835011384dd351196f6334512", size = 7884, upload-time = "2024-01-06T10:55:26.42Z" },
+    { url = "https://files.pythonhosted.org/packages/88/99/53c4dcc32a8d97d133d707c18cb667782b911dffc53bc635616139ba8c38/stream_zip-0.0.83-py3-none-any.whl", hash = "sha256:118bef93c10031dc715235e081c72e1dab2850771893f261cb5d246ff56e0e42", size = 9764, upload-time = "2024-09-20T17:22:22.888Z" },
 ]
 
 [[package]]
