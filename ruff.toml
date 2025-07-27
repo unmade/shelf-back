@@ -1,4 +1,7 @@
 line-length = 88
+target-version = "py312"
+
+[lint]
 select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
@@ -14,7 +17,6 @@ ignore = [
     "SIM102",  # use a single if-statement instead of nested if-statements
 ]
 
-target-version = "py311"
 
-[isort]
+[lint.isort]
 known-first-party = ["app"]
