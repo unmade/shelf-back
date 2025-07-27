@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import itertools
-from typing import TYPE_CHECKING, AsyncIterator, Iterator, Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from app.app.files.domain import AnyFile, File, Path
 from app.app.users.domain import Account
@@ -10,6 +10,7 @@ from app.config import config
 from app.toolkit import taskgroups, timezone
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Iterable
     from datetime import datetime
     from uuid import UUID
 
@@ -164,7 +165,7 @@ class NamespaceUseCase:
         _, chunks = await self.file.download_by_id(file_id)
         return chunks
 
-    def download_folder(self, ns_path: AnyPath, path: AnyPath) -> Iterator[bytes]:
+    def download_folder(self, ns_path: AnyPath, path: AnyPath) -> Iterable[bytes]:
         """Downloads a folder as a ZIP archive."""
         return self.file.download_folder(ns_path, path)
 

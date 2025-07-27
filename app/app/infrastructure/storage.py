@@ -4,7 +4,7 @@ import abc
 from typing import TYPE_CHECKING, NamedTuple, Protocol, Self
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Collection, Iterable, Iterator
+    from collections.abc import AsyncIterator, Collection, Iterable
 
     from app.app.files.domain import AnyPath, IFileContent
 
@@ -107,8 +107,8 @@ class IStorage(Protocol):
         """
 
     @abc.abstractmethod
-    def download_batch(self, items: Iterable[DownloadBatchItem]) -> Iterator[bytes]:
-        """Return an iterator over a zipped files at given paths"""
+    def download_batch(self, items: Iterable[DownloadBatchItem]) -> Iterable[bytes]:
+        """Return an iterable over a zipped files at given paths"""
 
     @abc.abstractmethod
     def downloaddir(
@@ -116,9 +116,9 @@ class IStorage(Protocol):
         ns_path: AnyPath,
         path: AnyPath,
         include_paths: Collection[AnyPath] | None = None,
-    ) -> Iterator[bytes]:
+    ) -> Iterable[bytes]:
         """
-        Return an iterator over a zipped folder content.
+        Return an iterable over a zipped folder content.
 
         If optional `include_paths` is provided, then only that paths in the folder
         will be included.

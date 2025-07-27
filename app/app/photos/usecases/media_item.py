@@ -9,7 +9,7 @@ from app.cache import cache
 from app.config import config
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Sequence
+    from collections.abc import Iterable, Sequence
     from uuid import UUID
 
     from app.app.files.domain import AnyFile, SharedLink
@@ -85,7 +85,7 @@ class MediaItemUseCase:
         paths = [file.path for file in files]
         await self.filecore.delete_batch(namespace.path, paths)
 
-    def download_batch(self, items: DownloadBatchSession) -> Iterator[bytes]:
+    def download_batch(self, items: DownloadBatchSession) -> Iterable[bytes]:
         return self.filecore.download_batch(items)
 
     async def download_batch_create_session(

@@ -101,8 +101,8 @@ class S3Storage(IStorage):
         except NoSuchKey as exc:
             raise File.NotFound() from exc
 
-    def download_batch(self, items: Iterable[DownloadBatchItem]) -> Iterator[bytes]:
-        return stream_zip.stream_zip(  # type: ignore[no-any-return]
+    def download_batch(self, items: Iterable[DownloadBatchItem]) -> Iterable[bytes]:
+        return stream_zip.stream_zip(
             self._download_batch_iter(items)
         )
 
@@ -129,10 +129,10 @@ class S3Storage(IStorage):
         ns_path: AnyPath,
         path: AnyPath,
         include_paths: Collection[AnyPath] | None = None,
-    ) -> Iterator[bytes]:
+    ) -> Iterable[bytes]:
         ns_path = str(ns_path)
         prefix = self._joinpath(ns_path, path)
-        return stream_zip.stream_zip(  # type: ignore[no-any-return]
+        return stream_zip.stream_zip(
             self._downloaddir_iter(
                 ns_path,
                 prefix,
