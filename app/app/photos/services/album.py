@@ -32,15 +32,6 @@ class AlbumService:
         """
         return await self.db.album.add_items(owner_id, slug, file_ids)
 
-    async def clear_cover(self, owner_id: UUID, slug: str) -> Album:
-        """
-        Clears the album cover.
-
-        Raises:
-            Album.NotFound: If album does not exist.
-        """
-        return await self.db.album.set_cover(owner_id, slug, file_id=None)
-
     async def create(self, title: str, owner_id: UUID, created_at: datetime) -> Album:
         """Creates a new album."""
         base_slug = slugify(title, allow_unicode=True)
@@ -105,6 +96,15 @@ class AlbumService:
         return await self.db.album.list_items(
             owner_id, slug, offset=offset, limit=limit
         )
+
+    async def remove_cover(self, owner_id: UUID, slug: str) -> Album:
+        """
+        Removes the album cover.
+
+        Raises:
+            Album.NotFound: If album does not exist.
+        """
+        return await self.db.album.set_cover(owner_id, slug, file_id=None)
 
     async def remove_items(
         self, owner_id: UUID, slug: str, file_ids: list[UUID]

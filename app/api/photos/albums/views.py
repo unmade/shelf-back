@@ -15,6 +15,7 @@ from .schemas import (
     AlbumSchema,
     CreateAlbumRequest,
     RemoveAlbumItemsRequest,
+    SetAlbumCoverRequest,
     UpdateAlbumRequest,
 )
 
@@ -131,6 +132,22 @@ async def list_album_items(
     )
 
 
+@router.delete("/{slug}/cover")
+async def remove_album_cover(
+    request: Request,
+    slug: AlbumSlugParam,
+    usecases: UseCasesDeps,
+    user: CurrentUserDeps,
+) -> AlbumSchema:
+    """Removes album cover."""
+    try:
+        album = await usecases.album.remove_cover(user.id, slug)
+    except Album.NotFound as exc:
+        raise exceptions.AlbumNotFound() from exc
+
+    return AlbumSchema.from_entity(album, request=request)
+
+
 @router.delete("/{slug}/items")
 async def remove_album_items(
     request: Request,
@@ -146,6 +163,23 @@ async def remove_album_items(
             slug,
             file_ids=payload.file_ids,
         )
+    except Album.NotFound as exc:
+        raise exceptions.AlbumNotFound() from exc
+
+    return AlbumSchema.from_entity(album, request=request)
+
+
+@router.put("/{slug}/cover")
+async def set_album_cover(
+    request: Request,
+    slug: AlbumSlugParam,
+    payload: SetAlbumCoverRequest,
+    usecases: UseCasesDeps,
+    user: CurrentUserDeps,
+) -> AlbumSchema:
+    """Sets the album cover."""
+    try:
+        album = await usecases.album.set_cover(user.id, slug, file_id=payload.file_id)
     except Album.NotFound as exc:
         raise exceptions.AlbumNotFound() from exc
 

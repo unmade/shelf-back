@@ -43,18 +43,6 @@ class TestAddItems:
         db.album.add_items.assert_awaited_once_with(owner_id, slug, file_ids)
 
 
-class TestClearCover:
-    async def test(self, album_service: AlbumService):
-        # GIVEN
-        owner_id, slug = uuid.uuid4(), "album"
-        db = cast(mock.MagicMock, album_service.db)
-        # WHEN
-        result = await album_service.clear_cover(owner_id, slug)
-        # THEN
-        assert result == db.album.set_cover.return_value
-        db.album.set_cover.assert_awaited_once_with(owner_id, slug, file_id=None)
-
-
 class TestCreate:
     @mock.patch("app.app.photos.services.album.AlbumService.get_available_slug")
     async def test(
@@ -177,6 +165,18 @@ class TestListItems:
         db.album.list_items.assert_awaited_once_with(
             owner_id, slug, offset=100, limit=200
         )
+
+
+class TestRemoveCover:
+    async def test(self, album_service: AlbumService):
+        # GIVEN
+        owner_id, slug = uuid.uuid4(), "album"
+        db = cast(mock.MagicMock, album_service.db)
+        # WHEN
+        result = await album_service.remove_cover(owner_id, slug)
+        # THEN
+        assert result == db.album.set_cover.return_value
+        db.album.set_cover.assert_awaited_once_with(owner_id, slug, file_id=None)
 
 
 class TestRemoveItems:
