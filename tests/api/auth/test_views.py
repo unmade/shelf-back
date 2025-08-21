@@ -88,7 +88,7 @@ class TestSignUp:
         }
 
         # WHEN
-        with mock.patch.object(config.features, "sign_up_disabled", True):
+        with mock.patch.object(config.features, "sign_up_enabled", False):
             response = await client.post(self.url, json=payload)
         # THEN
         assert response.json() == SignUpDisabled().as_dict()

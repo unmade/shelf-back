@@ -175,8 +175,8 @@ class FeatureConfig(BaseModel):
         ThumbnailSize.xxl,
         ThumbnailSize.ai,
     }
-    sign_up_disabled: bool = False
-    shared_links_disabled: bool = False
+    sign_up_enabled: bool = True
+    shared_links_enabled: bool = True
     upload_file_max_size: BytesSize = 100 * BytesSizeMultipliers.mb
     verification_required: bool = False
 
