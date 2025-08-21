@@ -25,12 +25,12 @@ async def test_list_features(client: TestClient):
                 "value": config.features.photos_library_path,
             },
             {
-                "name": "sign_up_disabled",
-                "value": config.features.sign_up_disabled,
+                "name": "sign_up_enabled",
+                "value": config.features.sign_up_enabled,
             },
             {
-                "name": "shared_links_disabled",
-                "value": config.features.shared_links_disabled,
+                "name": "shared_links_enabled",
+                "value": config.features.shared_links_enabled,
             },
             {
                 "name": "upload_file_max_size",

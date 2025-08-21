@@ -145,7 +145,7 @@ class TestCreateLink:
         sharing_service = cast(mock.MagicMock, sharing_use_case.sharing)
         user_service = cast(mock.MagicMock, sharing_use_case.user)
         # WHEN
-        with mock.patch.object(config.features, "shared_links_disabled", False):
+        with mock.patch.object(config.features, "shared_links_enabled", True):
             link = await sharing_use_case.create_link(ns_path, file_id)
         # THEN
         assert link == sharing_service.create_link.return_value
@@ -164,7 +164,7 @@ class TestCreateLink:
         user.superuser = True
         # WHEN
         with (
-            mock.patch.object(config.features, "shared_links_disabled", True),
+            mock.patch.object(config.features, "shared_links_enabled", False),
         ):
             link = await sharing_use_case.create_link(ns_path, file_id)
         # THEN
@@ -184,7 +184,7 @@ class TestCreateLink:
         user.superuser = False
         # WHEN
         with (
-            mock.patch.object(config.features, "shared_links_disabled", True),
+            mock.patch.object(config.features, "shared_links_enabled", False),
             pytest.raises(File.ActionNotAllowed),
         ):
             await sharing_use_case.create_link(ns_path, file_id)

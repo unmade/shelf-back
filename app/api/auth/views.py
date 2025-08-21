@@ -37,7 +37,7 @@ async def sign_up(
     usecases: UseCasesDeps,
 ) -> TokensSchema:
     """Create a new account with given credentials and grant a new access token."""
-    if config.features.sign_up_disabled:
+    if config.features.sign_up_enabled is False:
         raise exceptions.SignUpDisabled()
 
     try:
