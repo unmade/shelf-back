@@ -23,12 +23,12 @@ async def list_all() -> ListFeatureResponse:
                 value=config.features.photos_library_path,
             ),
             Feature(
-                name=FeatureName.sign_up_disabled,
-                value=config.features.sign_up_disabled,
+                name=FeatureName.sign_up_enabled,
+                value=config.features.sign_up_enabled,
             ),
             Feature(
-                name=FeatureName.shared_links_disabled,
-                value=config.features.shared_links_disabled,
+                name=FeatureName.shared_links_enabled,
+                value=config.features.shared_links_enabled,
             ),
             Feature(
                 name=FeatureName.upload_file_max_size,

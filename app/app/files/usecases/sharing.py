@@ -91,7 +91,7 @@ class SharingUseCase:
 
     async def create_link(self, ns_path: str, file_id: UUID) -> SharedLink:
         """Creates a shared link for a file at the given path."""
-        if config.features.shared_links_disabled:
+        if config.features.shared_links_enabled is False:
             user = await self.user.get_by_username(ns_path)
             if not user.superuser:
                 raise File.ActionNotAllowed()
