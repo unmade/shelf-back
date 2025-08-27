@@ -31,7 +31,7 @@ class SMTPEmailBackend:
         self._stack = AsyncExitStack()
 
     async def __aenter__(self) -> Self:
-        await self._stack.enter_async_context(self.smtp)  # type: ignore[arg-type]
+        await self._stack.enter_async_context(self.smtp)
         return self
 
     async def __aexit__(self, exc_type, exc_value, traceback):
