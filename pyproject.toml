@@ -44,5 +44,5 @@ test = [
     "anyio==4.10.0",
     "faker==37.5.3",
     "pytest==8.4.1",
-    "pytest-cov==6.2.1",
+    "pytest-cov==6.3.0",
 ]
