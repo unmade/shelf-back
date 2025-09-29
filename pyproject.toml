@@ -27,7 +27,7 @@ dependencies = [
     "python-multipart==0.0.20",
     "sentry-sdk==2.35.0",
     "stream-zip==0.0.83",
-    "uvicorn[standard]==0.35.0",
+    "uvicorn[standard]==0.37.0",
     "uvloop==0.21.0",
 ]
 
