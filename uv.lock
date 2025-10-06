@@ -139,11 +139,11 @@ wheels = [
 
 [[package]]
 name = "cashews"
-version = "7.4.1"
+version = "7.4.2"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/9e/02/6c63550c84263219367e027038ccdac9bff900775262027ac35b6de91973/cashews-7.4.1.tar.gz", hash = "sha256:9d4ac7b0d0e20ec96680af60ae15dc26c19ccc267baa84a472c54bef86a93a8a", size = 91757, upload-time = "2025-07-14T22:39:48.137Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/48/44/587e82bb801a848042e1bf637bc34c8b52d1bf0df0a587bd2310e233df00/cashews-7.4.2.tar.gz", hash = "sha256:62ed01a3e290fbd7d2a131711e403dfc94b29364bc1113158bf2526b4517bd9e", size = 92110, upload-time = "2025-10-05T21:18:22.066Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f8/e6/e77b27292b560725c35e478e90bdc9fe84c6ec849daac4360b4150083b4f/cashews-7.4.1-py3-none-any.whl", hash = "sha256:868019e9c8b0a75f345ea58b71197640b20dc2fe0892eb5ef6537f5652299ba4", size = 79356, upload-time = "2025-07-14T22:39:46.719Z" },
+    { url = "https://files.pythonhosted.org/packages/df/cb/bebe48823c7decb90320786de1f8ebbca2d1442812e735287a4d1c1e5857/cashews-7.4.2-py3-none-any.whl", hash = "sha256:a1dc9881bb418c1bd355d2bfaf4968378dc3c329c2cce756d320195e7080b528", size = 79700, upload-time = "2025-10-05T21:18:20.709Z" },
 ]
 
 [package.optional-dependencies]
@@ -1392,7 +1392,7 @@ requires-dist = [
     { name = "aiosmtplib", specifier = "==4.0.2" },
     { name = "arq", specifier = "==0.26.3" },
     { name = "bcrypt", specifier = "==4.3.0" },
-    { name = "cashews", extras = ["diskcache", "redis"], specifier = "==7.4.1" },
+    { name = "cashews", extras = ["diskcache", "redis"], specifier = "==7.4.2" },
     { name = "click", specifier = "==8.2.1" },
     { name = "fastapi", specifier = "==0.116.1" },
     { name = "filetype", specifier = "==1.2.0" },
