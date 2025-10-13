@@ -8,7 +8,7 @@ dependencies = [
     "aiosmtplib==4.0.2",
     "arq==0.26.3",
     "bcrypt==4.3.0",
-    "cashews[diskcache,redis]==7.4.1",
+    "cashews[diskcache,redis]==7.4.3",
     "click==8.2.1",
     "fastapi==0.116.1",
     "filetype==1.2.0",
