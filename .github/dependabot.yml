@@ -5,6 +5,20 @@ updates:
   directory: "/"
   schedule:
     interval: "weekly"
+  groups:
+    patch:
+      applies-to: version-updates
+      patterns:
+        - "*"
+      update-types:
+        - "patch"
+    minor-and-patch:
+      applies-to: security-updates
+      patterns:
+        - "*"
+      update-types:
+        - "patch"
+        - "minor"
 
 - package-ecosystem: "docker"
   directory: "/"
