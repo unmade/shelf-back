@@ -2,7 +2,6 @@ version: 2
 
 updates:
 - package-ecosystem: "uv"
-  open-pull-requests-limit: 50
   directory: "/"
   schedule:
     interval: "weekly"
@@ -16,3 +15,7 @@ updates:
   directory: "/"
   schedule:
     interval: "weekly"
+  groups:
+    actions-all:
+      patterns:
+        - "*"
