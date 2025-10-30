@@ -18,12 +18,13 @@ jobs:
       - name: Enable auto-merge for Dependabot PRs
         if: >
           (
-            steps.metadata.outputs.package-ecosystem == 'github-actions' &&
+            steps.metadata.outputs.package-ecosystem == 'github_actions' &&
             steps.metadata.outputs.dependency-group == 'actions-all'
           ) ||
           (
             steps.metadata.outputs.package-ecosystem == 'uv' &&
-            steps.metadata.outputs.dependency-group == 'security'
+            steps.metadata.outputs.dependency-group == 'security' ||
+            steps.metadata.outputs.dependency-group == 'patch'
           )
         run: gh pr merge --auto --merge "$PR_URL"
         env:
