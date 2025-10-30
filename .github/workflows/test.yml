@@ -9,6 +9,17 @@ on:
   pull_request:
     branches:
       - '**'
+    paths:
+      - '.github/workflows/test.yml'
+      - 'app/**'
+      - 'dbschema/**'
+      - 'tests/**'
+      - '.python-version'
+      - 'gel.toml'
+      - 'manage.py'
+      - 'pyproject.toml'
+      - 'pytest.ini'
+      - 'uv.lock'
 
 jobs:
   test:
