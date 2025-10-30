@@ -12,7 +12,7 @@ updates:
         - "*"
       update-types:
         - "patch"
-    minor-and-patch:
+    security:
       applies-to: security-updates
       patterns:
         - "*"
