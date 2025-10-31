@@ -28,7 +28,7 @@ dependencies = [
     "sentry-sdk==2.43.0",
     "stream-zip==0.0.83",
     "uvicorn[standard]==0.38.0",
-    "uvloop==0.21.0",
+    "uvloop==0.22.1",
 ]
 
 [dependency-groups]
