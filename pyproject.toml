@@ -33,7 +33,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "ipython==9.4.0",
+    "ipython==9.6.0",
 ]
 lint = [
     "mypy==1.17.1",
