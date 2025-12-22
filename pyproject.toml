@@ -37,7 +37,7 @@ dev = [
 ]
 lint = [
     "mypy==1.17.1",
-    "pre-commit==4.4.0",
+    "pre-commit==4.5.1",
 ]
 test = [
     "aiosmtpd==1.4.6",
