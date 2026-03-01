@@ -310,7 +310,8 @@ class TestGetSharedLinkThumbnail:
         # GIVEN
         ns_path, path, token = "admin", "f.txt", "link-token"
         file = _make_file(ns_path, path)
-        sharing_use_case.get_link_thumbnail.return_value = file, b"content"
+        thumbnail, mediatype = b"content", MediaType.IMAGE_WEBP
+        sharing_use_case.get_link_thumbnail.return_value = file, thumbnail, mediatype
         # WHEN
         response = await client.get(self.url(token=token, size=size))
         # THEN

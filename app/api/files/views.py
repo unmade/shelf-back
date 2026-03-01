@@ -14,7 +14,7 @@ from app.api.deps import (
     VerifiedCurrentUserDeps,
     WorkerDeps,
 )
-from app.app.files.domain import ContentMetadata, File, mediatypes
+from app.app.files.domain import ContentMetadata, File
 from app.app.infrastructure.worker import JobStatus
 from app.app.users.domain import Account
 from app.cache import disk_cache
@@ -319,7 +319,7 @@ async def get_thumbnail(
 ):
     """Get thumbnail for an image file."""
     try:
-        file, thumbnail = await usecases.namespace.get_file_thumbnail(
+        file, thumbnail, mediatype = await usecases.namespace.get_file_thumbnail(
             namespace.path, file_id, size=size.asint()
         )
     except File.ActionNotAllowed as exc:
@@ -336,7 +336,7 @@ async def get_thumbnail(
     headers = {
         "Content-Disposition": f'inline; filename="{filename}"',
         "Content-Length": str(len(thumbnail)),
-        "Content-Type": mediatypes.IMAGE_WEBP,
+        "Content-Type": mediatype.value,
         "Cache-Control": "private, max-age=31536000, no-transform",
     }
 

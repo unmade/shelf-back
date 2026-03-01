@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import mimetypes
+import re
 from typing import IO, TYPE_CHECKING, cast
 
 import filetype
 
 if TYPE_CHECKING:
     from app.app.files.domain import AnyPath
+
+SVG_R = r'(?:<\?xml\b[^>]*>[^<]*)?(?:<!--.*?-->[^<]*)*(?:<svg|<!DOCTYPE svg)\b'
+SVG_RE = re.compile(SVG_R, re.DOTALL)
 
 mimetypes.init()
 
@@ -39,6 +43,7 @@ IMAGE_HEIC = "image/heic"
 IMAGE_HEIF = "image/heif"
 IMAGE_JPEG = "image/jpeg"
 IMAGE_PNG = "image/png"
+IMAGE_SVG = "image/svg+xml"
 IMAGE_TIFF = "image/tiff"
 IMAGE_WEBP = "image/webp"
 IMAGE_ICON = "image/x-icon"
@@ -69,6 +74,10 @@ def guess(content: IO[bytes], *, name: AnyPath | None = None) -> str:
     content.seek(0)
     if mime := filetype.guess_mime(content):
         return cast(str, mime)
+
+    content.seek(0)
+    if SVG_RE.match(content.read().decode('latin-1')) is not None:
+        return IMAGE_SVG
 
     if name is not None:
         mime = guess_unsafe(name)

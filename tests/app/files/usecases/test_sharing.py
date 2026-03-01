@@ -220,7 +220,7 @@ class TestGetLinkThumbnail:
         # WHEN
         result = await sharing_use_case.get_link_thumbnail(token, size=32)
         # THEN
-        assert result == (file, thumbnail)
+        assert result == (file, *thumbnail)
         sharing_service.get_link_by_token.assert_awaited_once_with(token)
         file_service.filecore.get_by_id.assert_awaited_once_with(link.file_id)
         thumbnailer.thumbnail.assert_awaited_once_with(file.id, file.chash, 32)
