@@ -9,8 +9,8 @@ import filetype
 if TYPE_CHECKING:
     from app.app.files.domain import AnyPath
 
-SVG_R = r'(?:<\?xml\b[^>]*>[^<]*)?(?:<!--.*?-->[^<]*)*(?:<svg|<!DOCTYPE svg)\b'
-SVG_RE = re.compile(SVG_R, re.DOTALL)
+SVG_PATTERN = r'(?:<\?xml\b[^>]*>[^<]*)?(?:<!--.*?-->[^<]*)*(?:<svg|<!DOCTYPE svg)\b'
+SVG_RE = re.compile(SVG_PATTERN, re.DOTALL)
 
 mimetypes.init()
 
