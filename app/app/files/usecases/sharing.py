@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     )
     from app.app.infrastructure.database import IAtomic
     from app.app.users.services import UserService
+    from app.toolkit.mediatypes import MediaType
 
     class IUseCaseServices(IAtomic, Protocol):
         file: FileService
@@ -105,11 +106,11 @@ class SharingUseCase:
 
     async def get_link_thumbnail(
         self, token: str, *, size: int
-    ) -> tuple[File, bytes]:
+    ) -> tuple[File, bytes, MediaType]:
         link = await self.sharing.get_link_by_token(token)
         file = await self.file.filecore.get_by_id(link.file_id)
-        thumbnail = await self.thumbnailer.thumbnail(file.id, file.chash, size)
-        return file, thumbnail
+        thumb = await self.thumbnailer.thumbnail(file.id, file.chash, size)
+        return file, *thumb
 
     async def get_shared_item(self, token: str) -> File:
         link = await self.sharing.get_link_by_token(token)
