@@ -5,7 +5,7 @@ import enum
 __all__ = ["MediaType"]
 
 
-class MediaType(str, enum.Enum):
+class MediaType(enum.StrEnum):
     # application
     FOLDER = "application/directory"
     OCTET_STREAM = "application/octet-stream"
@@ -23,4 +23,4 @@ class MediaType(str, enum.Enum):
     IMAGE_WEBP = "image/webp"
 
     # plain
-    PLAIN_TEXT = "plain/text"
+    PLAIN_TEXT = "text/plain"

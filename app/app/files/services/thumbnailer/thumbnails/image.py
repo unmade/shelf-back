@@ -50,7 +50,7 @@ def _get_quality(size: int) -> int:
     return 80
 
 
-def thumbnail_image(content: IO[bytes], *, size: int) -> bytes:
+def thumbnail_image(content: IO[bytes], *, size: int) -> tuple[bytes, MediaType]:
     method, quality = _get_method(size), _get_quality(size)
     buffer = BytesIO()
     try:
@@ -58,7 +58,7 @@ def thumbnail_image(content: IO[bytes], *, size: int) -> bytes:
             if im.format == 'GIF' and getattr(im, "is_animated", False):
                 if im.size[0] < size and im.size[1] < size:
                     content.seek(0)
-                    return content.read()
+                    return content.read(), MediaType.IMAGE_GIF
                 frames = _thumbnail_image_sequence(im, size)
                 frame = next(frames)
                 frame.info = im.info
@@ -71,7 +71,7 @@ def thumbnail_image(content: IO[bytes], *, size: int) -> bytes:
         raise File.ThumbnailUnavailable(msg) from exc
 
     buffer.seek(0)
-    return buffer.read()
+    return buffer.read(), MediaType.IMAGE_WEBP
 
 
 def _thumbnail_image_sequence(im: ImageType, size: int) -> Iterator[ImageType]:
