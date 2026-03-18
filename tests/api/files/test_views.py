@@ -40,6 +40,7 @@ from app.app.infrastructure.worker import Job, JobStatus
 from app.app.users.domain import Account
 from app.cache import disk_cache
 from app.toolkit import timezone
+from app.toolkit.mediatypes import MediaType
 from app.worker.jobs.files import ErrorCode as TaskErrorCode
 from app.worker.jobs.files import FileTaskResult
 
@@ -705,8 +706,9 @@ class TestGetThumbnail:
     ):
         # GIVEN
         ns_path, path = namespace.path, "im.jpeg"
-        file, thumbnail = _make_file(ns_path, path), image_content.file.read()
-        ns_use_case.get_file_thumbnail.return_value = file, thumbnail
+        file = _make_file(ns_path, path)
+        thumbnail, mediatype = image_content.file.read(), MediaType.IMAGE_WEBP
+        ns_use_case.get_file_thumbnail.return_value = file, thumbnail, mediatype
         # WHEN
         client.mock_namespace(namespace)
         response = await client.get(self.url(file.id))
@@ -731,8 +733,9 @@ class TestGetThumbnail:
     ):
         # GIVEN
         ns_path, path = namespace.path, "im.jpeg"
-        file, thumbnail = _make_file(ns_path, path), image_content.file.read()
-        ns_use_case.get_file_thumbnail.return_value = file, thumbnail
+        file = _make_file(ns_path, path)
+        thumbnail, mediatype = image_content.file.read(), MediaType.IMAGE_WEBP
+        ns_use_case.get_file_thumbnail.return_value = file, thumbnail, mediatype
 
         client.mock_namespace(namespace)
         with disk_cache.detect as detector:
@@ -772,8 +775,9 @@ class TestGetThumbnail:
     ):
         # GIVEN
         ns_path, path = namespace.path, "изо.jpeg"
-        file, thumbnail = _make_file(ns_path, path), image_content.file.read()
-        ns_use_case.get_file_thumbnail.return_value = file, thumbnail
+        file = _make_file(ns_path, path)
+        thumbnail, mediatype = image_content.file.read(), MediaType.IMAGE_WEBP
+        ns_use_case.get_file_thumbnail.return_value = file, thumbnail, mediatype
         # WHEN
         client.mock_namespace(namespace)
         response = await client.get(self.url(file.id))

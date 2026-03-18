@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
 
 def make_thumbnail_url(request: Request, entity: MediaItem) -> str | None:
-    if thumbnails.is_supported(entity.mediatype):
-        return str(request.url_for("get_thumbnail", file_id=entity.file_id))
-    return None
+    assert thumbnails.is_supported(entity.mediatype), (
+        f"Unsupported mediatype `{entity.mediatype}` for media item `{entity.file_id}`"
+    )
+    return str(request.url_for("get_thumbnail", file_id=entity.file_id))

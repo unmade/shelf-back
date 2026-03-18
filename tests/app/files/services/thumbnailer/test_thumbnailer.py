@@ -12,6 +12,7 @@ from app.app.files.domain import File, Path
 from app.app.files.services.thumbnailer import thumbnails
 from app.app.files.services.thumbnailer.thumbnailer import _PREFIX
 from app.config import config
+from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -50,7 +51,7 @@ def _make_file(
 @pytest.fixture
 async def image_thumbnail(image_content: IFileContent) -> bytes:
     """Create a thumbnail from `image_content` fixture with size of 32."""
-    thumbnail = await thumbnails.thumbnail(image_content.file, size=32)
+    thumbnail, _ = await thumbnails.thumbnail(image_content.file, size=32)
     await image_content.seek(0)
     return thumbnail
 
@@ -227,9 +228,10 @@ class TestThumbnail:
         storage = cast(mock.MagicMock, thumbnailer.storage)
         storage.download.return_value = _aiter(BytesIO(image_thumbnail))
         # WHEN
-        result = await thumbnailer.thumbnail(file_id, content_hash, size)
+        thumbnail, mediatype = await thumbnailer.thumbnail(file_id, content_hash, size)
         # THEN
-        assert result == image_thumbnail
+        assert thumbnail == image_thumbnail
+        assert mediatype == MediaType.IMAGE_WEBP
         storage.exists.assert_awaited_once_with(_PREFIX, t_path)
         storage.download.assert_called_once_with(_PREFIX, t_path)
         filecore.download.assert_not_called()
@@ -247,9 +249,9 @@ class TestThumbnail:
         storage = cast(mock.MagicMock, thumbnailer.storage)
         storage.exists.return_value = False
         # WHEN
-        thumbnail = await thumbnailer.thumbnail(file.id, file.chash, size)
+        result = await thumbnailer.thumbnail(file.id, file.chash, size)
         # THEN
-        assert thumbnail == await thumbnails.thumbnail(image_content.file, size=size)
+        assert result == await thumbnails.thumbnail(image_content.file, size=size)
         storage.exists.assert_awaited_once_with(_PREFIX, t_path)
         storage.download.assert_not_called()
         filecore.download.assert_awaited_once_with(file.id)

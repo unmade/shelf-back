@@ -5,10 +5,11 @@ import os.path
 from io import BytesIO
 from typing import TYPE_CHECKING
 
-from app.app.files.domain import File
+from app.app.files.domain import File, mediatypes
 from app.app.files.domain.content import InMemoryFileContent
 from app.cache import cache
 from app.config import config
+from app.toolkit.mediatypes import MediaType
 
 from . import thumbnails
 
@@ -100,7 +101,7 @@ class ThumbnailService:
 
                 content.seek(0)
                 try:
-                    thumbnail = await thumbnails.thumbnail(content, size=size)
+                    thumbnail, _ = await thumbnails.thumbnail(content, size=size)
                 except File.ThumbnailUnavailable:
                     return
 
@@ -108,7 +109,9 @@ class ThumbnailService:
                 await self.storage.save(_PREFIX, path, InMemoryFileContent(thumbnail))
 
     @cache.locked(key=_LOCK_KEY, ttl=30)
-    async def thumbnail(self, file_id: UUID, content_hash: str, size: int) -> bytes:
+    async def thumbnail(
+        self, file_id: UUID, content_hash: str, size: int
+    ) -> tuple[bytes, MediaType]:
         """
         Returns a thumbnail for a given file ID. If thumbnail doesn't exist,
         it will be created and put to storage.
@@ -124,14 +127,15 @@ class ThumbnailService:
 
         if await self.storage.exists(_PREFIX, path):
             chunks = self.storage.download(_PREFIX, path)
-            return b"".join([chunk async for chunk in chunks])
+            thumb = b"".join([chunk async for chunk in chunks])
+            return thumb, MediaType(mediatypes.guess(BytesIO(thumb)))
 
         file, chunks = await self.filecore.download(file_id)
         if file.size > config.features.max_file_size_to_thumbnail:
             raise File.ThumbnailUnavailable() from None
 
         content = BytesIO(b"".join([chunk async for chunk in chunks]))
-        thumb = await thumbnails.thumbnail(content, size=size)
+        thumb, mediatype = await thumbnails.thumbnail(content, size=size)
         await self.storage.makedirs(_PREFIX, os.path.dirname(path))
         await self.storage.save(_PREFIX, path, InMemoryFileContent(thumb))
-        return thumb
+        return thumb, mediatype
