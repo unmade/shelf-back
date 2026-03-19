@@ -8,6 +8,7 @@ from app.toolkit.mediatypes import MediaType
 
 from .image import thumbnail_image
 from .pdf import thumbnail_pdf
+from .svg import thumbnail_svg
 
 __all__ = [
     "SUPPORTED_TYPES",
@@ -22,6 +23,7 @@ _SUPPORTED_IMAGES = {
     MediaType.IMAGE_HEIF,
     MediaType.IMAGE_JPEG,
     MediaType.IMAGE_PNG,
+    MediaType.IMAGE_SVG,
     MediaType.IMAGE_TIFF,
     MediaType.IMAGE_WEBP,
 }
@@ -39,7 +41,7 @@ def is_supported(mediatype: str) -> bool:
     return mediatype in SUPPORTED_TYPES
 
 
-async def thumbnail(content: IO[bytes], *, size: int) -> bytes:
+async def thumbnail(content: IO[bytes], *, size: int) -> tuple[bytes, MediaType]:
     """
     Generates in-memory thumbnail with a specified sized for a given content with
     preserved aspect ratio.
@@ -50,11 +52,13 @@ async def thumbnail(content: IO[bytes], *, size: int) -> bytes:
     return await asyncio.to_thread(_thumbnail, content, size)
 
 
-def _thumbnail(content: IO[bytes], size: int) -> bytes:
-
+def _thumbnail(content: IO[bytes], size: int) -> tuple[bytes, MediaType]:
     mediatype = mediatypes.guess(content)
     if mediatype in _SUPPORTED_PDF:
         return thumbnail_pdf(content, size=size, mediatype=mediatype)
+
+    if mediatype == MediaType.IMAGE_SVG:
+        return thumbnail_svg(content)
 
     # content should be strictly identified by magic numbers signature, so if no other
     # mediatype matched then assume it is an image. This is done that way because some

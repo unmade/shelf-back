@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     )
     from app.app.infrastructure.database import IAtomic
     from app.app.users.services import UserService
+    from app.toolkit.mediatypes import MediaType
 
     class IUseCaseServices(IAtomic, Protocol):
         audit_trail: AuditTrailService
@@ -215,7 +216,7 @@ class NamespaceUseCase:
 
     async def get_file_thumbnail(
         self, ns_path: AnyPath, file_id: UUID, size: int
-    ) -> tuple[AnyFile, bytes]:
+    ) -> tuple[AnyFile, bytes, MediaType]:
         """
         Generates in-memory thumbnail with preserved aspect ratio.
 
@@ -226,8 +227,8 @@ class NamespaceUseCase:
             File.ThumbnailUnavailable: If file is not an image.
         """
         file = await self.file.get_by_id(ns_path, file_id)
-        thumbnail = await self.thumbnailer.thumbnail(file_id, file.chash, size)
-        return file, thumbnail
+        thumb = await self.thumbnailer.thumbnail(file_id, file.chash, size)
+        return file, *thumb
 
     async def get_item_at_path(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:
         """

@@ -6,7 +6,7 @@ from app.api import exceptions, shortcuts
 from app.api.deps import CurrentUserDeps, NamespaceDeps, UseCasesDeps
 from app.api.files.exceptions import FileActionNotAllowed, PathNotFound
 from app.api.files.schemas import ThumbnailSize
-from app.app.files.domain import File, FileMember, SharedLink, mediatypes
+from app.app.files.domain import File, FileMember, SharedLink
 from app.app.users.domain import User
 
 from .exceptions import FileMemberAlreadyExists, SharedLinkNotFound
@@ -137,7 +137,9 @@ async def get_shared_link_thumbnail(
 ):
     """Get a thumbnail for a shared link file."""
     try:
-        _, thumb = await usecases.sharing.get_link_thumbnail(token, size=size.asint())
+        _, thumb, mediatype = await usecases.sharing.get_link_thumbnail(
+            token, size=size.asint()
+        )
     except SharedLink.NotFound as exc:
         raise SharedLinkNotFound() from exc
 
@@ -145,7 +147,7 @@ async def get_shared_link_thumbnail(
     headers = {
         "Content-Disposition": f'inline; filename="{filename}"',
         "Content-Length": str(len(thumb)),
-        "Content-Type": mediatypes.IMAGE_WEBP,
+        "Content-Type": mediatype.value,
         "Cache-Control": "private, max-age=31536000, no-transform",
     }
     return Response(thumb, headers=headers)

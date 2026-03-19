@@ -297,7 +297,7 @@ class TestGetFileThumbnail:
         # WHEN
         result = await ns_use_case.get_file_thumbnail(ns_path, file.id, size=32)
         # THEN
-        assert result == (file, thumbnail)
+        assert result == (file, *thumbnail)
         file_service.get_by_id.assert_awaited_once_with(ns_path, file.id)
         thumbnailer.thumbnail.assert_awaited_once_with(file.id, file.chash, 32)
 

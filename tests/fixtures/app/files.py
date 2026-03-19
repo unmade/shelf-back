@@ -45,3 +45,10 @@ def image_content_with_exif() -> IFileContent:
     name = "exif_iphone_with_hdr_on.jpeg"
     buffer = BytesIO(resources.files("tests.data.images").joinpath(name).read_bytes())
     return InMemoryFileContent.from_buffer(buffer)
+
+
+@pytest.fixture
+def svg_content() -> IFileContent:
+    name = "sample.svg"
+    buffer = BytesIO(resources.files("tests.data.images").joinpath(name).read_bytes())
+    return InMemoryFileContent.from_buffer(buffer)
