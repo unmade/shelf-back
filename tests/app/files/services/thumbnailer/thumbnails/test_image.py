@@ -9,6 +9,7 @@ from PIL import Image
 
 from app.app.files.domain.file import File
 from app.app.files.services.thumbnailer.thumbnails.image import thumbnail_image
+from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
     from app.app.files.domain import IFileContent
@@ -18,24 +19,27 @@ class TestImageThumbnail:
     pkg = resources.files("tests.data.images")
 
     def test_on_regular_image(self, image_content: IFileContent):
-        thumbnail = thumbnail_image(image_content.file, size=128)
+        thumbnail, mediatype = thumbnail_image(image_content.file, size=128)
         assert len(thumbnail) == 112
+        assert mediatype == MediaType.IMAGE_WEBP
 
     def test_on_animated_image(self):
         size = 64
         name = "animated.gif"
         with self.pkg.joinpath(name).open("rb") as content:
-            thumbnail = thumbnail_image(content, size=size)
+            thumbnail, mediatype = thumbnail_image(content, size=size)
 
         assert len(thumbnail) == 12086
+        assert mediatype == MediaType.IMAGE_WEBP
 
     def test_animated_image_stays_the_same_on_upscale(self):
         size = 512
         name = "animated.gif"
         with self.pkg.joinpath(name).open("rb") as content:
-            thumbnail = thumbnail_image(content, size=size)
+            thumbnail, mediatype = thumbnail_image(content, size=size)
 
         assert len(thumbnail) == 33981
+        assert mediatype == MediaType.IMAGE_GIF
 
     @pytest.mark.parametrize(["size", "dimensions"], [
         (256, (192, 256)),
@@ -44,7 +48,9 @@ class TestImageThumbnail:
     def test_should_downscale_only(self, size: int, dimensions: tuple[int, int]):
         name = "park_v1_downscaled.jpeg"
         with self.pkg.joinpath(name).open("rb") as content:
-            thumbnail = thumbnail_image(content, size=size)
+            thumbnail, mediatype = thumbnail_image(content, size=size)
+
+        assert mediatype == MediaType.IMAGE_WEBP
         with Image.open(BytesIO(thumbnail)) as im:
             assert im.size == dimensions
 

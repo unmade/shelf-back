@@ -64,3 +64,19 @@ class TestThumbnail:
         # THEN
         assert result == pdf_mock.return_value
         pdf_mock.assert_called_once_with(content, size=32, mediatype="application/pdf")
+
+    async def test_svg(self):
+        # GIVEN
+        content = mock.MagicMock()
+        target_guess = "app.app.files.domain.mediatypes.guess"
+        target_svg = "app.app.files.services.thumbnailer.thumbnails.thumbnail_svg"
+        # WHEN
+        with (
+            mock.patch(target_guess, return_value="image/svg+xml") as guess_mock,
+            mock.patch(target_svg) as svg_mock,
+        ):
+            result = await thumbnails.thumbnail(content, size=32)
+        # THEN
+        assert result == svg_mock.return_value
+        guess_mock.assert_called_once_with(content)
+        svg_mock.assert_called_once_with(content)

@@ -202,7 +202,7 @@ class TestList:
         assert response.json()["items"][0]["name"] == "img.jpeg"
         assert response.json()["items"][0]["thumbnail_url"] is not None
         assert response.json()["items"][1]["name"] == "img.svg"
-        assert response.json()["items"][1]["thumbnail_url"] is None
+        assert response.json()["items"][1]["thumbnail_url"] is not None
 
 
 class TestListDeleted:

@@ -6,6 +6,7 @@ from typing import IO
 import fitz
 
 from app.app.files.domain import mediatypes
+from app.toolkit.mediatypes import MediaType
 
 __all__ = [
     "thumbnail_pdf",
@@ -42,7 +43,9 @@ def _get_quality(size: int) -> int:
     return 80
 
 
-def thumbnail_pdf(content: IO[bytes], *, size: int, mediatype: str) -> bytes:
+def thumbnail_pdf(
+    content: IO[bytes], *, size: int, mediatype: str
+) -> tuple[bytes, MediaType]:
     method, quality = _get_method(size), _get_quality(size)
     content.seek(0)
 
@@ -59,4 +62,4 @@ def thumbnail_pdf(content: IO[bytes], *, size: int, mediatype: str) -> bytes:
     buffer = BytesIO()
     pixmap.pil_save(buffer, "webp", method=method, quality=quality)
     buffer.seek(0)
-    return buffer.read()
+    return buffer.read(), MediaType.IMAGE_WEBP
