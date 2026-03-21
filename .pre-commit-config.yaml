@@ -5,19 +5,19 @@ repos:
     rev: v3.21.2
     hooks:
     -   id: pyupgrade
-        args: [--py313-plus]
+        args: [ --py313-plus ]
 -   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: 'v0.12.5'
+    rev: v0.15.7
     hooks:
-    -   id: ruff
-        args: ["--fix"]
+    -   id: ruff-check
+        args: [ --fix ]
 -   repo: local
     hooks:
       - id: mypy
         name: mypy
         entry: python3 -m mypy
         language: system
-        types: [python]
+        types: [ python ]
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
