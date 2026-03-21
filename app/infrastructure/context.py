@@ -27,9 +27,12 @@ from app.app.users.usecases import UserUseCase
 from app.cache import cache
 from app.config import (
     FileSystemStorageConfig,
+    GelConfig,
     MailConfig,
     MailSMTPConfig,
+    PostgresConfig,
     S3StorageConfig,
+    SQLiteConfig,
 )
 from app.infrastructure.clients.indexer import IndexerClient
 from app.infrastructure.database.gel import GelDatabase
@@ -101,7 +104,10 @@ class Infrastructure:
 
     @staticmethod
     def _get_database(db_config: DatabaseConfig) -> GelDatabase:
-        return GelDatabase(db_config)
+        assert not isinstance(db_config, (SQLiteConfig, PostgresConfig))
+        if isinstance(db_config, GelConfig):
+            return GelDatabase(db_config)
+        assert_never(db_config)
 
     @staticmethod
     def _get_indexer(indexer_config: IndexerClientConfig) -> IIndexerClient | None:

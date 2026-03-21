@@ -21,6 +21,8 @@ _BASE_DIR = Path(__file__).absolute().resolve().parent.parent
 
 class DatabaseType(enum.StrEnum):
     gel = "gel"
+    postgres = "postgres"
+    sqlite = "sqlite"
 
 
 class MailBackendType(enum.StrEnum):
@@ -165,6 +167,16 @@ class GelConfig(BaseModel):
         return self.model_copy(update={"gel_max_concurrency": size})
 
 
+class PostgresConfig(BaseModel):
+    type: Literal[DatabaseType.postgres] = DatabaseType.postgres
+    db_url: str
+
+
+class SQLiteConfig(BaseModel):
+    type: Literal[DatabaseType.sqlite] = DatabaseType.sqlite
+    db_url: str = f"sqlite:///{_BASE_DIR / 'db.sqlite3'}"
+
+
 class FeatureConfig(BaseModel):
     max_file_size_to_thumbnail: BytesSize = 20 * BytesSizeMultipliers.mb
     max_image_pixels: int = 89_478_485
@@ -217,7 +229,10 @@ class SentryConfig(BaseModel):
     environment: str | None = None
 
 
-DatabaseConfig = Annotated[GelConfig, Field(discriminator="type")]
+DatabaseConfig = Annotated[
+    GelConfig | SQLiteConfig | PostgresConfig,
+    Field(discriminator="type"),
+]
 
 MailConfig = Annotated[
     MailSMTPConfig,

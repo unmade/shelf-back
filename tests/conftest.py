@@ -13,6 +13,7 @@ pytest_plugins = [
     "tests.fixtures.infrastructure.fs_storage",
     "tests.fixtures.infrastructure.s3_storage",
     "tests.fixtures.infrastructure.smtp",
+    "tests.fixtures.infrastructure.tortoise",
 ]
 
 
