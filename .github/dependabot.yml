@@ -6,6 +6,19 @@ updates:
   schedule:
     interval: "weekly"
   groups:
+    dev-minor:
+      applies-to: version-updates
+      patterns:
+        - "aiosmtpd"
+        - "anyio"
+        - "faker"
+        - "ipython"
+        - "mypy"
+        - "pre-commit"
+        - "pytest*"
+      update-types:
+        - "minor"
+        - "patch"
     patch:
       applies-to: version-updates
       patterns:
@@ -24,6 +37,10 @@ updates:
   directory: "/"
   schedule:
     interval: "weekly"
+  groups:
+    docker-all:
+      patterns:
+        - "*"
 
 - package-ecosystem: "github-actions"
   directory: "/"

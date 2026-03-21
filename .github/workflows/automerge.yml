@@ -22,9 +22,16 @@ jobs:
             steps.metadata.outputs.dependency-group == 'actions-all'
           ) ||
           (
+            steps.metadata.outputs.package-ecosystem == 'docker' &&
+            steps.metadata.outputs.dependency-group == 'docker-all'
+          ) ||
+          (
             steps.metadata.outputs.package-ecosystem == 'uv' &&
-            steps.metadata.outputs.dependency-group == 'security' ||
-            steps.metadata.outputs.dependency-group == 'patch'
+            (
+              steps.metadata.outputs.dependency-group == 'security' ||
+              steps.metadata.outputs.dependency-group == 'patch' ||
+              steps.metadata.outputs.dependency-group == 'dev-minor'
+            )
           )
         run: gh pr merge --auto --rebase "$PR_URL"
         env:
