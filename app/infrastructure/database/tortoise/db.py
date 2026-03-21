@@ -7,6 +7,8 @@ from tortoise.config import AppConfig, DBUrlConfig
 
 from app.app.infrastructure import IDatabase
 
+from .repositories import UserRepository
+
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
@@ -32,6 +34,7 @@ class Transaction:
 class TortoiseDatabase(IDatabase):
     def __init__(self, config: SQLiteConfig | PostgresConfig) -> None:
         self.config = config
+        self.user = UserRepository()
 
     def _tortoise_config(self) -> TortoiseConfig:
         return TortoiseConfig(
