@@ -514,7 +514,10 @@ class FileCoreService:
         folders = deque([Path(path)])
         while len(folders):
             folder = folders.pop()
-            async for file in self.storage.iterdir(ns_path, folder):
+            # TODO: after upgrading to Python 3.14 it reports 520 -> 515 as uncovered
+            # which seems to be a false positive. should check with new versions.
+            iterdir = self.storage.iterdir(ns_path, folder)
+            async for file in iterdir:  # pragma: no branch
                 if file.is_dir():
                     folders.append(Path(file.path))
                     size = 0

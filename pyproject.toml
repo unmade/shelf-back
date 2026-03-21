@@ -3,7 +3,7 @@ name = "shelf-back"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 dependencies = [
     "aiosmtplib==5.0.0",
     "arq==0.26.3",
