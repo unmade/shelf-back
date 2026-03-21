@@ -29,7 +29,7 @@ def test_autocast_but_type_is_unsupported() -> None:
 
 
 @pytest.mark.parametrize(["pytype", "pytype_as_str"], [
-    (Union[int, float], "typing.Union[int, float]"),
+    (Union[int, float], "int | float"),
     (int | float, "int | float"),
 ])
 def test_autocast_but_type_is_union(pytype, pytype_as_str) -> None:
