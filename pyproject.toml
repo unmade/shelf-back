@@ -16,7 +16,7 @@ dependencies = [
     "gunicorn==23.0.0",
     "httpx[http2]==0.28.1",
     "jinja2==3.1.6",
-    "orjson==3.11.5",
+    "orjson==3.11.7",
     "passlib==1.7.4",
     "pi-heif==1.1.1",
     "pillow==12.0.0",
@@ -24,16 +24,16 @@ dependencies = [
     "pydantic[email]==2.12.5",
     "pymupdf==1.26.7",
     "python-jose[cryptography]==3.5.0",
-    "python-multipart==0.0.21",
+    "python-multipart==0.0.22",
     "sentry-sdk==2.48.0",
-    "stream-zip==0.0.83",
+    "stream-zip==0.0.84",
     "uvicorn[standard]==0.40.0",
     "uvloop==0.22.1",
 ]
 
 [dependency-groups]
 dev = [
-    "ipython==9.7.0",
+    "ipython==9.11.0",
 ]
 lint = [
     "mypy==1.19.1",
@@ -41,7 +41,7 @@ lint = [
 ]
 test = [
     "aiosmtpd==1.4.6",
-    "anyio==4.11.0",
+    "anyio==4.12.1",
     "faker==37.12.0",
     "pytest==8.4.2",
     "pytest-cov==7.0.0",
