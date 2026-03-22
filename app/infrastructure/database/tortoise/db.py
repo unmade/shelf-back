@@ -7,7 +7,12 @@ from tortoise.config import AppConfig, DBUrlConfig
 
 from app.app.infrastructure import IDatabase
 
-from .repositories import AccountRepository, BookmarkRepository, UserRepository
+from .repositories import (
+    AccountRepository,
+    BookmarkRepository,
+    NamespaceRepository,
+    UserRepository,
+)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -36,6 +41,7 @@ class TortoiseDatabase(IDatabase):
         self.config = config
         self.account = AccountRepository()
         self.bookmark = BookmarkRepository()
+        self.namespace = NamespaceRepository()
         self.user = UserRepository()
 
     def _tortoise_config(self) -> TortoiseConfig:

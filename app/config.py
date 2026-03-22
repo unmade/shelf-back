@@ -171,10 +171,16 @@ class PostgresConfig(BaseModel):
     type: Literal[DatabaseType.postgres] = DatabaseType.postgres
     db_url: str
 
+    def with_pool_size(self, size: int) -> Self:
+        return self
+
 
 class SQLiteConfig(BaseModel):
     type: Literal[DatabaseType.sqlite] = DatabaseType.sqlite
     db_url: str = f"sqlite:///{_BASE_DIR / 'db.sqlite3'}"
+
+    def with_pool_size(self, size: int) -> Self:
+        return self
 
 
 class FeatureConfig(BaseModel):

@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 @pytest.fixture(scope="session")
 def gel_config():
+    assert isinstance(config.database, GelConfig)
     assert config.database.dsn is not None
     db_name = f"{config.database.dsn.name}_test"
     return config.database.model_copy(
