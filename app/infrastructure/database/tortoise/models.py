@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from uuid import uuid7
+
 from tortoise import fields, models
 
 
 class Account(models.Model):
-    id = fields.UUIDField(primary_key=True)
+    id = fields.UUIDField(primary_key=True, default=uuid7)
     user: fields.ForeignKeyRelation[User] = fields.OneToOneField(
         "models.User", related_name="account", on_delete=fields.CASCADE,
     )
@@ -12,12 +14,12 @@ class Account(models.Model):
 
 
 class AuditTrailAction(models.Model):
-    id = fields.UUIDField(primary_key=True)
+    id = fields.UUIDField(primary_key=True, default=uuid7)
     name = fields.CharField(max_length=255, unique=True)
 
 
 class Album(models.Model):
-    id = fields.UUIDField(primary_key=True)
+    id = fields.UUIDField(primary_key=True, default=uuid7)
     title = fields.CharField(max_length=255)
     slug = fields.CharField(max_length=255)
     owner: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
@@ -42,7 +44,7 @@ class Album(models.Model):
 
 class AlbumItems(models.Model):
     """Through table for Album-File M2M."""
-    id = fields.IntField(primary_key=True)
+    id = fields.UUIDField(primary_key=True, default=uuid7)
     album: fields.ForeignKeyRelation[Album] = fields.ForeignKeyField(
         "models.Album", related_name="item_links", on_delete=fields.CASCADE,
     )
@@ -52,7 +54,7 @@ class AlbumItems(models.Model):
 
 
 class AuditTrail(models.Model):
-    id = fields.UUIDField(primary_key=True)
+    id = fields.UUIDField(primary_key=True, default=uuid7)
     created_at = fields.DatetimeField()
     action: fields.ForeignKeyRelation[AuditTrailAction] = fields.ForeignKeyField(
         "models.AuditTrailAction",
@@ -77,7 +79,7 @@ class AuditTrailAsset(models.Model):
 
 class Bookmark(models.Model):
     """Through model for User-File bookmarks."""
-    id = fields.IntField(primary_key=True)
+    id = fields.UUIDField(primary_key=True, default=uuid7)
     user: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
         "models.User", related_name="bookmarks", on_delete=fields.CASCADE,
     )
@@ -90,7 +92,7 @@ class Bookmark(models.Model):
 
 
 class File(models.Model):
-    id = fields.UUIDField(primary_key=True)
+    id = fields.UUIDField(primary_key=True, default=uuid7)
     name = fields.CharField(max_length=1024)
     path = fields.CharField(max_length=4096)
     chash = fields.CharField(max_length=128)
@@ -115,7 +117,7 @@ class File(models.Model):
 
 
 class FileCategory(models.Model):
-    id = fields.UUIDField(primary_key=True)
+    id = fields.UUIDField(primary_key=True, default=uuid7)
     name = fields.CharField(max_length=255, unique=True)
 
 
@@ -133,7 +135,7 @@ class FileFileCategoryThrough(models.Model):
 
 
 class FileMember(models.Model):
-    id = fields.UUIDField(primary_key=True)
+    id = fields.UUIDField(primary_key=True, default=uuid7)
     actions = fields.SmallIntField()
     created_at = fields.DatetimeField()
     file: fields.ForeignKeyRelation[File] = fields.ForeignKeyField(
@@ -148,7 +150,7 @@ class FileMember(models.Model):
 
 
 class FileMemberMountPoint(models.Model):
-    id = fields.UUIDField(primary_key=True)
+    id = fields.UUIDField(primary_key=True, default=uuid7)
     display_name = fields.CharField(max_length=1024)
     member: fields.ForeignKeyRelation[FileMember] = fields.OneToOneField(
         "models.FileMember", related_name="mount_point", on_delete=fields.CASCADE,
@@ -159,7 +161,7 @@ class FileMemberMountPoint(models.Model):
 
 
 class FileMetadata(models.Model):
-    id = fields.UUIDField(primary_key=True)
+    id = fields.UUIDField(primary_key=True, default=uuid7)
     data = fields.JSONField()  # type: ignore[var-annotated]
     file: fields.ForeignKeyRelation[File] = fields.OneToOneField(
         "models.File", related_name="metadata", on_delete=fields.CASCADE,
@@ -167,7 +169,7 @@ class FileMetadata(models.Model):
 
 
 class FilePendingDeletion(models.Model):
-    id = fields.UUIDField(primary_key=True)
+    id = fields.UUIDField(primary_key=True, default=uuid7)
     ns_path = fields.CharField(max_length=1024)
     path = fields.CharField(max_length=4096)
     chash = fields.CharField(max_length=128)
@@ -177,7 +179,7 @@ class FilePendingDeletion(models.Model):
 
 
 class Fingerprint(models.Model):
-    id = fields.UUIDField(primary_key=True)
+    id = fields.UUIDField(primary_key=True, default=uuid7)
     part1 = fields.IntField()
     part2 = fields.IntField()
     part3 = fields.IntField()
@@ -191,12 +193,12 @@ class Fingerprint(models.Model):
 
 
 class MediaType(models.Model):
-    id = fields.UUIDField(primary_key=True)
+    id = fields.UUIDField(primary_key=True, default=uuid7)
     name = fields.CharField(max_length=255, unique=True)
 
 
 class Namespace(models.Model):
-    id = fields.UUIDField(primary_key=True)
+    id = fields.UUIDField(primary_key=True, default=uuid7)
     path = fields.CharField(max_length=1024, unique=True)
     owner: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
         "models.User", related_name="namespaces", on_delete=fields.CASCADE,
@@ -204,7 +206,7 @@ class Namespace(models.Model):
 
 
 class SharedLink(models.Model):
-    id = fields.UUIDField(primary_key=True)
+    id = fields.UUIDField(primary_key=True, default=uuid7)
     token = fields.CharField(max_length=255, unique=True)
     created_at = fields.DatetimeField()
     file: fields.ForeignKeyRelation[File] = fields.OneToOneField(
@@ -213,7 +215,7 @@ class SharedLink(models.Model):
 
 
 class User(models.Model):
-    id = fields.UUIDField(primary_key=True)
+    id = fields.UUIDField(primary_key=True, default=uuid7)
     username = fields.CharField(max_length=255, unique=True)
     password = fields.CharField(max_length=255)
     email = fields.CharField(max_length=255, unique=True, null=True)

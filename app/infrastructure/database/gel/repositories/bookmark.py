@@ -27,38 +27,21 @@ class BookmarkRepository(IBookmarkRepository):
     def conn(self) -> GelAnyConn:
         return self.db_context.get()
 
-    async def delete_batch(self, bookmarks: Iterable[Bookmark]) -> None:
+    async def delete_batch(self, user_id: UUID, file_ids: Iterable[UUID]) -> None:
         query = """
-            WITH
-                entries := array_unpack(<array<json>>$entries),
-            FOR entry IN {entries}
-            UNION (
-                UPDATE
-                    User
-                FILTER
-                    .id = <uuid>entry['user_id']
-                SET {
-                    bookmarks -= (
-                        SELECT
-                            File
-                        FILTER
-                            .id IN array_unpack(<array<uuid>>entry['file_ids'])
-                    )
-                }
-            )
+            UPDATE User
+            FILTER .id = <uuid>$user_id
+            SET {
+                bookmarks -= (
+                    SELECT File FILTER .id IN array_unpack(<array<uuid>>$file_ids)
+                )
+            }
         """
-
-        key = operator.attrgetter("user_id")
-        entities = sorted(bookmarks, key=key)
-        entries = [
-            json_.dumps({
-                "user_id": str(user_id),
-                "file_ids": [str(bookmark.file_id) for bookmark in bookmarks],
-            })
-            for user_id, bookmarks in itertools.groupby(entities, key=key)
-        ]
-
-        await self.conn.query(query, entries=entries)
+        await self.conn.query(
+            query,
+            user_id=user_id,
+            file_ids=list(file_ids),
+        )
 
     async def list_all(self, user_id: UUID) -> list[Bookmark]:
         query = """

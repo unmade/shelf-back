@@ -5,14 +5,14 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from app.app.files.domain import Namespace
 from app.app.users.domain import User
 from app.app.users.domain.bookmark import Bookmark
-from app.infrastructure.database.gel.db import db_context
-from app.infrastructure.database.gel.repositories import BookmarkRepository
+from app.infrastructure.database.tortoise import models
 
 if TYPE_CHECKING:
     from uuid import UUID
+
+    from app.infrastructure.database.tortoise.repositories import BookmarkRepository
 
     from ..conftest import FileFactory
 
@@ -20,23 +20,14 @@ pytestmark = [pytest.mark.anyio, pytest.mark.database]
 
 
 async def _save_bookmark(user_id: UUID, file_id: UUID) -> Bookmark:
-    query = """
-        UPDATE User
-        FILTER .id = <uuid>$user_id
-        SET {
-            bookmarks += (
-                SELECT File FILTER .id = <uuid>$file_id
-            )
-        }"""
-    conn = db_context.get()
-    await conn.query_required_single(query, user_id=user_id, file_id=file_id)
+    await models.Bookmark.create(user_id=user_id, file_id=file_id)
     return Bookmark(user_id=user_id, file_id=file_id)
 
 
 async def _list_bookmarks_id(user_id: UUID) -> list[UUID]:
-    query = """SELECT User { bookmarks: { id } } FILTER .id = <uuid>$user_id"""
-    user = await db_context.get().query_required_single(query, user_id=user_id)
-    return [entry.id for entry in user.bookmarks]
+    return await models.Bookmark.filter(user_id=user_id).values_list(  # type: ignore[return-value]
+        "file_id", flat=True
+    )
 
 
 class TestDeleteBatch:
@@ -44,7 +35,7 @@ class TestDeleteBatch:
         self,
         bookmark_repo: BookmarkRepository,
         file_factory: FileFactory,
-        namespace: Namespace,
+        namespace,
     ):
         # GIVEN
         files_a = [await file_factory(namespace.path) for _ in range(3)]
@@ -60,13 +51,16 @@ class TestDeleteBatch:
         bookmarks = await _list_bookmarks_id(namespace.owner_id)
         assert bookmarks == [bookmarks_a[0].file_id]
 
+    async def test_when_empty(self, bookmark_repo: BookmarkRepository, user: User):
+        await bookmark_repo.delete_batch(user.id, [])  # should not raise
+
 
 class TestListAll:
     async def test(
         self,
         bookmark_repo: BookmarkRepository,
         file_factory: FileFactory,
-        namespace: Namespace,
+        namespace,
     ):
         # GIVEN
         file_a = await file_factory(namespace.path)
@@ -88,8 +82,8 @@ class TestListAll:
 
     async def test_when_user_does_not_exist(self, bookmark_repo: BookmarkRepository):
         user_id = uuid.uuid4()
-        with pytest.raises(User.NotFound):
-            await bookmark_repo.list_all(user_id)
+        result = await bookmark_repo.list_all(user_id)
+        assert result == []
 
 
 class TestSaveBatch:
@@ -97,8 +91,8 @@ class TestSaveBatch:
         self,
         bookmark_repo: BookmarkRepository,
         file_factory: FileFactory,
-        namespace_a: Namespace,
-        namespace_b: Namespace,
+        namespace_a,
+        namespace_b,
     ):
         # GIVEN
         files = [
@@ -119,6 +113,6 @@ class TestSaveBatch:
         await bookmark_repo.save_batch(bookmarks_a + bookmarks_b)
         # THEN
         bookmarks = await _list_bookmarks_id(namespace_a.owner_id)
-        assert set(bookmarks) == {b.file_id for b in bookmarks_a}  # noqa: C401
+        assert set(bookmarks) == {b.file_id for b in bookmarks_a}
         bookmarks = await _list_bookmarks_id(namespace_b.owner_id)
-        assert set(bookmarks) == {b.file_id for b in bookmarks_b}  # noqa: C401
+        assert set(bookmarks) == {b.file_id for b in bookmarks_b}

@@ -39,8 +39,4 @@ class BookmarkService:
 
     async def remove_batch(self, user_id: UUID, file_ids: Iterable[UUID]) -> None:
         """Removes multiple files from user bookmarks."""
-        bookmarks = [
-            Bookmark(user_id=user_id, file_id=file_id)
-            for file_id in file_ids
-        ]
-        await self.db.bookmark.delete_batch(bookmarks)
+        await self.db.bookmark.delete_batch(user_id, file_ids)
