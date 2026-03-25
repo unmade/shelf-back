@@ -10,7 +10,9 @@ from app.app.infrastructure import IDatabase
 from .repositories import (
     AccountRepository,
     BookmarkRepository,
+    ContentMetadataRepository,
     FileRepository,
+    FingerprintRepository,
     NamespaceRepository,
     UserRepository,
 )
@@ -43,6 +45,8 @@ class TortoiseDatabase(IDatabase):
         self.account = AccountRepository()
         self.bookmark = BookmarkRepository()
         self.file = FileRepository()
+        self.fingerprint = FingerprintRepository()
+        self.metadata = ContentMetadataRepository()
         self.namespace = NamespaceRepository()
         self.user = UserRepository()
 

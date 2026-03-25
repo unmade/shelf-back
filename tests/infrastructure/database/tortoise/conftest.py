@@ -7,7 +7,14 @@ from typing import TYPE_CHECKING
 import pytest
 from faker import Faker
 
-from app.app.files.domain import File, Namespace, Path
+from app.app.files.domain import (
+    ContentMetadata,
+    Exif,
+    File,
+    Fingerprint,
+    Namespace,
+    Path,
+)
 from app.app.infrastructure.database import SENTINEL_ID
 from app.app.users.domain import Account, User
 from app.infrastructure.database.tortoise import models
@@ -19,13 +26,19 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from app.app.files.domain import AnyPath
-    from app.app.files.repositories import IFileRepository
+    from app.app.files.repositories import (
+        IContentMetadataRepository,
+        IFileRepository,
+        IFingerprintRepository,
+    )
     from app.app.users.repositories import IAccountRepository, IUserRepository
     from app.infrastructure.database.tortoise import TortoiseDatabase
     from app.infrastructure.database.tortoise.repositories import (
         AccountRepository,
         BookmarkRepository,
+        ContentMetadataRepository,
         FileRepository,
+        FingerprintRepository,
         NamespaceRepository,
         UserRepository,
     )
@@ -47,6 +60,9 @@ if TYPE_CHECKING:
             mediatype: str = "plain/text",
         ) -> File:
             ...
+
+    class FingerprintFactory(Protocol):
+        async def __call__(self, file_id: UUID, value: int) -> Fingerprint: ...
 
     class FolderFactory(Protocol):
         async def __call__(
@@ -81,6 +97,16 @@ def account_repo(tortoise_database: TortoiseDatabase) -> AccountRepository:
 @pytest.fixture
 def bookmark_repo(tortoise_database: TortoiseDatabase) -> BookmarkRepository:
     return tortoise_database.bookmark
+
+
+@pytest.fixture
+def fingerprint_repo(tortoise_database: TortoiseDatabase) -> FingerprintRepository:
+    return tortoise_database.fingerprint
+
+
+@pytest.fixture
+def metadata_repo(tortoise_database: TortoiseDatabase) -> ContentMetadataRepository:
+    return tortoise_database.metadata
 
 
 @pytest.fixture
@@ -175,6 +201,25 @@ def folder_factory(file_repo: IFileRepository) -> FolderFactory:
 
 
 @pytest.fixture
+async def content_metadata(
+    metadata_repo: IContentMetadataRepository, file: File
+) -> ContentMetadata:
+    exif = Exif(width=1280, height=800)
+    return await metadata_repo.save(
+        ContentMetadata(file_id=file.id, data=exif)
+    )
+
+
+@pytest.fixture
+def fingerprint_factory(
+    fingerprint_repo: IFingerprintRepository,
+) -> FingerprintFactory:
+    async def factory(file_id: UUID, value: int) -> Fingerprint:
+        return await fingerprint_repo.save(Fingerprint(file_id, value=value))
+    return factory
+
+
+@pytest.fixture
 async def account(user: User, account_repo: IAccountRepository) -> Account:
     return await account_repo.save(Account(id=SENTINEL_ID, user_id=user.id))
 
@@ -214,6 +259,8 @@ async def file(
     file_factory: FileFactory, namespace: Namespace
 ) -> File:
     return await file_factory(namespace.path)
+
+
 
 
 @pytest.fixture
