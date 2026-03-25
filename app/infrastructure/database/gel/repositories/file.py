@@ -210,24 +210,21 @@ class FileRepository(IFileRepository):
 
     async def delete_batch(
         self, ns_path: AnyPath, paths: Sequence[AnyPath]
-    ) -> list[File]:
+    ) -> None:
         query = """
-            SELECT (
-                DELETE
-                    File
-                FILTER
-                    str_lower(.path) IN {array_unpack(<array<str>>$paths)}
-                    AND
-                    .namespace.path = <str>$ns_path
-            ) { id, name, path, chash, size, modified_at, mediatype: { name } }
+            DELETE
+                File
+            FILTER
+                str_lower(.path) IN {array_unpack(<array<str>>$paths)}
+                AND
+                .namespace.path = <str>$ns_path
         """
 
-        objs = await self.conn.query(
+        await self.conn.query(
             query,
             ns_path=str(ns_path),
             paths=[str(path).lower() for path in paths],
         )
-        return [_from_db(str(ns_path), obj) for obj in objs]
 
     async def exists_at_path(self, ns_path: AnyPath, path: AnyPath) -> bool:
         query = """
@@ -361,44 +358,6 @@ class FileRepository(IFileRepository):
             paths=[str(p).lower() for p in paths]
         )
         return [_from_db(ns_path, obj) for obj in objs]
-
-    async def incr_size(
-        self, ns_path: AnyPath, items: Sequence[tuple[AnyPath, int]]
-    ) -> None:
-        query = """
-            WITH
-                entries := array_unpack(<array<json>>$entries),
-                namespace := (
-                    SELECT
-                        Namespace
-                    FILTER
-                        .path = <str>$ns_path
-                )
-            FOR entry IN {entries}
-            UNION (
-                UPDATE File
-                FILTER
-                    str_lower(.path) = <str>entry['path']
-                    AND
-                    .namespace = namespace
-                SET {
-                    size := .size + <int64>entry['size']
-                }
-            )
-        """
-
-        await self.conn.query(
-            query,
-            ns_path=ns_path,
-            entries=[
-                json_.dumps({
-                    "path": str(path),
-                    "size": size,
-                })
-                for path, size in items
-                if size
-            ],
-        )
 
     async def incr_size_batch(
         self, ns_path: AnyPath, paths: Iterable[AnyPath], value: int

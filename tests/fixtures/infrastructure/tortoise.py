@@ -12,13 +12,13 @@ from app.infrastructure.database.tortoise import TortoiseDatabase
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-    from pytest import FixtureRequest
+    from pytest import FixtureRequest, TempPathFactory
 
 
 @pytest.fixture(scope="session")
-def sqlite_config(tmp_path_factory: pytest.TempPathFactory) -> SQLiteConfig:
+def sqlite_config(tmp_path_factory: TempPathFactory) -> SQLiteConfig:
     db_path = tmp_path_factory.mktemp("tortoise") / "test.db"
-    return SQLiteConfig(db_url=f"sqlite://{db_path}")
+    return SQLiteConfig(db_url=f"sqlite://{db_path}?install_regexp_functions=true")
 
 
 @pytest.fixture(scope="session")

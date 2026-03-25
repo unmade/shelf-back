@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import uuid
+import hashlib
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import pytest
 from faker import Faker
 
-from app.app.files.domain import Namespace, Path
+from app.app.files.domain import File, Namespace, Path
 from app.app.infrastructure.database import SENTINEL_ID
 from app.app.users.domain import Account, User
 from app.infrastructure.database.tortoise import models
@@ -19,11 +19,13 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from app.app.files.domain import AnyPath
+    from app.app.files.repositories import IFileRepository
     from app.app.users.repositories import IAccountRepository, IUserRepository
     from app.infrastructure.database.tortoise import TortoiseDatabase
     from app.infrastructure.database.tortoise.repositories import (
         AccountRepository,
         BookmarkRepository,
+        FileRepository,
         NamespaceRepository,
         UserRepository,
     )
@@ -38,17 +40,34 @@ if TYPE_CHECKING:
             ...
 
     class FileFactory(Protocol):
-        async def __call__(self, ns_path: str) -> models.File:
+        async def __call__(
+            self,
+            ns_path: str,
+            path: AnyPath | None = None,
+            mediatype: str = "plain/text",
+        ) -> File:
             ...
 
     class FolderFactory(Protocol):
         async def __call__(
-            self, ns_path: str, path: AnyPath | None = None, size: int = 0
-        ) -> models.File:
+            self,
+            ns_path: str,
+            path: AnyPath | None = None,
+            size: int = 0,
+        ) -> File:
             ...
 
     class NamespaceFactory(Protocol):
         async def __call__(self, path: str, owner_id: UUID) -> Namespace:
+            ...
+
+    class MountFactory(Protocol):
+        async def __call__(
+            self,
+            source_file_id: UUID,
+            target_folder_id: UUID,
+            display_name: str,
+        ) -> None:
             ...
 
 fake = Faker()
@@ -62,6 +81,11 @@ def account_repo(tortoise_database: TortoiseDatabase) -> AccountRepository:
 @pytest.fixture
 def bookmark_repo(tortoise_database: TortoiseDatabase) -> BookmarkRepository:
     return tortoise_database.bookmark
+
+
+@pytest.fixture
+def file_repo(tortoise_database: TortoiseDatabase) -> FileRepository:
+    return tortoise_database.file
 
 
 @pytest.fixture
@@ -108,40 +132,44 @@ def namespace_factory():
 
 
 @pytest.fixture
-def file_factory():
-    async def factory(ns_path: str) -> models.File:
-        mediatype, _ = await models.MediaType.get_or_create(name="plain/text")
-        namespace = await models.Namespace.get(path=ns_path)
-        name = fake.unique.file_name(category="text", extension="txt")
-        return await models.File.create(
-            name=name,
-            path=name,
-            chash=uuid.uuid4().hex,
-            size=10,
-            modified_at=datetime.now(UTC),
-            mediatype=mediatype,
-            namespace=namespace,
+def file_factory(file_repo: IFileRepository) -> FileFactory:
+    async def factory(
+        ns_path: str,
+        path: AnyPath | None = None,
+        mediatype: str = "plain/text",
+    ) -> File:
+        if path is None:
+            path = fake.unique.file_name(category="text", extension="txt")
+        return await file_repo.save(
+            File(
+                id=SENTINEL_ID,
+                ns_path=ns_path,
+                name=Path(path).name,
+                path=Path(path),
+                chash=hashlib.sha256(str(path).encode()).hexdigest(),
+                size=10,
+                mediatype=mediatype,
+            )
         )
     return factory
 
 
 @pytest.fixture
-def folder_factory() -> FolderFactory:
-    """A factory to create a saved Folder to the Gel."""
+def folder_factory(file_repo: IFileRepository) -> FolderFactory:
     async def factory(
         ns_path: str, path: AnyPath | None = None, size: int = 0
-    ) -> models.File:
-        mediatype, _ = await models.MediaType.get_or_create(name=MediaType.FOLDER)
-        namespace = await models.Namespace.get(path=ns_path)
-        path = Path(path or fake.unique.word())
-        return await models.File.create(
-            name=path.name,
-            path=path,
-            chash=chash.EMPTY_CONTENT_HASH,
-            size=size,
-            modified_at=datetime.now(UTC),
-            mediatype=mediatype,
-            namespace=namespace,
+    ) -> File:
+        path = path or fake.unique.word()
+        return await file_repo.save(
+            File(
+                id=SENTINEL_ID,
+                ns_path=ns_path,
+                name=Path(path).name,
+                path=Path(path),
+                chash=chash.EMPTY_CONTENT_HASH,
+                size=size,
+                mediatype=MediaType.FOLDER,
+            )
         )
     return factory
 
@@ -179,3 +207,36 @@ async def user_b(user_factory: UserFactory) -> User:
 @pytest.fixture
 async def user(user_a: User) -> User:
     return user_a
+
+
+@pytest.fixture
+async def file(
+    file_factory: FileFactory, namespace: Namespace
+) -> File:
+    return await file_factory(namespace.path)
+
+
+@pytest.fixture
+def mount_factory() -> MountFactory:
+    async def factory(
+        source_file_id: UUID,
+        target_folder_id: UUID,
+        display_name: str,
+    ) -> None:
+        target_folder = await models.File.get(id=target_folder_id)
+        namespace = await models.Namespace.get(
+            id=target_folder.namespace_id  # type: ignore[attr-defined]
+        )
+        owner_id = namespace.owner_id  # type: ignore[attr-defined]
+        member = await models.FileMember.create(
+            actions=0,
+            created_at=datetime.now(UTC),
+            user_id=owner_id,
+            file_id=source_file_id,
+        )
+        await models.FileMemberMountPoint.create(
+            display_name=display_name,
+            member=member,
+            parent_id=target_folder_id,
+        )
+    return factory

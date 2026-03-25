@@ -30,7 +30,7 @@ dependencies = [
     "sentry-sdk==2.48.0",
     "stream-zip==0.0.84",
     "tortoise-orm>=1.1.6",
-    "uvicorn[standard]==0.40.0",
+    "uvicorn[standard]==0.38.0",
     "uvloop==0.22.1",
 ]
 

@@ -49,7 +49,7 @@ class IFileRepository(Protocol):
 
     async def delete_batch(
         self, ns_path: AnyPath, paths: Sequence[AnyPath]
-    ) -> list[File]:
+    ) -> None:
         """Deletes files with given paths in the specified namespace."""
 
     async def exists_at_path(self, ns_path: AnyPath, path: AnyPath) -> bool:
@@ -86,14 +86,6 @@ class IFileRepository(Protocol):
         self, ns_path: AnyPath, paths: Iterable[AnyPath],
     ) -> list[File]:
         """Returns all files with target paths. The result is sorted by path ASC."""
-
-    async def incr_size(
-        self, ns_path: AnyPath, items: Sequence[tuple[AnyPath, int]]
-    ) -> None:
-        """
-        Increments size for all provideded (path - size) pairs in the specified
-        namespace.
-        """
 
     async def incr_size_batch(
         self, ns_path: AnyPath, paths: Iterable[AnyPath], value: int,

@@ -4,22 +4,22 @@ import operator
 import uuid
 from datetime import UTC, datetime
 from io import BytesIO
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 import pytest
 
 from app.app.files.domain import File, Path
 from app.app.files.repositories.file import FileUpdate
 from app.app.infrastructure.database import SENTINEL_ID
-from app.infrastructure.database.gel.db import db_context
+from app.infrastructure.database.tortoise import models
 from app.toolkit import chash
 
 if TYPE_CHECKING:
     from uuid import UUID
 
     from app.app.files.domain import AnyPath, Namespace
-    from app.infrastructure.database.gel.repositories import FileRepository
-    from tests.infrastructure.database.gel.conftest import (
+    from app.infrastructure.database.tortoise.repositories import FileRepository
+    from tests.infrastructure.database.tortoise.conftest import (
         FileFactory,
         FolderFactory,
         MountFactory,
@@ -31,30 +31,21 @@ pytestmark = [pytest.mark.anyio, pytest.mark.database]
 
 
 async def _exists_with_id(file_id: UUID) -> bool:
-    query = """SELECT EXISTS(SELECT File FILTER .id = <uuid>$file_id)"""
-    return cast(
-        bool,
-        await db_context.get().query_required_single(query, file_id=file_id)
-    )
+    return await models.File.filter(id=file_id).exists()
 
 
 async def _get_by_id(file_id: UUID) -> File:
-    query = """
-        SELECT
-            File {
-                id, name, path, chash, size, modified_at,
-                mediatype: { name },
-                namespace: { path },
-            }
-        FILTER
-            .id = <uuid>$file_id
-    """
-    obj = await db_context.get().query_required_single(query, file_id=file_id)
+    obj = await (
+        models.File
+        .filter(id=file_id)
+        .select_related("mediatype", "namespace")
+        .get()
+    )
     return File(
         id=obj.id,
         name=obj.name,
         ns_path=obj.namespace.path,
-        path=obj.path,
+        path=Path(obj.path),
         chash=obj.chash,
         size=obj.size,
         modified_at=obj.modified_at,
@@ -63,27 +54,21 @@ async def _get_by_id(file_id: UUID) -> File:
 
 
 async def _get_by_path(ns_path: AnyPath, path: AnyPath) -> File:
-    query = """
-        SELECT
-            File {
-                id, name, path, chash, size, modified_at,
-                mediatype: { name },
-                namespace: { path },
-            }
-        FILTER
-            .path = <str>$path
-            AND
-            .namespace.path = <str>$ns_path
-        LIMIT 1
-    """
-    conn = db_context.get()
-    obj = await conn.query_required_single(query, ns_path=str(ns_path), path=str(path))
+    obj = await (
+        models.File
+        .filter(
+            namespace__path=str(ns_path),
+            path=str(path),
+        )
+        .select_related("mediatype", "namespace")
+        .get()
+    )
     return File(
         id=obj.id,
         name=obj.name,
         ns_path=obj.namespace.path,
         chash=obj.chash,
-        path=obj.path,
+        path=Path(obj.path),
         size=obj.size,
         modified_at=obj.modified_at,
         mediatype=obj.mediatype.name,
@@ -101,14 +86,18 @@ class TestCountByPattern:
         await file_factory(ns_path, "f (f).txt")
         await file_factory(ns_path, "f (1).txt")
         await file_factory(ns_path, "f (2).txt")
-        count = await file_repo.count_by_path_pattern(ns_path, "f \\(\\d+\\).txt")
+        count = await file_repo.count_by_path_pattern(
+            ns_path, "f \\(\\d+\\).txt"
+        )
         assert count == 2
 
     async def test_when_no_match_exists(
         self, file_repo: FileRepository, namespace: Namespace
     ):
         ns_path = namespace.path
-        count = await file_repo.count_by_path_pattern(ns_path, "f \\(\\d+\\).txt")
+        count = await file_repo.count_by_path_pattern(
+            ns_path, "f \\(\\d+\\).txt"
+        )
         assert count == 0
 
 
@@ -137,7 +126,9 @@ class TestDeleteAllWithPrefix:
             await file_factory(ns_path, "a/b/c/f.txt"),
             await file_factory(ns_path, "a/b/c/d/f.txt"),
         ]
-        await file_repo.delete_all_with_prefix(ns_path, prefix=f"{folder.path}/")
+        await file_repo.delete_all_with_prefix(
+            ns_path, prefix=f"{folder.path}/"
+        )
         assert await _exists_with_id(folder.id)
         assert not await _exists_with_id(files[0].id)
         assert not await _exists_with_id(files[1].id)
@@ -157,17 +148,25 @@ class TestDeleteAllWithPrefixBatch:
         await folder_factory(ns_path, "home")
         await folder_factory(ns_path, "home/Documents")
         a_f_txt = await file_factory(ns_path, "home/Documents/f.txt")
-        a_f_1_txt = await file_factory(ns_path, "home/Documents/f (1).txt")
+        a_f_1_txt = await file_factory(
+            ns_path, "home/Documents/f (1).txt"
+        )
         await folder_factory(ns_path, "home/Photos")
-        a_im_jpeg = await file_factory(ns_path, "home/Photos/im.jpeg")
+        a_im_jpeg = await file_factory(
+            ns_path, "home/Photos/im.jpeg"
+        )
 
         ns_path = namespace_b.path
         await folder_factory(ns_path, "home")
         await folder_factory(ns_path, "home/Documents")
         await folder_factory(ns_path, "home/Downloads")
-        b_doc_f_txt = await file_factory(ns_path, "home/Documents/f.txt")
+        b_doc_f_txt = await file_factory(
+            ns_path, "home/Documents/f.txt"
+        )
         b_f_txt = await file_factory(ns_path, "home/Downloads/f.txt")
-        b_im_jpeg = await file_factory(ns_path, "home/Downloads/im.jpeg")
+        b_im_jpeg = await file_factory(
+            ns_path, "home/Downloads/im.jpeg"
+        )
 
         items = {
             namespace_a.path: ["home/Documents/", "home/Photos/"],
@@ -178,8 +177,8 @@ class TestDeleteAllWithPrefixBatch:
         await file_repo.delete_all_with_prefix_batch(items)
 
         # THEN
-        for file in [a_f_txt, a_f_1_txt, a_im_jpeg, b_f_txt, b_im_jpeg]:
-            assert not await _exists_with_id(file.id)
+        for f in [a_f_txt, a_f_1_txt, a_im_jpeg, b_f_txt, b_im_jpeg]:
+            assert not await _exists_with_id(f.id)
 
         assert await _exists_with_id(b_doc_f_txt.id)
 
@@ -213,8 +212,12 @@ class TestDeleteBatch:
 
 
 class TestExistsAtPath:
-    async def test_when_exists(self, file_repo: FileRepository, file: File):
-        exists = await file_repo.exists_at_path(file.ns_path, file.path)
+    async def test_when_exists(
+        self, file_repo: FileRepository, file: File
+    ):
+        exists = await file_repo.exists_at_path(
+            file.ns_path, file.path
+        )
         assert exists is True
 
     async def test_when_does_not_exist(
@@ -226,15 +229,21 @@ class TestExistsAtPath:
 
 
 class TestExistsWithID:
-    async def test_when_exists(self, file_repo: FileRepository, file: File):
-        exists = await file_repo.exists_with_id(file.ns_path, file.id)
+    async def test_when_exists(
+        self, file_repo: FileRepository, file: File
+    ):
+        exists = await file_repo.exists_with_id(
+            file.ns_path, file.id
+        )
         assert exists is True
 
     async def test_when_does_not_exist(
         self, file_repo: FileRepository, namespace: Namespace,
     ):
         file_id = uuid.uuid4()
-        exists = await file_repo.exists_with_id(namespace.path, file_id)
+        exists = await file_repo.exists_with_id(
+            namespace.path, file_id
+        )
         assert exists is False
 
 
@@ -255,7 +264,9 @@ class TestGetByCHashBatch:
         # WHEN
         result = await file_repo.get_by_chash_batch(chashes)
         # THEN
-        assert sorted(result, key=operator.attrgetter("modified_at")) == files[:2]
+        assert sorted(
+            result, key=operator.attrgetter("modified_at")
+        ) == files[:2]
 
 
 class TestGetById:
@@ -263,7 +274,9 @@ class TestGetById:
         result = await file_repo.get_by_id(file.id)
         assert result == file
 
-    async def test_when_file_does_not_exist(self, file_repo: FileRepository):
+    async def test_when_file_does_not_exist(
+        self, file_repo: FileRepository
+    ):
         file_id = uuid.uuid4()
         with pytest.raises(File.NotFound):
             await file_repo.get_by_id(file_id)
@@ -271,12 +284,20 @@ class TestGetById:
 
 class TestGetByIdBatch:
     async def test(
-        self, file_repo: FileRepository, file_factory: FileFactory, namespace: Namespace
+        self,
+        file_repo: FileRepository,
+        file_factory: FileFactory,
+        namespace: Namespace,
     ):
-        files = [await file_factory(namespace.path, path=f"{i}.txt") for i in range(3)]
+        files = [
+            await file_factory(namespace.path, path=f"{i}.txt")
+            for i in range(3)
+        ]
         ids = [file.id for file in files]
         result = await file_repo.get_by_id_batch(ids)
-        assert result == sorted(files, key=operator.attrgetter("path"))
+        assert result == sorted(
+            files, key=operator.attrgetter("path")
+        )
 
     async def test_when_some_file_does_not_exist(
         self, file_repo: FileRepository, file: File,
@@ -288,7 +309,9 @@ class TestGetByIdBatch:
 
 class TestGetByPath:
     async def test(self, file_repo: FileRepository, file: File):
-        file_in_db = await file_repo.get_by_path(file.ns_path, file.path)
+        file_in_db = await file_repo.get_by_path(
+            file.ns_path, file.path
+        )
         assert file_in_db == file
 
     async def test_when_file_does_not_exist(
@@ -301,18 +324,31 @@ class TestGetByPath:
 
 class TestGetByPathBatch:
     async def test(
-        self, file_repo: FileRepository, file_factory: FileFactory, namespace: Namespace
+        self,
+        file_repo: FileRepository,
+        file_factory: FileFactory,
+        namespace: Namespace,
     ):
-        files = [await file_factory(namespace.path, f"{idx}.txt") for idx in range(3)]
+        # GIVEN
+        files = [
+            await file_factory(namespace.path, f"{idx}.txt")
+            for idx in range(3)
+        ]
         paths = [file.path for file in files]
-        result = await file_repo.get_by_path_batch(namespace.path, paths)
-        assert result == sorted(files, key=operator.attrgetter("path"))
+        result = await file_repo.get_by_path_batch(
+            namespace.path, paths
+        )
+        assert result == sorted(
+            files, key=operator.attrgetter("path")
+        )
 
     async def test_when_some_file_does_not_exist(
         self, file_repo: FileRepository, file: File,
     ):
         paths = [str(file.path), f"{uuid.uuid4()}.txt"]
-        result = await file_repo.get_by_path_batch(file.ns_path, paths)
+        result = await file_repo.get_by_path_batch(
+            file.ns_path, paths
+        )
         assert result == [file]
 
 
@@ -323,19 +359,26 @@ class TestIncrSizeBatch:
         folder_factory: FolderFactory,
         namespace: Namespace,
     ):
+        # GIVEN
         await folder_factory(namespace.path, "a")
         await folder_factory(namespace.path, "a/b")
         await folder_factory(namespace.path, "a/c")
 
-        await file_repo.incr_size_batch(namespace.path, paths=["a", "a/c"], value=16)
+        # WHEN
+        await file_repo.incr_size_batch(
+            namespace.path, paths=["a", "a/c"], value=16
+        )
 
+        # THEN
         paths = ["a", "a/b", "a/c"]
-        a, b, c = await file_repo.get_by_path_batch(namespace.path, paths=paths)
+        a, b, c = await file_repo.get_by_path_batch(
+            namespace.path, paths=paths
+        )
         assert a.size == 16
         assert b.size == 0
         assert c.size == 16
 
-    async def test_case_insensitiveness(
+    async def test_with_mixed_case_paths(
         self,
         file_repo: FileRepository,
         folder_factory: FolderFactory,
@@ -345,35 +388,52 @@ class TestIncrSizeBatch:
         await folder_factory(namespace.path, "a/b")
         await folder_factory(namespace.path, "a/C")
 
-        await file_repo.incr_size_batch(namespace.path, paths=["A", "A/c"], value=16)
+        await file_repo.incr_size_batch(
+            namespace.path, paths=["a", "a/C"], value=16
+        )
 
-        paths = ["a", "a/b", "a/c"]
-        a, b, c = await file_repo.get_by_path_batch(namespace.path, paths=paths)
-        assert a.size == 16
-        assert b.size == 0
-        assert c.size == 16
+        results = await file_repo.get_by_path_batch(
+            namespace.path, paths=["a", "a/b", "a/C"]
+        )
+        by_path = {str(r.path): r for r in results}
+        assert by_path["a"].size == 16
+        assert by_path["a/b"].size == 0
+        assert by_path["a/C"].size == 16
 
-    async def test_when_incrementing_zero_size(self, file_repo: FileRepository):
-        # here we tesh early return in the function. The path 'a/b' does not exist and
-        # if we were to hit the database we would fail with an error
-        await file_repo.incr_size_batch("namespace", paths=["a/b"], value=0)
+    async def test_when_incrementing_zero_size(
+        self, file_repo: FileRepository
+    ):
+        await file_repo.incr_size_batch(
+            "namespace", paths=["a/b"], value=0
+        )
 
 
 class TestListFiles:
     async def test(
-        self, file_repo: FileRepository, file_factory: FileFactory, namespace: Namespace
+        self,
+        file_repo: FileRepository,
+        file_factory: FileFactory,
+        namespace: Namespace,
     ):
         # GIVEN
         ns_path = namespace.path
-        txt = await file_factory(ns_path, "f.txt", mediatype="plain/text")
-        jpg = await file_factory(ns_path, "jpgs/img.jpg", mediatype="image/jpeg")
-        png = await file_factory(ns_path, "pngs/img.png", mediatype="image/png")
+        txt = await file_factory(
+            ns_path, "f.txt", mediatype="plain/text"
+        )
+        jpg = await file_factory(
+            ns_path, "jpgs/img.jpg", mediatype="image/jpeg"
+        )
+        png = await file_factory(
+            ns_path, "pngs/img.png", mediatype="image/png"
+        )
         mediatypes = ["plain/text"]
         # WHEN
         files = await file_repo.list_files(ns_path, offset=0)
         # THEN
         assert len(files) == 3
-        assert sorted(files, key=operator.attrgetter("modified_at")) == [txt, jpg, png]
+        assert sorted(
+            files, key=operator.attrgetter("modified_at")
+        ) == [txt, jpg, png]
 
         # WHEN
         files = await file_repo.list_files(
@@ -381,7 +441,9 @@ class TestListFiles:
         )
         # THEN
         assert len(files) == 1
-        assert sorted(files, key=operator.attrgetter("modified_at")) == [txt]
+        assert sorted(
+            files, key=operator.attrgetter("modified_at")
+        ) == [txt]
 
         # WHEN
         files = await file_repo.list_files(
@@ -389,17 +451,30 @@ class TestListFiles:
         )
         # THEN
         assert len(files) == 2
-        assert sorted(files, key=operator.attrgetter("modified_at")) == [jpg, png]
+        assert sorted(
+            files, key=operator.attrgetter("modified_at")
+        ) == [jpg, png]
 
     async def test_limit_offset(
-        self, file_repo: FileRepository, file_factory: FileFactory, namespace: Namespace
+        self,
+        file_repo: FileRepository,
+        file_factory: FileFactory,
+        namespace: Namespace,
     ):
         ns_path = namespace.path
-        jpg = await file_factory(ns_path, "jpgs/img.jpg", mediatype="image/jpeg")
-        png = await file_factory(ns_path, "pngs/img.png", mediatype="image/png")
+        jpg = await file_factory(
+            ns_path, "jpgs/img.jpg", mediatype="image/jpeg"
+        )
+        png = await file_factory(
+            ns_path, "pngs/img.png", mediatype="image/png"
+        )
 
-        files_a = await file_repo.list_files(ns_path, offset=0, limit=1)
-        files_b = await file_repo.list_files(ns_path, offset=1, limit=1)
+        files_a = await file_repo.list_files(
+            ns_path, offset=0, limit=1
+        )
+        files_b = await file_repo.list_files(
+            ns_path, offset=1, limit=1
+        )
         assert len(files_a) == 1
         assert len(files_b) == 1
         actual = sorted(
@@ -415,7 +490,7 @@ class TestListWithPrefix:
         file_repo: FileRepository,
         file_factory: FileFactory,
         folder_factory: FolderFactory,
-        namespace: Namespace
+        namespace: Namespace,
     ):
         # GIVEN
         ns_path = namespace.path
@@ -435,7 +510,7 @@ class TestListWithPrefix:
         file_repo: FileRepository,
         file_factory: FileFactory,
         folder_factory: FolderFactory,
-        namespace: Namespace
+        namespace: Namespace,
     ):
         # GIVEN
         ns_path = namespace.path
@@ -461,16 +536,26 @@ class TestListWithPrefix:
     ):
         # GIVEN
         folder = await folder_factory(namespace.path, "Folder")
-        await folder_factory(namespace.path, "Folder/Personal Folder")
+        await folder_factory(
+            namespace.path, "Folder/Personal Folder"
+        )
         await file_factory(namespace.path, "Folder/f.txt")
 
         user_b = await user_factory()
-        ns_b = await namespace_factory(user_b.username, owner_id=user_b.id)
-        shared_folder = await folder_factory(ns_b.path, "Shared Folder")
-        await mount_factory(shared_folder.id, folder.id, "Team Folder")
+        ns_b = await namespace_factory(
+            user_b.username, owner_id=user_b.id
+        )
+        shared_folder = await folder_factory(
+            ns_b.path, "Shared Folder"
+        )
+        await mount_factory(
+            shared_folder.id, folder.id, "Team Folder"
+        )
 
         # WHEN
-        files = await file_repo.list_with_prefix(namespace.path, "Folder/")
+        files = await file_repo.list_with_prefix(
+            namespace.path, "Folder/"
+        )
 
         # THEN
         assert len(files) == 3
@@ -502,21 +587,33 @@ class TestListAllWithPrefixBatch:
         ns_path = namespace_a.path
         await folder_factory(ns_path, "home")
         await folder_factory(ns_path, "home/Documents")
-        a_f_txt = await file_factory(ns_path, "home/Documents/f.txt")
-        a_f_1_txt = await file_factory(ns_path, "home/Documents/f (1).txt")
+        a_f_txt = await file_factory(
+            ns_path, "home/Documents/f.txt"
+        )
+        a_f_1_txt = await file_factory(
+            ns_path, "home/Documents/f (1).txt"
+        )
         await folder_factory(ns_path, "home/Photos")
-        a_im_jpeg = await file_factory(ns_path, "home/Photos/im.jpeg")
+        a_im_jpeg = await file_factory(
+            ns_path, "home/Photos/im.jpeg"
+        )
 
         ns_path = namespace_b.path
         await folder_factory(ns_path, "home")
         await folder_factory(ns_path, "home/Documents")
         await folder_factory(ns_path, "home/Downloads")
         await file_factory(ns_path, "home/Documents/f.txt")
-        b_f_txt = await file_factory(ns_path, "home/Downloads/f.txt")
-        b_im_jpeg = await file_factory(ns_path, "home/Downloads/im.jpeg")
+        b_f_txt = await file_factory(
+            ns_path, "home/Downloads/f.txt"
+        )
+        b_im_jpeg = await file_factory(
+            ns_path, "home/Downloads/im.jpeg"
+        )
 
         items = {
-            namespace_a.path: ["home/Documents/", "home/Photos/"],
+            namespace_a.path: [
+                "home/Documents/", "home/Photos/"
+            ],
             namespace_b.path: ["home/Downloads/"],
         }
 
@@ -524,10 +621,16 @@ class TestListAllWithPrefixBatch:
         result = await file_repo.list_all_with_prefix_batch(items)
 
         # THEN
-        actual = sorted(result, key=operator.attrgetter("modified_at"))
-        assert actual == [a_f_txt, a_f_1_txt, a_im_jpeg, b_f_txt, b_im_jpeg]
+        actual = sorted(
+            result, key=operator.attrgetter("modified_at")
+        )
+        assert actual == [
+            a_f_txt, a_f_1_txt, a_im_jpeg, b_f_txt, b_im_jpeg
+        ]
 
-    async def test_on_empty_items(self, file_repo: FileRepository):
+    async def test_on_empty_items(
+        self, file_repo: FileRepository
+    ):
         # GIVEN
         items: dict[str, list[str]] = {}
         # WHEN
@@ -538,21 +641,28 @@ class TestListAllWithPrefixBatch:
 
 class TestReplacePathPrefix:
     async def test(
-        self, file_repo: FileRepository, file_factory: FileFactory, namespace: Namespace
+        self,
+        file_repo: FileRepository,
+        file_factory: FileFactory,
+        namespace: Namespace,
     ):
         # GIVEN
         ns_path = namespace.path
         await file_factory(ns_path, "a/b/c/f.txt")
         await file_factory(ns_path, "a/b/c/d/f.txt")
         # WHEN
-        await file_repo.replace_path_prefix(at=(ns_path, "a/b/c"), to=(ns_path, "d"))
+        await file_repo.replace_path_prefix(
+            at=(ns_path, "a/b/c"), to=(ns_path, "d")
+        )
         # THEN
-        results = await file_repo.get_by_path_batch(ns_path, ["d/f.txt", "d/d/f.txt"])
+        results = await file_repo.get_by_path_batch(
+            ns_path, ["d/f.txt", "d/d/f.txt"]
+        )
         assert len(results) == 2
         assert results[0].path == "d/d/f.txt"
         assert results[1].path == "d/f.txt"
 
-    async def test_changing_prefix_with_namesace(
+    async def test_changing_prefix_with_namespace(
         self,
         file_repo: FileRepository,
         file_factory: FileFactory,
@@ -569,28 +679,39 @@ class TestReplacePathPrefix:
             to=(namespace_b.path, "d"),
         )
         # THEN
-        assert await file_repo.exists_at_path(namespace_a.path, "a/b/f.txt")
+        assert await file_repo.exists_at_path(
+            namespace_a.path, "a/b/f.txt"
+        )
         paths = ["d/f.txt", "d/d/f.txt"]
-        results = await file_repo.get_by_path_batch(namespace_b.path, paths)
+        results = await file_repo.get_by_path_batch(
+            namespace_b.path, paths
+        )
         assert len(results) == 2
         assert results[0].path == "d/d/f.txt"
         assert results[1].path == "d/f.txt"
 
     async def test_replacing_only_the_first_occurence(
-        self, file_repo: FileRepository, file_factory: FileFactory, namespace: Namespace
+        self,
+        file_repo: FileRepository,
+        file_factory: FileFactory,
+        namespace: Namespace,
     ):
         # GIVEN
         ns_path = namespace.path
         await file_factory(ns_path, "a/b/a/b/f.txt")
         # WHEN
-        await file_repo.replace_path_prefix(at=(ns_path, "a/b"), to=(ns_path, "c"))
+        await file_repo.replace_path_prefix(
+            at=(ns_path, "a/b"), to=(ns_path, "c")
+        )
         # THEN
         file = await file_repo.get_by_path(ns_path, "c/a/b/f.txt")
         assert file.path == "c/a/b/f.txt"
 
 
 class TestSave:
-    async def test(self, file_repo: FileRepository, namespace: Namespace):
+    async def test(
+        self, file_repo: FileRepository, namespace: Namespace
+    ):
         saved_file = await file_repo.save(
             File(
                 id=SENTINEL_ID,
@@ -599,7 +720,9 @@ class TestSave:
                 path=Path("folder/f.txt"),
                 chash=chash.chash(BytesIO(b"Dummy Content!")),
                 size=10,
-                modified_at=datetime(2020, 8, 13, 9, 26, 14, tzinfo=UTC),
+                modified_at=datetime(
+                    2020, 8, 13, 9, 26, 14, tzinfo=UTC
+                ),
                 mediatype="plain/text",
             )
         )
@@ -618,7 +741,9 @@ class TestSave:
             path=file.path,
             chash=uuid.uuid4().hex,
             size=10,
-            modified_at=datetime(2020, 8, 13, 9, 26, 14, tzinfo=UTC),
+            modified_at=datetime(
+                2020, 8, 13, 9, 26, 14, tzinfo=UTC
+            ),
             mediatype="plain/text",
         )
         with pytest.raises(File.AlreadyExists):
@@ -626,7 +751,9 @@ class TestSave:
 
 
 class TestSaveBatch:
-    async def test(self, file_repo: FileRepository, namespace: Namespace):
+    async def test(
+        self, file_repo: FileRepository, namespace: Namespace
+    ):
         await file_repo.save_batch([
             File(
                 id=SENTINEL_ID,
@@ -635,7 +762,9 @@ class TestSaveBatch:
                 path=Path("folder"),
                 chash=chash.EMPTY_CONTENT_HASH,
                 size=10,
-                modified_at=datetime(2020, 8, 13, 9, 26, 14, tzinfo=UTC),
+                modified_at=datetime(
+                    2020, 8, 13, 9, 26, 14, tzinfo=UTC
+                ),
                 mediatype="application/directory",
             ),
             File(
@@ -645,7 +774,9 @@ class TestSaveBatch:
                 path=Path("folder/f.txt"),
                 chash=chash.chash(BytesIO(b"Dummy Content!")),
                 size=10,
-                modified_at=datetime(2020, 8, 13, 9, 26, 14, tzinfo=UTC),
+                modified_at=datetime(
+                    2020, 8, 13, 9, 26, 14, tzinfo=UTC
+                ),
                 mediatype="plain/text",
             ),
         ])
@@ -667,12 +798,16 @@ class TestSaveBatch:
             path=file.path,
             chash=chash.chash(BytesIO(b"Dummy Content!")),
             size=10,
-            modified_at=datetime(2020, 8, 13, 9, 26, 14, tzinfo=UTC),
+            modified_at=datetime(
+                2020, 8, 13, 9, 26, 14, tzinfo=UTC
+            ),
             mediatype="plain/text",
         )
         await file_repo.save_batch([file_to_save])
 
-    async def test_when_empty_input(self, file_repo: FileRepository):
+    async def test_when_empty_input(
+        self, file_repo: FileRepository
+    ):
         await file_repo.save_batch([])
 
 

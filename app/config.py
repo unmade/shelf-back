@@ -177,7 +177,7 @@ class PostgresConfig(BaseModel):
 
 class SQLiteConfig(BaseModel):
     type: Literal[DatabaseType.sqlite] = DatabaseType.sqlite
-    db_url: str = f"sqlite:///{_BASE_DIR / 'db.sqlite3'}"
+    db_url: str = f"sqlite:///{_BASE_DIR / 'db.sqlite3'}?install_regexp_functions=true"
 
     def with_pool_size(self, size: int) -> Self:
         return self

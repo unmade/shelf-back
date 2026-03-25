@@ -209,13 +209,13 @@ class FileCoreService:
         """Permanently deletes multiple files at once."""
         async for tx in self.db.atomic():
             async with tx:
-                files = await self.db.file.delete_batch(ns_path, paths)
+                files = await self.db.file.get_by_path_batch(ns_path, paths)
+                await self.db.file.delete_batch(ns_path, paths)
 
-                sizes: dict[Path, int] = defaultdict(int)
                 for file in files:
-                    for parent in file.path.parents:
-                        sizes[parent] -= file.size
-                await self.db.file.incr_size(ns_path, list(sizes.items()))
+                    await self.db.file.incr_size_batch(
+                        ns_path, file.path.parents, value=-file.size
+                    )
 
                 deletions = await self.db.file_pending_deletion.save_batch([
                     FilePendingDeletion(
@@ -297,7 +297,7 @@ class FileCoreService:
         if not await self.db.file.exists_at_path(ns_path, path):
             return path
 
-        pattern = f"{path.stem} \\([[:digit:]]+\\){path.suffix}$"
+        pattern = f"{path.stem} \\(\\d+\\){path.suffix}$"
         count = await self.db.file.count_by_path_pattern(ns_path, pattern)
         return path.with_stem(f"{path.stem} ({count + 1})")
 

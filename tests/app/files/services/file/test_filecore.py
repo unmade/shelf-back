@@ -323,6 +323,34 @@ class TestDeleteBatch:
         assert await filecore.storage.exists(ns_path, "a/b")
         assert await filecore.storage.exists(ns_path, "a/c/f.txt")
 
+    async def test_updating_parent_size(
+        self,
+        filecore: FileCoreService,
+        file_factory: FileFactory,
+        namespace: Namespace,
+    ):
+        # GIVEN
+        ns_path = namespace.path
+        await file_factory(ns_path, "a/b/f.txt")
+        await file_factory(ns_path, "a/b/g.txt")
+        await file_factory(ns_path, "a/c/f.txt")
+
+        # check parent sizes before deletion
+        paths = ["a", "a/b", "a/c"]
+        a, a_b, a_c = await filecore.db.file.get_by_path_batch(ns_path, paths)
+        assert a.size == 30
+        assert a_b.size == 20
+        assert a_c.size == 10
+
+        # WHEN - delete one file from a/b (leaving g.txt) and all of a/c
+        await filecore.delete_batch(ns_path, ["a/b/f.txt", "a/c/f.txt"])
+
+        # THEN
+        a, a_b, a_c = await filecore.db.file.get_by_path_batch(ns_path, paths)
+        assert a.size == 10   # only a/b/g.txt remains
+        assert a_b.size == 10  # g.txt still in a/b
+        assert a_c.size == 0   # a/c is now empty
+
 
 class TestDownload:
     async def test_on_file(self, filecore: FileCoreService, file: File):
