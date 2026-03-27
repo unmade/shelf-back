@@ -15,6 +15,8 @@ from app.app.files.repositories.file import FileUpdate
 from app.infrastructure.database.tortoise import models
 from app.toolkit.mediatypes import MediaType
 
+from .file_member import ActionFlag
+
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
     from uuid import UUID
@@ -52,10 +54,6 @@ def _from_db_v2(ns_path: str, obj: models.File) -> AnyFile:
             shared=getattr(obj, "_shared", False),
             mediatype=obj.mediatype.name,
         )
-
-    from app.infrastructure.database.gel.repositories.file_member import (
-        ActionFlag,
-    )
 
     mount_point = MountPoint(
         display_name=mount_point_obj.display_name,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -11,9 +12,11 @@ from app.app.files.domain import (
     ContentMetadata,
     Exif,
     File,
+    FileMember,
     Fingerprint,
     Namespace,
     Path,
+    SharedLink,
 )
 from app.app.infrastructure.database import SENTINEL_ID
 from app.app.users.domain import Account, User
@@ -28,8 +31,10 @@ if TYPE_CHECKING:
     from app.app.files.domain import AnyPath
     from app.app.files.repositories import (
         IContentMetadataRepository,
+        IFileMemberRepository,
         IFileRepository,
         IFingerprintRepository,
+        ISharedLinkRepository,
     )
     from app.app.users.repositories import IAccountRepository, IUserRepository
     from app.infrastructure.database.tortoise import TortoiseDatabase
@@ -37,9 +42,11 @@ if TYPE_CHECKING:
         AccountRepository,
         BookmarkRepository,
         ContentMetadataRepository,
+        FileMemberRepository,
         FileRepository,
         FingerprintRepository,
         NamespaceRepository,
+        SharedLinkRepository,
         UserRepository,
     )
 
@@ -60,6 +67,11 @@ if TYPE_CHECKING:
             mediatype: str = "plain/text",
         ) -> File:
             ...
+
+
+    class FileMemberFactory(Protocol):
+        async def __call__(self, file_id: UUID, user_id: UUID) -> FileMember: ...
+
 
     class FingerprintFactory(Protocol):
         async def __call__(self, file_id: UUID, value: int) -> Fingerprint: ...
@@ -86,6 +98,9 @@ if TYPE_CHECKING:
         ) -> None:
             ...
 
+    class SharedLinkFactory(Protocol):
+        async def __call__(self, file_id: UUID) -> SharedLink: ...
+
 fake = Faker()
 
 
@@ -105,8 +120,10 @@ def fingerprint_repo(tortoise_database: TortoiseDatabase) -> FingerprintReposito
 
 
 @pytest.fixture
-def metadata_repo(tortoise_database: TortoiseDatabase) -> ContentMetadataRepository:
-    return tortoise_database.metadata
+def file_member_repo(
+    tortoise_database: TortoiseDatabase,
+) -> FileMemberRepository:
+    return tortoise_database.file_member
 
 
 @pytest.fixture
@@ -115,8 +132,20 @@ def file_repo(tortoise_database: TortoiseDatabase) -> FileRepository:
 
 
 @pytest.fixture
+def metadata_repo(tortoise_database: TortoiseDatabase) -> ContentMetadataRepository:
+    return tortoise_database.metadata
+
+
+@pytest.fixture
 def namespace_repo(tortoise_database: TortoiseDatabase) -> NamespaceRepository:
     return tortoise_database.namespace
+
+
+@pytest.fixture
+def shared_link_repo(
+    tortoise_database: TortoiseDatabase,
+) -> SharedLinkRepository:
+    return tortoise_database.shared_link
 
 
 @pytest.fixture
@@ -181,6 +210,24 @@ def file_factory(file_repo: IFileRepository) -> FileFactory:
 
 
 @pytest.fixture
+def file_member_factory(
+    file_member_repo: IFileMemberRepository,
+) -> FileMemberFactory:
+    async def factory(file_id: UUID, user_id: UUID) -> FileMember:
+        return await file_member_repo.save(
+            FileMember(
+                file_id=file_id,
+                actions=FileMember.EDITOR,
+                user=FileMember.User(
+                    id=user_id,
+                    username="",
+                ),
+            )
+        )
+    return factory
+
+
+@pytest.fixture
 def folder_factory(file_repo: IFileRepository) -> FolderFactory:
     async def factory(
         ns_path: str, path: AnyPath | None = None, size: int = 0
@@ -200,15 +247,6 @@ def folder_factory(file_repo: IFileRepository) -> FolderFactory:
     return factory
 
 
-@pytest.fixture
-async def content_metadata(
-    metadata_repo: IContentMetadataRepository, file: File
-) -> ContentMetadata:
-    exif = Exif(width=1280, height=800)
-    return await metadata_repo.save(
-        ContentMetadata(file_id=file.id, data=exif)
-    )
-
 
 @pytest.fixture
 def fingerprint_factory(
@@ -216,6 +254,47 @@ def fingerprint_factory(
 ) -> FingerprintFactory:
     async def factory(file_id: UUID, value: int) -> Fingerprint:
         return await fingerprint_repo.save(Fingerprint(file_id, value=value))
+    return factory
+
+
+@pytest.fixture
+def mount_factory() -> MountFactory:
+    async def factory(
+        source_file_id: UUID,
+        target_folder_id: UUID,
+        display_name: str,
+    ) -> None:
+        target_folder = await models.File.get(id=target_folder_id)
+        namespace = await models.Namespace.get(
+            id=target_folder.namespace_id  # type: ignore[attr-defined]
+        )
+        owner_id = namespace.owner_id  # type: ignore[attr-defined]
+        member = await models.FileMember.create(
+            actions=0,
+            created_at=datetime.now(UTC),
+            user_id=owner_id,
+            file_id=source_file_id,
+        )
+        await models.FileMemberMountPoint.create(
+            display_name=display_name,
+            member=member,
+            parent_id=target_folder_id,
+        )
+    return factory
+
+
+@pytest.fixture
+def shared_link_factory(
+    shared_link_repo: ISharedLinkRepository,
+) -> SharedLinkFactory:
+    async def factory(file_id: UUID) -> SharedLink:
+        return await shared_link_repo.save(
+            SharedLink(
+                id=SENTINEL_ID,
+                file_id=file_id,
+                token=uuid.uuid4().hex,
+            )
+        )
     return factory
 
 
@@ -261,29 +340,18 @@ async def file(
     return await file_factory(namespace.path)
 
 
+@pytest.fixture
+async def content_metadata(
+    metadata_repo: IContentMetadataRepository, file: File
+) -> ContentMetadata:
+    exif = Exif(width=1280, height=800)
+    return await metadata_repo.save(
+        ContentMetadata(file_id=file.id, data=exif)
+    )
 
 
 @pytest.fixture
-def mount_factory() -> MountFactory:
-    async def factory(
-        source_file_id: UUID,
-        target_folder_id: UUID,
-        display_name: str,
-    ) -> None:
-        target_folder = await models.File.get(id=target_folder_id)
-        namespace = await models.Namespace.get(
-            id=target_folder.namespace_id  # type: ignore[attr-defined]
-        )
-        owner_id = namespace.owner_id  # type: ignore[attr-defined]
-        member = await models.FileMember.create(
-            actions=0,
-            created_at=datetime.now(UTC),
-            user_id=owner_id,
-            file_id=source_file_id,
-        )
-        await models.FileMemberMountPoint.create(
-            display_name=display_name,
-            member=member,
-            parent_id=target_folder_id,
-        )
-    return factory
+async def shared_link(
+    shared_link_factory: SharedLinkFactory, file: File
+) -> SharedLink:
+    return await shared_link_factory(file.id)

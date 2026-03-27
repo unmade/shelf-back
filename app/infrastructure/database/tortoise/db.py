@@ -11,9 +11,11 @@ from .repositories import (
     AccountRepository,
     BookmarkRepository,
     ContentMetadataRepository,
+    FileMemberRepository,
     FileRepository,
     FingerprintRepository,
     NamespaceRepository,
+    SharedLinkRepository,
     UserRepository,
 )
 
@@ -45,9 +47,11 @@ class TortoiseDatabase(IDatabase):
         self.account = AccountRepository()
         self.bookmark = BookmarkRepository()
         self.file = FileRepository()
+        self.file_member = FileMemberRepository()
         self.fingerprint = FingerprintRepository()
         self.metadata = ContentMetadataRepository()
         self.namespace = NamespaceRepository()
+        self.shared_link = SharedLinkRepository()
         self.user = UserRepository()
 
     def _tortoise_config(self) -> TortoiseConfig:
