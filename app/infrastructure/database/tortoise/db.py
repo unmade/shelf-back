@@ -12,8 +12,10 @@ from .repositories import (
     BookmarkRepository,
     ContentMetadataRepository,
     FileMemberRepository,
+    FilePendingDeletionRepository,
     FileRepository,
     FingerprintRepository,
+    MountRepository,
     NamespaceRepository,
     SharedLinkRepository,
     UserRepository,
@@ -48,8 +50,10 @@ class TortoiseDatabase(IDatabase):
         self.bookmark = BookmarkRepository()
         self.file = FileRepository()
         self.file_member = FileMemberRepository()
+        self.file_pending_deletion = FilePendingDeletionRepository()
         self.fingerprint = FingerprintRepository()
         self.metadata = ContentMetadataRepository()
+        self.mount = MountRepository()
         self.namespace = NamespaceRepository()
         self.shared_link = SharedLinkRepository()
         self.user = UserRepository()

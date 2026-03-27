@@ -13,7 +13,9 @@ from app.app.files.domain import (
     Exif,
     File,
     FileMember,
+    FilePendingDeletion,
     Fingerprint,
+    MountPoint,
     Namespace,
     Path,
     SharedLink,
@@ -32,8 +34,10 @@ if TYPE_CHECKING:
     from app.app.files.repositories import (
         IContentMetadataRepository,
         IFileMemberRepository,
+        IFilePendingDeletionRepository,
         IFileRepository,
         IFingerprintRepository,
+        IMountRepository,
         ISharedLinkRepository,
     )
     from app.app.users.repositories import IAccountRepository, IUserRepository
@@ -43,8 +47,10 @@ if TYPE_CHECKING:
         BookmarkRepository,
         ContentMetadataRepository,
         FileMemberRepository,
+        FilePendingDeletionRepository,
         FileRepository,
         FingerprintRepository,
+        MountRepository,
         NamespaceRepository,
         SharedLinkRepository,
         UserRepository,
@@ -72,6 +78,13 @@ if TYPE_CHECKING:
     class FileMemberFactory(Protocol):
         async def __call__(self, file_id: UUID, user_id: UUID) -> FileMember: ...
 
+    class FilePendingDeletionFactory(Protocol):
+        async def __call__(
+            self,
+            ns_path: AnyPath | None = None,
+            path: AnyPath | None = None,
+            mediatype: str | None = None,
+        ) -> FilePendingDeletion: ...
 
     class FingerprintFactory(Protocol):
         async def __call__(self, file_id: UUID, value: int) -> Fingerprint: ...
@@ -95,7 +108,7 @@ if TYPE_CHECKING:
             source_file_id: UUID,
             target_folder_id: UUID,
             display_name: str,
-        ) -> None:
+        ) -> MountPoint:
             ...
 
     class SharedLinkFactory(Protocol):
@@ -127,6 +140,13 @@ def file_member_repo(
 
 
 @pytest.fixture
+def file_pending_deletion_repo(
+    tortoise_database: TortoiseDatabase,
+) -> FilePendingDeletionRepository:
+    return tortoise_database.file_pending_deletion
+
+
+@pytest.fixture
 def file_repo(tortoise_database: TortoiseDatabase) -> FileRepository:
     return tortoise_database.file
 
@@ -134,6 +154,11 @@ def file_repo(tortoise_database: TortoiseDatabase) -> FileRepository:
 @pytest.fixture
 def metadata_repo(tortoise_database: TortoiseDatabase) -> ContentMetadataRepository:
     return tortoise_database.metadata
+
+
+@pytest.fixture
+def mount_repo(tortoise_database: TortoiseDatabase) -> MountRepository:
+    return tortoise_database.mount
 
 
 @pytest.fixture
@@ -258,12 +283,12 @@ def fingerprint_factory(
 
 
 @pytest.fixture
-def mount_factory() -> MountFactory:
+def mount_factory(mount_repo: IMountRepository) -> MountFactory:
     async def factory(
         source_file_id: UUID,
         target_folder_id: UUID,
         display_name: str,
-    ) -> None:
+    ) -> MountPoint:
         target_folder = await models.File.get(id=target_folder_id)
         namespace = await models.Namespace.get(
             id=target_folder.namespace_id  # type: ignore[attr-defined]
@@ -280,6 +305,30 @@ def mount_factory() -> MountFactory:
             member=member,
             parent_id=target_folder_id,
         )
+        display_path = Path(target_folder.path) / display_name
+        return await mount_repo.get_closest(namespace.path, display_path)
+    return factory
+
+
+@pytest.fixture
+def file_pending_deletion_factory(
+    file_pending_deletion_repo: IFilePendingDeletionRepository,
+) -> FilePendingDeletionFactory:
+    async def factory(
+        ns_path: AnyPath | None = None,
+        path: AnyPath | None = None,
+        mediatype: str | None = None,
+    ) -> FilePendingDeletion:
+        items = await file_pending_deletion_repo.save_batch([
+            FilePendingDeletion(
+                id=SENTINEL_ID,
+                ns_path=str(ns_path) if ns_path else fake.unique.user_name(),
+                path=str(path) if path else fake.unique.file_name(),
+                chash=uuid.uuid4().hex,
+                mediatype=mediatype or "plain/text",
+            )
+        ])
+        return items[0]
     return factory
 
 
