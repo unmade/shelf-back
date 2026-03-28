@@ -65,7 +65,7 @@ class AlbumService:
         if not await self.db.album.exists_with_slug(owner_id, slug):
             return slug
 
-        pattern = f"{slug}-[[:digit:]]+$".lower()
+        pattern = f"{slug}-[0-9]+$".lower()
         count = await self.db.album.count_by_slug_pattern(owner_id, pattern)
         return f"{slug}-{count + 1}"
 

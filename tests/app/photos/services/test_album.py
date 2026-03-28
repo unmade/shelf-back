@@ -111,7 +111,7 @@ class TestGetAvailableSlug:
         assert result == "my-slug-2"
         db.album.exists_with_slug.assert_awaited_once_with(owner_id, slug)
         db.album.count_by_slug_pattern.assert_awaited_once_with(
-            owner_id, f"{slug}-[[:digit:]]+$"
+            owner_id, f"{slug}-[0-9]+$"
         )
 
 

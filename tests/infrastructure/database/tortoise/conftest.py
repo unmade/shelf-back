@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -21,12 +22,15 @@ from app.app.files.domain import (
     SharedLink,
 )
 from app.app.infrastructure.database import SENTINEL_ID
-from app.app.users.domain import Account, User
+from app.app.photos.domain import Album, MediaItem
+from app.app.users.domain import Account, Bookmark, User
+from app.config import config
 from app.infrastructure.database.tortoise import models
 from app.toolkit import chash
 from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from typing import Protocol
     from uuid import UUID
 
@@ -40,16 +44,24 @@ if TYPE_CHECKING:
         IMountRepository,
         ISharedLinkRepository,
     )
-    from app.app.users.repositories import IAccountRepository, IUserRepository
+    from app.app.photos.domain.media_item import IMediaItemType
+    from app.app.photos.repositories import IAlbumRepository, IMediaItemRepository
+    from app.app.users.repositories import (
+        IAccountRepository,
+        IBookmarkRepository,
+        IUserRepository,
+    )
     from app.infrastructure.database.tortoise import TortoiseDatabase
     from app.infrastructure.database.tortoise.repositories import (
         AccountRepository,
+        AlbumRepository,
         BookmarkRepository,
         ContentMetadataRepository,
         FileMemberRepository,
         FilePendingDeletionRepository,
         FileRepository,
         FingerprintRepository,
+        MediaItemRepository,
         MountRepository,
         NamespaceRepository,
         SharedLinkRepository,
@@ -114,12 +126,39 @@ if TYPE_CHECKING:
     class SharedLinkFactory(Protocol):
         async def __call__(self, file_id: UUID) -> SharedLink: ...
 
+    class AlbumFactory(Protocol):
+        async def __call__(
+            self,
+            owner_id: UUID,
+            title: str | None = None,
+            *,
+            cover_file_id: UUID | None = None,
+            items: Iterable[MediaItem] | None = None,
+        ) -> Album: ...
+
+    class BookmarkFactory(Protocol):
+        async def __call__(self, user_id: UUID, file_id: UUID) -> Bookmark: ...
+
+    class MediaItemFactory(Protocol):
+        async def __call__(
+            self,
+            user_id: UUID,
+            name: str | None = None,
+            mediatype: IMediaItemType = ...,
+            deleted_at: datetime | None = None,
+        ) -> MediaItem: ...
+
 fake = Faker()
 
 
 @pytest.fixture
 def account_repo(tortoise_database: TortoiseDatabase) -> AccountRepository:
     return tortoise_database.account
+
+
+@pytest.fixture
+def album_repo(tortoise_database: TortoiseDatabase) -> AlbumRepository:
+    return tortoise_database.album
 
 
 @pytest.fixture
@@ -149,6 +188,11 @@ def file_pending_deletion_repo(
 @pytest.fixture
 def file_repo(tortoise_database: TortoiseDatabase) -> FileRepository:
     return tortoise_database.file
+
+
+@pytest.fixture
+def media_item_repo(tortoise_database: TortoiseDatabase) -> MediaItemRepository:
+    return tortoise_database.media_item
 
 
 @pytest.fixture
@@ -201,14 +245,42 @@ def user_factory(user_repo: IUserRepository) -> UserFactory:
 
 
 @pytest.fixture
-def namespace_factory():
-    async def factory(path: str, owner_id: UUID) -> Namespace:
-        obj = await models.Namespace.create(
-            path=path,
-            owner_id=owner_id,
+def album_factory(album_repo: IAlbumRepository) -> AlbumFactory:
+    async def factory(
+        owner_id: UUID,
+        title: str | None = None,
+        *,
+        cover_file_id: UUID | None = None,
+        items: Iterable[MediaItem] | None = None,
+    ) -> Album:
+        title = title or fake.unique.name()
+        album = await album_repo.save(
+            Album(
+                id=SENTINEL_ID,
+                title=title,
+                owner_id=owner_id,
+            )
         )
-        return Namespace(id=obj.id, path=obj.path, owner_id=owner_id)
+
+        if items:
+            file_ids = [item.file_id for item in items]
+            album = await album_repo.add_items(owner_id, album.slug, file_ids=file_ids)
+
+        if cover_file_id:
+            album = await album_repo.set_cover(owner_id, album.slug, cover_file_id)
+
+        return album
     return factory
+
+
+@pytest.fixture
+def bookmark_factory(bookmark_repo: IBookmarkRepository) -> BookmarkFactory:
+    async def factory(user_id: UUID, file_id: UUID) -> Bookmark:
+        bookmark = Bookmark(user_id=user_id, file_id=file_id)
+        await bookmark_repo.save_batch([bookmark])
+        return bookmark
+    return factory
+
 
 
 @pytest.fixture
@@ -283,6 +355,36 @@ def fingerprint_factory(
 
 
 @pytest.fixture
+def media_item_factory(
+    namespace_repo: NamespaceRepository,
+    media_item_repo: IMediaItemRepository,
+    file_factory: FileFactory,
+) -> MediaItemFactory:
+    async def factory(
+        user_id: UUID,
+        name: str | None = None,
+        mediatype: IMediaItemType = MediaType.IMAGE_JPEG,
+        deleted_at: datetime | None = None,
+    ) -> MediaItem:
+        namespace = await namespace_repo.get_by_owner_id(user_id)
+        name = name or fake.unique.file_name(category="image")
+        path = os.path.join(config.features.photos_library_path, name)
+        file = await file_factory(namespace.path, path, mediatype=mediatype)
+        if deleted_at:
+            await media_item_repo.set_deleted_at_batch(user_id, [file.id], deleted_at)
+
+        return MediaItem(
+            file_id=file.id,
+            name=file.name,
+            size=file.size,
+            modified_at=file.modified_at,
+            mediatype=mediatype,
+            deleted_at=deleted_at,
+        )
+    return factory
+
+
+@pytest.fixture
 def mount_factory(mount_repo: IMountRepository) -> MountFactory:
     async def factory(
         source_file_id: UUID,
@@ -307,6 +409,17 @@ def mount_factory(mount_repo: IMountRepository) -> MountFactory:
         )
         display_path = Path(target_folder.path) / display_name
         return await mount_repo.get_closest(namespace.path, display_path)
+    return factory
+
+
+@pytest.fixture
+def namespace_factory():
+    async def factory(path: str, owner_id: UUID) -> Namespace:
+        obj = await models.Namespace.create(
+            path=path,
+            owner_id=owner_id,
+        )
+        return Namespace(id=obj.id, path=obj.path, owner_id=owner_id)
     return factory
 
 

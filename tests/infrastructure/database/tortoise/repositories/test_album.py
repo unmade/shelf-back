@@ -2,20 +2,21 @@ from __future__ import annotations
 
 import operator
 import uuid
-from typing import TYPE_CHECKING, cast
-from uuid import UUID
+from typing import TYPE_CHECKING
 
 import pytest
 
 from app.app.infrastructure.database import SENTINEL_ID
 from app.app.photos.domain import Album
-from app.infrastructure.database.gel.db import db_context
-from app.infrastructure.database.gel.repositories import AlbumRepository
+from app.infrastructure.database.tortoise import models
 from app.toolkit import timezone
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from app.app.users.domain import User
-    from tests.infrastructure.database.gel.conftest import (
+    from app.infrastructure.database.tortoise.repositories import AlbumRepository
+    from tests.infrastructure.database.tortoise.conftest import (
         AlbumFactory,
         MediaItemFactory,
     )
@@ -24,61 +25,23 @@ pytestmark = [pytest.mark.anyio, pytest.mark.database]
 
 
 async def _exists_with_slug(owner_id: UUID, slug: str) -> bool:
-    query = """
-        SELECT EXISTS(
-            SELECT
-                Album
-            FILTER
-                .owner.id = <uuid>$owner_id
-                AND
-                .slug = <str>$slug
-            LIMIT 1
-        )
-    """
-    return cast(
-        bool,
-        await db_context.get().query_required_single(
-            query,
-            owner_id=owner_id,
-            slug=slug,
-        )
-    )
+    return await models.Album.filter(owner_id=owner_id, slug=slug).exists()
 
 
 async def _get_album_cover_id(album_id: UUID) -> UUID | None:
-    query = """
-        SELECT
-            Album { cover }
-        FILTER
-            .id = <uuid>$album_id
-        LIMIT 1
-    """
-    obj = await db_context.get().query_required_single(query, album_id=album_id)
-    return obj.cover.id if obj.cover else None
+    obj = await models.Album.get(id=album_id)
+    return obj.cover_id  # type: ignore[attr-defined, no-any-return]
 
 
 async def _get_album_items_count(album_id: UUID) -> int:
-    query = """
-        SELECT
-            Album { items_count }
-        FILTER
-            .id = <uuid>$album_id
-        LIMIT 1
-    """
-    obj = await db_context.get().query_required_single(query, album_id=album_id)
-    return cast(int, obj.items_count)
+    obj = await models.Album.get(id=album_id)
+    return obj.items_count
 
 
 async def _list_item_ids(album_id: UUID) -> list[UUID]:
-    query = """
-        SELECT
-            Album { items }
-        FILTER
-            .id = <uuid>$album_id
-        LIMIT 1
-    """
-    obj = await db_context.get().query_required_single(query, album_id=album_id)
-    return sorted(item.id for item in obj.items)
+    obj = await models.Album.get(id=album_id)
+    items = await obj.items.all()
+    return sorted(item.id for item in items)
 
 
 class TestAddItems:

@@ -9,12 +9,14 @@ from app.app.infrastructure import IDatabase
 
 from .repositories import (
     AccountRepository,
+    AlbumRepository,
     BookmarkRepository,
     ContentMetadataRepository,
     FileMemberRepository,
     FilePendingDeletionRepository,
     FileRepository,
     FingerprintRepository,
+    MediaItemRepository,
     MountRepository,
     NamespaceRepository,
     SharedLinkRepository,
@@ -47,11 +49,13 @@ class TortoiseDatabase(IDatabase):
     def __init__(self, config: SQLiteConfig | PostgresConfig) -> None:
         self.config = config
         self.account = AccountRepository()
+        self.album = AlbumRepository()
         self.bookmark = BookmarkRepository()
         self.file = FileRepository()
         self.file_member = FileMemberRepository()
         self.file_pending_deletion = FilePendingDeletionRepository()
         self.fingerprint = FingerprintRepository()
+        self.media_item = MediaItemRepository()
         self.metadata = ContentMetadataRepository()
         self.mount = MountRepository()
         self.namespace = NamespaceRepository()
