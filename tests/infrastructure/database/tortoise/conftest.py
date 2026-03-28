@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from typing import Protocol
     from uuid import UUID
 
+    from app.app.audit.repositories import IAuditTrailRepository
     from app.app.files.domain import AnyPath
     from app.app.files.repositories import (
         IContentMetadataRepository,
@@ -42,6 +43,7 @@ if TYPE_CHECKING:
         IFileRepository,
         IFingerprintRepository,
         IMountRepository,
+        INamespaceRepository,
         ISharedLinkRepository,
     )
     from app.app.photos.domain.media_item import IMediaItemType
@@ -52,22 +54,6 @@ if TYPE_CHECKING:
         IUserRepository,
     )
     from app.infrastructure.database.tortoise import TortoiseDatabase
-    from app.infrastructure.database.tortoise.repositories import (
-        AccountRepository,
-        AlbumRepository,
-        AuditTrailRepository,
-        BookmarkRepository,
-        ContentMetadataRepository,
-        FileMemberRepository,
-        FilePendingDeletionRepository,
-        FileRepository,
-        FingerprintRepository,
-        MediaItemRepository,
-        MountRepository,
-        NamespaceRepository,
-        SharedLinkRepository,
-        UserRepository,
-    )
 
     class UserFactory(Protocol):
         async def __call__(
@@ -153,80 +139,76 @@ fake = Faker()
 
 
 @pytest.fixture
-def account_repo(tortoise_database: TortoiseDatabase) -> AccountRepository:
+def account_repo(tortoise_database: TortoiseDatabase) -> IAccountRepository:
     return tortoise_database.account
 
 
 @pytest.fixture
-def album_repo(tortoise_database: TortoiseDatabase) -> AlbumRepository:
+def album_repo(tortoise_database: TortoiseDatabase) -> IAlbumRepository:
     return tortoise_database.album
 
 
 @pytest.fixture
-def audit_trail_repo(
-    tortoise_database: TortoiseDatabase,
-) -> AuditTrailRepository:
+def audit_trail_repo(tortoise_database: TortoiseDatabase) -> IAuditTrailRepository:
     return tortoise_database.audit_trail
 
 
 @pytest.fixture
-def bookmark_repo(tortoise_database: TortoiseDatabase) -> BookmarkRepository:
+def bookmark_repo(tortoise_database: TortoiseDatabase) -> IBookmarkRepository:
     return tortoise_database.bookmark
 
 
 @pytest.fixture
-def fingerprint_repo(tortoise_database: TortoiseDatabase) -> FingerprintRepository:
+def fingerprint_repo(tortoise_database: TortoiseDatabase) -> IFingerprintRepository:
     return tortoise_database.fingerprint
 
 
 @pytest.fixture
-def file_member_repo(
-    tortoise_database: TortoiseDatabase,
-) -> FileMemberRepository:
+def file_member_repo(tortoise_database: TortoiseDatabase) -> IFileMemberRepository:
     return tortoise_database.file_member
 
 
 @pytest.fixture
 def file_pending_deletion_repo(
     tortoise_database: TortoiseDatabase,
-) -> FilePendingDeletionRepository:
+) -> IFilePendingDeletionRepository:
     return tortoise_database.file_pending_deletion
 
 
 @pytest.fixture
-def file_repo(tortoise_database: TortoiseDatabase) -> FileRepository:
+def file_repo(tortoise_database: TortoiseDatabase) -> IFileRepository:
     return tortoise_database.file
 
 
 @pytest.fixture
-def media_item_repo(tortoise_database: TortoiseDatabase) -> MediaItemRepository:
+def media_item_repo(tortoise_database: TortoiseDatabase) -> IMediaItemRepository:
     return tortoise_database.media_item
 
 
 @pytest.fixture
-def metadata_repo(tortoise_database: TortoiseDatabase) -> ContentMetadataRepository:
+def metadata_repo(tortoise_database: TortoiseDatabase) -> IContentMetadataRepository:
     return tortoise_database.metadata
 
 
 @pytest.fixture
-def mount_repo(tortoise_database: TortoiseDatabase) -> MountRepository:
+def mount_repo(tortoise_database: TortoiseDatabase) -> IMountRepository:
     return tortoise_database.mount
 
 
 @pytest.fixture
-def namespace_repo(tortoise_database: TortoiseDatabase) -> NamespaceRepository:
+def namespace_repo(tortoise_database: TortoiseDatabase) -> INamespaceRepository:
     return tortoise_database.namespace
 
 
 @pytest.fixture
 def shared_link_repo(
     tortoise_database: TortoiseDatabase,
-) -> SharedLinkRepository:
+) -> ISharedLinkRepository:
     return tortoise_database.shared_link
 
 
 @pytest.fixture
-def user_repo(tortoise_database: TortoiseDatabase) -> UserRepository:
+def user_repo(tortoise_database: TortoiseDatabase) -> IUserRepository:
     return tortoise_database.user
 
 
@@ -364,7 +346,7 @@ def fingerprint_factory(
 
 @pytest.fixture
 def media_item_factory(
-    namespace_repo: NamespaceRepository,
+    namespace_repo: INamespaceRepository,
     media_item_repo: IMediaItemRepository,
     file_factory: FileFactory,
 ) -> MediaItemFactory:

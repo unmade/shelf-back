@@ -27,7 +27,24 @@ from .repositories import (
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
+    from app.app.audit.repositories import IAuditTrailRepository
+    from app.app.files.repositories import (
+        IContentMetadataRepository,
+        IFileMemberRepository,
+        IFilePendingDeletionRepository,
+        IFileRepository,
+        IFingerprintRepository,
+        IMountRepository,
+        INamespaceRepository,
+        ISharedLinkRepository,
+    )
     from app.app.infrastructure.database import ITransaction
+    from app.app.photos.repositories import IAlbumRepository, IMediaItemRepository
+    from app.app.users.repositories import (
+        IAccountRepository,
+        IBookmarkRepository,
+        IUserRepository,
+    )
     from app.config import PostgresConfig, SQLiteConfig
 
 
@@ -50,6 +67,21 @@ class Transaction:
 
 
 class TortoiseDatabase(IDatabase):
+    account: IAccountRepository
+    album: IAlbumRepository
+    audit_trail: IAuditTrailRepository
+    bookmark: IBookmarkRepository
+    file: IFileRepository
+    file_member: IFileMemberRepository
+    file_pending_deletion: IFilePendingDeletionRepository
+    fingerprint: IFingerprintRepository
+    media_item: IMediaItemRepository
+    metadata: IContentMetadataRepository
+    mount: IMountRepository
+    namespace: INamespaceRepository
+    shared_link: ISharedLinkRepository
+    user: IUserRepository
+
     def __init__(self, config: SQLiteConfig | PostgresConfig) -> None:
         self.config = config
         self.account = AccountRepository()

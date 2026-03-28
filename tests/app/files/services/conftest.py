@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 
     from app.app.files.domain import AnyPath, File, IFileContent, Namespace
     from app.app.users.domain import User
-    from app.infrastructure.database.gel import GelDatabase
+    from app.infrastructure.database.tortoise import TortoiseDatabase
     from app.typedefs import StrOrUUID
 
     class BookmarkFactory(Protocol):
@@ -98,10 +98,12 @@ def dupefinder():
 
 
 @pytest.fixture
-def filecore(gel_database: GelDatabase, fs_storage: IStorage):
+def filecore(tortoise_database: TortoiseDatabase, fs_storage: IStorage):
     """A filecore service instance."""
     worker = mock.MagicMock(IWorker)
-    return FileCoreService(database=gel_database, storage=fs_storage, worker=worker)
+    return FileCoreService(
+        database=tortoise_database, storage=fs_storage, worker=worker,
+    )
 
 
 @pytest.fixture
@@ -130,9 +132,9 @@ def metadata_service():
 
 
 @pytest.fixture
-def namespace_service(gel_database: GelDatabase, filecore: FileCoreService):
+def namespace_service(tortoise_database: TortoiseDatabase, filecore: FileCoreService):
     """A namespace service instance."""
-    return NamespaceService(database=gel_database, filecore=filecore)
+    return NamespaceService(database=tortoise_database, filecore=filecore)
 
 
 @pytest.fixture
@@ -151,10 +153,10 @@ def thumbnailer():
 
 
 @pytest.fixture
-def user_service(gel_database: GelDatabase):
+def user_service(tortoise_database: TortoiseDatabase):
     """A user service instance."""
     mail = mock.MagicMock(IMailBackend)
-    return UserService(database=gel_database, mail=mail)
+    return UserService(database=tortoise_database, mail=mail)
 
 
 @pytest.fixture(scope="session")
@@ -163,9 +165,9 @@ def _hashed_password():
 
 
 @pytest.fixture
-def bookmark_factory(gel_database: GelDatabase):
+def bookmark_factory(tortoise_database: TortoiseDatabase):
     """A factory to bookmark a file by ID for a given user ID."""
-    bookmark_service = BookmarkService(gel_database)
+    bookmark_service = BookmarkService(tortoise_database)
     async def factory(user_id: UUID, file_id: UUID) -> None:
         await bookmark_service.add_batch(user_id, file_ids=[file_id])
     return factory

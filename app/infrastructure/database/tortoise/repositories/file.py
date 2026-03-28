@@ -245,10 +245,11 @@ class FileRepository(IFileRepository):
             models.File
             .filter(
                 namespace__path=str(ns_path),
-                path__in=[str(p) for p in paths],
             )
+            .annotate(lower_path=Lower("path"))
+            .filter(lower_path__in=[str(p).lower() for p in paths])
             .select_related("mediatype")
-            .order_by("path")
+            .order_by("lower_path")
         )
         return [_from_db(str(ns_path), obj) for obj in objs]
 

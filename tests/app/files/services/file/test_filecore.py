@@ -419,16 +419,16 @@ class TestEmptyFolder:
         await file_factory(ns_path, "Outer Folder/Inner Folder/f.txt")
 
         # check parent size before emptying the trash
-        paths = ["outer folder", "outer folder/inner folder"]
+        paths = ["Outer Folder", "Outer Folder/Inner Folder"]
         outer, inner = await filecore.db.file.get_by_path_batch(ns_path, paths)
         assert outer.size > 0
         assert inner.size > 0
 
         # WHEN
-        await filecore.empty_folder(ns_path, "outer folder/inner folder")
+        await filecore.empty_folder(ns_path, "Outer Folder/Inner Folder")
 
         # THEN
-        paths = ["outer folder", "outer folder/inner folder"]
+        paths = ["Outer Folder", "Outer Folder/Inner Folder"]
         outer, inner = await filecore.db.file.get_by_path_batch(ns_path, paths)
         assert outer.size == 0
         assert inner.size == 0

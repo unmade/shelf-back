@@ -351,6 +351,22 @@ class TestGetByPathBatch:
         )
         assert result == [file]
 
+    async def test_case_insensitiveness(
+        self,
+        file_repo: FileRepository,
+        file_factory: FileFactory,
+        namespace: Namespace,
+    ):
+        # GIVEN
+        await file_factory(namespace.path, "a/B/f.txt")
+        # WHEN
+        result = await file_repo.get_by_path_batch(
+            namespace.path, ["a/b/f.txt"]
+        )
+        # THEN
+        assert len(result) == 1
+        assert str(result[0].path) == "a/B/f.txt"
+
 
 class TestIncrSizeBatch:
     async def test(
