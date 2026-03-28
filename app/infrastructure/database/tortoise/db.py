@@ -10,6 +10,7 @@ from app.app.infrastructure import IDatabase
 from .repositories import (
     AccountRepository,
     AlbumRepository,
+    AuditTrailRepository,
     BookmarkRepository,
     ContentMetadataRepository,
     FileMemberRepository,
@@ -50,6 +51,7 @@ class TortoiseDatabase(IDatabase):
         self.config = config
         self.account = AccountRepository()
         self.album = AlbumRepository()
+        self.audit_trail = AuditTrailRepository()
         self.bookmark = BookmarkRepository()
         self.file = FileRepository()
         self.file_member = FileMemberRepository()

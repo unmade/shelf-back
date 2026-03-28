@@ -55,6 +55,7 @@ if TYPE_CHECKING:
     from app.infrastructure.database.tortoise.repositories import (
         AccountRepository,
         AlbumRepository,
+        AuditTrailRepository,
         BookmarkRepository,
         ContentMetadataRepository,
         FileMemberRepository,
@@ -159,6 +160,13 @@ def account_repo(tortoise_database: TortoiseDatabase) -> AccountRepository:
 @pytest.fixture
 def album_repo(tortoise_database: TortoiseDatabase) -> AlbumRepository:
     return tortoise_database.album
+
+
+@pytest.fixture
+def audit_trail_repo(
+    tortoise_database: TortoiseDatabase,
+) -> AuditTrailRepository:
+    return tortoise_database.audit_trail
 
 
 @pytest.fixture
