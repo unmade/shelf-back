@@ -31,6 +31,9 @@ if TYPE_CHECKING:
     from app.config import PostgresConfig, SQLiteConfig
 
 
+TORTOISE_MODELS = ["app.infrastructure.database.tortoise.models"]
+
+
 class Transaction:
     __slots__ = ("_connection_name", "_tx_ctx")
 
@@ -71,7 +74,7 @@ class TortoiseDatabase(IDatabase):
             },
             apps={
                 "models": AppConfig(
-                    models=["app.infrastructure.database.tortoise.models"],
+                    models=TORTOISE_MODELS,
                 ),
             },
         )

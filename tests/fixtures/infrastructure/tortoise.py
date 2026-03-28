@@ -1,98 +1,78 @@
 from __future__ import annotations
 
-import sqlite3
+import os
 from typing import TYPE_CHECKING
 
 import pytest
-from tortoise import Tortoise, connections
+from tortoise.contrib.test import tortoise_test_context, truncate_all_models
+from tortoise.transactions import in_transaction
 
-from app.config import SQLiteConfig
+from app.config import PostgresConfig, SQLiteConfig
 from app.infrastructure.database.tortoise import TortoiseDatabase
+from app.infrastructure.database.tortoise.db import TORTOISE_MODELS
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-    from pytest import FixtureRequest, TempPathFactory
+    from pytest import FixtureRequest, MarkDecorator
+
+DEFAULT_DB_URL = "sqlite://:memory:?install_regexp_functions=true"
+
+
+def _db_url() -> str:
+    return os.environ.get("TORTOISE_TEST_DB", DEFAULT_DB_URL)
+
+
+def _make_config() -> PostgresConfig | SQLiteConfig:
+    db_url = _db_url()
+    if db_url.startswith("postgres"):
+        return PostgresConfig(db_url=db_url)  # pragma: no cover
+    return SQLiteConfig(db_url=db_url)
 
 
 @pytest.fixture(scope="session")
-def sqlite_config(tmp_path_factory: TempPathFactory) -> SQLiteConfig:
-    db_path = tmp_path_factory.mktemp("tortoise") / "test.db"
-    return SQLiteConfig(db_url=f"sqlite://{db_path}?install_regexp_functions=true")
-
-
-@pytest.fixture(scope="session")
-def setup_tortoise_database(sqlite_config: SQLiteConfig) -> None:
-    """
-    Creates test database and applies schema via Tortoise generate_schemas.
-    This is a no-op, since the session-scoped _tortoise_database fixture
-    handles init + schema creation.
-    """
-
-
-@pytest.fixture(autouse=True)
-def flush_tortoise_database_if_needed(request: FixtureRequest):
-    """Truncates all tables after each transactional test."""
-    try:
+async def _tortoise_ctx() -> AsyncIterator[None]:
+    """Initialize Tortoise ORM and generate schemas once for the session."""
+    async with tortoise_test_context(modules=TORTOISE_MODELS, db_url=_db_url()):
         yield
-    finally:
-        if marker := request.node.get_closest_marker("database"):
-            if marker.kwargs.get("transaction", False):
-                if Tortoise.apps is not None:
-                    session_conn = request.getfixturevalue("_session_tortoise_conn")
-                    for model_cls in Tortoise.apps["models"].values():
-                        table = getattr(model_cls, "Meta", None)
-                        if table and hasattr(table, "table"):
-                            session_conn.execute(
-                                f'DELETE FROM "{table.table}"'
-                            )
-                    session_conn.commit()
-
-
-@pytest.fixture(scope="session")
-def _session_tortoise_conn(sqlite_config: SQLiteConfig):
-    """Returns a sync sqlite3 connection for cleanup after transactional tests."""
-    db_path = sqlite_config.db_url.replace("sqlite://", "")
-    conn = sqlite3.connect(db_path)
-    yield conn
-    conn.close()
-
-
-@pytest.fixture(scope="session")
-async def _tortoise_database(
-    sqlite_config: SQLiteConfig,
-) -> AsyncIterator[TortoiseDatabase]:
-    """Returns a TortoiseDatabase with an active connection and schema."""
-    db = TortoiseDatabase(sqlite_config)
-    async with db:
-        await db.migrate()
-        yield db
 
 
 @pytest.fixture
-async def _tx_tortoise_database(
-    _tortoise_database: TortoiseDatabase,
-) -> AsyncIterator[TortoiseDatabase]:
-    """Yields a transactional database that rollbacks after each test."""
-    conn = connections.get("default")
-    tx_ctx = conn._in_transaction()
-    await tx_ctx.__aenter__()
-    try:
-        yield _tortoise_database
-    finally:
-        await tx_ctx.__aexit__(Exception, None, None)
-
-
-@pytest.fixture
-def tortoise_database(request: FixtureRequest, setup_tortoise_database):
-    """
-    Returns regular or a transactional TortoiseDatabase based on a database marker.
-    """
+def database_marker(request: FixtureRequest):
     marker = request.node.get_closest_marker("database")
-    if not marker:
+    if not marker:  # pragma: no branch
         raise RuntimeError("Access to the database without `database` marker!")
+    return marker
 
-    if marker.kwargs.get("transaction", False):
-        yield request.getfixturevalue("_tortoise_database")
+
+@pytest.fixture
+async def tortoise_database(
+    _tortoise_ctx,
+    database_marker: MarkDecorator,
+) -> AsyncIterator[TortoiseDatabase]:
+    """
+    Returns a TortoiseDatabase with per-test isolation.
+
+    Requires the ``database`` marker. The schema is created once per session
+    via ``tortoise_test_context``.
+
+    By default, each test runs inside a transaction that is rolled back on
+    teardown. For tests that need real commits (e.g. concurrency tests), use
+    ``@pytest.mark.database(transaction=True)`` — those tests truncate all
+    tables on teardown instead.
+
+    Set ``TORTOISE_TEST_DB`` to test against a different backend.
+    """
+    db = TortoiseDatabase(_make_config())
+
+    if database_marker.kwargs.get("transaction", False):
+        try:
+            yield db
+        finally:
+            await truncate_all_models()
     else:
-        yield request.getfixturevalue("_tx_tortoise_database")
+        async with in_transaction("default") as tx:
+            try:
+                yield db
+            finally:
+                await tx.rollback()
