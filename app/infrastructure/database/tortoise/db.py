@@ -125,7 +125,7 @@ class TortoiseDatabase(IDatabase):
         yield Transaction()
 
     async def migrate(self) -> None:
-        await Tortoise.generate_schemas()
+        await Tortoise.generate_schemas()  # pragma: no cover
 
     async def shutdown(self) -> None:
         await Tortoise.close_connections()

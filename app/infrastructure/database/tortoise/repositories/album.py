@@ -105,14 +105,9 @@ class AlbumRepository(IAlbumRepository):
         offset: int,
         limit: int = 25,
     ) -> list[MediaItem]:
-        try:
-            obj = await models.Album.get(owner_id=user_id, slug=slug)
-        except DoesNotExist:
-            return []
-
         items = await (
-            obj.items
-            .all()
+            models.File
+            .filter(albums__owner_id=user_id, albums__slug=slug)
             .select_related("mediatype")
             .order_by("-modified_at")
             .offset(offset)

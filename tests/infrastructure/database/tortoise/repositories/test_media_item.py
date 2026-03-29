@@ -74,8 +74,8 @@ class TestAddCategoryBatch:
         user: User,
     ):
         # GIVEN
-        item_1 = await media_item_factory(user.id)
-        categories_1 = [
+        item = await media_item_factory(user.id)
+        categories = [
             MediaItem.Category(
                 name=MediaItem.Category.Name.ANIMALS,
                 origin=MediaItem.Category.Origin.AUTO,
@@ -87,9 +87,22 @@ class TestAddCategoryBatch:
                 probability=84,
             ),
         ]
+        # WHEN
+        await media_item_repo.add_category_batch(item.file_id, categories)
+        # THEN
+        result = await _list_categories_by_id(item.file_id)
+        assert result == categories
 
-        item_2 = await media_item_factory(user.id)
-        categories_2 = [
+    @pytest.mark.usefixtures("namespace")
+    async def test_adds_new_and_updates_existing(
+        self,
+        media_item_repo: MediaItemRepository,
+        media_item_factory: MediaItemFactory,
+        user: User,
+    ):
+        # GIVEN
+        item = await media_item_factory(user.id)
+        existing_categories = [
             MediaItem.Category(
                 name=MediaItem.Category.Name.LANDSCAPES,
                 origin=MediaItem.Category.Origin.AUTO,
@@ -101,18 +114,83 @@ class TestAddCategoryBatch:
                 probability=66,
             ),
         ]
+        await media_item_repo.add_category_batch(item.file_id, existing_categories)
 
-        # WHEN: adding categories for the first time
-        await media_item_repo.add_category_batch(item_1.file_id, categories_1)
-        # THEN
-        categories = await _list_categories_by_id(item_1.file_id)
-        assert categories == categories_1
+        new_categories = [
+            MediaItem.Category(
+                name=MediaItem.Category.Name.ANIMALS,
+                origin=MediaItem.Category.Origin.AUTO,
+                probability=78,
+            ),
+            MediaItem.Category(
+                name=MediaItem.Category.Name.PETS,
+                origin=MediaItem.Category.Origin.AUTO,
+                probability=84,
+            ),
+        ]
+        # WHEN
+        await media_item_repo.add_category_batch(item.file_id, new_categories)
+        # THEN: LANDSCAPES unchanged, ANIMALS updated, PETS added
+        result = await _list_categories_by_id(item.file_id)
+        assert len(result) == 3
+        assert result == [
+            existing_categories[0],
+            new_categories[0],
+            new_categories[1],
+        ]
 
-        # WHEN: adding existing categories
-        await media_item_repo.add_category_batch(item_2.file_id, categories_2)
+    @pytest.mark.usefixtures("namespace")
+    async def test_updates_all_existing(
+        self,
+        media_item_repo: MediaItemRepository,
+        media_item_factory: MediaItemFactory,
+        user: User,
+    ):
+        # GIVEN
+        item = await media_item_factory(user.id)
+        categories = [
+            MediaItem.Category(
+                name=MediaItem.Category.Name.ANIMALS,
+                origin=MediaItem.Category.Origin.AUTO,
+                probability=50,
+            ),
+        ]
+        await media_item_repo.add_category_batch(item.file_id, categories)
+
+        updated_categories = [
+            MediaItem.Category(
+                name=MediaItem.Category.Name.ANIMALS,
+                origin=MediaItem.Category.Origin.AUTO,
+                probability=90,
+            ),
+        ]
+        # WHEN
+        await media_item_repo.add_category_batch(item.file_id, updated_categories)
         # THEN
-        categories = await _list_categories_by_id(item_2.file_id)
-        assert categories == categories_2
+        result = await _list_categories_by_id(item.file_id)
+        assert result == updated_categories
+
+    @pytest.mark.usefixtures("namespace")
+    async def test_with_empty_categories(
+        self,
+        media_item_repo: MediaItemRepository,
+        media_item_factory: MediaItemFactory,
+        user: User,
+    ):
+        # GIVEN
+        item = await media_item_factory(user.id)
+        categories = [
+            MediaItem.Category(
+                name=MediaItem.Category.Name.ANIMALS,
+                origin=MediaItem.Category.Origin.USER,
+                probability=90,
+            ),
+        ]
+        await _add_category(item.file_id, categories[0])
+        # WHEN
+        await media_item_repo.add_category_batch(item.file_id, categories=[])
+        # THEN
+        assert await _list_categories_by_id(item.file_id) == categories
 
     async def test_when_media_item_does_not_exist(
         self,
@@ -372,6 +450,29 @@ class TestSetCategories:
         # THEN
         result = await _list_categories_by_id(item.file_id)
         assert result == categories_3
+
+    @pytest.mark.usefixtures("namespace")
+    async def test_with_empty_categories(
+        self,
+        media_item_repo: MediaItemRepository,
+        media_item_factory: MediaItemFactory,
+        user: User,
+    ):
+        # GIVEN
+        item = await media_item_factory(user.id)
+        categories = [
+            MediaItem.Category(
+                name=MediaItem.Category.Name.ANIMALS,
+                origin=MediaItem.Category.Origin.USER,
+                probability=90,
+            ),
+        ]
+        await _add_category(item.file_id, categories[0])
+        # WHEN
+        await media_item_repo.set_categories(item.file_id, categories=[])
+        # THEN
+        result = await _list_categories_by_id(item.file_id)
+        assert result == []
 
     async def test_when_media_item_does_not_exist(
         self, media_item_repo: MediaItemRepository,

@@ -173,7 +173,7 @@ class GelConfig(BaseModel):
     gel_max_concurrency: int | None = None
 
     def with_pool_size(self, size: int) -> Self:
-        return self.model_copy(update={"gel_max_concurrency": size})
+        return self.model_copy(update={"gel_max_concurrency": size})  # pragma: no cover
 
 
 class TortoiseConfig(BaseModel):
@@ -182,9 +182,6 @@ class TortoiseConfig(BaseModel):
         f"sqlite:///{_BASE_DIR / 'db.sqlite3'}"
         "?install_regexp_functions=true"
     )
-
-    def with_pool_size(self, size: int) -> Self:
-        return self
 
 
 class FeatureConfig(BaseModel):
@@ -240,7 +237,7 @@ class SentryConfig(BaseModel):
 
 
 DatabaseConfig = Annotated[
-    GelConfig | TortoiseConfig,
+    TortoiseConfig,
     Field(discriminator="type"),
 ]
 

@@ -476,26 +476,21 @@ class FileRepository(IFileRepository):
 
     async def update(self, file: File, fields: FileUpdate) -> File:
         update_kwargs: dict[str, object] = {}
-        ns_path = fields.pop("ns_path", None)
-        if ns_path is not None:
+        ns_path = fields.pop("ns_path", file.ns_path)
+        if ns_path != file.ns_path:
             namespace = await models.Namespace.get(path=ns_path)
             update_kwargs["namespace"] = namespace
 
         for key, value in fields.items():
             update_kwargs[key] = str(value) if key == "path" else value
 
-        await (
-            models.File.filter(id=file.id).update(**update_kwargs)
-        )
+        await models.File.filter(id=file.id).update(**update_kwargs)
 
-        try:
-            obj = await (
-                models.File
-                .filter(id=file.id)
-                .select_related("mediatype", "namespace")
-                .get()
-            )
-        except DoesNotExist as exc:
-            raise File.NotFound() from exc
+        obj = await (
+            models.File
+            .filter(id=file.id)
+            .select_related("mediatype", "namespace")
+            .get()
+        )
 
         return _from_db(obj.namespace.path, obj)

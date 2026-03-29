@@ -3,11 +3,11 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-import orjson
 import pytest
 
 from app.app.files.domain import ContentMetadata, Exif, File
 from app.infrastructure.database.gel.db import db_context
+from app.toolkit import json_
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -59,7 +59,7 @@ class TestSave:
         await metadata_repo.save(given)
         # THEN
         meta = await _get_by_file_id(file.id)
-        assert orjson.loads(meta.data) == exif.model_dump(exclude_none=True)
+        assert json_.loads(meta.data) == exif.model_dump(exclude_none=True)
 
     async def test_when_file_does_not_exist(
         self, metadata_repo: ContentMetadataRepository,
@@ -88,9 +88,9 @@ class TestSaveBatch:
         await metadata_repo.save_batch(given)
         # THEN
         meta = await _get_by_file_id(files[0].id)
-        assert orjson.loads(meta.data) == given[0].data.model_dump(exclude_none=True)
+        assert json_.loads(meta.data) == given[0].data.model_dump(exclude_none=True)
         meta = await _get_by_file_id(files[1].id)
-        assert orjson.loads(meta.data) == given[1].data.model_dump(exclude_none=True)
+        assert json_.loads(meta.data) == given[1].data.model_dump(exclude_none=True)
 
     async def test_when_file_does_not_exist(
         self,

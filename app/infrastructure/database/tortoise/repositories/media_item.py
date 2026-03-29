@@ -79,16 +79,42 @@ class MediaItemRepository:
             return
 
         cat_by_name = await _get_or_create_categories(c.name for c in categories)
-        through_objs = [
-            models.FileFileCategoryThrough(
-                file_id=file_id,
-                file_category_id=cat_by_name[category.name].id,
-                origin=_ORIGIN_TO_INT[category.origin],
-                probability=category.probability,
+
+        existing_through = await (
+            models.FileFileCategoryThrough
+            .filter(file_id=file_id)
+        )
+        existing_by_cat_id = {
+            obj.file_category_id: obj  # type: ignore[attr-defined]
+            for obj in existing_through
+        }
+
+        to_create = []
+        to_update = []
+        for category in categories:
+            cat_id = cat_by_name[category.name].id
+            origin = _ORIGIN_TO_INT[category.origin]
+            if cat_id in existing_by_cat_id:
+                obj = existing_by_cat_id[cat_id]
+                obj.origin = origin
+                obj.probability = category.probability
+                to_update.append(obj)
+            else:
+                to_create.append(
+                    models.FileFileCategoryThrough(
+                        file_id=file_id,
+                        file_category_id=cat_id,
+                        origin=origin,
+                        probability=category.probability,
+                    )
+                )
+
+        if to_update:
+            await models.FileFileCategoryThrough.bulk_update(
+                to_update, fields=["origin", "probability"],
             )
-            for category in categories
-        ]
-        await models.FileFileCategoryThrough.bulk_create(through_objs)
+        if to_create:
+            await models.FileFileCategoryThrough.bulk_create(to_create)
 
     async def count(self, user_id: UUID) -> CountResult:
         base = (
@@ -218,8 +244,7 @@ class MediaItemRepository:
             )
             .values_list("id", flat=True)
         )
-        if matching_ids:
-            await models.File.filter(id__in=matching_ids).update(deleted_at=deleted_at)
+        await models.File.filter(id__in=matching_ids).update(deleted_at=deleted_at)
 
         objs = await (
             _base_qs()
