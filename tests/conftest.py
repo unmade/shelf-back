@@ -32,12 +32,3 @@ def pytest_addoption(parser):
 @pytest.fixture(scope="session")
 def anyio_backend():
     return "asyncio"
-
-
-@pytest.fixture(scope="session")
-def reuse_db(pytestconfig):
-    """
-    Returns whether or not to re-use an existing database and to keep it after
-    the test run.
-    """
-    return pytestconfig.getoption("reuse_db", False)
