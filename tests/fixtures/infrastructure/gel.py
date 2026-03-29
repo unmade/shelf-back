@@ -18,7 +18,8 @@ if TYPE_CHECKING:
 
 @pytest.fixture(scope="session")
 def gel_config():
-    assert isinstance(config.database, GelConfig)
+    if not isinstance(config.database, GelConfig):
+        pytest.skip("Gel is not configured")
     assert config.database.dsn is not None
     db_name = f"{config.database.dsn.name}_test"
     return config.database.model_copy(
@@ -38,7 +39,8 @@ def setup_gel_database(reuse_db: bool, gel_config: GelConfig) -> None:
     async def _create_db():
         assert gel_config.dsn is not None
         db_name = gel_config.dsn.name
-        server_conf = gel_config.model_copy(update={"dsn": gel_config.dsn.origin})
+        dsn = gel_config.dsn.origin  # type: ignore[attr-defined]
+        server_conf = gel_config.model_copy(update={"dsn": dsn})
         created = True
         async with GelDatabase(server_conf) as db:
             try:
@@ -68,21 +70,22 @@ def flush_gel_database_if_needed(request: FixtureRequest):
         yield
     finally:
         if marker := request.node.get_closest_marker("database"):
-            if marker.kwargs.get("transaction", False):
-                session_db_client = request.getfixturevalue("_session_sync_client")
-                session_db_client.execute("""
-                    DELETE Account;
-                    DELETE AuditTrail;
-                    DELETE AuditTrailAction;
-                    DELETE File;
-                    DELETE FileMetadata;
-                    DELETE FilePendingDeletion;
-                    DELETE Fingerprint;
-                    DELETE MediaType;
-                    DELETE Namespace;
-                    DELETE SharedLink;
-                    DELETE User;
-                """)
+            if isinstance(config.database, GelConfig):
+                if marker.kwargs.get("transaction", False):
+                    session_db_client = request.getfixturevalue("_session_sync_client")
+                    session_db_client.execute("""
+                        DELETE Account;
+                        DELETE AuditTrail;
+                        DELETE AuditTrailAction;
+                        DELETE File;
+                        DELETE FileMetadata;
+                        DELETE FilePendingDeletion;
+                        DELETE Fingerprint;
+                        DELETE MediaType;
+                        DELETE Namespace;
+                        DELETE SharedLink;
+                        DELETE User;
+                    """)
 
 
 @pytest.fixture(scope="session")

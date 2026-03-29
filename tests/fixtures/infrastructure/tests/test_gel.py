@@ -6,13 +6,20 @@ from typing import TYPE_CHECKING
 import pytest
 from gel.asyncio_client import AsyncIOClient, AsyncIOIteration
 
+from app.config import GelConfig, config
 from app.infrastructure.database.gel import GelDatabase
 from app.infrastructure.database.gel.db import db_context
 
 if TYPE_CHECKING:
     from pytest import FixtureRequest, Pytester
 
-pytestmark = [pytest.mark.metatest]
+pytestmark = [
+    pytest.mark.metatest,
+    pytest.mark.skipif(
+        not isinstance(config.database, GelConfig),
+        reason="Gel is not configured",
+    ),
+]
 
 
 class TestSetupGelDatabase:

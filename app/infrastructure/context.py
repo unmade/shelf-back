@@ -30,12 +30,12 @@ from app.config import (
     GelConfig,
     MailConfig,
     MailSMTPConfig,
-    PostgresConfig,
     S3StorageConfig,
-    SQLiteConfig,
+    TortoiseConfig,
 )
 from app.infrastructure.clients.indexer import IndexerClient
 from app.infrastructure.database.gel import GelDatabase
+from app.infrastructure.database.tortoise import TortoiseDatabase
 from app.infrastructure.mail import SMTPEmailBackend
 from app.infrastructure.storage import FileSystemStorage, S3Storage
 from app.infrastructure.worker import ARQWorker
@@ -103,10 +103,11 @@ class Infrastructure:
         await self._stack.aclose()
 
     @staticmethod
-    def _get_database(db_config: DatabaseConfig) -> GelDatabase:
-        assert not isinstance(db_config, (SQLiteConfig, PostgresConfig))
+    def _get_database(db_config: DatabaseConfig) -> GelDatabase | TortoiseDatabase:
         if isinstance(db_config, GelConfig):
             return GelDatabase(db_config)
+        if isinstance(db_config, TortoiseConfig):
+            return TortoiseDatabase(db_config)
         assert_never(db_config)
 
     @staticmethod

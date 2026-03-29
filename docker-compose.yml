@@ -30,6 +30,15 @@ services:
       - "9090:9090"
     command: server /data --console-address ":9090"
 
+  postgres:
+    image: postgres:17
+    environment:
+      - POSTGRES_USER=shelf
+      - POSTGRES_PASSWORD=shelf
+      - POSTGRES_DB=shelf
+    ports:
+      - "5432:5432"
+
   redis:
     image: redis:alpine
     ports:

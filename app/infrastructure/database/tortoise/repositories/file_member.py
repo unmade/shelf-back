@@ -4,6 +4,7 @@ import enum
 from typing import TYPE_CHECKING
 
 from tortoise.exceptions import DoesNotExist, IntegrityError
+from tortoise.transactions import in_transaction
 
 from app.app.files.domain import File, FileMember
 from app.app.files.repositories import IFileMemberRepository
@@ -123,12 +124,13 @@ class FileMemberRepository(IFileMemberRepository):
 
     async def save(self, entity: FileMember) -> FileMember:
         try:
-            obj = await models.FileMember.create(
-                file_id=entity.file_id,
-                user_id=entity.user.id,
-                actions=ActionFlag.dump(entity.actions),
-                created_at=entity.created_at,
-            )
+            async with in_transaction():
+                obj = await models.FileMember.create(
+                    file_id=entity.file_id,
+                    user_id=entity.user.id,
+                    actions=ActionFlag.dump(entity.actions),
+                    created_at=entity.created_at,
+                )
         except IntegrityError as exc:
             err_msg = str(exc).lower()
             if "unique" in err_msg:

@@ -53,6 +53,7 @@ async def _list_categories_by_id(file_id: UUID) -> list[MediaItemCategory]:
         models.FileFileCategoryThrough
         .filter(file_id=file_id)
         .select_related("file_category")
+        .order_by("probability")
     )
     return [
         MediaItem.Category(
@@ -90,14 +91,14 @@ class TestAddCategoryBatch:
         item_2 = await media_item_factory(user.id)
         categories_2 = [
             MediaItem.Category(
-                name=MediaItem.Category.Name.ANIMALS,
-                origin=MediaItem.Category.Origin.AUTO,
-                probability=66,
-            ),
-            MediaItem.Category(
                 name=MediaItem.Category.Name.LANDSCAPES,
                 origin=MediaItem.Category.Origin.AUTO,
                 probability=33,
+            ),
+            MediaItem.Category(
+                name=MediaItem.Category.Name.ANIMALS,
+                origin=MediaItem.Category.Origin.AUTO,
+                probability=66,
             ),
         ]
 
@@ -333,7 +334,7 @@ class TestSetCategories:
             MediaItem.Category(
                 name=MediaItem.Category.Name.ANIMALS,
                 origin=MediaItem.Category.Origin.USER,
-                probability=100,
+                probability=90,
             ),
             MediaItem.Category(
                 name=MediaItem.Category.Name.PETS,
@@ -345,12 +346,12 @@ class TestSetCategories:
             MediaItem.Category(
                 name=MediaItem.Category.Name.PETS,
                 origin=MediaItem.Category.Origin.USER,
-                probability=100,
+                probability=80,
             ),
             MediaItem.Category(
                 name=MediaItem.Category.Name.TRAVEL,
                 origin=MediaItem.Category.Origin.USER,
-                probability=100,
+                probability=90,
             ),
         ]
         categories_3: list[MediaItemCategory] = []

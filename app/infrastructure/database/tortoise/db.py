@@ -2,8 +2,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Self
 
-from tortoise import Tortoise, TortoiseConfig, connections, transactions
-from tortoise.config import AppConfig, DBUrlConfig
+from tortoise import Tortoise, transactions
+from tortoise.config import (
+    AppConfig,
+    DBUrlConfig,
+)
+from tortoise.config import (
+    TortoiseConfig as TortoiseORMConfig,
+)
 
 from app.app.infrastructure import IDatabase
 
@@ -45,7 +51,7 @@ if TYPE_CHECKING:
         IBookmarkRepository,
         IUserRepository,
     )
-    from app.config import PostgresConfig, SQLiteConfig
+    from app.config import TortoiseConfig
 
 
 TORTOISE_MODELS = ["app.infrastructure.database.tortoise.models"]
@@ -82,7 +88,7 @@ class TortoiseDatabase(IDatabase):
     shared_link: ISharedLinkRepository
     user: IUserRepository
 
-    def __init__(self, config: SQLiteConfig | PostgresConfig) -> None:
+    def __init__(self, config: TortoiseConfig) -> None:
         self.config = config
         self.account = AccountRepository()
         self.album = AlbumRepository()
@@ -99,10 +105,10 @@ class TortoiseDatabase(IDatabase):
         self.shared_link = SharedLinkRepository()
         self.user = UserRepository()
 
-    def _tortoise_config(self) -> TortoiseConfig:
-        return TortoiseConfig(
+    def _tortoise_config(self) -> TortoiseORMConfig:
+        return TortoiseORMConfig(
             connections={
-                "default": DBUrlConfig(self.config.db_url),
+                "default": DBUrlConfig(self.config.dsn),
             },
             apps={
                 "models": AppConfig(
@@ -122,4 +128,4 @@ class TortoiseDatabase(IDatabase):
         await Tortoise.generate_schemas()
 
     async def shutdown(self) -> None:
-        await connections.close_all()
+        await Tortoise.close_connections()

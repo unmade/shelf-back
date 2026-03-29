@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
 from datetime import datetime
 from typing import TYPE_CHECKING, cast
 
-from tortoise.exceptions import DoesNotExist, IntegrityError
+from tortoise.exceptions import DoesNotExist
 
 from app.app.photos.domain import MediaItem
 from app.app.photos.domain.media_item import (
@@ -17,6 +16,7 @@ from app.config import config
 from app.infrastructure.database.tortoise import models
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
     from uuid import UUID
 
 __all__ = ["MediaItemRepository"]
@@ -52,27 +52,43 @@ def _base_qs():
     )
 
 
+async def _get_or_create_categories(
+    names: Iterable[str]
+) -> dict[str, models.FileCategory]:
+    unique_names = list(set(names))
+    categories = await models.FileCategory.filter(name__in=unique_names)
+    by_name = {cat.name: cat for cat in categories}
+
+    missing_names = [name for name in unique_names if name not in by_name]
+    if missing_names:
+        to_create = [models.FileCategory(name=name) for name in missing_names]
+        await models.FileCategory.bulk_create(to_create)
+        by_name.update({category.name: category for category in to_create})
+
+    return by_name
+
+
 class MediaItemRepository:
     async def add_category_batch(
         self, file_id: UUID, categories: Sequence[MediaItemCategory]
     ) -> None:
-        try:
-            file_obj = await models.File.get(id=file_id)
-        except DoesNotExist as exc:
-            raise MediaItem.NotFound() from exc
+        if not await models.File.filter(id=file_id).exists():
+            raise MediaItem.NotFound()
 
-        for category in categories:
-            try:
-                cat_obj = await models.FileCategory.create(name=category.name)
-            except IntegrityError:
-                cat_obj = await models.FileCategory.get(name=category.name)
+        if not categories:
+            return
 
-            await models.FileFileCategoryThrough.create(
-                file=file_obj,
-                file_category=cat_obj,
+        cat_by_name = await _get_or_create_categories(c.name for c in categories)
+        through_objs = [
+            models.FileFileCategoryThrough(
+                file_id=file_id,
+                file_category_id=cat_by_name[category.name].id,
                 origin=_ORIGIN_TO_INT[category.origin],
                 probability=category.probability,
             )
+            for category in categories
+        ]
+        await models.FileFileCategoryThrough.bulk_create(through_objs)
 
     async def count(self, user_id: UUID) -> CountResult:
         base = (
@@ -172,21 +188,22 @@ class MediaItemRepository:
         if not await models.File.filter(id=file_id).exists():
             raise MediaItem.NotFound()
 
-        # Clear existing categories
         await models.FileFileCategoryThrough.filter(file_id=file_id).delete()
 
-        for category in categories:
-            try:
-                cat_obj = await models.FileCategory.create(name=category.name)
-            except IntegrityError:
-                cat_obj = await models.FileCategory.get(name=category.name)
+        if not categories:
+            return
 
-            await models.FileFileCategoryThrough.create(
+        cat_by_name = await _get_or_create_categories(c.name for c in categories)
+        through_objs = [
+            models.FileFileCategoryThrough(
                 file_id=file_id,
-                file_category=cat_obj,
+                file_category_id=cat_by_name[category.name].id,
                 origin=_ORIGIN_TO_INT[category.origin],
                 probability=category.probability,
             )
+            for category in categories
+        ]
+        await models.FileFileCategoryThrough.bulk_create(through_objs)
 
     async def set_deleted_at_batch(
         self, user_id: UUID, file_ids: Sequence[UUID], deleted_at: datetime | None
