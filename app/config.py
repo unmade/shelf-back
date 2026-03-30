@@ -20,7 +20,6 @@ _BASE_DIR = Path(__file__).absolute().resolve().parent.parent
 
 
 class DatabaseType(enum.StrEnum):
-    gel = "gel"
     tortoise = "tortoise"
 
 
@@ -162,18 +161,6 @@ class CORSConfig(BaseModel):
     allowed_origins: list[str] = []
     allowed_methods: list[str] = ["*"]
     allowed_headers: list[str] = ["*"]
-
-
-class GelConfig(BaseModel):
-    type: Literal[DatabaseType.gel] = DatabaseType.gel
-    dsn: DatabaseDSN | None = None
-    gel_tls_ca_file: AbsPath | None = None
-    gel_tls_security: str | None = None
-    gel_schema: AbsPath = str(_BASE_DIR / "./dbschema/default.gel")
-    gel_max_concurrency: int | None = None
-
-    def with_pool_size(self, size: int) -> Self:
-        return self.model_copy(update={"gel_max_concurrency": size})  # pragma: no cover
 
 
 class TortoiseConfig(BaseModel):

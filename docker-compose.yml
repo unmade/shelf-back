@@ -1,17 +1,4 @@
 services:
-  gel:
-    image: geldata/gel:6.9
-    environment:
-      - GEL_SERVER_USER=gel
-      - GEL_SERVER_PASSWORD=root
-      - GEL_SERVER_TLS_KEY_FILE=/certs/edbprivkey.dev.pem
-      - GEL_SERVER_TLS_CERT_FILE=/certs/edbtlscert.dev.pem
-    volumes:
-      - dbvolume:/var/lib/gel/data
-      - ./certs:/certs
-    ports:
-      - "5656:5656"
-
   mailpit:
     image: axllent/mailpit
     ports:
@@ -36,6 +23,8 @@ services:
       - POSTGRES_USER=shelf
       - POSTGRES_PASSWORD=shelf
       - POSTGRES_DB=shelf
+    volumes:
+      - shelf-db-volume:/var/lib/postgresql/data
     ports:
       - "5432:5432"
 
@@ -46,5 +35,5 @@ services:
 
 
 volumes:
-  dbvolume: {}
+  shelf-db-volume: {}
   shelf-minio-volume: {}

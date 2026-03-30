@@ -9,7 +9,6 @@ pytest_plugins = [
     "pytester",
     "tests.fixtures.app.files",
     "tests.fixtures.infrastructure.arq_worker",
-    "tests.fixtures.infrastructure.gel",
     "tests.fixtures.infrastructure.fs_storage",
     "tests.fixtures.infrastructure.s3_storage",
     "tests.fixtures.infrastructure.smtp",

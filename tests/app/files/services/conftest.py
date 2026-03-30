@@ -268,11 +268,11 @@ async def folder(namespace: Namespace, folder_factory: FolderFactory):
 
 @pytest.fixture
 async def user_a(user_factory: UserFactory):
-    """A User instance saved to Gel."""
+    """A User instance saved to the database."""
     return await user_factory("admin")
 
 
 @pytest.fixture
 async def user_b(user_factory: UserFactory):
-    """Another User instance saved to Gel."""
+    """Another User instance saved to the database."""
     return await user_factory("user_b")

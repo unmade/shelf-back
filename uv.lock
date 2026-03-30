@@ -460,15 +460,6 @@ wheels = [
 ]
 
 [[package]]
-name = "gel"
-version = "3.1.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "certifi", marker = "sys_platform == 'win32'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/9c/70/84cee8eb48a2760893e60e8267502bc16ddef2197dd41f20c103a3f04e01/gel-3.1.0.tar.gz", hash = "sha256:3bb0b21167e00c976675a7d5dd73c21002e659651bf9de7fa46cd418bfa3eb85", size = 1331332, upload-time = "2025-04-29T20:44:49.659Z" }
-
-[[package]]
 name = "gunicorn"
 version = "23.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1308,7 +1299,6 @@ dependencies = [
     { name = "click" },
     { name = "fastapi" },
     { name = "filetype" },
-    { name = "gel" },
     { name = "gunicorn" },
     { name = "httpx", extra = ["http2"] },
     { name = "jinja2" },
@@ -1353,7 +1343,6 @@ requires-dist = [
     { name = "click", specifier = "==8.3.1" },
     { name = "fastapi", specifier = "==0.121.3" },
     { name = "filetype", specifier = "==1.2.0" },
-    { name = "gel", specifier = "==3.1.0" },
     { name = "gunicorn", specifier = "==23.0.0" },
     { name = "httpx", extras = ["http2"], specifier = "==0.28.1" },
     { name = "jinja2", specifier = "==3.1.6" },

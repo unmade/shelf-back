@@ -38,7 +38,7 @@ docker-compose up -d
 Apply migration:
 
 ```bash
-uv run python manage.py migrate schema.esdl
+uv run python manage.py migrate
 ```
 
 Start the worker:
@@ -59,8 +59,7 @@ uv run uvicorn app.api.main:app --host 0.0.0.0 --port 8000
 pytest
 ```
 
-> Before running tests, make sure Gel (EdgeDB) instance is up and running.
-> Test runner will create a new database and drop it after.
+> Test runner will create a new test database.
 
 ### Building a Docker image
 
@@ -92,9 +91,7 @@ superuser on the first image run:
 |CACHE__BACKEND_DSN            | - | mem:// | Cache backend DSN. See [options](https://github.com/Krukov/cashews) |
 |CACHE__DISK_CACHE_MAX_SIZE    | - | -      | Client cache size limit in bytes. Can be set in a format like "512MB", "1GB" |
 |CORS__ALLOWED_ORIGINS         | - | []     | A comma-separated list of origins that should be permitted to make cross-origin requests |
-|DATABASE__DSN                 | - | -      | Database DSN. If not set, then fallback to Gel envs |
-|DATABASE__GEL_TLS_CA_FILE  | - | -      | Path to TLS Certificate file to connect to the database. If not set, then fallback to GEL_TLS_CA |
-|DATABASE__GEL_TLS_SECURITY | - | -      | Set the TLS security mode |
+|DATABASE__DSN                 | + | -      | Database DSN |
 |FEATURES__MAX_FILE_SIZE_TO_THUMBNAIL | - | 20MB | Thumbnails won't be generated for files larger than specified size. |
 |FEATURES__MAX_IMAGE_PIXELS | - | 89_478_485 | Don't process images if the number of pixels in an image is over limit. |
 |FEATURES__PHOTOS_LIBRARY_PATH | - | Photos/Library | All media files within that path will appear in the Photos. |
