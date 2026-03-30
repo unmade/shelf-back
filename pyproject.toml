@@ -41,8 +41,8 @@ lint = [
 ]
 test = [
     "aiosmtpd==1.4.6",
-    "anyio==4.12.1",
+    "anyio==4.13.0",
     "faker==37.12.0",
     "pytest==8.4.2",
-    "pytest-cov==7.0.0",
+    "pytest-cov==7.1.0",
 ]
