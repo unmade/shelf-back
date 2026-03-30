@@ -19,6 +19,6 @@ exclude_lines =
     assert_never
 omit =
     app/contrib/*
+    app/infrastructure/database/tortoise/migrations/*
     app/infrastructure/storage/s3/clients/*
     app/typedefs.py
-    tests/example_fixture_tests/*

@@ -50,7 +50,6 @@ def cli():
 @async_to_sync
 async def createsuperuser(username, password, exist_ok):
     """Create a new super user with namespace, home and trash directories."""
-    config.database = config.database.with_pool_size(1)
     async with AppContext(config) as ctx:
         try:
             await ctx.usecases.user.create_superuser(username, password)
@@ -67,7 +66,6 @@ async def createsuperuser(username, password, exist_ok):
 @async_to_sync
 async def reindex(namespace: str) -> None:
     """Reindex files in the storage for a given namespace."""
-    config.database = config.database.with_pool_size(1)
     async with AppContext(config) as ctx:
         await ctx.usecases.namespace.reindex(namespace)
 
@@ -80,18 +78,8 @@ async def reindex_content(namespace: str) -> None:
     Restore additional information about files, such as file fingerprints and content
     metadata.
     """
-    config.database = config.database.with_pool_size(1)
     async with AppContext(config) as ctx:
         await ctx.usecases.namespace.reindex_contents(namespace)
-
-
-@cli.command()
-@async_to_sync
-async def migrate() -> None:
-    """Apply target schema to a database."""
-    config.database = config.database.with_pool_size(1)
-    async with AppContext(config) as ctx:
-        await ctx._infra.database.migrate()
 
 
 if __name__ == "__main__":

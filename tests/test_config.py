@@ -6,6 +6,7 @@ import pytest
 
 from app.config import (
     _BASE_DIR,
+    DatabaseDSN,
     _as_absolute_path,
     _parse_bytes_size,
     _parse_timedelta_from_str,
@@ -90,3 +91,58 @@ class TestParseTimedeltaFromStr:
         given = object()
         result = _parse_timedelta_from_str(given)
         assert result is given
+
+
+class TestDatabaseDSN:
+    @pytest.mark.parametrize(["dsn", "expected"], [
+        ("postgres://user:pass@localhost:5432/mydb", "postgres"),
+        ("sqlite:///path/to/db.sqlite3", "sqlite"),
+    ])
+    def test_scheme(self, dsn: str, expected: str):
+        assert DatabaseDSN(dsn).scheme == expected
+
+    @pytest.mark.parametrize(["dsn", "expected"], [
+        ("postgres://user:pass@localhost:5432/mydb", "mydb"),
+        ("sqlite:///path/to/db.sqlite3", "path/to/db.sqlite3"),
+    ])
+    def test_name(self, dsn: str, expected: str):
+        assert DatabaseDSN(dsn).name == expected
+
+    @pytest.mark.parametrize(["dsn", "expected"], [
+        ("sqlite:///:memory:", True),
+        ("sqlite://:memory:", True),
+        ("sqlite:///path/to/db.sqlite3", False),
+        ("postgres://user:pass@localhost:5432/mydb", False),
+    ])
+    def test_is_memory(self, dsn: str, expected: bool):
+        assert DatabaseDSN(dsn).is_memory() is expected
+
+    @pytest.mark.parametrize(["dsn", "expected"], [
+        ("sqlite:///path/to/db.sqlite3", True),
+        ("sqlite:///:memory:", True),
+        ("sqlite://:memory:", True),
+        ("postgres://user:pass@localhost:5432/mydb", False),
+    ])
+    def test_is_sqlite(self, dsn: str, expected: bool):
+        assert DatabaseDSN(dsn).is_sqlite() is expected
+
+    def test_with_name(self):
+        dsn = DatabaseDSN("postgres://user:pass@localhost:5432/mydb")
+        result = dsn.with_name("mydb_test")
+        assert result == "postgres://user:pass@localhost:5432/mydb_test"
+        assert isinstance(result, DatabaseDSN)
+
+    def test_with_name_preserves_query_params(self):
+        dsn = DatabaseDSN(
+            "sqlite:///path/to/db.sqlite3?install_regexp_functions=true"
+        )
+        result = dsn.with_name("/tmp/test/db.sqlite3")
+        assert result == (
+            "sqlite:///tmp/test/db.sqlite3?install_regexp_functions=true"
+        )
+        assert isinstance(result, DatabaseDSN)
+
+    def test_with_name_without_query_params(self):
+        dsn = DatabaseDSN("sqlite:///path/to/db.sqlite3")
+        result = dsn.with_name("/tmp/test/db.sqlite3")
+        assert result == "sqlite:///tmp/test/db.sqlite3"

@@ -47,12 +47,8 @@ class TestRemoveBatch:
         # GIVEN
         user_id = uuid.uuid4()
         file_ids = [uuid.uuid4() for _ in range(3)]
-        bookmarks = [
-            Bookmark(user_id=user_id, file_id=file_id)
-            for file_id in file_ids
-        ]
         db = cast(mock.MagicMock, bookmark_service.db)
         # WHEN
         await bookmark_service.remove_batch(user_id, file_ids)
         # THEN
-        db.bookmark.delete_batch.assert_awaited_once_with(bookmarks)
+        db.bookmark.delete_batch.assert_awaited_once_with(user_id, file_ids)

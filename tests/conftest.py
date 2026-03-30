@@ -9,10 +9,10 @@ pytest_plugins = [
     "pytester",
     "tests.fixtures.app.files",
     "tests.fixtures.infrastructure.arq_worker",
-    "tests.fixtures.infrastructure.gel",
     "tests.fixtures.infrastructure.fs_storage",
     "tests.fixtures.infrastructure.s3_storage",
     "tests.fixtures.infrastructure.smtp",
+    "tests.fixtures.infrastructure.tortoise",
 ]
 
 
@@ -31,12 +31,3 @@ def pytest_addoption(parser):
 @pytest.fixture(scope="session")
 def anyio_backend():
     return "asyncio"
-
-
-@pytest.fixture(scope="session")
-def reuse_db(pytestconfig):
-    """
-    Returns whether or not to re-use an existing database and to keep it after
-    the test run.
-    """
-    return pytestconfig.getoption("reuse_db", False)

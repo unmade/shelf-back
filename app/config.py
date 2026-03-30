@@ -20,7 +20,7 @@ _BASE_DIR = Path(__file__).absolute().resolve().parent.parent
 
 
 class DatabaseType(enum.StrEnum):
-    gel = "gel"
+    tortoise = "tortoise"
 
 
 class MailBackendType(enum.StrEnum):
@@ -102,7 +102,7 @@ BytesSize = Annotated[int, BeforeValidator(_parse_bytes_size)]
 TTL = Annotated[timedelta, BeforeValidator(_parse_timedelta_from_str)]
 
 
-class GelDSN(str):
+class DatabaseDSN(str):
     __slots__ = ()
 
     @classmethod
@@ -112,21 +112,31 @@ class GelDSN(str):
         return core_schema.no_info_after_validator_function(cls, handler(str))
 
     @property
+    def scheme(self) -> str:
+        """Returns URL scheme."""
+        return urlsplit(str(self)).scheme
+
+    @property
     def name(self) -> str:
         """Returns database name."""
         result = urlsplit(str(self))
         return result.path.strip('/')
 
-    @property
-    def origin(self) -> str:
-        """Return database host."""
+    def is_memory(self) -> bool:
+        """True if this is an in-memory SQLite DSN."""
         result = urlsplit(str(self))
-        return urlunsplit((result.scheme, result.netloc, "", "", ""))
+        return self.is_sqlite() and (
+            result.netloc == ":memory:" or result.path.strip("/") == ":memory:"
+        )
+
+    def is_sqlite(self) -> bool:
+        """True if this is a SQLite DSN."""
+        return self.scheme == "sqlite"
 
     def with_name(self, name: str) -> Self:
         """Returns a copy of current config with updated database name."""
         scheme, netloc, _, query, fragments = urlsplit(str(self))
-        dsn = urlunsplit((scheme, netloc, f"/{name}", query, fragments))
+        dsn = urlunsplit((scheme, netloc, name, query, fragments))
         return self.__class__(dsn)
 
 
@@ -153,16 +163,12 @@ class CORSConfig(BaseModel):
     allowed_headers: list[str] = ["*"]
 
 
-class GelConfig(BaseModel):
-    type: Literal[DatabaseType.gel] = DatabaseType.gel
-    dsn: GelDSN | None = None
-    gel_tls_ca_file: AbsPath | None = None
-    gel_tls_security: str | None = None
-    gel_schema: AbsPath = str(_BASE_DIR / "./dbschema/default.gel")
-    gel_max_concurrency: int | None = None
-
-    def with_pool_size(self, size: int) -> Self:
-        return self.model_copy(update={"gel_max_concurrency": size})
+class TortoiseConfig(BaseModel):
+    type: Literal[DatabaseType.tortoise] = DatabaseType.tortoise
+    dsn: DatabaseDSN = DatabaseDSN(
+        f"sqlite:///{_BASE_DIR / 'db.sqlite3'}"
+        "?install_regexp_functions=true"
+    )
 
 
 class FeatureConfig(BaseModel):
@@ -217,7 +223,10 @@ class SentryConfig(BaseModel):
     environment: str | None = None
 
 
-DatabaseConfig = Annotated[GelConfig, Field(discriminator="type")]
+DatabaseConfig = Annotated[
+    TortoiseConfig,
+    Field(discriminator="type"),
+]
 
 MailConfig = Annotated[
     MailSMTPConfig,

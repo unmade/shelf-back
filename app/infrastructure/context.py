@@ -30,9 +30,10 @@ from app.config import (
     MailConfig,
     MailSMTPConfig,
     S3StorageConfig,
+    TortoiseConfig,
 )
 from app.infrastructure.clients.indexer import IndexerClient
-from app.infrastructure.database.gel import GelDatabase
+from app.infrastructure.database.tortoise import TortoiseDatabase
 from app.infrastructure.mail import SMTPEmailBackend
 from app.infrastructure.storage import FileSystemStorage, S3Storage
 from app.infrastructure.worker import ARQWorker
@@ -100,8 +101,10 @@ class Infrastructure:
         await self._stack.aclose()
 
     @staticmethod
-    def _get_database(db_config: DatabaseConfig) -> GelDatabase:
-        return GelDatabase(db_config)
+    def _get_database(db_config: DatabaseConfig) -> TortoiseDatabase:
+        if isinstance(db_config, TortoiseConfig):
+            return TortoiseDatabase(db_config)
+        assert_never(db_config)
 
     @staticmethod
     def _get_indexer(indexer_config: IndexerClientConfig) -> IIndexerClient | None:
