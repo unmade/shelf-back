@@ -18,7 +18,7 @@ dependencies = [
     "orjson==3.11.7",
     "passlib==1.7.4",
     "pi-heif==1.1.1",
-    "pillow==12.0.0",
+    "pillow==12.1.1",
     "pydantic-settings==2.11.0",
     "pydantic[email]==2.12.5",
     "pymupdf==1.26.7",
