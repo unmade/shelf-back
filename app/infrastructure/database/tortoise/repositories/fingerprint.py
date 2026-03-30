@@ -63,19 +63,30 @@ class FingerprintRepository(IFingerprintRepository):
         if not fingerprints:
             return {}
 
+        # Build inverted indexes: part value -> set of fingerprint indices.
+        # This allows O(1) lookup of potential matches per part, reducing
+        # the overall complexity from O(n^2) to O(n * avg_bucket_size).
+        from collections import defaultdict
+        part_index: dict[str, dict[int, set[int]]] = {
+            key: defaultdict(set)
+            for key in ("part1", "part2", "part3", "part4")
+        }
+        for idx, fp in enumerate(fingerprints):
+            for key in part_index:
+                part_index[key][getattr(fp, key)].add(idx)
+
         result: MatchResult = {}
-        for fp in fingerprints:
-            dupes: list[Fingerprint] = []
-            for other in fingerprints:
-                if other.file_id == fp.file_id:  # type: ignore[attr-defined]
-                    continue
-                if (
-                    other.part1 == fp.part1
-                    or other.part2 == fp.part2
-                    or other.part3 == fp.part3
-                    or other.part4 == fp.part4
-                ):
-                    dupes.append(_from_db(other))
+        for idx, fp in enumerate(fingerprints):
+            match_indices: set[int] = set()
+            for key in part_index:
+                match_indices |= part_index[key][getattr(fp, key)]
+            match_indices.discard(idx)
+
+            dupes = [
+                _from_db(fingerprints[other_idx])
+                for other_idx in match_indices
+                if fingerprints[other_idx].file_id != fp.file_id  # type: ignore[attr-defined]
+            ]
             if dupes:
                 result[_from_db(fp)] = dupes
 

@@ -343,7 +343,7 @@ class FileRepository(IFileRepository):
                 .filter(file_id__in=direct_file_ids)
                 .values_list("file_id", flat=True)
             )
-            shared_ids = {UUID(str(mid)) for mid in shared_members}
+            shared_ids = set(shared_members)  # type: ignore[arg-type]
 
         for obj in direct_children:
             obj._shared = obj.id in shared_ids
@@ -400,15 +400,13 @@ class FileRepository(IFileRepository):
             )
         )
         for obj in objs:
-            # Replace only the first occurrence of the prefix
-            new_path = str(obj.path).replace(
-                str(at_prefix), str(to_prefix), 1
-            )
-            obj.path = new_path
-            obj.name = Path(new_path).name
+            to_path = str(obj.path).replace(str(at_prefix), str(to_prefix), 1)
+            obj.path = to_path
+            obj.name = Path(to_path).name
             if to_ns is not None:
                 obj.namespace = to_ns
-            await obj.save(update_fields=["path", "name", "namespace_id"])
+
+        await models.File.bulk_update(objs, fields=["path", "name", "namespace_id"])
 
     async def save(self, file: File) -> File:
         mediatype, _ = await models.MediaType.get_or_create(
@@ -467,12 +465,11 @@ class FileRepository(IFileRepository):
     async def set_chash_batch(
         self, items: Iterable[tuple[UUID, str]]
     ) -> None:
-        for file_id, new_chash in items:
-            await (
-                models.File
-                .filter(id=file_id)
-                .update(chash=new_chash)
-            )
+        chash_map = dict(items)
+        objs = await models.File.filter(id__in=list(chash_map.keys()))
+        for obj in objs:
+            obj.chash = chash_map[obj.id]
+        await models.File.bulk_update(objs, fields=["chash"])
 
     async def update(self, file: File, fields: FileUpdate) -> File:
         update_kwargs: dict[str, object] = {}

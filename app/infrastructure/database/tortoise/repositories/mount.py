@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING
 
 from app.app.files.domain import MountPoint, Path
@@ -37,15 +36,15 @@ class MountRepository(IMountRepository):
     async def count_by_name_pattern(
         self, ns_path: AnyPath, path: AnyPath, pattern: str
     ) -> int:
-        objs = await (
+        return await (
             models.FileMemberMountPoint
             .filter(
                 parent__path=str(path),
                 parent__namespace__path=str(ns_path),
+                display_name__iposix_regex=pattern,
             )
+            .count()
         )
-        compiled = re.compile(pattern, re.IGNORECASE)
-        return sum(1 for obj in objs if compiled.search(obj.display_name))
 
     async def get_closest_by_source(
         self,

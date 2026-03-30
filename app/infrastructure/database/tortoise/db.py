@@ -53,7 +53,6 @@ if TYPE_CHECKING:
     )
     from app.config import TortoiseConfig
 
-
 TORTOISE_MODELS = ["app.infrastructure.database.tortoise.models"]
 
 
@@ -118,7 +117,10 @@ class TortoiseDatabase(IDatabase):
         )
 
     async def __aenter__(self) -> Self:
-        await Tortoise.init(config=self._tortoise_config())
+        await Tortoise.init(
+            config=self._tortoise_config(),
+            _enable_global_fallback=True,
+        )
         return self
 
     async def atomic(self, attempts: int = 3) -> AsyncIterator[ITransaction]:
