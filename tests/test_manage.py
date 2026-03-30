@@ -91,9 +91,3 @@ class TestReindexContent:
 
         assert result.exit_code == 0
         reindex_mock.assert_awaited_once_with("admin")
-
-
-class TestMigrate:
-    def test(self):
-        result = runner.invoke(cli, ["migrate"])
-        assert result.exit_code == 0

@@ -35,12 +35,6 @@ Run services:
 docker-compose up -d
 ```
 
-Apply migration:
-
-```bash
-uv run python manage.py migrate
-```
-
 Start the worker:
 
 ```bash

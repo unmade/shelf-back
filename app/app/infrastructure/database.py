@@ -42,8 +42,5 @@ class IDatabase(IAtomic, Protocol):
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         await self.shutdown()
 
-    async def migrate(self) -> None:
-        """Migrates database to the latest schema."""
-
     async def shutdown(self) -> None:
         """Performs all necessary actions to shutdown database correctly."""

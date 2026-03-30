@@ -82,13 +82,5 @@ async def reindex_content(namespace: str) -> None:
         await ctx.usecases.namespace.reindex_contents(namespace)
 
 
-@cli.command()
-@async_to_sync
-async def migrate() -> None:
-    """Apply target schema to a database."""
-    async with AppContext(config) as ctx:
-        await ctx._infra.database.migrate()
-
-
 if __name__ == "__main__":
     cli()

@@ -1,7 +1,8 @@
 #! /usr/bin/env bash
 set -e
 
-python manage.py migrate
+TORTOISE_ORM="app.infrastructure.database.tortoise.db.TORTOISE_ORM" \
+tortoise migrate
 
 if [[ -n "${SHELF_SUPERUSER_USERNAME}" && -n "${SHELF_SUPERUSER_PASSWORD}" ]]; then
     if [ ! -d "${STORAGE__LOCATION}/${SHELF_SUPERUSER_USERNAME}" ]; then

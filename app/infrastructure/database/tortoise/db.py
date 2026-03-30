@@ -3,13 +3,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Self
 
 from tortoise import Tortoise, transactions
-from tortoise.config import (
-    AppConfig,
-    DBUrlConfig,
-)
-from tortoise.config import (
-    TortoiseConfig as TortoiseORMConfig,
-)
+from tortoise.config import AppConfig, DBUrlConfig
+from tortoise.config import TortoiseConfig as TortoiseORMConfig
 
 from app.app.infrastructure import IDatabase
 
@@ -54,6 +49,7 @@ if TYPE_CHECKING:
     from app.config import TortoiseConfig
 
 TORTOISE_MODELS = ["app.infrastructure.database.tortoise.models"]
+TORTOISE_MIGRATIONS = "app.infrastructure.database.tortoise.migrations"
 
 
 class Transaction:
@@ -112,6 +108,7 @@ class TortoiseDatabase(IDatabase):
             apps={
                 "models": AppConfig(
                     models=TORTOISE_MODELS,
+                    migrations=TORTOISE_MIGRATIONS,
                 ),
             },
         )
