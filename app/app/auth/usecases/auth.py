@@ -57,7 +57,7 @@ class AuthUseCase:
                     password,
                     email=email,
                     display_name=display_name,
-                    storage_quota=config.storage.quota,
+                    storage_quota=config.features.quota,
                 )
                 await self.ns_service.create(user.username, owner_id=user.id)
                 tokens = await self.token_service.create(str(user.id))

@@ -4,10 +4,10 @@ import enum
 import re
 from datetime import timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Literal, Self
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Self, assert_never
 from urllib.parse import urlsplit, urlunsplit
 
-from pydantic import AnyHttpUrl, BaseModel, Field, RedisDsn
+from pydantic import AnyHttpUrl, BaseModel, Field, RedisDsn, model_validator
 from pydantic.functional_validators import AfterValidator, BeforeValidator
 from pydantic_core import core_schema
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -181,6 +181,7 @@ class FeatureConfig(BaseModel):
         ThumbnailSize.xxl,
         ThumbnailSize.ai,
     }
+    quota: BytesSize | None = None
     sign_up_enabled: bool = True
     shared_links_enabled: bool = True
     upload_file_max_size: BytesSize = 100 * BytesSizeMultipliers.mb
@@ -189,7 +190,6 @@ class FeatureConfig(BaseModel):
 
 class FileSystemStorageConfig(BaseModel):
     type: Literal[StorageType.filesystem] = StorageType.filesystem
-    quota: BytesSize | None = None
     fs_location: str
 
 
@@ -210,7 +210,6 @@ class MailSMTPConfig(BaseModel):
 
 class S3StorageConfig(BaseModel):
     type: Literal[StorageType.s3] = StorageType.s3
-    quota: BytesSize | None = None
     s3_location: AnyHttpUrl
     s3_access_key_id: str
     s3_secret_access_key: str
@@ -241,6 +240,29 @@ StorageConfig = Annotated[
 WorkerConfig = Annotated[ARQWorkerConfig, Field(discriminator="type")]
 
 
+class StoragesConfig(BaseModel):
+    _MEDIA_LOCATION = "shelf-media"
+
+    default: StorageConfig
+    media: StorageConfig | None = None
+
+    @model_validator(mode="after")
+    def _set_media_storage(self) -> Self:
+        if self.media is not None:
+            return self
+
+        if self.default.type == StorageType.filesystem:
+            location = Path(self.default.fs_location).with_name(self._MEDIA_LOCATION)
+            self.media = self.default.model_copy(update={"fs_location": str(location)})
+        elif self.default.type == StorageType.s3:
+            bucket = self._MEDIA_LOCATION
+            self.media = self.default.model_copy(update={"s3_bucket": bucket})
+        else:
+            assert_never(self.default.type)
+
+        return self
+
+
 class AppConfig(BaseSettings):
     app_name: str = "Shelf"
     app_version: str = "dev"
@@ -254,7 +276,7 @@ class AppConfig(BaseSettings):
     indexer: IndexerClientConfig = IndexerClientConfig()
     mail: MailConfig
     sentry: SentryConfig = SentryConfig()
-    storage: StorageConfig
+    storages: StoragesConfig
     worker: WorkerConfig
 
     model_config = SettingsConfigDict(

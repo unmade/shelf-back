@@ -5,7 +5,7 @@ import contextlib
 import pytest
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.config import AppConfig, S3StorageConfig
+from app.config import S3StorageConfig
 from app.infrastructure.storage.s3 import S3Storage
 from app.infrastructure.storage.s3.clients import (
     AsyncS3Client,
@@ -14,23 +14,26 @@ from app.infrastructure.storage.s3.clients import (
 from app.infrastructure.storage.s3.clients.exceptions import BucketAlreadyOwnedByYou
 
 
+# hack: in .env we have configurations defined for both storages implementations.
+# In the config we can only use one of them implementation, defined by `type`.
+# For tests we want to read the S3 configuration disregarding of the `type` field.
+# So we create a new config class that ignores the `type` field and define `env_prefix`
+#  so we can read values from the `.env`.
 class _S3StorageConfig(S3StorageConfig, BaseSettings):
     type: str  # type: ignore
     s3_bucket: str = "shelf-test"
 
     model_config = SettingsConfigDict(
+        env_file=(".env",),
         extra="ignore",
+        env_prefix="STORAGES__DEFAULT__",
     )
-
-
-class _AppConfig(AppConfig):
-    storage: _S3StorageConfig
 
 
 @pytest.fixture(scope="session")
 def s3_storage_config():
     """An S3StorageConfig config with `tmp_path` as location."""
-    return _AppConfig().storage
+    return _S3StorageConfig()
 
 
 @pytest.fixture(scope="session")

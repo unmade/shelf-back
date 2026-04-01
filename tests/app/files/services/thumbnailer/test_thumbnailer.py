@@ -72,7 +72,7 @@ class TestGetStoragePath:
     async def test(self, thumbnailer: ThumbnailService):
         chash, size = "abcdef", 72
         path = thumbnailer.get_storage_path(chash, size)
-        assert path == "thumbs/ab/cd/ef/abcdef_72.webp"
+        assert path == "thumbnails/ab/cd/ef/abcdef_72.webp"
 
 
 class TestDeleteStaleThumbnails:
@@ -92,12 +92,12 @@ class TestDeleteStaleThumbnails:
         assert len(call_args.args) == 1
         actual = sorted(call_args.args[0], key=operator.itemgetter(1))
         assert actual == [
-            ("thumbs", "ab/cd/ef/abcdef_2880.webp"),
-            ("thumbs", "ab/cd/ef/abcdef_72.webp"),
-            ("thumbs", "ab/cd/ef/abcdef_768.webp"),
-            ("thumbs", "gh/ij/kl/ghijkl_2880.webp"),
-            ("thumbs", "gh/ij/kl/ghijkl_72.webp"),
-            ("thumbs", "gh/ij/kl/ghijkl_768.webp"),
+            ("thumbnails", "ab/cd/ef/abcdef_2880.webp"),
+            ("thumbnails", "ab/cd/ef/abcdef_72.webp"),
+            ("thumbnails", "ab/cd/ef/abcdef_768.webp"),
+            ("thumbnails", "gh/ij/kl/ghijkl_2880.webp"),
+            ("thumbnails", "gh/ij/kl/ghijkl_72.webp"),
+            ("thumbnails", "gh/ij/kl/ghijkl_768.webp"),
         ]
 
 
