@@ -21,7 +21,11 @@ class TestInfrastructure:
         config = mock.MagicMock(
             database=tortoise_config,
             mail=smtp_mail_config,
-            storage=fs_storage_config,
+            storages=mock.MagicMock(
+                default=fs_storage_config,
+                media=fs_storage_config,
+            ),
+            storage_media=fs_storage_config,
             worker=arq_worker_config,
         )
         async with Infrastructure(config) as infra:

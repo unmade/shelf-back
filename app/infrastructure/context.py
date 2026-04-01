@@ -75,20 +75,31 @@ class AppContext:
 
 
 class Infrastructure:
-    __slots__ = ["database", "indexer", "mail", "storage", "worker", "_stack"]
+    __slots__ = [
+        "database",
+        "indexer",
+        "mail",
+        "storage_media",
+        "storage_default",
+        "worker",
+        "_stack",
+    ]
 
     def __init__(self, config: AppConfig):
         self.database = self._get_database(config.database)
-        self.storage = self._get_storage(config.storage)
         self.indexer = self._get_indexer(config.indexer)
         self.mail = self._get_mail_backend(config.mail)
+        assert config.storages.media is not None
+        self.storage_default = self._get_storage(config.storages.default)
+        self.storage_media = self._get_storage(config.storages.media)
         self.worker = self._get_worker(config.worker)
         self._stack = AsyncExitStack()
 
     async def __aenter__(self) -> Self:
         ctx = [
             self._stack.enter_async_context(self.database),
-            self._stack.enter_async_context(self.storage),
+            self._stack.enter_async_context(self.storage_default),
+            self._stack.enter_async_context(self.storage_media),
             self._stack.enter_async_context(self.worker),
         ]
         if self.indexer is not None:
@@ -153,8 +164,9 @@ class Services:
 
     def __init__(self, infra: Infrastructure):
         database = infra.database
-        storage = infra.storage
         mail = infra.mail
+        storage_default = infra.storage_default
+        storage_media = infra.storage_media
         worker = infra.worker
 
         self._database = database
@@ -164,7 +176,7 @@ class Services:
         self.bookmark = BookmarkService(database=database)
         self.filecore = FileCoreService(
             database=database,
-            storage=storage,
+            storage=storage_default,
             worker=worker,
         )
         self.file = FileService(
@@ -177,7 +189,9 @@ class Services:
         self.metadata = MetadataService(database=database)
         self.namespace = NamespaceService(database=database, filecore=self.filecore)
         self.sharing = SharingService(database=database)
-        self.thumbnailer = ThumbnailService(filecore=self.filecore, storage=storage)
+        self.thumbnailer = ThumbnailService(
+            filecore=self.filecore, storage=storage_media
+        )
         self.token = TokenService(token_repo=cache)
         self.user = UserService(database=database, mail=mail)
 

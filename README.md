@@ -105,12 +105,18 @@ superuser on the first image run:
 |MAIL__SMTP_USE_TLS            | - | false  | Whether to use TLS connection to SMTP server. |
 |SENTRY__DSN                   | - | None   | Sentry DSN |
 |SENTRY__ENV                   | - | None   | Sentry environment |
-|STORAGE__TYPE                 | - | filesystem | A primary storage type. Either `filesystem` or `s3` options are available |
-|STORAGE__QUOTA                | - | None   | Default storage quota per account in bytes. If not set, then account has unlimited storage. Can be set in a format like "512MB", "1GB"  |
-|STORAGE__FS_LOCATION          | - | ./data | FileSystem Storage location. Path should be provided without trailing slash |
-|STORAGE__S3_LOCATION          | + | -      | S3 location |
-|STORAGE__S3_ACCESS_KEY_ID     | - | -      | S3 access key id. Required only if `s3` storage type is used |
-|STORAGE__S3_SECRET_ACCESS_KEY | - | -      | S3 secret access key. Required only if `s3` storage type is used |
-|STORAGE__S3_BUCKET_NAME       | - | shelf  | S3 bucket to use to store files. Required only if `s3` storage type is used |
-|STORAGE__S3_REGION_NAME       | - | -      | S3 region. Required only if `s3` storage type is used |
+|STORAGES__DEFAULT__TYPE       | - | filesystem | A primary storage type. Either `filesystem` or `s3` options are available |
+|STORAGES__DEFAULT__FS_LOCATION          | - | ./data | FileSystem Storage location. Path should be provided without trailing slash |
+|STORAGES__DEFAULT__S3_LOCATION          | + | -      | S3 location |
+|STORAGES__DEFAULT__S3_ACCESS_KEY_ID     | - | -      | S3 access key id. Required only if `s3` storage type is used |
+|STORAGES__DEFAULT__S3_SECRET_ACCESS_KEY | - | -      | S3 secret access key. Required only if `s3` storage type is used |
+|STORAGES__DEFAULT__S3_BUCKET_NAME       | - | shelf  | S3 bucket to use to store files. Required only if `s3` storage type is used |
+|STORAGES__DEFAULT__S3_REGION_NAME       | - | -      | S3 region. Required only if `s3` storage type is used |
+|STORAGES__MEDIA__TYPE         | - | filesystem | A "media" storage type to store thumbnails, avatars, etc. Either `filesystem` or `s3` options are available. |
+|STORAGES__MEDIA__FS_LOCATION          | - | ./data | FileSystem Storage location. Path should be provided without trailing slash |
+|STORAGES__MEDIA__S3_LOCATION          | - | -      | S3 location |
+|STORAGES__MEDIA__S3_ACCESS_KEY_ID     | - | -      | S3 access key id. Required only if `s3` storage type is used |
+|STORAGES__MEDIA__S3_SECRET_ACCESS_KEY | - | -      | S3 secret access key. Required only if `s3` storage type is used |
+|STORAGES__MEDIA__S3_BUCKET_NAME       | - | shelf  | S3 bucket to use to store files. Required only if `s3` storage type is used |
+|STORAGES__MEDIA__S3_REGION_NAME       | - | -      | S3 region. Required only if `s3` storage type is used |
 |WORKER__BROKER_DSN            | + | -      | Worker broker DSN |

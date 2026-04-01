@@ -3,10 +3,15 @@ from __future__ import annotations
 from datetime import timedelta
 
 import pytest
+from pydantic import AnyHttpUrl
 
 from app.config import (
     _BASE_DIR,
     DatabaseDSN,
+    FileSystemStorageConfig,
+    S3StorageConfig,
+    StoragesConfig,
+    StorageType,
     _as_absolute_path,
     _parse_bytes_size,
     _parse_timedelta_from_str,
@@ -146,3 +151,42 @@ class TestDatabaseDSN:
         dsn = DatabaseDSN("sqlite:///path/to/db.sqlite3")
         result = dsn.with_name("/tmp/test/db.sqlite3")
         assert result == "sqlite:///tmp/test/db.sqlite3"
+
+
+class TestStoragesConfig:
+    def test_media_storage_is_explicitly_provided(self):
+        # GIVEN / WHEN
+        config = StoragesConfig(
+            default=FileSystemStorageConfig(fs_location="/shelf-storage"),
+            media=FileSystemStorageConfig(fs_location="/shelf-media"),
+        )
+        # THEN
+        assert config.media is not None
+        assert config.media.type == StorageType.filesystem
+        assert config.media.fs_location == "/shelf-media"
+
+    def test_media_storage_fallbacks_to_default_filesystem_storage(self):
+        # GIVEN / WHEN
+        config = StoragesConfig(
+            default=FileSystemStorageConfig(fs_location="/shelf-data/storage")
+        )
+        # THEN
+        assert config.media is not None
+        assert config.media.type == StorageType.filesystem
+        assert config.media.fs_location == "/shelf-data/shelf-media"
+
+    def test_media_storage_fallbacks_to_default_s3_storage(self):
+        # GIVEN / WHEN
+        config = StoragesConfig(
+            default=S3StorageConfig(
+                s3_location=AnyHttpUrl("http://localhost:9000"),
+                s3_access_key_id="key",
+                s3_secret_access_key="secret",
+                s3_region="us-east-1",
+                s3_bucket="shelf-data",
+            )
+        )
+        # THEN
+        assert config.media is not None
+        assert config.media.type == StorageType.s3
+        assert config.media.s3_bucket == "shelf-media"

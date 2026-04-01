@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 __all__ = ["ThumbnailService"]
 
 _LOCK_KEY = "generate_thumbnails:{content_hash}:{size}"
-_PREFIX = "thumbs"
+_PREFIX = "thumbnails"
 
 
 class ThumbnailService:
