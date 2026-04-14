@@ -218,8 +218,7 @@ class TestProcessFilePendingDeletion:
     @staticmethod
     def _make_deletion_result(mediatype: str) -> ProcessFilePendingDeletionResult:
         return ProcessFilePendingDeletionResult(
-            ns_path=uuid.uuid4().hex,
-            path=uuid.uuid4().hex,
+            storage_key=f"{uuid.uuid4().hex}/{uuid.uuid4().hex}",
             chash=uuid.uuid4().hex,
             mediatype=mediatype,
         )

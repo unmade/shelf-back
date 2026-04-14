@@ -16,8 +16,7 @@ __all__ = ["FilePendingDeletionRepository"]
 def _from_db(obj: models.FilePendingDeletion) -> FilePendingDeletion:
     return FilePendingDeletion(
         id=obj.id,
-        ns_path=obj.ns_path,
-        path=obj.path,
+        storage_key=obj.storage_key,
         chash=obj.chash,
         mediatype=obj.mediatype,
         created_at=obj.created_at,
@@ -43,8 +42,7 @@ class FilePendingDeletionRepository(IFilePendingDeletionRepository):
     ) -> list[FilePendingDeletion]:
         db_objs = [
             models.FilePendingDeletion(
-                ns_path=entity.ns_path,
-                path=entity.path,
+                storage_key=entity.storage_key,
                 chash=entity.chash,
                 mediatype=entity.mediatype,
                 created_at=entity.created_at,

@@ -6,31 +6,28 @@ from typing import TYPE_CHECKING, NamedTuple, Protocol, Self
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Collection, Iterable
 
-    from app.app.files.domain import AnyPath, IFileContent
+    from app.app.files.domain import IFileContent
 
 __all__ = ["IStorage", "StorageFile"]
 
 
 class DownloadBatchItem(NamedTuple):
-    ns_path: str
-    path: AnyPath
+    key: str
     is_dir: bool
 
 
 class StorageFile:
-    __slots__ = ("name", "ns_path", "path", "size", "mtime", "_is_dir")
+    __slots__ = ("name", "path", "size", "mtime", "_is_dir")
 
     def __init__(
         self,
         name: str,
-        ns_path: str,
         path: str,
         size: int,
         mtime: float,
         is_dir: bool
     ):
         self.name = name
-        self.ns_path = ns_path
         self.path = path
         self.size = size
         self.mtime = mtime
@@ -40,7 +37,6 @@ class StorageFile:
         return (
             f"{self.__class__.__name__}("
             f"name={self.name!r}, "
-            f"ns_path={self.ns_path!r}, "
             f"path={self.path!r}, "
             f"size={self.size!r}, "
             f"mtime={self.mtime!r}, "
@@ -49,7 +45,7 @@ class StorageFile:
         )
 
     def __str__(self) -> str:
-        return f"{self.ns_path}:{self.path}"
+        return self.path
 
     def is_dir(self) -> bool:
         """True if file is a directory, False otherwise."""
@@ -68,135 +64,117 @@ class IStorage(Protocol):
         raise NotImplementedError()  # pragma: no cover
 
     @abc.abstractmethod
-    async def delete(self, ns_path: AnyPath, path: AnyPath) -> None:
+    async def delete(self, key: str) -> None:
         """
-        Delete a file by path.
+        Delete a file by key.
 
-        If path does not exists or path is a directory, it will act as a no-op.
-        """
-
-    @abc.abstractmethod
-    async def delete_batch(self, items: Iterable[tuple[AnyPath, AnyPath]]) -> None:
-        """
-        Delete multiple file by provided paths.
-
-        If path does not exists or path is a directory, it will act as a no-op.
+        If key does not exists or key is a directory, it will act as a no-op.
         """
 
     @abc.abstractmethod
-    async def deletedir(self, ns_path: AnyPath, path: AnyPath) -> None:
+    async def delete_batch(self, keys: Iterable[str]) -> None:
         """
-        Delete a folder by path.
+        Delete multiple files by provided keys.
 
-        If path does not exists, it will act as a no-op.
+        If key does not exists or key is a directory, it will act as a no-op.
         """
 
     @abc.abstractmethod
-    async def emptydir(self, ns_path: AnyPath, path: AnyPath) -> None:
+    async def deletedir(self, key: str) -> None:
+        """
+        Delete a folder by key.
+
+        If key does not exists, it will act as a no-op.
+        """
+
+    @abc.abstractmethod
+    async def emptydir(self, key: str) -> None:
         """
         Deletes a folder content but not a folder itself.
         """
 
     @abc.abstractmethod
-    def download(self, ns_path: AnyPath, path: AnyPath) -> AsyncIterator[bytes]:
+    def download(self, key: str) -> AsyncIterator[bytes]:
         """
         Return an iterator over a file content.
 
         Raises:
-            File.NotFound: If path not found or path is a directory.
+            File.NotFound: If key not found or key is a directory.
         """
 
     @abc.abstractmethod
     def download_batch(self, items: Iterable[DownloadBatchItem]) -> Iterable[bytes]:
-        """Return an iterable over a zipped files at given paths"""
+        """Return an iterable over a zipped files at given keys."""
 
     @abc.abstractmethod
     def downloaddir(
         self,
-        ns_path: AnyPath,
-        path: AnyPath,
-        include_paths: Collection[AnyPath] | None = None,
+        key: str,
+        include_keys: Collection[str] | None = None,
     ) -> Iterable[bytes]:
         """
         Return an iterable over a zipped folder content.
 
-        If optional `include_paths` is provided, then only that paths in the folder
+        If optional `include_keys` is provided, then only those keys in the folder
         will be included.
         """
 
     @abc.abstractmethod
-    async def exists(self, ns_path: AnyPath, path: AnyPath) -> bool:
+    async def exists(self, key: str) -> bool:
         """
-        Check whether if file exists or not in the specified path.
-        """
-
-    @abc.abstractmethod
-    def iterdir(
-        self,
-        ns_path: AnyPath,
-        path: AnyPath,
-    ) -> AsyncIterator[StorageFile]:
-        """
-        Return an iterator of StorageFile objects for a given path.
-
-        Raises:
-            File.NotFound: If given path does not exist
-            File.NotADirectory: If given path is not a directory
+        Check whether a file exists or not at the specified key.
         """
 
     @abc.abstractmethod
-    async def makedirs(self, ns_path: AnyPath, path: AnyPath) -> None:
+    def iterdir(self, key: str) -> AsyncIterator[StorageFile]:
         """
-        Create a directory with any missing directories in a given path.
+        Return an iterator of StorageFile objects for a given key.
 
         Raises:
-            File.AlreadyExists: If some file already exists in a given path.
+            File.NotFound: If given key does not exist
+            File.NotADirectory: If given key is not a directory
+        """
+
+    @abc.abstractmethod
+    async def makedirs(self, key: str) -> None:
+        """
+        Create a directory with any missing directories in a given key.
+
+        Raises:
+            File.AlreadyExists: If some file already exists at a given key.
             File.NotADirectory: If some parent is not a directory.
         """
 
     @abc.abstractmethod
-    async def move(
-        self,
-        at: tuple[AnyPath, AnyPath],
-        to: tuple[AnyPath, AnyPath],
-    ) -> None:
+    async def move(self, at: str, to: str) -> None:
         """
-        Move a file to the destination path. The destination path should include
+        Move a file to the destination key. The destination key should include
         source file name. For example to move file 'f.txt' to a folder 'b', destination
-        should as 'b/f.txt'.
+        should be 'b/f.txt'.
 
         Raises:
-            File.NotFound: If source or destination path does not exist.
+            File.NotFound: If source or destination key does not exist.
             File.NotADirectory: If some parent of the destination is not a directory.
         """
 
     @abc.abstractmethod
-    async def movedir(
-        self,
-        at: tuple[AnyPath, AnyPath],
-        to: tuple[AnyPath, AnyPath],
-    ) -> None:
+    async def movedir(self, at: str, to: str) -> None:
         """
-        Move a folder to the destination path. The destination path should include
+        Move a folder to the destination key. The destination key should include
         source folder name. For example to move folder 'b' to a folder 'a', destination
-        should as 'a/b'.
+        should be 'a/b'.
 
-        If some parents in the destination path are missing, they will be created.
-        If source path doesn't exists, it will act as a no-op.
+        If some parents in the destination key are missing, they will be created.
+        If source key doesn't exists, it will act as a no-op.
 
         Raises:
             File.NotADirectory: If some parent of the destination is not a directory.
         """
 
     @abc.abstractmethod
-    async def save(
-        self,
-        ns_path: AnyPath,
-        path: AnyPath,
-        content: IFileContent,
-    ) -> StorageFile:
+    async def save(self, key: str, content: IFileContent) -> StorageFile:
         """
-        Save content to a given path.
+        Save content to a given key.
 
         Raises:
             File.NotADirectory: If some parent is not a directory.

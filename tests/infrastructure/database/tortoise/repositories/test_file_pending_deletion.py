@@ -64,15 +64,13 @@ class TestSaveBatch:
         entities = [
             FilePendingDeletion(
                 id=SENTINEL_ID,
-                ns_path="admin",
-                path="f.txt",
+                storage_key="admin/f.txt",
                 chash=uuid.uuid4().hex,
                 mediatype=MediaType.PLAIN_TEXT,
             ),
             FilePendingDeletion(
                 id=SENTINEL_ID,
-                ns_path="admin",
-                path="folder",
+                storage_key="admin/folder",
                 chash=uuid.uuid4().hex,
                 mediatype=MediaType.FOLDER,
             ),

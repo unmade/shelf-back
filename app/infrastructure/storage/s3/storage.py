@@ -22,7 +22,7 @@ from .clients.exceptions import NoSuchKey, ResourceNotFound
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Collection, Iterable, Iterator
 
-    from app.app.files.domain import AnyPath, IFileContent
+    from app.app.files.domain import IFileContent
     from app.app.infrastructure.storage import DownloadBatchItem
     from app.config import S3StorageConfig
 
@@ -55,46 +55,42 @@ class S3Storage(IStorage):
         await self._stack.aclose()
 
     @staticmethod
-    def _has_path(target: str, paths: Collection[AnyPath] | None) -> bool:
+    def _has_path(target: str, paths: Collection[str] | None) -> bool:
         if paths is None:
             return True
 
         target = target.lower()
-        haystack = {str(p).lower() for p in paths}
+        haystack = {p.lower() for p in paths}
         if target in haystack:
             return True
 
         return any(target.startswith(prefix) for prefix in haystack)
 
-    @staticmethod
-    def _joinpath(ns_path: AnyPath, path: AnyPath) -> str:
-        return os.path.normpath(os.path.join(str(ns_path), str(path)))
-
-    async def delete(self, ns_path: AnyPath, path: AnyPath) -> None:
-        key = self._joinpath(ns_path, path)
+    async def delete(self, key: str) -> None:
+        key = os.path.normpath(key)
         await self.s3.delete(self.bucket, key)
 
-    async def delete_batch(self, items: Iterable[tuple[AnyPath, AnyPath]]) -> None:
-        keys = [self._joinpath(ns_path, path) for ns_path, path in items]
-        await self.s3.delete(self.bucket, *keys)
+    async def delete_batch(self, keys: Iterable[str]) -> None:
+        normalized = [os.path.normpath(k) for k in keys]
+        await self.s3.delete(self.bucket, *normalized)
 
-    async def deletedir(self, ns_path: AnyPath, path: AnyPath) -> None:
-        prefix = f"{self._joinpath(ns_path, path)}/"
+    async def deletedir(self, key: str) -> None:
+        prefix = f"{os.path.normpath(key)}/"
         await self.s3.delete_recursive(self.bucket, prefix)
 
-    async def emptydir(self, ns_path: AnyPath, path: AnyPath) -> None:
-        await self.deletedir(ns_path, path)
+    async def emptydir(self, key: str) -> None:
+        await self.deletedir(key)
 
-    async def exists(self, ns_path: AnyPath, path: AnyPath) -> bool:
-        key = self._joinpath(ns_path, path)
+    async def exists(self, key: str) -> bool:
+        key = os.path.normpath(key)
         try:
             await self.s3.head_object(self.bucket, key)
         except ResourceNotFound:
             return False
         return True
 
-    async def download(self, ns_path: AnyPath, path: AnyPath) -> AsyncIterator[bytes]:
-        key = self._joinpath(ns_path, path)
+    async def download(self, key: str) -> AsyncIterator[bytes]:
+        key = os.path.normpath(key)
         try:
             async for chunk in self.s3.iter_download(self.bucket, key):
                 yield chunk
@@ -109,13 +105,13 @@ class S3Storage(IStorage):
     def _download_batch_iter(
         self, items: Iterable[DownloadBatchItem]
     ) -> Iterator[StreamZipFile]:
-        for ns_path, path, is_dir in items:
-            filename = os.path.basename(str(path))
-            fullpath = self._joinpath(ns_path, path)
+        for key, is_dir in items:
+            key = os.path.normpath(key)
+            filename = os.path.basename(key)
             if is_dir:
-                yield from self._downloaddir_iter(ns_path, fullpath, prefix=filename)
+                yield from self._downloaddir_iter(key, prefix=filename)
             else:
-                entry = self.sync_s3.head_object(self.bucket, fullpath)
+                entry = self.sync_s3.head_object(self.bucket, key)
                 yield StreamZipFile(
                     path=filename,
                     modified_at=entry.last_modified,
@@ -126,33 +122,26 @@ class S3Storage(IStorage):
 
     def downloaddir(
         self,
-        ns_path: AnyPath,
-        path: AnyPath,
-        include_paths: Collection[AnyPath] | None = None,
+        key: str,
+        include_keys: Collection[str] | None = None,
     ) -> Iterable[bytes]:
-        ns_path = str(ns_path)
-        prefix = self._joinpath(ns_path, path)
+        key = os.path.normpath(key)
         return stream_zip.stream_zip(
-            self._downloaddir_iter(
-                ns_path,
-                prefix,
-                include_paths=include_paths,
-            )
+            self._downloaddir_iter(key, include_keys=include_keys)
         )
+
     def _downloaddir_iter(
         self,
-        ns_path: AnyPath,
-        path: AnyPath,
+        key: str,
         prefix: str = "",
-        include_paths: Collection[AnyPath] | None = None,
+        include_keys: Collection[str] | None = None,
     ) -> Iterator[StreamZipFile]:
-        ns_path = str(ns_path)
-        for entry in self.sync_s3.list_objects(self.bucket, str(path)):
-            if self._has_path(os.path.relpath(entry.key, ns_path), include_paths):
+        for entry in self.sync_s3.list_objects(self.bucket, key):
+            if self._has_path(entry.key, include_keys):
                 yield StreamZipFile(
                     path=os.path.join(
                         prefix,
-                        os.path.relpath(entry.key, str(path)),
+                        os.path.relpath(entry.key, key),
                     ),
                     modified_at=entry.last_modified,
                     perms=0o600,
@@ -160,18 +149,14 @@ class S3Storage(IStorage):
                     content=self.sync_s3.iter_download(self.bucket, entry.key),
                 )
 
-    async def iterdir(
-        self, ns_path: AnyPath, path: AnyPath
-    ) -> AsyncIterator[StorageFile]:
-        ns_path = str(ns_path)
-        prefix = f"{self._joinpath(ns_path, path)}/"
+    async def iterdir(self, key: str) -> AsyncIterator[StorageFile]:
+        prefix = f"{os.path.normpath(key)}/"
         async for item in self.s3.list_objects(self.bucket, prefix, delimiter="/"):
             if isinstance(item, str):
-                key = item.strip("/")
+                stripped = item.strip("/")
                 yield StorageFile(
-                    name=os.path.basename(key),
-                    ns_path=ns_path,
-                    path=key[len(ns_path) + 1:],
+                    name=os.path.basename(stripped),
+                    path=stripped,
                     size=0,
                     mtime=0,
                     is_dir=True,
@@ -179,32 +164,27 @@ class S3Storage(IStorage):
             else:
                 yield StorageFile(
                     name=os.path.basename(item.key),
-                    ns_path=ns_path,
-                    path=item.key[len(ns_path) + 1:],
+                    path=item.key,
                     size=item.size,
                     mtime=item.last_modified.timestamp(),
                     is_dir=False,
                 )
 
-    async def makedirs(self, ns_path: AnyPath, path: AnyPath) -> None:
+    async def makedirs(self, key: str) -> None:
         return None
 
-    async def move(
-        self, at: tuple[AnyPath, AnyPath], to: tuple[AnyPath, AnyPath]
-    ) -> None:
-        from_key = self._joinpath(*at)
-        to_key = self._joinpath(*to)
+    async def move(self, at: str, to: str) -> None:
+        from_key = os.path.normpath(at)
+        to_key = os.path.normpath(to)
         try:
             await self.s3.copy_object(self.bucket, from_key, to_key)
         except NoSuchKey as exc:
             raise File.NotFound() from exc
         await self.s3.delete(self.bucket, from_key)
 
-    async def movedir(
-        self, at: tuple[AnyPath, AnyPath], to: tuple[AnyPath, AnyPath]
-    ) -> None:
-        from_prefix = f"{self._joinpath(*at)}/"
-        to_prefix = f"{self._joinpath(*to)}/"
+    async def movedir(self, at: str, to: str) -> None:
+        from_prefix = f"{os.path.normpath(at)}/"
+        to_prefix = f"{os.path.normpath(to)}/"
         keys_to_delete = []
         async with asyncio.TaskGroup() as tg:
             async for entry in self.s3.list_objects(self.bucket, from_prefix):
@@ -216,18 +196,12 @@ class S3Storage(IStorage):
                 )
         await self.s3.delete(self.bucket, *keys_to_delete)
 
-    async def save(
-        self,
-        ns_path: AnyPath,
-        path: AnyPath,
-        content: IFileContent,
-    ) -> StorageFile:
-        key = self._joinpath(ns_path, path)
+    async def save(self, key: str, content: IFileContent) -> StorageFile:
+        key = os.path.normpath(key)
         file = await self.s3.upload_obj(self.bucket, key, content)
         return StorageFile(
-            name=os.path.basename(str(path)),
-            ns_path=str(ns_path),
-            path=str(path),
+            name=os.path.basename(key),
+            path=key,
             size=file.size,
             mtime=file.last_modified.timestamp(),
             is_dir=False,

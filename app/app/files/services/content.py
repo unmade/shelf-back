@@ -64,9 +64,9 @@ class ContentService:
             )
             if self.indexer is not None:
                 size = ThumbnailSize.ai
-                storage_path = self.thumbnailer.get_storage_path(file.chash, size)
+                storage_key = self.thumbnailer.get_storage_key(file.chash, size)
                 taskgroups.schedule(
-                    self.indexer.track(file.id, storage_path, file.name, user_id),
+                    self.indexer.track(file.id, storage_key, file.name, user_id),
                 )
 
             await self.dupefinder.track(file.id, content)

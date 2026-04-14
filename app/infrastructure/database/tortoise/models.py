@@ -170,8 +170,7 @@ class FileMetadata(models.Model):
 
 class FilePendingDeletion(models.Model):
     id = fields.UUIDField(primary_key=True, default=uuid7)
-    ns_path = fields.CharField(max_length=1024)
-    path = fields.CharField(max_length=4096)
+    storage_key = fields.CharField(max_length=4096)
     chash = fields.CharField(max_length=128)
     mediatype = fields.CharField(max_length=255)
     created_at = fields.DatetimeField()
