@@ -15,8 +15,7 @@ __all__ = [
 
 class FilePendingDeletion(BaseModel):
     id: UUID
-    ns_path: str
-    path: str
+    storage_key: str
     chash: str
     mediatype: str
     created_at: datetime = Field(default_factory=timezone.now)

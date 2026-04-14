@@ -94,8 +94,7 @@ class MediaItemUseCase:
         namespace = await self.namespace.get_by_owner_id(user_id)
         files = [
             DownloadBatchItem(
-                ns_path=file.ns_path,
-                path=file.path,
+                key=f"{file.ns_path}/{file.path}",
                 is_dir=file.is_folder(),
             )
             for file in await self.filecore.get_by_id_batch(file_ids)

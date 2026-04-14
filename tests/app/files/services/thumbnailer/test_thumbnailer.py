@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import operator
 import uuid
 from io import BytesIO
 from typing import IO, TYPE_CHECKING, cast
@@ -10,7 +9,6 @@ import pytest
 
 from app.app.files.domain import File, Path
 from app.app.files.services.thumbnailer import thumbnails
-from app.app.files.services.thumbnailer.thumbnailer import _PREFIX
 from app.config import config
 from app.toolkit.mediatypes import MediaType
 
@@ -68,10 +66,10 @@ class TestIsSupported:
         thumbnails_mock.is_supported.assert_called_once_with(mediatype)
 
 
-class TestGetStoragePath:
+class TestGetStorageKey:
     async def test(self, thumbnailer: ThumbnailService):
         chash, size = "abcdef", 72
-        path = thumbnailer.get_storage_path(chash, size)
+        path = thumbnailer.get_storage_key(chash, size)
         assert path == "thumbnails/ab/cd/ef/abcdef_72.webp"
 
 
@@ -90,14 +88,14 @@ class TestDeleteStaleThumbnails:
         call_args = storage.delete_batch.call_args
         assert call_args.kwargs == {}
         assert len(call_args.args) == 1
-        actual = sorted(call_args.args[0], key=operator.itemgetter(1))
+        actual = sorted(call_args.args[0])
         assert actual == [
-            ("thumbnails", "ab/cd/ef/abcdef_2880.webp"),
-            ("thumbnails", "ab/cd/ef/abcdef_72.webp"),
-            ("thumbnails", "ab/cd/ef/abcdef_768.webp"),
-            ("thumbnails", "gh/ij/kl/ghijkl_2880.webp"),
-            ("thumbnails", "gh/ij/kl/ghijkl_72.webp"),
-            ("thumbnails", "gh/ij/kl/ghijkl_768.webp"),
+            "thumbnails/ab/cd/ef/abcdef_2880.webp",
+            "thumbnails/ab/cd/ef/abcdef_72.webp",
+            "thumbnails/ab/cd/ef/abcdef_768.webp",
+            "thumbnails/gh/ij/kl/ghijkl_2880.webp",
+            "thumbnails/gh/ij/kl/ghijkl_72.webp",
+            "thumbnails/gh/ij/kl/ghijkl_768.webp",
         ]
 
 
@@ -120,14 +118,14 @@ class TestGenerateThumbnails:
         # THEN
         filecore.get_by_id.assert_awaited_once_with(file.id)
         storage.exists.assert_has_awaits([
-            mock.call(_PREFIX, thumbnailer.make_path(file.chash, 32)),
-            mock.call(_PREFIX, thumbnailer.make_path(file.chash, 64)),
-            mock.call(_PREFIX, thumbnailer.make_path(file.chash, 128)),
+            mock.call(thumbnailer.get_storage_key(file.chash, 32)),
+            mock.call(thumbnailer.get_storage_key(file.chash, 64)),
+            mock.call(thumbnailer.get_storage_key(file.chash, 128)),
         ])
         filecore.download.assert_awaited_once_with(file.id)
         storage.makedirs.assert_has_awaits([
-            mock.call(_PREFIX, "ab/cd/ef"),
-            mock.call(_PREFIX, "ab/cd/ef"),
+            mock.call("thumbnails/ab/cd/ef"),
+            mock.call("thumbnails/ab/cd/ef"),
         ])
         assert storage.save.await_count == 2
 
@@ -151,7 +149,7 @@ class TestGenerateThumbnails:
         await thumbnailer.generate_thumbnails(file.id, sizes=sizes)
         # THEN
         filecore.get_by_id.assert_awaited_once_with(file.id)
-        storage.exists.assert_awaited_once_with(_PREFIX, "ab/cd/ef/abcdef_32.webp")
+        storage.exists.assert_awaited_once_with("thumbnails/ab/cd/ef/abcdef_32.webp")
         filecore.download.assert_awaited_once_with(file.id)
         storage.makedirs.assert_not_called()
         storage.save.assert_not_called()
@@ -223,7 +221,7 @@ class TestThumbnail:
     ):
         # GIVEN
         file_id, content_hash, size = uuid.uuid4(), "abcdef", 32
-        t_path = "ab/cd/ef/abcdef_32.webp"
+        storage_key = "thumbnails/ab/cd/ef/abcdef_32.webp"
         filecore = cast(mock.MagicMock, thumbnailer.filecore)
         storage = cast(mock.MagicMock, thumbnailer.storage)
         storage.download.return_value = _aiter(BytesIO(image_thumbnail))
@@ -232,8 +230,8 @@ class TestThumbnail:
         # THEN
         assert thumbnail == image_thumbnail
         assert mediatype == MediaType.IMAGE_WEBP
-        storage.exists.assert_awaited_once_with(_PREFIX, t_path)
-        storage.download.assert_called_once_with(_PREFIX, t_path)
+        storage.exists.assert_awaited_once_with(storage_key)
+        storage.download.assert_called_once_with(storage_key)
         filecore.download.assert_not_called()
 
     async def test_thumbnail_created_and_put_to_storage(
@@ -243,7 +241,7 @@ class TestThumbnail:
     ):
         # GIVEN
         file, size = _make_file("admin", "im.jpeg", chash="abcdef"), 32
-        t_path = "ab/cd/ef/abcdef_32.webp"
+        storage_key = "thumbnails/ab/cd/ef/abcdef_32.webp"
         filecore = cast(mock.AsyncMock, thumbnailer.filecore)
         filecore.download.return_value = file, _aiter(image_content.file)
         storage = cast(mock.MagicMock, thumbnailer.storage)
@@ -252,10 +250,10 @@ class TestThumbnail:
         result = await thumbnailer.thumbnail(file.id, file.chash, size)
         # THEN
         assert result == await thumbnails.thumbnail(image_content.file, size=size)
-        storage.exists.assert_awaited_once_with(_PREFIX, t_path)
+        storage.exists.assert_awaited_once_with(storage_key)
         storage.download.assert_not_called()
         filecore.download.assert_awaited_once_with(file.id)
-        storage.makedirs.assert_awaited_once_with(_PREFIX, "ab/cd/ef")
+        storage.makedirs.assert_awaited_once_with("thumbnails/ab/cd/ef")
         storage.save.assert_awaited_once()
 
     async def test_when_file_size_exceed_limits(

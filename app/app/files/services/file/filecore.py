@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import itertools
+import os.path
 from collections import defaultdict, deque
 from typing import IO, TYPE_CHECKING, Protocol
 
@@ -44,10 +45,13 @@ __all__ = [
 
 
 class ProcessFilePendingDeletionResult(BaseModel):
-    ns_path: str
-    path: str
+    storage_key: str
     chash: str
     mediatype: str
+
+
+def _storage_key(ns_path: AnyPath, path: AnyPath) -> str:
+    return os.path.join(str(ns_path), str(path))
 
 
 class _ContentHashTracker:
@@ -122,7 +126,9 @@ class FileCoreService:
         mediatype = mediatypes.guess(content.file, name=path.name)
         content_hash = await asyncio.to_thread(chash.chash, content.file)
 
-        storage_file = await self.storage.save(ns_path, next_path, content)
+        storage_file = await self.storage.save(
+            _storage_key(ns_path, next_path), content
+        )
 
         async for tx in self.db.atomic(attempts=10):
             async with tx:
@@ -165,7 +171,7 @@ class FileCoreService:
             index = paths.index(parents[-1].path)
             paths[-1] = path.with_restored_casing(parents[-1].path)
 
-        await self.storage.makedirs(ns_path, path)
+        await self.storage.makedirs(_storage_key(ns_path, path))
         await self.db.file.save_batch(
             [
                 File(
@@ -201,7 +207,7 @@ class FileCoreService:
 
         storage = self.storage
         delete_from_storage = storage.deletedir if file.is_folder() else storage.delete
-        await delete_from_storage(ns_path, path)
+        await delete_from_storage(_storage_key(ns_path, path))
 
         return file
 
@@ -220,8 +226,7 @@ class FileCoreService:
                 deletions = await self.db.file_pending_deletion.save_batch([
                     FilePendingDeletion(
                         id=SENTINEL_ID,
-                        ns_path=str(file.ns_path),
-                        path=str(file.path),
+                        storage_key=_storage_key(file.ns_path, file.path),
                         chash=file.chash,
                         mediatype=file.mediatype,
                     )
@@ -244,7 +249,7 @@ class FileCoreService:
         file = await self.get_by_id(file_id)
         if file.is_folder():
             raise File.IsADirectory() from None
-        return file, self.storage.download(file.ns_path, file.path)
+        return file, self.storage.download(_storage_key(file.ns_path, file.path))
 
     def download_batch(self, items: Iterable[DownloadBatchItem]) -> Iterable[bytes]:
         """Downloads multiple items as zip archive."""
@@ -257,7 +262,7 @@ class FileCoreService:
         Raises:
             File.NotFound: If a file at a target path does not exist.
         """
-        return self.storage.downloaddir(ns_path, path)
+        return self.storage.downloaddir(_storage_key(ns_path, path))
 
     async def empty_folder(self, ns_path: AnyPath, path: AnyPath) -> None:
         """
@@ -275,7 +280,7 @@ class FileCoreService:
             async with tx:
                 await self.db.file.delete_all_with_prefix(ns_path, f"{path}/")
                 await self.db.file.incr_size_batch(ns_path, paths, value=-file.size)
-        await self.storage.emptydir(ns_path, file.path)
+        await self.storage.emptydir(_storage_key(ns_path, file.path))
 
     async def exists_with_id(self, ns_path: AnyPath, file_id: UUID) -> bool:
         """Returns True if file exists with a given ID, False otherwise"""
@@ -430,7 +435,10 @@ class FileCoreService:
         )
 
         move_storage = self.storage.movedir if file.is_folder() else self.storage.move
-        await move_storage(at=(at_ns_path, file.path), to=(to_ns_path, to_path))
+        await move_storage(
+            at=_storage_key(at_ns_path, file.path),
+            to=_storage_key(to_ns_path, to_path),
+        )
         async for tx in self.db.atomic():
             async with tx:
                 updated_file = await self.db.file.update(file, file_update)
@@ -449,23 +457,22 @@ class FileCoreService:
         """Removes deleted files from the storage."""
         items = await self.db.file_pending_deletion.get_by_id_batch(ids)
         to_delete = [
-            (item.ns_path, item.path) for item in items if not item.is_folder()
+            item.storage_key for item in items if not item.is_folder()
         ]
 
         # clean up all remaining files in folders that were deleted
-        folders_by_ns = defaultdict(list)
+        folders_by_ns: dict[str, list[str]] = defaultdict(list)
         for item in items:
             if item.is_folder():
-                folders_by_ns[item.ns_path].append(f"{item.path}/")
+                ns_path, _, path = item.storage_key.partition("/")
+                folders_by_ns[ns_path].append(f"{path}/")
 
         children = await self.db.file.list_all_with_prefix_batch(folders_by_ns)
         to_delete.extend(
-            (file.ns_path, str(file.path))
+            _storage_key(file.ns_path, file.path)
             for file in children
             if not file.is_folder()
         )
-
-        # remove everything from the storage
         await self.storage.delete_batch(to_delete)
 
         # remove from the database
@@ -474,16 +481,23 @@ class FileCoreService:
                 await self.db.file_pending_deletion.delete_by_id_batch(ids)
                 await self.db.file.delete_all_with_prefix_batch(folders_by_ns)
 
-        chain: Iterable[File | FilePendingDeletion] = itertools.chain(items, children)
-        return [
+        result: list[ProcessFilePendingDeletionResult] = [
             ProcessFilePendingDeletionResult(
-                ns_path=item.ns_path,
-                path=str(item.path),
+                storage_key=item.storage_key,
                 chash=item.chash,
                 mediatype=item.mediatype,
             )
-            for item in chain
+            for item in items
         ]
+        result.extend(
+            ProcessFilePendingDeletionResult(
+                storage_key=_storage_key(file.ns_path, file.path),
+                chash=file.chash,
+                mediatype=file.mediatype,
+            )
+            for file in children
+        )
+        return result
 
     async def reindex(self, ns_path: AnyPath, path: AnyPath) -> None:
         """
@@ -516,10 +530,11 @@ class FileCoreService:
             folder = folders.pop()
             # TODO: after upgrading to Python 3.14 it reports 520 -> 515 as uncovered
             # which seems to be a false positive. should check with new versions.
-            iterdir = self.storage.iterdir(ns_path, folder)
+            iterdir = self.storage.iterdir(_storage_key(ns_path, folder))
             async for file in iterdir:  # pragma: no branch
+                rel_path = file.path[len(ns_path) + 1:]
                 if file.is_dir():
-                    folders.append(Path(file.path))
+                    folders.append(Path(rel_path))
                     size = 0
                     mediatype = mediatypes.FOLDER
                 else:
@@ -530,11 +545,11 @@ class FileCoreService:
                     size = file.size
                     mediatype = mediatypes.guess_unsafe(file.name)
 
-                missing[Path(file.path)] = File(
+                missing[Path(rel_path)] = File(
                     id=SENTINEL_ID,
                     ns_path=ns_path,
                     name=file.name,
-                    path=file.path,  # type: ignore
+                    path=Path(rel_path),
                     chash=chash.EMPTY_CONTENT_HASH,
                     size=size,
                     modified_at=timezone.fromtimestamp(file.mtime),

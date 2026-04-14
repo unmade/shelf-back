@@ -43,18 +43,15 @@ class ThumbnailService:
         return thumbnails.is_supported(mediatype)
 
     @staticmethod
-    def make_path(content_hash: str, size: int) -> str:
+    def get_storage_key(content_hash: str, size: int) -> str:
         parts = [
+            _PREFIX,
             content_hash[:2],
             content_hash[2:4],
             content_hash[4:6],
             f"{content_hash}_{size}.webp"
         ]
-        return "/".join(parts)
-
-    @classmethod
-    def get_storage_path(cls, content_hash: str, size: int) -> str:
-        return f"{_PREFIX}/{cls.make_path(content_hash, size)}"
+        return os.path.join(*parts)
 
     async def delete_stale_thumbnails(self, chashes: Sequence[str]) -> None:
         """Cleanups thumbnails that don't have any reference."""
@@ -66,7 +63,7 @@ class ThumbnailService:
 
         to_delete = list(itertools.chain.from_iterable(
             (
-                (_PREFIX, self.make_path(chash, size))
+                self.get_storage_key(chash, size)
                 for size in config.features.pre_generated_thumbnail_sizes
             )
             for chash in items
@@ -88,11 +85,11 @@ class ThumbnailService:
 
         content: BytesIO | None = None
         for size in sizes:
-            path = self.make_path(file.chash, size)
+            path = self.get_storage_key(file.chash, size)
             lock_id = self._lock_id(file.chash, size)
 
             async with cache.lock(lock_id, expire=30, wait=True):
-                if await self.storage.exists(_PREFIX, path):
+                if await self.storage.exists(path):
                     continue
 
                 if not content:
@@ -105,8 +102,8 @@ class ThumbnailService:
                 except File.ThumbnailUnavailable:
                     return
 
-                await self.storage.makedirs(_PREFIX, os.path.dirname(path))
-                await self.storage.save(_PREFIX, path, InMemoryFileContent(thumbnail))
+                await self.storage.makedirs(os.path.dirname(path))
+                await self.storage.save(path, InMemoryFileContent(thumbnail))
 
     @cache.locked(key=_LOCK_KEY, ttl=30)
     async def thumbnail(
@@ -121,12 +118,12 @@ class ThumbnailService:
             File.NotFound: If file with this ID does not exist.
             File.ThumbnailUnavailable: If thumbnail can't be generated for a file.
         """
-        path = self.make_path(content_hash, size)
+        path = self.get_storage_key(content_hash, size)
         if not content_hash:
             raise File.ThumbnailUnavailable() from None
 
-        if await self.storage.exists(_PREFIX, path):
-            chunks = self.storage.download(_PREFIX, path)
+        if await self.storage.exists(path):
+            chunks = self.storage.download(path)
             thumb = b"".join([chunk async for chunk in chunks])
             return thumb, MediaType(mediatypes.guess(BytesIO(thumb)))
 
@@ -136,6 +133,6 @@ class ThumbnailService:
 
         content = BytesIO(b"".join([chunk async for chunk in chunks]))
         thumb, mediatype = await thumbnails.thumbnail(content, size=size)
-        await self.storage.makedirs(_PREFIX, os.path.dirname(path))
-        await self.storage.save(_PREFIX, path, InMemoryFileContent(thumb))
+        await self.storage.makedirs(os.path.dirname(path))
+        await self.storage.save(path, InMemoryFileContent(thumb))
         return thumb, mediatype

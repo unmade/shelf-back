@@ -53,7 +53,7 @@ class TestProcess:
         thumbnailer.generate_thumbnails.assert_awaited_once_with(
             file.id, sizes=config.features.pre_generated_thumbnail_sizes
         )
-        thumbnailer.get_storage_path.assert_called_once_with(
+        thumbnailer.get_storage_key.assert_called_once_with(
             file.chash, ThumbnailSize.lg
         )
         indexer.track.assert_called_once()
@@ -77,7 +77,7 @@ class TestProcess:
         thumbnailer.generate_thumbnails.assert_awaited_once_with(
             file.id, sizes=config.features.pre_generated_thumbnail_sizes
         )
-        thumbnailer.get_storage_path.assert_not_called()
+        thumbnailer.get_storage_key.assert_not_called()
         dupefinder.track.assert_awaited_once()
         metadata.track.assert_awaited_once()
 

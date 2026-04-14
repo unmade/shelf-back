@@ -129,8 +129,8 @@ class TestDownloadBatch:
     async def test(self, photos_use_case: MediaItemUseCase):
         # GIVEN
         items = [
-            DownloadBatchItem("admin", path=LIBRARY_PATH / "im.jpg", is_dir=False),
-            DownloadBatchItem("admin", path=LIBRARY_PATH / "im.ong", is_dir=False),
+            DownloadBatchItem(key=f"admin/{LIBRARY_PATH}/im.jpg", is_dir=False),
+            DownloadBatchItem(key=f"admin/{LIBRARY_PATH}/im.ong", is_dir=False),
         ]
         filecore = cast(mock.MagicMock, photos_use_case.filecore)
         # WHEN
@@ -161,7 +161,7 @@ class TestDownloadBatchCreateSession:
         filecore.get_by_id_batch.assert_awaited_once_with(file_ids)
         value = await cache.get(f"{_DOWNLOAD_CACHE_PREFIX}:{key}")
         assert value == [
-            DownloadBatchItem("admin", path=LIBRARY_PATH / "im.jpeg", is_dir=False),
+            DownloadBatchItem(key=f"admin/{LIBRARY_PATH}/im.jpeg", is_dir=False),
         ]
 
 
@@ -170,8 +170,8 @@ class TestDownloadBatchGetSession:
         # GIVEN
         key = uuid.uuid4().hex
         items = [
-            DownloadBatchItem("admin", path=LIBRARY_PATH / "im.jpg", is_dir=False),
-            DownloadBatchItem("admin", path=LIBRARY_PATH / "im.ong", is_dir=False),
+            DownloadBatchItem(key=f"admin/{LIBRARY_PATH}/im.jpg", is_dir=False),
+            DownloadBatchItem(key=f"admin/{LIBRARY_PATH}/im.ong", is_dir=False),
         ]
         await cache.set(f"{_DOWNLOAD_CACHE_PREFIX}:{key}", items, expire=10)
         # WHEN

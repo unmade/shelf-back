@@ -50,19 +50,19 @@ def file_factory(s3_bucket: str, s3_client: AsyncS3Client) -> FileFactory:
 class TestDelete:
     async def test(self, s3_storage: S3Storage, file_factory: FileFactory):
         await file_factory("user/f.txt")
-        assert await s3_storage.exists("user", "f.txt")
-        await s3_storage.delete("user", "f.txt")
-        assert not await s3_storage.exists("user", "f.txt")
+        assert await s3_storage.exists("user/f.txt")
+        await s3_storage.delete("user/f.txt")
+        assert not await s3_storage.exists("user/f.txt")
 
     async def test_when_it_is_a_dir(
         self, s3_storage: S3Storage, file_factory: FileFactory
     ):
         await file_factory("user/a/f.txt")
-        await s3_storage.delete("user", "a")
-        assert await s3_storage.exists("user", "a/f.txt")
+        await s3_storage.delete("user/a")
+        assert await s3_storage.exists("user/a/f.txt")
 
     async def test_when_file_does_not_exist(self, s3_storage: S3Storage):
-        await s3_storage.delete("user", "f.txt")
+        await s3_storage.delete("user/f.txt")
 
 
 class TestDeleteBatch:
@@ -70,50 +70,50 @@ class TestDeleteBatch:
         # GIVEN
         await file_factory("user/f.txt")
         await file_factory("user/f (1).txt")
-        assert await s3_storage.exists("user", "f.txt")
-        assert await s3_storage.exists("user", "f (1).txt")
+        assert await s3_storage.exists("user/f.txt")
+        assert await s3_storage.exists("user/f (1).txt")
         # WHEN
-        await s3_storage.delete_batch(items=[("user", "f.txt"), ("user", "f (1).txt")])
+        await s3_storage.delete_batch(keys=["user/f.txt", "user/f (1).txt"])
         # THEN
-        assert not await s3_storage.exists("user", "f.txt")
-        assert not await s3_storage.exists("user", "f (1).txt")
+        assert not await s3_storage.exists("user/f.txt")
+        assert not await s3_storage.exists("user/f (1).txt")
 
 
 class TestDeletedir:
     async def test_deletedir(self, s3_storage: S3Storage, file_factory: FileFactory):
         await file_factory("user/a/f.txt")
-        await s3_storage.deletedir("user", "a")
-        assert not await s3_storage.exists("user", "a")
-        assert not await s3_storage.exists("user", "a/f.txt")
+        await s3_storage.deletedir("user/a")
+        assert not await s3_storage.exists("user/a")
+        assert not await s3_storage.exists("user/a/f.txt")
 
     async def test_deletedir_but_it_is_a_file(
         self, s3_storage: S3Storage, file_factory: FileFactory
     ):
         await file_factory("user/f.txt")
-        await s3_storage.deletedir("user", "f.txt")
-        assert await s3_storage.exists("user", "f.txt")
+        await s3_storage.deletedir("user/f.txt")
+        assert await s3_storage.exists("user/f.txt")
 
     async def test_deletedir_but_dir_does_not_exist(self, s3_storage: S3Storage):
-        await s3_storage.deletedir("user", "a")
+        await s3_storage.deletedir("user/a")
 
 
 class TestEmptydir:
     async def test_emptydir(self, s3_storage: S3Storage, file_factory: FileFactory):
         await file_factory("user/a/f.txt")
         await file_factory("user/a/b/f.txt")
-        await s3_storage.emptydir("user", "a")
-        assert not await s3_storage.exists("user", "a/f.txt")
-        assert not await s3_storage.exists("user", "a/b/f.txt")
+        await s3_storage.emptydir("user/a")
+        assert not await s3_storage.exists("user/a/f.txt")
+        assert not await s3_storage.exists("user/a/b/f.txt")
 
     async def test_emptydir_but_it_is_a_file(
         self, s3_storage: S3Storage, file_factory: FileFactory
     ):
         await file_factory("user/f.txt")
-        await s3_storage.emptydir("user", "f.txt")
-        assert await s3_storage.exists("user", "f.txt")
+        await s3_storage.emptydir("user/f.txt")
+        assert await s3_storage.exists("user/f.txt")
 
     async def test_emptydir_but_dir_does_not_exist(self, s3_storage: S3Storage):
-        await s3_storage.emptydir("user", "a")
+        await s3_storage.emptydir("user/a")
 
 
 class TestDownload:
@@ -121,7 +121,7 @@ class TestDownload:
         # GIVEN
         await file_factory("user/This ?test=folder/f.txt")
         # WHEN
-        chunks = s3_storage.download("user", "This ?test=folder/f.txt")
+        chunks = s3_storage.download("user/This ?test=folder/f.txt")
         # THEN
         content = BytesIO(b"".join([chunk async for chunk in chunks]))
         assert content.read() == b"I'm Dummy File!"
@@ -131,11 +131,11 @@ class TestDownload:
     ):
         await file_factory("user/a/f.txt")
         with pytest.raises(File.NotFound):
-            await anext(s3_storage.download("user", "a"))
+            await anext(s3_storage.download("user/a"))
 
     async def test_when_file_does_not_exist(self, s3_storage: S3Storage):
         with pytest.raises(File.NotFound):
-            await anext(s3_storage.download("user", "f.txt"))
+            await anext(s3_storage.download("user/f.txt"))
 
 
 class TestDownloadBatch:
@@ -147,8 +147,8 @@ class TestDownloadBatch:
         await file_factory("user/b/z.txt")
 
         items = [
-            DownloadBatchItem(ns_path="user", path="a/x.txt", is_dir=False),
-            DownloadBatchItem(ns_path="user", path="a/c", is_dir=True),
+            DownloadBatchItem(key="user/a/x.txt", is_dir=False),
+            DownloadBatchItem(key="user/a/c", is_dir=True),
         ]
 
         # WHEN
@@ -172,7 +172,7 @@ class TestDownloadDir:
         await file_factory("user/b/z.txt")
 
         # WHEN
-        chunks = s3_storage.downloaddir("user", "a")
+        chunks = s3_storage.downloaddir("user/a")
 
         # THEN
         content = BytesIO(b"".join(chunk for chunk in chunks))
@@ -191,10 +191,10 @@ class TestDownloadDir:
         await file_factory("user/a/c/f.txt", content=BytesIO(b"!"))
         await file_factory("user/b/z.txt")
 
-        paths_to_include = ["a/x.txt", "a/c"]
+        keys_to_include = ["user/a/x.txt", "user/a/c"]
 
         # WHEN
-        chunks = s3_storage.downloaddir("user", "a", include_paths=paths_to_include)
+        chunks = s3_storage.downloaddir("user/a", include_keys=keys_to_include)
 
         # THEN
         content = BytesIO(b"".join(chunk for chunk in chunks))
@@ -207,14 +207,14 @@ class TestDownloadDir:
         # GIVEN
         await file_factory("user/empty_dir/", content=b"")
         # WHEN
-        chunks = s3_storage.downloaddir("user", "empty_dir")
+        chunks = s3_storage.downloaddir("user/empty_dir")
         # THEN
         content = BytesIO(b"".join(chunk for chunk in chunks))
         with ZipFile(content, "r") as archive:
             assert archive.namelist() == ["."]
 
     async def test_when_dir_does_not_exist(self, s3_storage: S3Storage):
-        chunks = s3_storage.downloaddir("user", "empty_dir")
+        chunks = s3_storage.downloaddir("user/empty_dir")
         content = BytesIO(b"".join(chunk for chunk in chunks))
         with ZipFile(content, "r") as archive:
             assert archive.namelist() == []
@@ -227,53 +227,50 @@ class TestIterdir:
         await file_factory("user/a b/c/f.txt")
         await file_factory("user/b/z.txt")
 
-        items = [item async for item in s3_storage.iterdir("user", "a b")]
+        items = [item async for item in s3_storage.iterdir("user/a b")]
         c, x, y = sorted(
             items,
             key=operator.attrgetter("path")
         )
 
         assert c.name == "c"
-        assert c.ns_path == "user"
-        assert c.path == "a b/c"
+        assert c.path == "user/a b/c"
         assert c.mtime == 0
         assert c.size == 0
         assert c.is_dir()
 
         assert x.name == "x.txt"
-        assert x.ns_path == "user"
-        assert x.path == "a b/x.txt"
+        assert x.path == "user/a b/x.txt"
         assert x.mtime > 0
         assert x.size == 15
         assert x.is_dir() is False
 
         assert y.name == "y.txt"
-        assert y.ns_path == "user"
-        assert y.path == "a b/y.txt"
+        assert y.path == "user/a b/y.txt"
         assert y.mtime > 0
         assert y.size == 15
         assert y.is_dir() is False
 
     async def test_on_empty_dir(self, s3_storage: S3Storage, file_factory: FileFactory):
         await file_factory("user/empty_dir/", content=b"")
-        result = [item async for item in s3_storage.iterdir("user", "emptydir")]
+        result = [item async for item in s3_storage.iterdir("user/emptydir")]
         assert result == []
 
     async def test_when_path_does_not_exist(self, s3_storage: S3Storage):
-        result = [item async for item in s3_storage.iterdir("user", "a")]
+        result = [item async for item in s3_storage.iterdir("user/a")]
         assert len(result) == 0
 
     async def test_when_it_is_a_file(
         self, s3_storage: S3Storage, file_factory: FileFactory
     ):
         await file_factory("user/f.txt")
-        result = [item async for item in s3_storage.iterdir("user", "f.txt")]
+        result = [item async for item in s3_storage.iterdir("user/f.txt")]
         assert len(result) == 0
 
 
 class TestMakedir:
     async def test(self, s3_storage: S3Storage):
-        await s3_storage.makedirs("admin", "a/b/c")
+        await s3_storage.makedirs("admin/a/b/c")
 
 
 class TestMove:
@@ -281,10 +278,10 @@ class TestMove:
         # GIVEN
         await file_factory("user/x.txt")
         # WHEN
-        await s3_storage.move(at=("user", "x.txt"), to=("user", "y.txt"))
+        await s3_storage.move(at="user/x.txt", to="user/y.txt")
         # THEN
-        assert not await s3_storage.exists("user", "x.txt")
-        assert await s3_storage.exists("user", "y.txt")
+        assert not await s3_storage.exists("user/x.txt")
+        assert await s3_storage.exists("user/y.txt")
 
     async def test_on_non_ascii_path(
         self, s3_storage: S3Storage, file_factory: FileFactory
@@ -292,21 +289,21 @@ class TestMove:
         # GIVEN
         await file_factory("user/файл.txt")
         # WHEN
-        await s3_storage.move(at=("user", "файл.txt"), to=("user", "file.txt"))
+        await s3_storage.move(at="user/файл.txt", to="user/file.txt")
         # THEN
-        assert not await s3_storage.exists("user", "файл.txt")
-        assert await s3_storage.exists("user", "file.txt")
+        assert not await s3_storage.exists("user/файл.txt")
+        assert await s3_storage.exists("user/file.txt")
 
     async def test_when_it_is_a_dir(
         self, s3_storage: S3Storage, file_factory: FileFactory
     ):
         await file_factory("user/a/x.txt")
         with pytest.raises(File.NotFound):
-            await s3_storage.move(at=("user", "a"), to=("user", "b"))
+            await s3_storage.move(at="user/a", to="user/b")
 
     async def test_when_source_does_not_exist(self, s3_storage: S3Storage):
         with pytest.raises(File.NotFound):
-            await s3_storage.move(at=("user", "x.txt"), to=("user", "y.txt"))
+            await s3_storage.move(at="user/x.txt", to="user/y.txt")
 
     async def test_when_destination_does_not_exist(
         self, s3_storage: S3Storage, file_factory: FileFactory
@@ -314,10 +311,10 @@ class TestMove:
         # GIVEN
         await file_factory("user/x.txt")
         # WHEN
-        await s3_storage.move(at=("user", "x.txt"), to=("user", "a/y.txt"))
+        await s3_storage.move(at="user/x.txt", to="user/a/y.txt")
         # THEN
-        assert not await s3_storage.exists("user", "x.txt")
-        assert await s3_storage.exists("user", "a/y.txt")
+        assert not await s3_storage.exists("user/x.txt")
+        assert await s3_storage.exists("user/a/y.txt")
 
     async def test_when_destination_is_not_a_dir(
         self, s3_storage: S3Storage, file_factory: FileFactory
@@ -326,10 +323,10 @@ class TestMove:
         await file_factory("user/x.txt")
         await file_factory("user/y.txt")
         # WHEN
-        await s3_storage.move(at=("user", "x.txt"), to=("user", "y.txt/x.txt"))
+        await s3_storage.move(at="user/x.txt", to="user/y.txt/x.txt")
         # THEN
-        assert not await s3_storage.exists("user", "x.txt")
-        assert await s3_storage.exists("user", "y.txt/x.txt")
+        assert not await s3_storage.exists("user/x.txt")
+        assert await s3_storage.exists("user/y.txt/x.txt")
 
 
 class TestMoveDir:
@@ -338,19 +335,19 @@ class TestMoveDir:
         await file_factory("user/a/f.txt")
         await file_factory("user/b/f.txt")
         # WHEN
-        await s3_storage.movedir(at=("user", "a"), to=("user", "b/a"))
+        await s3_storage.movedir(at="user/a", to="user/b/a")
         # THEN
-        assert not await s3_storage.exists("user", "a/f.txt")
-        assert await s3_storage.exists("user", "b/a/f.txt")
+        assert not await s3_storage.exists("user/a/f.txt")
+        assert await s3_storage.exists("user/b/a/f.txt")
 
     async def test_on_empty_dir(self, s3_storage: S3Storage, file_factory: FileFactory):
         # GIVEN
         await file_factory("user/empty_dir/", content=b"")
         # WHEN
-        await s3_storage.movedir(at=("user", "empty_dir"), to=("user", "a"))
+        await s3_storage.movedir(at="user/empty_dir", to="user/a")
         # THEN
-        assert not await s3_storage.exists("user", "empty_dir")
-        assert await s3_storage.exists("user", "a")
+        assert not await s3_storage.exists("user/empty_dir")
+        assert await s3_storage.exists("user/a")
 
     async def test_when_it_is_a_file(
         self, s3_storage: S3Storage, file_factory: FileFactory
@@ -358,13 +355,13 @@ class TestMoveDir:
         # GIVEN
         await file_factory("user/a/f.txt")
         # WHEN
-        await s3_storage.movedir(at=("user", "a/f.txt"), to=("user", "b/f.txt"))
+        await s3_storage.movedir(at="user/a/f.txt", to="user/b/f.txt")
         # THEN
-        assert await s3_storage.exists("user", "a/f.txt")
-        assert not await s3_storage.exists("user", "b/f.txt")
+        assert await s3_storage.exists("user/a/f.txt")
+        assert not await s3_storage.exists("user/b/f.txt")
 
     async def test_when_source_does_not_exist(self, s3_storage: S3Storage):
-        await s3_storage.movedir(at=("user", "a"), to=("user", "b"))
+        await s3_storage.movedir(at="user/a", to="user/b")
 
     async def test_when_destination_does_not_exist(
         self, s3_storage: S3Storage, file_factory: FileFactory
@@ -372,10 +369,10 @@ class TestMoveDir:
         # GIVEN
         await file_factory("user/a/x.txt")
         # WHEN
-        await s3_storage.movedir(at=("user", "a"), to=("user", "b/a"))
+        await s3_storage.movedir(at="user/a", to="user/b/a")
         # THEN
-        assert not await s3_storage.exists("user", "a/x.txt")
-        assert await s3_storage.exists("user", "b/a/x.txt")
+        assert not await s3_storage.exists("user/a/x.txt")
+        assert await s3_storage.exists("user/b/a/x.txt")
 
     async def test_when_destination_is_not_a_dir(
         self, s3_storage: S3Storage, file_factory: FileFactory
@@ -384,11 +381,11 @@ class TestMoveDir:
         await file_factory("user/a/f.txt")
         await file_factory("user/y.txt")
         # WHEN
-        await s3_storage.movedir(at=("user", "a"), to=("user", "y.txt/a"))
+        await s3_storage.movedir(at="user/a", to="user/y.txt/a")
         # THEN
-        assert not await s3_storage.exists("user", "a/f.txt")
-        assert await s3_storage.exists("user", "y.txt")
-        assert await s3_storage.exists("user", "y.txt/a/f.txt")
+        assert not await s3_storage.exists("user/a/f.txt")
+        assert await s3_storage.exists("user/y.txt")
+        assert await s3_storage.exists("user/y.txt/a/f.txt")
 
 
 class TestSave:
@@ -399,12 +396,11 @@ class TestSave:
         s3_client: AsyncS3Client,
         content: IFileContent,
     ):
-        file = await s3_storage.save("user", "a/f.txt", content=content)
+        file = await s3_storage.save("user/a/f.txt", content=content)
 
         obj = await s3_client.head_object(s3_bucket, "user/a/f.txt")
         assert file.name == "f.txt"
-        assert file.ns_path == "user"
-        assert file.path == "a/f.txt"
+        assert file.path == "user/a/f.txt"
         assert file.size == obj.size == content.size
         assert file.is_dir() is False
 
@@ -412,13 +408,13 @@ class TestSave:
         self, s3_storage: S3Storage, file_factory: FileFactory, content: IFileContent
     ):
         await file_factory("user/f.txt")
-        await s3_storage.save("user", "f.txt/f.txt", content=content)
-        await s3_storage.exists("user", "f.txt")
-        await s3_storage.exists("user", "f.txt/f.txt")
+        await s3_storage.save("user/f.txt/f.txt", content=content)
+        await s3_storage.exists("user/f.txt")
+        await s3_storage.exists("user/f.txt/f.txt")
 
     async def test_when_overrides_existing_file(
         self, s3_storage: S3Storage, file_factory: FileFactory, content: IFileContent
     ):
         await file_factory("user/f.txt")
-        file = await s3_storage.save("user", "f.txt", content=content)
+        file = await s3_storage.save("user/f.txt", content=content)
         assert file.size == content.size

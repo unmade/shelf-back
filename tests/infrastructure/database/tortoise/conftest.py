@@ -80,8 +80,7 @@ if TYPE_CHECKING:
     class FilePendingDeletionFactory(Protocol):
         async def __call__(
             self,
-            ns_path: AnyPath | None = None,
-            path: AnyPath | None = None,
+            storage_key: str | None = None,
             mediatype: str | None = None,
         ) -> FilePendingDeletion: ...
 
@@ -418,15 +417,16 @@ def file_pending_deletion_factory(
     file_pending_deletion_repo: IFilePendingDeletionRepository,
 ) -> FilePendingDeletionFactory:
     async def factory(
-        ns_path: AnyPath | None = None,
-        path: AnyPath | None = None,
+        storage_key: str | None = None,
         mediatype: str | None = None,
     ) -> FilePendingDeletion:
         items = await file_pending_deletion_repo.save_batch([
             FilePendingDeletion(
                 id=SENTINEL_ID,
-                ns_path=str(ns_path) if ns_path else fake.unique.user_name(),
-                path=str(path) if path else fake.unique.file_name(),
+                storage_key=(
+                    storage_key
+                    or f"{fake.unique.user_name()}/{fake.unique.file_name()}"
+                ),
                 chash=uuid.uuid4().hex,
                 mediatype=mediatype or "plain/text",
             )
