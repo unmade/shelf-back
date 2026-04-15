@@ -77,6 +77,15 @@ class AuditTrailAsset(models.Model):
     )
 
 
+class Blob(models.Model):
+    id = fields.UUIDField(primary_key=True, default=uuid7)
+    storage_key = fields.CharField(max_length=4096, unique=True)
+    size = fields.BigIntField()
+    chash = fields.CharField(max_length=128, index=True)
+    media_type = fields.CharField(max_length=255)
+    created_at = fields.DatetimeField()
+
+
 class Bookmark(models.Model):
     """Through model for User-File bookmarks."""
     id = fields.UUIDField(primary_key=True, default=uuid7)

@@ -12,10 +12,7 @@ class Migration(migrations.Migration):
             field=fields.CharField(max_length=4096, default=""),
         ),
         ops.RunSQL(
-            sql=(
-                "UPDATE filependingdeletion"
-                " SET storage_key = ns_path || '/' || path"
-            ),
+            sql=("UPDATE filependingdeletion SET storage_key = ns_path || '/' || path"),
         ),
         ops.RemoveField(
             model_name="FilePendingDeletion",
