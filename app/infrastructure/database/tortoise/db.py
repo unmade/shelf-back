@@ -12,6 +12,7 @@ from .repositories import (
     AccountRepository,
     AlbumRepository,
     AuditTrailRepository,
+    BlobRepository,
     BookmarkRepository,
     ContentMetadataRepository,
     FileMemberRepository,
@@ -29,6 +30,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
     from app.app.audit.repositories import IAuditTrailRepository
+    from app.app.blobs.repositories import IBlobRepository
     from app.app.files.repositories import (
         IContentMetadataRepository,
         IFileMemberRepository,
@@ -71,6 +73,7 @@ class TortoiseDatabase(IDatabase):
     account: IAccountRepository
     album: IAlbumRepository
     audit_trail: IAuditTrailRepository
+    blob: IBlobRepository
     bookmark: IBookmarkRepository
     file: IFileRepository
     file_member: IFileMemberRepository
@@ -88,6 +91,7 @@ class TortoiseDatabase(IDatabase):
         self.account = AccountRepository()
         self.album = AlbumRepository()
         self.audit_trail = AuditTrailRepository()
+        self.blob = BlobRepository()
         self.bookmark = BookmarkRepository()
         self.file = FileRepository()
         self.file_member = FileMemberRepository()

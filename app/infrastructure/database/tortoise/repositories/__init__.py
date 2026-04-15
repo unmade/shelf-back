@@ -1,6 +1,7 @@
 from .account import AccountRepository
 from .album import AlbumRepository
 from .audit import AuditTrailRepository
+from .blob import BlobRepository
 from .bookmark import BookmarkRepository
 from .file import FileRepository
 from .file_member import FileMemberRepository
@@ -17,6 +18,7 @@ __all__ = [
     "AccountRepository",
     "AlbumRepository",
     "AuditTrailRepository",
+    "BlobRepository",
     "BookmarkRepository",
     "ContentMetadataRepository",
     "FileMemberRepository",

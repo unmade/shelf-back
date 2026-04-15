@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 import pytest
 from faker import Faker
 
+from app.app.blobs.domain import Blob
 from app.app.files.domain import (
     ContentMetadata,
     Exif,
@@ -26,7 +27,7 @@ from app.app.photos.domain import Album, MediaItem
 from app.app.users.domain import Account, Bookmark, User
 from app.config import config
 from app.infrastructure.database.tortoise import models
-from app.toolkit import chash
+from app.toolkit import chash, timezone
 from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
@@ -35,6 +36,7 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from app.app.audit.repositories import IAuditTrailRepository
+    from app.app.blobs.repositories import IBlobRepository
     from app.app.files.domain import AnyPath
     from app.app.files.repositories import (
         IContentMetadataRepository,
@@ -62,6 +64,16 @@ if TYPE_CHECKING:
             password: str | None = None,
             email: str | None = None,
         ) -> User:
+            ...
+
+    class BlobFactory(Protocol):
+        async def __call__(
+            self,
+            storage_key: str | None = None,
+            size: int = 10,
+            chash: str | None = None,
+            media_type: str = "plain/text",
+        ) -> Blob:
             ...
 
     class FileFactory(Protocol):
@@ -150,6 +162,11 @@ def album_repo(tortoise_database: TortoiseDatabase) -> IAlbumRepository:
 @pytest.fixture
 def audit_trail_repo(tortoise_database: TortoiseDatabase) -> IAuditTrailRepository:
     return tortoise_database.audit_trail
+
+
+@pytest.fixture
+def blob_repo(tortoise_database: TortoiseDatabase) -> IBlobRepository:
+    return tortoise_database.blob
 
 
 @pytest.fixture
@@ -259,6 +276,27 @@ def album_factory(album_repo: IAlbumRepository) -> AlbumFactory:
             album = await album_repo.set_cover(owner_id, album.slug, cover_file_id)
 
         return album
+    return factory
+
+
+@pytest.fixture
+def blob_factory(blob_repo: IBlobRepository) -> BlobFactory:
+    async def factory(
+        storage_key: str | None = None,
+        size: int = 10,
+        chash: str | None = None,
+        media_type: str = "plain/text",
+    ) -> Blob:
+        return await blob_repo.save(
+            Blob(
+                id=SENTINEL_ID,
+                storage_key=storage_key or f"blobs/{uuid.uuid7().hex}",
+                size=size,
+                chash=chash or uuid.uuid4().hex,
+                media_type=media_type,
+                created_at=timezone.now(),
+            )
+        )
     return factory
 
 
