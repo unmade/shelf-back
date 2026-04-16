@@ -229,7 +229,7 @@ class TestProcessFilePendingDeletion:
         deletion_result = [
             self._make_deletion_result(MediaType.IMAGE_JPEG),
             self._make_deletion_result(MediaType.IMAGE_WEBP),
-            self._make_deletion_result(MediaType.PLAIN_TEXT),
+            self._make_deletion_result(MediaType.TEXT_PLAIN),
         ]
         usecases = cast(mock.MagicMock, arq_context["usecases"])
         filecore = usecases.namespace.file.filecore

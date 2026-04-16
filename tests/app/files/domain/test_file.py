@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING
 import pytest
 from faker import Faker
 
-from app.app.files.domain import File, Path, mediatypes
+from app.app.files.domain import File, Path
+from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
     from app.app.files.domain.path import AnyPath
@@ -47,7 +48,7 @@ class TestIsHidden:
 class TestIsFolder:
     @pytest.mark.parametrize(["mediatype", "folder"], [
         (None, False),
-        (mediatypes.FOLDER, True),
+        (MediaType.FOLDER, True),
     ])
     def test_file_is_folder(self, mediatype: str | None, folder: bool):
         file = _make_file(mediatype=mediatype)

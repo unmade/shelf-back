@@ -201,7 +201,7 @@ def file_pending_deletion_factory(
                     or f"{fake.unique.user_name()}/{fake.unique.file_name()}"
                 ),
                 chash=uuid.uuid4().hex,
-                mediatype=mediatype or MediaType.PLAIN_TEXT,
+                mediatype=mediatype or MediaType.TEXT_PLAIN,
             )
         ])
         return items[0]
