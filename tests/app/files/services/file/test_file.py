@@ -13,7 +13,8 @@ from app.app.files.services.file.mount import FullyQualifiedPath
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
-    from app.app.files.domain import AnyPath, IFileContent
+    from app.app.blobs.domain import IBlobContent
+    from app.app.files.domain import AnyPath
     from app.app.files.domain.file_member import FileMemberActions
     from app.app.files.services import FileService
 
@@ -191,7 +192,7 @@ class TestCreateFile:
         self,
         get_available_path_mock: MagicMock,
         file_service: FileService,
-        content: IFileContent,
+        content: IBlobContent,
     ):
         # GIVEN
         ns_path, path, modified_at = "admin", Path("f.txt"), None
@@ -212,7 +213,7 @@ class TestCreateFile:
         )
 
     async def test_when_not_allowed(
-        self, file_service: FileService, content: IFileContent
+        self, file_service: FileService, content: IBlobContent
     ):
         # GIVEN
         ns_path, path = "user", "teamfolder/f.txt"

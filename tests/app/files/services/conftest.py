@@ -7,8 +7,8 @@ from unittest import mock
 import pytest
 from faker import Faker
 
+from app.app.blobs.domain.content import InMemoryBlobContent
 from app.app.files.domain import FilePendingDeletion
-from app.app.files.domain.content import InMemoryFileContent
 from app.app.files.repositories import (
     IContentMetadataRepository,
     IFileMemberRepository,
@@ -37,7 +37,8 @@ if TYPE_CHECKING:
     from typing import Protocol
     from uuid import UUID
 
-    from app.app.files.domain import AnyPath, File, IFileContent, Namespace
+    from app.app.blobs.domain import IBlobContent
+    from app.app.files.domain import AnyPath, File, Namespace
     from app.app.users.domain import User
     from app.infrastructure.database.tortoise import TortoiseDatabase
     from app.typedefs import StrOrUUID
@@ -50,7 +51,7 @@ if TYPE_CHECKING:
             self,
             ns_path: str,
             path: AnyPath | None = None,
-            content: IFileContent | None = None,
+            content: IBlobContent | None = None,
         ) -> File:
             ...
 
@@ -176,9 +177,9 @@ def bookmark_factory(tortoise_database: TortoiseDatabase):
 def file_factory(filecore: FileCoreService) -> FileFactory:
     """A factory to create a File instance saved to the DB and storage."""
     async def factory(
-        ns_path: str, path: AnyPath | None = None, content: IFileContent | None = None
+        ns_path: str, path: AnyPath | None = None, content: IBlobContent | None = None
     ):
-        content = content or InMemoryFileContent(b"Dummy file")
+        content = content or InMemoryBlobContent(b"Dummy file")
         path = path or fake.unique.file_name()
         return await filecore.create_file(ns_path, path, content)
     return factory

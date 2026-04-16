@@ -11,7 +11,7 @@ from app.app.files.domain import Exif
 from app.app.files.services.metadata.readers.image import load_image_data
 
 if TYPE_CHECKING:
-    from app.app.files.domain import IFileContent
+    from app.app.blobs.domain import IBlobContent
 
 
 class TestLoadImageData:
@@ -105,7 +105,7 @@ class TestLoadImageData:
 
         assert actual == expected
 
-    def test_when_there_is_no_exif(self, image_content: IFileContent):
+    def test_when_there_is_no_exif(self, image_content: IBlobContent):
         assert load_image_data(image_content.file) is None
 
     def test_when_content_is_broken(self):

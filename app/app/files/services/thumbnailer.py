@@ -5,8 +5,8 @@ import os.path
 from io import BytesIO
 from typing import TYPE_CHECKING
 
+from app.app.blobs.domain.content import InMemoryBlobContent
 from app.app.files.domain import File
-from app.app.files.domain.content import InMemoryFileContent
 from app.cache import cache
 from app.config import config
 from app.toolkit import mediatypes, thumbnails
@@ -102,7 +102,7 @@ class ThumbnailService:
                     return
 
                 await self.storage.makedirs(os.path.dirname(path))
-                await self.storage.save(path, InMemoryFileContent(thumbnail))
+                await self.storage.save(path, InMemoryBlobContent(thumbnail))
 
     @cache.locked(key=_LOCK_KEY, ttl=30)
     async def thumbnail(
@@ -137,5 +137,5 @@ class ThumbnailService:
             raise File.ThumbnailUnavailable() from exc
 
         await self.storage.makedirs(os.path.dirname(path))
-        await self.storage.save(path, InMemoryFileContent(thumb))
+        await self.storage.save(path, InMemoryBlobContent(thumb))
         return thumb, mediatype

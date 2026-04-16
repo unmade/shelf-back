@@ -12,13 +12,13 @@ from app.toolkit.thumbnails import ThumbnailUnavailable
 from app.toolkit.thumbnails.image import thumbnail_image
 
 if TYPE_CHECKING:
-    from app.app.files.domain import IFileContent
+    from app.app.blobs.domain import IBlobContent
 
 
 class TestImageThumbnail:
     pkg = resources.files("tests.data.images")
 
-    def test_on_regular_image(self, image_content: IFileContent):
+    def test_on_regular_image(self, image_content: IBlobContent):
         thumbnail, mediatype = thumbnail_image(image_content.file, size=128)
         assert len(thumbnail) == 112
         assert mediatype == MediaType.IMAGE_WEBP

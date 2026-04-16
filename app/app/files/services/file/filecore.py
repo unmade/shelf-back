@@ -26,7 +26,8 @@ if TYPE_CHECKING:
     from datetime import datetime
     from uuid import UUID
 
-    from app.app.files.domain import AnyFile, AnyPath, IFileContent
+    from app.app.blobs.domain import IBlobContent
+    from app.app.files.domain import AnyFile, AnyPath
     from app.app.files.repositories import (
         IFilePendingDeletionRepository,
         IFileRepository,
@@ -100,7 +101,7 @@ class FileCoreService:
         self,
         ns_path: AnyPath,
         path: AnyPath,
-        content: IFileContent,
+        content: IBlobContent,
         modified_at: datetime | None = None,
     ) -> File:
         """
