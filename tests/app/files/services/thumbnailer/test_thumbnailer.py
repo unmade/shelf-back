@@ -8,9 +8,10 @@ from unittest import mock
 import pytest
 
 from app.app.files.domain import File, Path
-from app.app.files.services.thumbnailer import thumbnails
 from app.config import config
+from app.toolkit import thumbnails
 from app.toolkit.mediatypes import MediaType
+from app.toolkit.thumbnails import ThumbnailUnavailable
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -129,7 +130,7 @@ class TestGenerateThumbnails:
         ])
         assert storage.save.await_count == 2
 
-    @mock.patch("app.app.files.services.thumbnailer.thumbnails.thumbnail")
+    @mock.patch("app.app.files.services.thumbnailer.thumbnailer.thumbnails.thumbnail")
     async def test_when_file_not_thumbnailable(
         self,
         thumbnail_mock: MagicMock,
@@ -144,7 +145,7 @@ class TestGenerateThumbnails:
         filecore.download.return_value = file, _aiter(image_content.file)
         storage = cast(mock.MagicMock, thumbnailer.storage)
         storage.exists.return_value = False
-        thumbnail_mock.side_effect = File.ThumbnailUnavailable
+        thumbnail_mock.side_effect = ThumbnailUnavailable
         # WHEN
         await thumbnailer.generate_thumbnails(file.id, sizes=sizes)
         # THEN
@@ -255,6 +256,27 @@ class TestThumbnail:
         filecore.download.assert_awaited_once_with(file.id)
         storage.makedirs.assert_awaited_once_with("thumbnails/ab/cd/ef")
         storage.save.assert_awaited_once()
+
+    async def test_when_thumbnail_unavailable(
+        self,
+        thumbnailer: ThumbnailService,
+        content: IFileContent,
+    ):
+        # GIVEN
+        file, size = _make_file("admin", "im.jpeg", chash="abcdef"), 32
+        filecore = cast(mock.AsyncMock, thumbnailer.filecore)
+        filecore.download.return_value = file, _aiter(content.file)
+        storage = cast(mock.MagicMock, thumbnailer.storage)
+        storage.exists.return_value = False
+        # WHEN
+        with pytest.raises(File.ThumbnailUnavailable):
+            await thumbnailer.thumbnail(file.id, file.chash, size)
+        # THEN
+        storage.exists.assert_awaited_once_with("thumbnails/ab/cd/ef/abcdef_32.webp")
+        storage.download.assert_not_called()
+        filecore.download.assert_awaited_once_with(file.id)
+        storage.makedirs.assert_not_called()
+        storage.save.assert_not_called()
 
     async def test_when_file_size_exceed_limits(
         self,

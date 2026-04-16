@@ -6,12 +6,14 @@ from typing import IO
 from app.toolkit import mediatypes
 from app.toolkit.mediatypes import MediaType
 
+from ._exceptions import ThumbnailUnavailable
 from .image import thumbnail_image
 from .pdf import thumbnail_pdf
 from .svg import thumbnail_svg
 
 __all__ = [
     "SUPPORTED_TYPES",
+    "ThumbnailUnavailable",
     "is_supported",
     "thumbnail",
 ]

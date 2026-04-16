@@ -7,9 +7,9 @@ from typing import TYPE_CHECKING
 import pytest
 from PIL import Image
 
-from app.app.files.domain.file import File
-from app.app.files.services.thumbnailer.thumbnails.image import thumbnail_image
 from app.toolkit.mediatypes import MediaType
+from app.toolkit.thumbnails import ThumbnailUnavailable
+from app.toolkit.thumbnails.image import thumbnail_image
 
 if TYPE_CHECKING:
     from app.app.files.domain import IFileContent
@@ -55,5 +55,5 @@ class TestImageThumbnail:
             assert im.size == dimensions
 
     def test_but_file_is_not_an_image(self):
-        with pytest.raises(File.ThumbnailUnavailable):
+        with pytest.raises(ThumbnailUnavailable):
             thumbnail_image(BytesIO(), size=128)

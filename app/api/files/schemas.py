@@ -10,9 +10,8 @@ from fastapi import UploadFile
 from pydantic import BaseModel, RootModel, field_validator, model_validator
 from pydantic.functional_validators import AfterValidator
 
-from app.app.files.services.thumbnailer import thumbnails
 from app.config import ThumbnailSize as AppThumbnailSize
-from app.toolkit import timezone
+from app.toolkit import thumbnails, timezone
 from app.worker.jobs.files import ErrorCode as TaskErrorCode
 
 from .exceptions import FileAlreadyDeleted, MalformedPath
