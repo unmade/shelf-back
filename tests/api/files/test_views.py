@@ -34,7 +34,6 @@ from app.app.files.domain import (
     MountedFile,
     MountPoint,
     Path,
-    mediatypes,
 )
 from app.app.infrastructure.worker import Job, JobStatus
 from app.app.users.domain import Account
@@ -101,7 +100,7 @@ class TestCreateFolder:
             ns_path=str(namespace.path),
             path=expected_path,
             size=0,
-            mediatype=mediatypes.FOLDER,
+            mediatype=MediaType.FOLDER,
         )
         ns_use_case.create_folder.return_value = folder
         payload = {"path": str(path)}
@@ -404,7 +403,7 @@ class TestDownloadFolder:
         self, client: TestClient, ns_use_case: MagicMock, namespace: Namespace,
     ):
         # GIVEN
-        file = _make_file(namespace.path, "f", mediatype=mediatypes.FOLDER)
+        file = _make_file(namespace.path, "f", mediatype=MediaType.FOLDER)
         ns_use_case.download_folder.return_value = BytesIO(b"I'm a ZIP archive")
         key = await shortcuts.create_download_cache(file)
         # WHEN
@@ -576,7 +575,7 @@ class TestGetDownloadURL:
         namespace: Namespace,
     ):
         # GIVEN
-        file = _make_file(namespace.path, "f", mediatype=mediatypes.FOLDER)
+        file = _make_file(namespace.path, "f", mediatype=MediaType.FOLDER)
         ns_use_case.get_item_by_id.return_value = file
         payload = {"id": str(file.id)}
         # WHEN

@@ -5,10 +5,11 @@ import os.path
 from io import BytesIO
 from typing import TYPE_CHECKING
 
-from app.app.files.domain import File, mediatypes
+from app.app.files.domain import File
 from app.app.files.domain.content import InMemoryFileContent
 from app.cache import cache
 from app.config import config
+from app.toolkit import mediatypes
 from app.toolkit.mediatypes import MediaType
 
 from . import thumbnails

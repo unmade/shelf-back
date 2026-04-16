@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from io import BytesIO
 
-from app.app.files.domain import mediatypes
+from app.toolkit import mediatypes
 
 
 class TestGuess:
@@ -62,7 +62,7 @@ class TestGuess:
 
     def test_on_unknown_content(self) -> None:
         content = BytesIO(b"Dummy")
-        assert mediatypes.guess(content) == mediatypes.OCTET_STREAM
+        assert mediatypes.guess(content) == "application/octet-stream"
 
     def test_fallback_to_filename_for_unknown_content(self):
         content = BytesIO(b"dummy")
@@ -70,7 +70,7 @@ class TestGuess:
 
     def test_no_fallback_to_filename_for_strict_extension(self):
         content = BytesIO(b"dummy")
-        assert mediatypes.guess(content, name="im.jpeg") == mediatypes.OCTET_STREAM
+        assert mediatypes.guess(content, name="im.jpeg") == "application/octet-stream"
 
 
 class TestGuessUnsafe:
@@ -78,4 +78,4 @@ class TestGuessUnsafe:
         assert mediatypes.guess_unsafe("img.jpeg") == "image/jpeg"
 
     def test_when_no_extenstion(self) -> None:
-        assert mediatypes.guess_unsafe("f") == mediatypes.OCTET_STREAM
+        assert mediatypes.guess_unsafe("f") == "application/octet-stream"

@@ -21,7 +21,7 @@ class TestThumbnail:
     async def test_text(self):
         # GIVEN
         content = mock.MagicMock()
-        target_guess = "app.app.files.domain.mediatypes.guess"
+        target_guess = "app.app.files.services.thumbnailer.thumbnails.mediatypes.guess"
         target_image = "app.app.files.services.thumbnailer.thumbnails.thumbnail_image"
         # WHEN
         with (
@@ -37,7 +37,7 @@ class TestThumbnail:
     async def test_image(self):
         # GIVEN
         content = mock.MagicMock()
-        target_guess = "app.app.files.domain.mediatypes.guess"
+        target_guess = "app.app.files.services.thumbnailer.thumbnails.mediatypes.guess"
         target_image = "app.app.files.services.thumbnailer.thumbnails.thumbnail_image"
         # WHEN
         with (
@@ -53,7 +53,7 @@ class TestThumbnail:
     async def test_pdf(self):
         # GIVEN
         content = mock.MagicMock()
-        target_guess = "app.app.files.domain.mediatypes.guess"
+        target_guess = "app.app.files.services.thumbnailer.thumbnails.mediatypes.guess"
         target_pdf = "app.app.files.services.thumbnailer.thumbnails.thumbnail_pdf"
         # WHEN
         with (
@@ -68,7 +68,7 @@ class TestThumbnail:
     async def test_svg(self):
         # GIVEN
         content = mock.MagicMock()
-        target_guess = "app.app.files.domain.mediatypes.guess"
+        target_guess = "app.app.files.services.thumbnailer.thumbnails.mediatypes.guess"
         target_svg = "app.app.files.services.thumbnailer.thumbnails.thumbnail_svg"
         # WHEN
         with (

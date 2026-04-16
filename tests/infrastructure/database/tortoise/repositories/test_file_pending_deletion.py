@@ -66,7 +66,7 @@ class TestSaveBatch:
                 id=SENTINEL_ID,
                 storage_key="admin/f.txt",
                 chash=uuid.uuid4().hex,
-                mediatype=MediaType.PLAIN_TEXT,
+                mediatype=MediaType.TEXT_PLAIN,
             ),
             FilePendingDeletion(
                 id=SENTINEL_ID,

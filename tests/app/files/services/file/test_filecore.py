@@ -7,7 +7,7 @@ from unittest import mock
 
 import pytest
 
-from app.app.files.domain import File, Path, mediatypes
+from app.app.files.domain import File, Path
 from app.app.files.services.file.filecore import ProcessFilePendingDeletionResult
 from app.app.infrastructure.storage import DownloadBatchItem
 from app.toolkit import chash, taskgroups
@@ -929,7 +929,7 @@ class TestProcessFileDeletion:
             file_deletions.append(
                 await file_pending_deletion_factory(
                     storage_key=f"{file.ns_path}/{file.path}",
-                    mediatype=MediaType.PLAIN_TEXT,
+                    mediatype=MediaType.TEXT_PLAIN,
                 )
             )
 
@@ -1065,8 +1065,8 @@ class TestReindex:
 
         # these files exist in the database, but not in the storage
         await db.file.save_batch([
-            _make_file(namespace.path, "c", size=32, mediatype=mediatypes.FOLDER),
-            _make_file(namespace.path, "c/d", size=32, mediatype=mediatypes.FOLDER),
+            _make_file(namespace.path, "c", size=32, mediatype=MediaType.FOLDER),
+            _make_file(namespace.path, "c/d", size=32, mediatype=MediaType.FOLDER),
             _make_file(namespace.path, "c/d/f.txt", size=32),
         ])
 

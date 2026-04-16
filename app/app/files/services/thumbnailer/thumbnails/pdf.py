@@ -5,7 +5,6 @@ from typing import IO
 
 import fitz
 
-from app.app.files.domain import mediatypes
 from app.toolkit.mediatypes import MediaType
 
 __all__ = [
@@ -13,17 +12,17 @@ __all__ = [
 ]
 
 _SUPPORTED_IMAGES = {
-    mediatypes.IMAGE_GIF,
-    mediatypes.IMAGE_HEIC,
-    mediatypes.IMAGE_HEIF,
-    mediatypes.IMAGE_JPEG,
-    mediatypes.IMAGE_PNG,
-    mediatypes.IMAGE_WEBP,
+    MediaType.IMAGE_GIF,
+    MediaType.IMAGE_HEIC,
+    MediaType.IMAGE_HEIF,
+    MediaType.IMAGE_JPEG,
+    MediaType.IMAGE_PNG,
+    MediaType.IMAGE_WEBP,
 }
 
 _SUPPORTED_PDF = {
-    "application/pdf",
-    "application/epub+zip",
+    MediaType.PDF,
+    MediaType.EPUB,
 }
 
 SUPPORTED_TYPES = _SUPPORTED_IMAGES | _SUPPORTED_PDF

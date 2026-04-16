@@ -145,7 +145,7 @@ class TestDownloadBatchCreateSession:
         user_id = uuid.uuid4()
         files = [
             _make_media_item_file("admin", "im.jpeg", mediatype=MediaType.IMAGE_JPEG),
-            _make_media_item_file("admin", "f.txt", mediatype=MediaType.PLAIN_TEXT),
+            _make_media_item_file("admin", "f.txt", mediatype=MediaType.TEXT_PLAIN),
         ]
         file_ids = [file.id for file in files]
         namespace = cast(mock.MagicMock, photos_use_case.namespace)
