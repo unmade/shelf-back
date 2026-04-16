@@ -195,6 +195,10 @@ class Services:
         self.token = TokenService(token_repo=cache)
         self.user = UserService(database=database, mail=mail)
 
+        # blob_service = BlobService(database=database, storage=storage_default)
+        # blob_metadata_service = BlobMetadataService(database=database)
+        # blob_thumbnail_service = BlobThumbnailService(storage=storage_media)
+
         self.content = ContentService(
             dupefinder=self.dupefinder,
             filecore=self.filecore,
@@ -209,7 +213,14 @@ class Services:
 
 
 class UseCases:
-    __slots__ = ["album", "auth", "namespace", "media_item", "sharing", "user"]
+    __slots__ = [
+        "album",
+        "auth",
+        "namespace",
+        "media_item",
+        "sharing",
+        "user",
+    ]
 
     def __init__(self, services: Services):
         self.album = AlbumUseCase(services=services)
