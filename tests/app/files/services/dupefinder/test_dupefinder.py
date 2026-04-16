@@ -11,7 +11,7 @@ from app.app.files.domain import Fingerprint
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
-    from app.app.files.domain import IFileContent
+    from app.app.blobs.domain import IBlobContent
     from app.app.files.repositories.fingerprint import MatchResult
     from app.app.files.services import DuplicateFinderService
 
@@ -87,7 +87,7 @@ class TestTrack:
         self,
         dhash: MagicMock,
         dupefinder: DuplicateFinderService,
-        image_content: IFileContent,
+        image_content: IBlobContent,
     ):
         # GIVEN
         file_id = uuid.uuid4()
@@ -105,7 +105,7 @@ class TestTrack:
         self,
         dhash: MagicMock,
         dupefinder: DuplicateFinderService,
-        image_content: IFileContent,
+        image_content: IBlobContent,
     ):
         # GIVEN
         file_id = uuid.uuid4()
@@ -125,7 +125,7 @@ class TestTrackBatch:
         self,
         dhash: MagicMock,
         dupefinder: DuplicateFinderService,
-        image_content: IFileContent,
+        image_content: IBlobContent,
     ):
         # GIVEN
         file_ids = [uuid.uuid4() for _ in range(3)]

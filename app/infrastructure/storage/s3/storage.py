@@ -22,7 +22,7 @@ from .clients.exceptions import NoSuchKey, ResourceNotFound
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Collection, Iterable, Iterator
 
-    from app.app.files.domain import IFileContent
+    from app.app.blobs.domain import IBlobContent
     from app.app.infrastructure.storage import DownloadBatchItem
     from app.config import S3StorageConfig
 
@@ -196,7 +196,7 @@ class S3Storage(IStorage):
                 )
         await self.s3.delete(self.bucket, *keys_to_delete)
 
-    async def save(self, key: str, content: IFileContent) -> StorageFile:
+    async def save(self, key: str, content: IBlobContent) -> StorageFile:
         key = os.path.normpath(key)
         file = await self.s3.upload_obj(self.bucket, key, content)
         return StorageFile(

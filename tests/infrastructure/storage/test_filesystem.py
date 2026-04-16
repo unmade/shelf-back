@@ -15,7 +15,8 @@ from app.app.infrastructure.storage import DownloadBatchItem
 from app.infrastructure.storage import FileSystemStorage
 
 if TYPE_CHECKING:
-    from app.app.files.domain import AnyPath, IFileContent
+    from app.app.blobs.domain import IBlobContent
+    from app.app.files.domain import AnyPath
 
     class FileFactory(Protocol):
         async def __call__(
@@ -425,7 +426,7 @@ class TestMoveDir:
 
 
 class TestSave:
-    async def test_save(self, fs_storage: FileSystemStorage, content: IFileContent):
+    async def test_save(self, fs_storage: FileSystemStorage, content: IBlobContent):
         # GIVEN
         await fs_storage.makedirs("user/a")
         # WHEN
@@ -441,7 +442,7 @@ class TestSave:
         self,
         fs_storage: FileSystemStorage,
         file_factory: FileFactory,
-        content: IFileContent,
+        content: IBlobContent,
     ):
         await file_factory("user/f.txt")
         with pytest.raises(File.NotADirectory):
@@ -451,7 +452,7 @@ class TestSave:
         self,
         file_factory: FileFactory,
         fs_storage: FileSystemStorage,
-        content: IFileContent,
+        content: IBlobContent,
     ):
         # GIVEN
         fullpath = await file_factory("user/f.txt")
