@@ -8,7 +8,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from app.app.files.domain import FileMember
-from app.app.files.services.thumbnailer import thumbnails
+from app.toolkit import thumbnails
 
 if TYPE_CHECKING:
     from fastapi import Request

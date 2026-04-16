@@ -7,8 +7,9 @@ from typing import IO, TYPE_CHECKING
 from PIL import Image, ImageSequence, UnidentifiedImageError
 from PIL.ImageOps import exif_transpose
 
-from app.app.files.domain import File
 from app.toolkit.mediatypes import MediaType
+
+from ._exceptions import ThumbnailUnavailable
 
 if TYPE_CHECKING:
     from PIL.Image import Image as ImageType
@@ -68,7 +69,7 @@ def thumbnail_image(content: IO[bytes], *, size: int) -> tuple[bytes, MediaType]
                 exif_transpose(im).save(buffer, "webp", method=method, quality=quality)
     except (Image.DecompressionBombError, UnidentifiedImageError) as exc:
         msg = "Can't generate thumbnail for a file"
-        raise File.ThumbnailUnavailable(msg) from exc
+        raise ThumbnailUnavailable(msg) from exc
 
     buffer.seek(0)
     return buffer.read(), MediaType.IMAGE_WEBP

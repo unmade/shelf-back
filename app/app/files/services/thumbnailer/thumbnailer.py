@@ -9,10 +9,8 @@ from app.app.files.domain import File
 from app.app.files.domain.content import InMemoryFileContent
 from app.cache import cache
 from app.config import config
-from app.toolkit import mediatypes
+from app.toolkit import mediatypes, thumbnails
 from app.toolkit.mediatypes import MediaType
-
-from . import thumbnails
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -100,7 +98,7 @@ class ThumbnailService:
                 content.seek(0)
                 try:
                     thumbnail, _ = await thumbnails.thumbnail(content, size=size)
-                except File.ThumbnailUnavailable:
+                except thumbnails.ThumbnailUnavailable:
                     return
 
                 await self.storage.makedirs(os.path.dirname(path))
@@ -133,7 +131,11 @@ class ThumbnailService:
             raise File.ThumbnailUnavailable() from None
 
         content = BytesIO(b"".join([chunk async for chunk in chunks]))
-        thumb, mediatype = await thumbnails.thumbnail(content, size=size)
+        try:
+            thumb, mediatype = await thumbnails.thumbnail(content, size=size)
+        except thumbnails.ThumbnailUnavailable as exc:
+            raise File.ThumbnailUnavailable() from exc
+
         await self.storage.makedirs(os.path.dirname(path))
         await self.storage.save(path, InMemoryFileContent(thumb))
         return thumb, mediatype

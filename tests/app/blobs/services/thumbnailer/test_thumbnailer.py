@@ -7,8 +7,8 @@ from unittest import mock
 import pytest
 
 from app.app.blobs.domain import Blob
-from app.app.files.domain import File
 from app.toolkit import timezone
+from app.toolkit.thumbnails import ThumbnailUnavailable
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
@@ -91,7 +91,7 @@ class TestGenerate:
         blob = _make_blob("admin/im.jpeg", chash="abcdef")
         storage = cast(mock.MagicMock, thumbnailer.storage)
         storage.exists.return_value = False
-        thumbnail_mock.side_effect = File.ThumbnailUnavailable
+        thumbnail_mock.side_effect = ThumbnailUnavailable
         # WHEN
         await thumbnailer.generate(blob.chash, image_content.file, sizes=sizes)
         # THEN

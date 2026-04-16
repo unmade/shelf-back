@@ -6,8 +6,8 @@ from io import BytesIO
 import pytest
 from PIL import Image
 
-from app.app.files.services.thumbnailer.thumbnails.pdf import thumbnail_pdf
 from app.toolkit.mediatypes import MediaType
+from app.toolkit.thumbnails.pdf import thumbnail_pdf
 
 
 class TestPDFThumbnail:
