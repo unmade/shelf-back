@@ -14,7 +14,7 @@ pytestmark = [pytest.mark.anyio]
 class TestLoad:
     async def test_image(self, image_content_with_exif: IO[bytes]):
         # GIVEN
-        target_guess = "app.app.files.domain.mediatypes.guess"
+        target_guess = "app.app.files.services.metadata.readers.mediatypes.guess"
         target_load = "app.app.files.services.metadata.readers.load_image_data"
         # WHEN
         with (

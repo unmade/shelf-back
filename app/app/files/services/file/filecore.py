@@ -9,12 +9,13 @@ from typing import IO, TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel
 
-from app.app.files.domain import File, FilePendingDeletion, Path, mediatypes
+from app.app.files.domain import File, FilePendingDeletion, Path
 from app.app.files.repositories.file import FileUpdate
 from app.app.infrastructure.database import SENTINEL_ID
 from app.app.infrastructure.storage import DownloadBatchItem
-from app.toolkit import chash, taskgroups, timezone
+from app.toolkit import chash, mediatypes, taskgroups, timezone
 from app.toolkit.chash import EMPTY_CONTENT_HASH
+from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
     from collections.abc import (
@@ -181,7 +182,7 @@ class FileCoreService:
                     path=p,
                     chash=EMPTY_CONTENT_HASH,
                     size=0,
-                    mediatype=mediatypes.FOLDER,
+                    mediatype=MediaType.FOLDER,
                 )
                 for p in paths[index+1:]
             ]
@@ -520,7 +521,7 @@ class FileCoreService:
         root = None
         with contextlib.suppress(File.NotFound):
             root = await self.db.file.get_by_path(ns_path, path)
-            if root.mediatype != mediatypes.FOLDER:
+            if root.mediatype != MediaType.FOLDER:
                 raise File.NotADirectory() from None
 
         missing: dict[Path, File] = {}
@@ -536,7 +537,7 @@ class FileCoreService:
                 if file.is_dir():
                     folders.append(Path(rel_path))
                     size = 0
-                    mediatype = mediatypes.FOLDER
+                    mediatype = MediaType.FOLDER.value
                 else:
                     for item in itertools.chain((folder, ), folder.parents):
                         if item in missing:

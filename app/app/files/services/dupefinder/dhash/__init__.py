@@ -3,7 +3,8 @@ from __future__ import annotations
 import asyncio
 from typing import IO
 
-from app.app.files.domain import mediatypes
+from app.toolkit import mediatypes
+from app.toolkit.mediatypes import MediaType
 
 from .image import dhash_image
 
@@ -13,11 +14,11 @@ __all__ = [
 ]
 
 _SUPPORTED_IMAGES = {
-    mediatypes.IMAGE_HEIC,
-    mediatypes.IMAGE_HEIF,
-    mediatypes.IMAGE_JPEG,
-    mediatypes.IMAGE_PNG,
-    mediatypes.IMAGE_WEBP,
+    MediaType.IMAGE_HEIC,
+    MediaType.IMAGE_HEIF,
+    MediaType.IMAGE_JPEG,
+    MediaType.IMAGE_PNG,
+    MediaType.IMAGE_WEBP,
 }
 
 SUPPORTED_TYPES = _SUPPORTED_IMAGES

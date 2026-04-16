@@ -14,7 +14,7 @@ class TestDHash:
     async def test_image(self):
         # GIVEN
         content = mock.MagicMock()
-        target_guess = "app.app.files.domain.mediatypes.guess"
+        target_guess = "app.app.files.services.dupefinder.dhash.mediatypes.guess"
         target_dhash = "app.app.files.services.dupefinder.dhash.dhash_image"
         # WHEN
         with (

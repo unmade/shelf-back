@@ -4,7 +4,7 @@ import asyncio
 from typing import IO
 
 from app.app.blobs.domain.metadata import Exif
-from app.app.files.domain import mediatypes
+from app.toolkit import mediatypes
 from app.toolkit.mediatypes import MediaType
 
 from .image import load_image_data

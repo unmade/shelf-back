@@ -215,7 +215,7 @@ class TestGetSharedLinkDownloadUrl:
 
     @mock.patch("app.api.shortcuts.create_download_cache")
     @pytest.mark.parametrize(["mediatype", "expected_path"], [
-        (MediaType.PLAIN_TEXT, "/download?"),
+        (MediaType.TEXT_PLAIN, "/download?"),
         (MediaType.FOLDER, "/download_folder?"),
     ])
     async def test(
