@@ -9,7 +9,8 @@ from typing import TYPE_CHECKING
 import pytest
 from faker import Faker
 
-from app.app.blobs.domain import Blob
+from app.app.blobs.domain import Blob, BlobMetadata
+from app.app.blobs.domain.metadata import Exif as BlobMetadataExif
 from app.app.files.domain import (
     ContentMetadata,
     Exif,
@@ -36,7 +37,7 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from app.app.audit.repositories import IAuditTrailRepository
-    from app.app.blobs.repositories import IBlobRepository
+    from app.app.blobs.repositories import IBlobMetadataRepository, IBlobRepository
     from app.app.files.domain import AnyPath
     from app.app.files.repositories import (
         IContentMetadataRepository,
@@ -57,14 +58,15 @@ if TYPE_CHECKING:
     )
     from app.infrastructure.database.tortoise import TortoiseDatabase
 
-    class UserFactory(Protocol):
+    class AlbumFactory(Protocol):
         async def __call__(
             self,
-            username: str | None = None,
-            password: str | None = None,
-            email: str | None = None,
-        ) -> User:
-            ...
+            owner_id: UUID,
+            title: str | None = None,
+            *,
+            cover_file_id: UUID | None = None,
+            items: Iterable[MediaItem] | None = None,
+        ) -> Album: ...
 
     class BlobFactory(Protocol):
         async def __call__(
@@ -76,6 +78,14 @@ if TYPE_CHECKING:
         ) -> Blob:
             ...
 
+    class BlobMetadataFactory(Protocol):
+        async def __call__(
+            self, blob_id: UUID, data: BlobMetadataExif
+        ) -> BlobMetadata: ...
+
+    class BookmarkFactory(Protocol):
+        async def __call__(self, user_id: UUID, file_id: UUID) -> Bookmark: ...
+
     class FileFactory(Protocol):
         async def __call__(
             self,
@@ -84,7 +94,6 @@ if TYPE_CHECKING:
             mediatype: str = "plain/text",
         ) -> File:
             ...
-
 
     class FileMemberFactory(Protocol):
         async def __call__(self, file_id: UUID, user_id: UUID) -> FileMember: ...
@@ -121,22 +130,6 @@ if TYPE_CHECKING:
         ) -> MountPoint:
             ...
 
-    class SharedLinkFactory(Protocol):
-        async def __call__(self, file_id: UUID) -> SharedLink: ...
-
-    class AlbumFactory(Protocol):
-        async def __call__(
-            self,
-            owner_id: UUID,
-            title: str | None = None,
-            *,
-            cover_file_id: UUID | None = None,
-            items: Iterable[MediaItem] | None = None,
-        ) -> Album: ...
-
-    class BookmarkFactory(Protocol):
-        async def __call__(self, user_id: UUID, file_id: UUID) -> Bookmark: ...
-
     class MediaItemFactory(Protocol):
         async def __call__(
             self,
@@ -145,6 +138,19 @@ if TYPE_CHECKING:
             mediatype: IMediaItemType = ...,
             deleted_at: datetime | None = None,
         ) -> MediaItem: ...
+
+    class SharedLinkFactory(Protocol):
+        async def __call__(self, file_id: UUID) -> SharedLink: ...
+
+    class UserFactory(Protocol):
+        async def __call__(
+            self,
+            username: str | None = None,
+            password: str | None = None,
+            email: str | None = None,
+        ) -> User:
+            ...
+
 
 fake = Faker()
 
@@ -167,6 +173,13 @@ def audit_trail_repo(tortoise_database: TortoiseDatabase) -> IAuditTrailReposito
 @pytest.fixture
 def blob_repo(tortoise_database: TortoiseDatabase) -> IBlobRepository:
     return tortoise_database.blob
+
+
+@pytest.fixture
+def blob_metadata_repo(
+    tortoise_database: TortoiseDatabase,
+) -> IBlobMetadataRepository:
+    return tortoise_database.blob_metadata
 
 
 @pytest.fixture
@@ -297,6 +310,15 @@ def blob_factory(blob_repo: IBlobRepository) -> BlobFactory:
                 created_at=timezone.now(),
             )
         )
+    return factory
+
+
+@pytest.fixture
+def blob_metadata_factory(
+    blob_metadata_repo: IBlobMetadataRepository,
+) -> BlobMetadataFactory:
+    async def factory(blob_id: UUID, data: BlobMetadataExif) -> BlobMetadata:
+        return await blob_metadata_repo.save(BlobMetadata(blob_id=blob_id, data=data))
     return factory
 
 

@@ -1,3 +1,4 @@
 from .blob import IBlobRepository
+from .metadata import IBlobMetadataRepository
 
-__all__ = ["IBlobRepository"]
+__all__ = ["IBlobMetadataRepository", "IBlobRepository"]

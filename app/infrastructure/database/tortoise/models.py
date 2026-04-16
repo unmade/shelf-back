@@ -86,6 +86,14 @@ class Blob(models.Model):
     created_at = fields.DatetimeField()
 
 
+class BlobMetadata(models.Model):
+    id = fields.UUIDField(primary_key=True, default=uuid7)
+    data = fields.JSONField()  # type: ignore[var-annotated]
+    blob: fields.ForeignKeyRelation[Blob] = fields.OneToOneField(
+        "models.Blob", related_name="metadata", on_delete=fields.CASCADE,
+    )
+
+
 class Bookmark(models.Model):
     """Through model for User-File bookmarks."""
     id = fields.UUIDField(primary_key=True, default=uuid7)
