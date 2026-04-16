@@ -36,7 +36,7 @@ def _make_blob(
 
 
 class TestIsSupported:
-    @mock.patch("app.app.blobs.services.thumbnailer.thumbnailer.thumbnails")
+    @mock.patch("app.app.blobs.services.thumbnailer.thumbnails")
     async def test(self, thumbnails_mock: MagicMock, thumbnailer: BlobThumbnailService):
         # GIVEN
         media_type = "plain/text"
@@ -79,7 +79,7 @@ class TestGenerate:
         ])
         assert storage.save.await_count == 2
 
-    @mock.patch("app.app.blobs.services.thumbnailer.thumbnailer.thumbnails.thumbnail")
+    @mock.patch("app.app.blobs.services.thumbnailer.thumbnails.thumbnail")
     async def test_when_file_not_thumbnailable(
         self,
         thumbnail_mock: MagicMock,
