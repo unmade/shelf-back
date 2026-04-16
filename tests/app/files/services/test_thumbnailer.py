@@ -56,7 +56,7 @@ async def image_thumbnail(image_content: IFileContent) -> bytes:
 
 
 class TestIsSupported:
-    @mock.patch("app.app.files.services.thumbnailer.thumbnailer.thumbnails")
+    @mock.patch("app.app.files.services.thumbnailer.thumbnails")
     async def test(self, thumbnails_mock: MagicMock, thumbnailer: ThumbnailService):
         # GIVEN
         mediatype = "plain/text"
@@ -130,7 +130,7 @@ class TestGenerateThumbnails:
         ])
         assert storage.save.await_count == 2
 
-    @mock.patch("app.app.files.services.thumbnailer.thumbnailer.thumbnails.thumbnail")
+    @mock.patch("app.app.files.services.thumbnailer.thumbnails.thumbnail")
     async def test_when_file_not_thumbnailable(
         self,
         thumbnail_mock: MagicMock,
