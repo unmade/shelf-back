@@ -14,7 +14,8 @@ from app.config import config
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
-    from app.app.files.domain import AnyPath, IFileContent
+    from app.app.blobs.domain import IBlobContent
+    from app.app.files.domain import AnyPath
     from app.app.files.usecases import NamespaceUseCase
 
 pytestmark = [pytest.mark.anyio]
@@ -44,7 +45,7 @@ def _make_account(storage_quota: int | None = None) -> Account:
 
 class TestAddFile:
     async def test_unlimited_storage_quota(
-        self, ns_use_case: NamespaceUseCase, content: IFileContent
+        self, ns_use_case: NamespaceUseCase, content: IBlobContent
     ):
         # GIVEN
         audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
@@ -72,7 +73,7 @@ class TestAddFile:
         audit_trail.file_added.assert_called_once_with(result)
 
     async def test_limited_storage_quota(
-        self, ns_use_case: NamespaceUseCase, content: IFileContent
+        self, ns_use_case: NamespaceUseCase, content: IBlobContent
     ):
         # GIVEN
         audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
@@ -101,14 +102,14 @@ class TestAddFile:
         audit_trail.file_added.assert_called_once_with(result)
 
     async def test_when_adding_to_trash_folder(
-        self, ns_use_case: NamespaceUseCase, content: IFileContent
+        self, ns_use_case: NamespaceUseCase, content: IBlobContent
     ):
         ns_path, path = "admin", "Trash/f.txt"
         with pytest.raises(File.MalformedPath):
             await ns_use_case.add_file(ns_path, path, content)
 
     async def test_when_max_upload_size_limit_is_exceeded(
-        self, ns_use_case: NamespaceUseCase, content: IFileContent
+        self, ns_use_case: NamespaceUseCase, content: IBlobContent
     ):
         ns_path, path = "admin", "f.txt"
         with (
@@ -118,7 +119,7 @@ class TestAddFile:
             await ns_use_case.add_file(ns_path, path, content)
 
     async def test_when_exceeding_storage_quota_limit(
-        self, ns_use_case: NamespaceUseCase, content: IFileContent
+        self, ns_use_case: NamespaceUseCase, content: IBlobContent
     ):
         # GIVEN
         audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)

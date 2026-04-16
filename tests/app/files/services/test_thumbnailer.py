@@ -17,7 +17,8 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from unittest.mock import MagicMock
 
-    from app.app.files.domain import AnyPath, IFileContent
+    from app.app.blobs.domain import IBlobContent
+    from app.app.files.domain import AnyPath
     from app.app.files.services import ThumbnailService
 
 pytestmark = [pytest.mark.anyio]
@@ -48,7 +49,7 @@ def _make_file(
 
 
 @pytest.fixture
-async def image_thumbnail(image_content: IFileContent) -> bytes:
+async def image_thumbnail(image_content: IBlobContent) -> bytes:
     """Create a thumbnail from `image_content` fixture with size of 32."""
     thumbnail, _ = await thumbnails.thumbnail(image_content.file, size=32)
     await image_content.seek(0)
@@ -104,7 +105,7 @@ class TestGenerateThumbnails:
     async def test(
         self,
         thumbnailer: ThumbnailService,
-        image_content: IFileContent,
+        image_content: IBlobContent,
     ):
         # GIVEN
         sizes = [32, 64, 128]
@@ -135,7 +136,7 @@ class TestGenerateThumbnails:
         self,
         thumbnail_mock: MagicMock,
         thumbnailer: ThumbnailService,
-        image_content: IFileContent,
+        image_content: IBlobContent,
     ):
         # GIVEN
         sizes = [32, 64, 128]
@@ -238,7 +239,7 @@ class TestThumbnail:
     async def test_thumbnail_created_and_put_to_storage(
         self,
         thumbnailer: ThumbnailService,
-        image_content: IFileContent,
+        image_content: IBlobContent,
     ):
         # GIVEN
         file, size = _make_file("admin", "im.jpeg", chash="abcdef"), 32
@@ -260,7 +261,7 @@ class TestThumbnail:
     async def test_when_thumbnail_unavailable(
         self,
         thumbnailer: ThumbnailService,
-        content: IFileContent,
+        content: IBlobContent,
     ):
         # GIVEN
         file, size = _make_file("admin", "im.jpeg", chash="abcdef"), 32

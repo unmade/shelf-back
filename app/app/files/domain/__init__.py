@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from .content import IFileContent
 from .content_metadata import ContentMetadata, Exif
 from .file import File, MountedFile
 from .file_member import FileMember
@@ -17,7 +16,6 @@ __all__ = [
     "File",
     "FileMember",
     "FilePendingDeletion",
-    "IFileContent",
     "MountedFile",
     "Fingerprint",
     "MountPoint",

@@ -7,12 +7,13 @@ from zipfile import ZipFile
 
 import pytest
 
-from app.app.files.domain.content import InMemoryFileContent
+from app.app.blobs.domain.content import InMemoryBlobContent
 from app.app.files.domain.file import File
 from app.app.infrastructure.storage import DownloadBatchItem
 
 if TYPE_CHECKING:
-    from app.app.files.domain import AnyPath, IFileContent
+    from app.app.blobs.domain import IBlobContent
+    from app.app.files.domain import AnyPath
     from app.infrastructure.storage import S3Storage
     from app.infrastructure.storage.s3.clients import AsyncS3Client
 
@@ -38,9 +39,9 @@ def file_factory(s3_bucket: str, s3_client: AsyncS3Client) -> FileFactory:
         content: bytes | BytesIO = b"I'm Dummy File!",
     ) -> None:
         if isinstance(content, bytes):
-            _content = InMemoryFileContent(content)
+            _content = InMemoryBlobContent(content)
         else:
-            _content = InMemoryFileContent.from_buffer(content)
+            _content = InMemoryBlobContent.from_buffer(content)
 
         await s3_client.upload_obj(s3_bucket, str(path), _content)
 
@@ -394,7 +395,7 @@ class TestSave:
         s3_storage: S3Storage,
         s3_bucket: str,
         s3_client: AsyncS3Client,
-        content: IFileContent,
+        content: IBlobContent,
     ):
         file = await s3_storage.save("user/a/f.txt", content=content)
 
@@ -405,7 +406,7 @@ class TestSave:
         assert file.is_dir() is False
 
     async def test_when_path_is_not_a_dir(
-        self, s3_storage: S3Storage, file_factory: FileFactory, content: IFileContent
+        self, s3_storage: S3Storage, file_factory: FileFactory, content: IBlobContent
     ):
         await file_factory("user/f.txt")
         await s3_storage.save("user/f.txt/f.txt", content=content)
@@ -413,7 +414,7 @@ class TestSave:
         await s3_storage.exists("user/f.txt/f.txt")
 
     async def test_when_overrides_existing_file(
-        self, s3_storage: S3Storage, file_factory: FileFactory, content: IFileContent
+        self, s3_storage: S3Storage, file_factory: FileFactory, content: IBlobContent
     ):
         await file_factory("user/f.txt")
         file = await s3_storage.save("user/f.txt", content=content)

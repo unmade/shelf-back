@@ -49,7 +49,8 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from app.api.exceptions import APIError
-    from app.app.files.domain import AnyPath, IFileContent, Namespace
+    from app.app.blobs.domain import IBlobContent
+    from app.app.files.domain import AnyPath, Namespace
     from tests.api.conftest import TestClient
 
 pytestmark = [pytest.mark.anyio]
@@ -701,7 +702,7 @@ class TestGetThumbnail:
         client: TestClient,
         ns_use_case: MagicMock,
         namespace: Namespace,
-        image_content: IFileContent,
+        image_content: IBlobContent,
     ):
         # GIVEN
         ns_path, path = namespace.path, "im.jpeg"
@@ -728,7 +729,7 @@ class TestGetThumbnail:
         client: TestClient,
         ns_use_case: MagicMock,
         namespace: Namespace,
-        image_content: IFileContent,
+        image_content: IBlobContent,
     ):
         # GIVEN
         ns_path, path = namespace.path, "im.jpeg"
@@ -770,7 +771,7 @@ class TestGetThumbnail:
         client: TestClient,
         ns_use_case: MagicMock,
         namespace: Namespace,
-        image_content: IFileContent,
+        image_content: IBlobContent,
     ):
         # GIVEN
         ns_path, path = namespace.path, "изо.jpeg"

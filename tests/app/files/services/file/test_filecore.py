@@ -16,7 +16,8 @@ from app.toolkit.mediatypes import MediaType
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
-    from app.app.files.domain import AnyPath, IFileContent, Namespace
+    from app.app.blobs.domain import IBlobContent
+    from app.app.files.domain import AnyPath, Namespace
     from app.app.files.services.file import FileCoreService
     from tests.fixtures.app.files import ContentFactory
 
@@ -51,7 +52,7 @@ class TestCHashBatch:
         self,
         chash: MagicMock,
         filecore: FileCoreService,
-        image_content: IFileContent,
+        image_content: IBlobContent,
     ):
         # GIVEN
         file_ids = [uuid.uuid4() for _ in range(3)]
@@ -75,7 +76,7 @@ class TestCHashBatch:
 
 class TestCreateFile:
     async def test(
-        self, filecore: FileCoreService, namespace: Namespace, content: IFileContent
+        self, filecore: FileCoreService, namespace: Namespace, content: IBlobContent
     ):
         file = await filecore.create_file(namespace.path, "f.txt", content)
         assert file.name == "f.txt"
@@ -87,14 +88,14 @@ class TestCreateFile:
         self,
         filecore: FileCoreService,
         namespace: Namespace,
-        image_content: IFileContent,
+        image_content: IBlobContent,
     ):
         content = image_content
         file = await filecore.create_file(namespace.path, "im.jpeg", content)
         assert file.mediatype == "image/jpeg"
 
     async def test_creating_missing_parents(
-        self, filecore: FileCoreService, namespace: Namespace, content: IFileContent
+        self, filecore: FileCoreService, namespace: Namespace, content: IBlobContent
     ):
         file = await filecore.create_file(namespace.path, "a/b/f.txt", content)
         assert file.name == "f.txt"
@@ -107,7 +108,7 @@ class TestCreateFile:
         assert b.path == "a/b"
 
     async def test_parents_size_is_updated(
-        self, filecore: FileCoreService, namespace: Namespace, content: IFileContent
+        self, filecore: FileCoreService, namespace: Namespace, content: IBlobContent
     ):
         await filecore.create_file(namespace.path, "a/b/f.txt", content)
         paths = [".", "a", "a/b"]
@@ -145,7 +146,7 @@ class TestCreateFile:
         assert home.size == sum(content.size for content in contents)
 
     async def test_when_file_path_already_taken(
-        self, filecore: FileCoreService, namespace: Namespace, content: IFileContent
+        self, filecore: FileCoreService, namespace: Namespace, content: IBlobContent
     ):
         await filecore.create_file(namespace.path, "f.txt", content)
         await filecore.create_file(namespace.path, "f.txt", content)
@@ -157,7 +158,7 @@ class TestCreateFile:
         assert f_1.path == "f (1).txt"
 
     async def test_when_parent_path_is_file(
-        self, filecore: FileCoreService, namespace: Namespace, content: IFileContent
+        self, filecore: FileCoreService, namespace: Namespace, content: IBlobContent
     ):
         await filecore.create_file(namespace.path, "f.txt", content)
         with pytest.raises(File.NotADirectory):
@@ -580,7 +581,7 @@ class TestIterFiles:
         filecore: FileCoreService,
         file_factory: FileFactory,
         namespace: Namespace,
-        image_content: IFileContent,
+        image_content: IBlobContent,
     ):
         # GIVEN
         ns_path = str(namespace.path)
@@ -1022,8 +1023,8 @@ class TestReindex:
         self,
         filecore: FileCoreService,
         namespace: Namespace,
-        content: IFileContent,
-        image_content: IFileContent,
+        content: IBlobContent,
+        image_content: IBlobContent,
     ):
         # GIVEN
         db = filecore.db
@@ -1138,7 +1139,7 @@ class TestReindex:
         self,
         filecore: FileCoreService,
         namespace: Namespace,
-        content: IFileContent,
+        content: IBlobContent,
     ):
         await filecore.storage.makedirs(f"{namespace.path}/.")
         await filecore.storage.save(f"{namespace.path}/a", content=content)
