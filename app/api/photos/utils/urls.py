@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from app.app.files.services.thumbnailer import thumbnails
+from app.toolkit import thumbnails
 
 if TYPE_CHECKING:
     from fastapi import Request

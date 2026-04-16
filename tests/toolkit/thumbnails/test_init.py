@@ -4,7 +4,7 @@ from unittest import mock
 
 import pytest
 
-from app.app.files.services.thumbnailer import thumbnails
+from app.toolkit import thumbnails
 
 
 class TestIsSupported:
@@ -21,8 +21,8 @@ class TestThumbnail:
     async def test_text(self):
         # GIVEN
         content = mock.MagicMock()
-        target_guess = "app.app.files.services.thumbnailer.thumbnails.mediatypes.guess"
-        target_image = "app.app.files.services.thumbnailer.thumbnails.thumbnail_image"
+        target_guess = "app.toolkit.thumbnails.mediatypes.guess"
+        target_image = "app.toolkit.thumbnails.thumbnail_image"
         # WHEN
         with (
             mock.patch(target_guess, return_value="plain/text") as guess_mock,
@@ -37,8 +37,8 @@ class TestThumbnail:
     async def test_image(self):
         # GIVEN
         content = mock.MagicMock()
-        target_guess = "app.app.files.services.thumbnailer.thumbnails.mediatypes.guess"
-        target_image = "app.app.files.services.thumbnailer.thumbnails.thumbnail_image"
+        target_guess = "app.toolkit.thumbnails.mediatypes.guess"
+        target_image = "app.toolkit.thumbnails.thumbnail_image"
         # WHEN
         with (
             mock.patch(target_guess, return_value="image/jpeg") as guess_mock,
@@ -53,8 +53,8 @@ class TestThumbnail:
     async def test_pdf(self):
         # GIVEN
         content = mock.MagicMock()
-        target_guess = "app.app.files.services.thumbnailer.thumbnails.mediatypes.guess"
-        target_pdf = "app.app.files.services.thumbnailer.thumbnails.thumbnail_pdf"
+        target_guess = "app.toolkit.thumbnails.mediatypes.guess"
+        target_pdf = "app.toolkit.thumbnails.thumbnail_pdf"
         # WHEN
         with (
             mock.patch(target_guess, return_value="application/pdf"),
@@ -68,8 +68,8 @@ class TestThumbnail:
     async def test_svg(self):
         # GIVEN
         content = mock.MagicMock()
-        target_guess = "app.app.files.services.thumbnailer.thumbnails.mediatypes.guess"
-        target_svg = "app.app.files.services.thumbnailer.thumbnails.thumbnail_svg"
+        target_guess = "app.toolkit.thumbnails.mediatypes.guess"
+        target_svg = "app.toolkit.thumbnails.thumbnail_svg"
         # WHEN
         with (
             mock.patch(target_guess, return_value="image/svg+xml") as guess_mock,

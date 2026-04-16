@@ -4,10 +4,8 @@ import os.path
 from typing import IO, TYPE_CHECKING
 
 from app.app.blobs.domain.content import InMemoryBlobContent
-from app.app.files.domain import File
-from app.app.files.services.thumbnailer import thumbnails
 from app.cache import cache
-from app.toolkit import mediatypes
+from app.toolkit import mediatypes, thumbnails
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -74,7 +72,7 @@ class BlobThumbnailService:
                 content.seek(0)
                 try:
                     thumbnail, _ = await thumbnails.thumbnail(content, size=size)
-                except File.ThumbnailUnavailable:
+                except thumbnails.ThumbnailUnavailable:
                     return
 
                 await self.storage.makedirs(os.path.dirname(path))
