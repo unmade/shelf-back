@@ -7,6 +7,12 @@ from typing import TYPE_CHECKING, Self, assert_never
 from app.app.audit.services import AuditTrailService
 from app.app.auth.services import TokenService
 from app.app.auth.usecases import AuthUseCase
+from app.app.blobs.services import (
+    BlobMetadataService,
+    BlobService,
+    BlobThumbnailService,
+)
+from app.app.blobs.services.content_processor import BlobContentProcessor
 from app.app.files.services import (
     DuplicateFinderService,
     FileService,
@@ -45,6 +51,7 @@ if TYPE_CHECKING:
     from app.config import (
         AppConfig,
         DatabaseConfig,
+        FeatureConfig,
         IndexerClientConfig,
         StorageConfig,
         WorkerConfig,
@@ -62,7 +69,7 @@ class AppContext:
     def __init__(self, config: AppConfig):
         self._stack = AsyncExitStack()
         self._infra = Infrastructure(config)
-        services = Services(self._infra)
+        services = Services(self._infra, features=config.features)
         self.usecases = UseCases(services)
 
     async def __aenter__(self) -> Self:
@@ -147,6 +154,7 @@ class Services:
         "_database",
         "album",
         "audit_trail",
+        "blob_content_processor",
         "bookmark",
         "content",
         "dupefinder",
@@ -162,7 +170,7 @@ class Services:
         "user",
     ]
 
-    def __init__(self, infra: Infrastructure):
+    def __init__(self, infra: Infrastructure, features: FeatureConfig):
         database = infra.database
         mail = infra.mail
         storage_default = infra.storage_default
@@ -195,9 +203,18 @@ class Services:
         self.token = TokenService(token_repo=cache)
         self.user = UserService(database=database, mail=mail)
 
-        # blob_service = BlobService(database=database, storage=storage_default)
-        # blob_metadata_service = BlobMetadataService(database=database)
-        # blob_thumbnail_service = BlobThumbnailService(storage=storage_media)
+        blob_service = BlobService(database=database, storage=storage_default)
+        blob_metadata_service = BlobMetadataService(database=database)
+        blob_thumbnail_service = BlobThumbnailService(
+            storage=storage_media,
+            max_file_size=features.max_file_size_to_thumbnail,
+        )
+        self.blob_content_processor = BlobContentProcessor(
+            blob_service=blob_service,
+            metadata_service=blob_metadata_service,
+            thumbnail_service=blob_thumbnail_service,
+            worker=worker,
+        )
 
         self.content = ContentService(
             dupefinder=self.dupefinder,
@@ -216,6 +233,7 @@ class UseCases:
     __slots__ = [
         "album",
         "auth",
+        "blob_content_processor",
         "namespace",
         "media_item",
         "sharing",
@@ -229,3 +247,6 @@ class UseCases:
         self.sharing = SharingUseCase(services=services)
         self.media_item = MediaItemUseCase(services=services)
         self.user = UserUseCase(services=services)
+
+        # let's keep it on the use case to avoid changing worker code too much.
+        self.blob_content_processor = services.blob_content_processor

@@ -7,7 +7,7 @@ from arq.connections import RedisSettings
 
 from app.config import config
 from app.infrastructure.context import AppContext
-from app.worker.jobs import files
+from app.worker.jobs import blobs, files
 
 if TYPE_CHECKING:
     from app.infrastructure.context import UseCases
@@ -35,6 +35,7 @@ async def ping(ctx):
 class WorkerSettings:
     functions = [
         ping,
+        blobs.process_blob_content,
         files.delete_immediately_batch,
         files.empty_trash,
         files.move_batch,
