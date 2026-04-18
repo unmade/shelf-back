@@ -5,8 +5,9 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from app.app.files.domain import ContentMetadata, Exif, File
+from app.app.files.domain import ContentMetadata, File
 from app.infrastructure.database.tortoise import models
+from app.toolkit.metadata import Exif
 
 if TYPE_CHECKING:
     from uuid import UUID

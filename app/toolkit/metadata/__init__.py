@@ -3,14 +3,14 @@ from __future__ import annotations
 import asyncio
 from typing import IO
 
-from app.app.files.domain import Exif
 from app.toolkit import mediatypes
 from app.toolkit.mediatypes import MediaType
 
-from .image import load_image_data
+from .image import Exif, load_image_data
 
 __all__ = [
     "SUPPORTED_TYPES",
+    "Exif",
     "load",
 ]
 

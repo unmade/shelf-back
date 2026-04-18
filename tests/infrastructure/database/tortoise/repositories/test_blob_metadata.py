@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 import pytest
 
 from app.app.blobs.domain import Blob, BlobMetadata
-from app.app.blobs.domain.metadata import Exif
 from app.infrastructure.database.tortoise import models
+from app.toolkit.metadata import Exif
 
 if TYPE_CHECKING:
     from uuid import UUID

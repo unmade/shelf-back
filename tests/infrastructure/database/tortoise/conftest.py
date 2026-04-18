@@ -10,10 +10,8 @@ import pytest
 from faker import Faker
 
 from app.app.blobs.domain import Blob, BlobMetadata
-from app.app.blobs.domain.metadata import Exif as BlobMetadataExif
 from app.app.files.domain import (
     ContentMetadata,
-    Exif,
     File,
     FileMember,
     FilePendingDeletion,
@@ -30,6 +28,7 @@ from app.config import config
 from app.infrastructure.database.tortoise import models
 from app.toolkit import chash, timezone
 from app.toolkit.mediatypes import MediaType
+from app.toolkit.metadata import Exif
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -79,9 +78,7 @@ if TYPE_CHECKING:
             ...
 
     class BlobMetadataFactory(Protocol):
-        async def __call__(
-            self, blob_id: UUID, data: BlobMetadataExif
-        ) -> BlobMetadata: ...
+        async def __call__(self, blob_id: UUID, data: Exif) -> BlobMetadata: ...
 
     class BookmarkFactory(Protocol):
         async def __call__(self, user_id: UUID, file_id: UUID) -> Bookmark: ...
@@ -317,7 +314,7 @@ def blob_factory(blob_repo: IBlobRepository) -> BlobFactory:
 def blob_metadata_factory(
     blob_metadata_repo: IBlobMetadataRepository,
 ) -> BlobMetadataFactory:
-    async def factory(blob_id: UUID, data: BlobMetadataExif) -> BlobMetadata:
+    async def factory(blob_id: UUID, data: Exif) -> BlobMetadata:
         return await blob_metadata_repo.save(BlobMetadata(blob_id=blob_id, data=data))
     return factory
 
