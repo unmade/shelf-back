@@ -7,8 +7,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from app.app.files.domain import Exif
-from app.app.files.services.metadata.readers.image import load_image_data
+from app.toolkit.metadata.image import Exif, load_image_data
 
 if TYPE_CHECKING:
     from app.app.blobs.domain import IBlobContent

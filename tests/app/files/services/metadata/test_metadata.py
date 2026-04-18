@@ -6,7 +6,8 @@ from unittest import mock
 
 import pytest
 
-from app.app.files.domain import ContentMetadata, Exif
+from app.app.files.domain import ContentMetadata
+from app.toolkit.metadata import Exif
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
@@ -29,7 +30,7 @@ class TestGetByFileID:
         db.metadata.get_by_file_id.assert_awaited_once_with(file_id)
 
 
-@mock.patch("app.app.files.services.metadata.readers.load")
+@mock.patch("app.app.files.services.metadata.metadata.metadata.load")
 class TestTrack:
     async def test(
         self,
@@ -66,7 +67,7 @@ class TestTrack:
         db.metadata.save.assert_not_awaited()
 
 
-@mock.patch("app.app.files.services.metadata.readers.load")
+@mock.patch("app.app.files.services.metadata.metadata.metadata.load")
 class TestTrackBatch:
     async def test(
         self,

@@ -7,7 +7,7 @@ from unittest import mock
 import pytest
 
 from app.app.blobs.domain import BlobMetadata
-from app.app.blobs.domain.metadata import Exif
+from app.toolkit.metadata import Exif
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
@@ -30,7 +30,7 @@ class TestGetByBlobID:
         db.blob_metadata.get_by_blob_id.assert_awaited_once_with(file_id)
 
 
-@mock.patch("app.app.blobs.services.metadata.readers.load")
+@mock.patch("app.app.blobs.services.metadata.metadata.metadata.load")
 class TestTrack:
     async def test(
         self,

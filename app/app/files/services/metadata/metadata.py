@@ -5,8 +5,7 @@ from typing import IO, TYPE_CHECKING, Protocol
 from uuid import UUID
 
 from app.app.files.domain import ContentMetadata
-
-from . import readers
+from app.toolkit import metadata
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -30,7 +29,7 @@ class MetadataService:
         Get metadata associated with a given File ID.
 
         Raises:
-            ContentMetadata.NotFound: If FileMetada for a given file ID does not exist.
+            ContentMetadata.NotFound: If no metadata for a given file ID exists.
         """
         return await self.db.metadata.get_by_file_id(file_id)
 
@@ -41,7 +40,7 @@ class MetadataService:
         Raises:
             File.NotFound: If a file with specified ID doesn't exist.
         """
-        data = await readers.load(content)
+        data = await metadata.load(content)
         if data is None:
             return
 
@@ -69,7 +68,7 @@ class _Tracker:
         return self._items
 
     async def add(self, file_id: UUID, content: IO[bytes]) -> None:
-        data = await readers.load(content)
+        data = await metadata.load(content)
         if data is None:
             return
 

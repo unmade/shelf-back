@@ -29,7 +29,6 @@ from app.api.files.schemas import MoveBatchRequest, ThumbnailSize
 from app.api.files.views import _make_thumbnail_ttl
 from app.app.files.domain import (
     ContentMetadata,
-    Exif,
     File,
     MountedFile,
     MountPoint,
@@ -40,6 +39,7 @@ from app.app.users.domain import Account
 from app.cache import disk_cache
 from app.toolkit import timezone
 from app.toolkit.mediatypes import MediaType
+from app.toolkit.metadata import Exif
 from app.worker.jobs.files import ErrorCode as TaskErrorCode
 from app.worker.jobs.files import FileTaskResult
 

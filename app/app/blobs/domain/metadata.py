@@ -1,30 +1,17 @@
 from __future__ import annotations
 
-from typing import ClassVar, Literal
+from typing import ClassVar
 from uuid import UUID
 
 from pydantic import BaseModel
+
+from app.toolkit.metadata import Exif
 
 __all__ = ["BlobMetadata"]
 
 
 class BlobMetadataNotFound(Exception):
     pass
-
-
-class Exif(BaseModel):
-    type: Literal["exif"] = "exif"
-    make: str | None = None
-    model: str | None = None
-    focal_length: int | None = None
-    focal_length_35mm: int | None = None
-    fnumber: str | None = None
-    exposure: str | None = None
-    iso: str | None = None
-    dt_original: float | None = None
-    dt_digitized: float | None = None
-    height: int | None = None
-    width: int | None = None
 
 
 class BlobMetadata(BaseModel):

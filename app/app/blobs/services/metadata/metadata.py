@@ -4,8 +4,7 @@ from typing import IO, TYPE_CHECKING, Protocol
 from uuid import UUID
 
 from app.app.blobs.domain import BlobMetadata
-
-from . import readers
+from app.toolkit import metadata
 
 if TYPE_CHECKING:
     from app.app.blobs.repositories.metadata import IBlobMetadataRepository
@@ -38,7 +37,7 @@ class BlobMetadataService:
         Raises:
             Blob.NotFound: If a blob with specified ID doesn't exist.
         """
-        data = await readers.load(content)
+        data = await metadata.load(content)
         if data is None:
             return
 

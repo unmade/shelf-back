@@ -2,14 +2,30 @@ from __future__ import annotations
 
 from datetime import datetime
 from fractions import Fraction
-from typing import IO, TYPE_CHECKING
+from typing import IO, TYPE_CHECKING, Literal
 
 from PIL import ExifTags, Image, UnidentifiedImageError
-
-from app.app.files.domain import Exif
+from pydantic import BaseModel
 
 if TYPE_CHECKING:
     from PIL.TiffImagePlugin import IFDRational
+
+__all__ = ["Exif", "load_image_data"]
+
+
+class Exif(BaseModel):
+    type: Literal["exif"] = "exif"
+    make: str | None = None
+    model: str | None = None
+    focal_length: int | None = None
+    focal_length_35mm: int | None = None
+    fnumber: str | None = None
+    exposure: str | None = None
+    iso: str | None = None
+    dt_original: float | None = None
+    dt_digitized: float | None = None
+    height: int | None = None
+    width: int | None = None
 
 
 def load_image_data(content: IO[bytes]) -> Exif | None:
