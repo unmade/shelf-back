@@ -5,6 +5,7 @@ from unittest import mock
 
 import pytest
 
+from app.config import FeatureConfig
 from app.infrastructure.context import Infrastructure, Services
 from app.infrastructure.database.tortoise.db import TortoiseDatabase
 from app.infrastructure.storage import FileSystemStorage, S3Storage
@@ -53,7 +54,10 @@ class TestServices:
     def test_atomic(self):
         # GIVEN
         infra = mock.MagicMock(Infrastructure)
-        services = Services(infra)
+        services = Services(
+            infra,
+            features=mock.MagicMock(FeatureConfig, max_file_size_to_thumbnail=1024),
+        )
         # WHEN
         services.atomic(attempts=5)
         # THEN
