@@ -30,7 +30,7 @@ class TestGetByBlobID:
         db.blob_metadata.get_by_blob_id.assert_awaited_once_with(file_id)
 
 
-@mock.patch("app.app.blobs.services.metadata.metadata.metadata.load")
+@mock.patch("app.app.blobs.services.metadata.metadata.load")
 class TestTrack:
     async def test(
         self,

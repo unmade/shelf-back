@@ -30,7 +30,7 @@ class TestGetByFileID:
         db.metadata.get_by_file_id.assert_awaited_once_with(file_id)
 
 
-@mock.patch("app.app.files.services.metadata.metadata.metadata.load")
+@mock.patch("app.app.files.services.metadata.metadata.load")
 class TestTrack:
     async def test(
         self,
@@ -67,7 +67,7 @@ class TestTrack:
         db.metadata.save.assert_not_awaited()
 
 
-@mock.patch("app.app.files.services.metadata.metadata.metadata.load")
+@mock.patch("app.app.files.services.metadata.metadata.load")
 class TestTrackBatch:
     async def test(
         self,
