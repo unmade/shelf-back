@@ -20,6 +20,7 @@ from .repositories import (
     FilePendingDeletionRepository,
     FileRepository,
     FingerprintRepository,
+    MediaItemFavouriteRepository,
     MediaItemRepository,
     MountRepository,
     NamespaceRepository,
@@ -43,7 +44,11 @@ if TYPE_CHECKING:
         ISharedLinkRepository,
     )
     from app.app.infrastructure.database import ITransaction
-    from app.app.photos.repositories import IAlbumRepository, IMediaItemRepository
+    from app.app.photos.repositories import (
+        IAlbumRepository,
+        IMediaItemFavouriteRepository,
+        IMediaItemRepository,
+    )
     from app.app.users.repositories import (
         IAccountRepository,
         IBookmarkRepository,
@@ -81,6 +86,7 @@ class TortoiseDatabase(IDatabase):
     file_member: IFileMemberRepository
     file_pending_deletion: IFilePendingDeletionRepository
     fingerprint: IFingerprintRepository
+    media_item_favourite: IMediaItemFavouriteRepository
     media_item: IMediaItemRepository
     metadata: IContentMetadataRepository
     mount: IMountRepository
@@ -100,6 +106,7 @@ class TortoiseDatabase(IDatabase):
         self.file_member = FileMemberRepository()
         self.file_pending_deletion = FilePendingDeletionRepository()
         self.fingerprint = FingerprintRepository()
+        self.media_item_favourite = MediaItemFavouriteRepository()
         self.media_item = MediaItemRepository()
         self.metadata = ContentMetadataRepository()
         self.mount = MountRepository()

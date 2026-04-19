@@ -14,6 +14,7 @@ __all__ = ["IStorage", "StorageFile"]
 class DownloadBatchItem(NamedTuple):
     key: str
     is_dir: bool
+    archive_path: str | None = None
 
 
 class StorageFile:

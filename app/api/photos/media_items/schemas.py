@@ -4,36 +4,41 @@ from datetime import datetime
 from typing import Annotated, Self
 from uuid import UUID
 
-from fastapi import Request
-from pydantic import BaseModel, Field
+from fastapi import Request, UploadFile
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.photos.utils.urls import make_thumbnail_url
-from app.app.files.domain import SharedLink
+from app.app.blobs.domain import BlobMetadata
 from app.app.photos.domain import MediaItem
 from app.app.photos.domain.media_item import (
     MediaItemCategory,
     MediaItemCategoryName,
     MediaItemCategoryOrigin,
 )
+from app.toolkit.metadata import Exif
 
 
 class MediaItemSchema(BaseModel):
-    file_id: UUID
+    id: UUID
     name: str
     size: int
-    mediatype: str
+    media_type: str
     thumbnail_url: str | None
+    taken_at: datetime | None
+    created_at: datetime
     modified_at: datetime
     deleted_at: datetime | None
 
     @classmethod
     def from_entity(cls, entity: MediaItem, request: Request) -> Self:
         return cls(
-            file_id=entity.file_id,
+            id=entity.id,
             name=entity.name,
             size=entity.size,
-            mediatype=entity.mediatype,
+            media_type=entity.media_type,
             thumbnail_url=make_thumbnail_url(request, entity),
+            taken_at=entity.taken_at,
+            created_at=entity.created_at,
             modified_at=entity.modified_at,
             deleted_at=entity.deleted_at,
         )
@@ -53,24 +58,8 @@ class MediaItemCategorySchema(BaseModel):
         )
 
 
-class MediaItemSharedLinkSchema(BaseModel):
-    token: str
-    created_at: datetime
-    item: MediaItemSchema
-
-    @classmethod
-    def from_entity(
-        cls, item: MediaItem, link: SharedLink, *, request: Request
-    ) -> Self:
-        return cls(
-            token=link.token,
-            created_at=link.created_at,
-            item=MediaItemSchema.from_entity(item, request),
-        )
-
-
-class FileIDRequest(BaseModel):
-    file_id: UUID
+class MediaItemIDRequest(BaseModel):
+    media_item_id: UUID
 
 
 class CountMediaItemsResponse(BaseModel):
@@ -84,7 +73,7 @@ class AddCategoryRequestCategory(BaseModel):
 
 
 class AddCategoryRequest(BaseModel):
-    file_id: UUID
+    media_item_id: UUID
     categories: Annotated[
         list[AddCategoryRequestCategory],
         Field(min_length=1, max_length=len(MediaItemCategoryName))
@@ -92,33 +81,63 @@ class AddCategoryRequest(BaseModel):
 
 
 class DeleteMediaItemBatchRequest(BaseModel):
-    file_ids: Annotated[list[UUID], Field(min_length=1, max_length=1000)]
+    ids: Annotated[list[UUID], Field(min_length=1, max_length=1000)]
 
 
 class DeleteMediaItemImmediatelyBatchRequest(BaseModel):
-    file_ids: Annotated[list[UUID], Field(min_length=1, max_length=1000)]
+    ids: Annotated[list[UUID], Field(min_length=1, max_length=1000)]
+
+
+class GetContentMetadataResponse(BaseModel):
+    media_item_id: UUID
+    data: Exif
+
+    @classmethod
+    def from_entity(cls, media_item_id: UUID, entity: BlobMetadata) -> Self:
+        return cls(
+            media_item_id=media_item_id,
+            data=entity.data,
+        )
 
 
 class GetDownloadUrlRequest(BaseModel):
-    file_ids: Annotated[list[UUID], Field(min_length=2, max_length=1000)]
+    model_config = ConfigDict(validate_by_name=True)
+
+    ids: Annotated[list[UUID], Field(min_length=1, max_length=1000)]
 
 
 class GetDownloadUrlResponse(BaseModel):
     download_url: str
 
 
+class AddFavouriteBatchRequest(BaseModel):
+    ids: Annotated[list[UUID], Field(min_length=1, max_length=1000)]
+
+
+class ListFavouriteMediaItemsResponse(BaseModel):
+    ids: list[UUID]
+
+
 class ListMediaItemCategoriesResponse(BaseModel):
-    file_id: UUID
+    media_item_id: UUID
     categories: list[MediaItemCategorySchema]
 
 
 class RestoreMediaItemBatchRequest(BaseModel):
-    file_ids: Annotated[list[UUID], Field(min_length=1, max_length=1000)]
+    ids: Annotated[list[UUID], Field(min_length=1, max_length=1000)]
+
+
+class RemoveFavouriteBatchRequest(BaseModel):
+    ids: Annotated[list[UUID], Field(min_length=1, max_length=1000)]
 
 
 class SetMediaItemCategoriesRequest(BaseModel):
-    file_id: UUID
+    media_item_id: UUID
     categories: Annotated[
         list[MediaItemCategoryName],
         Field(max_length=len(MediaItemCategoryName))
     ]
+
+
+class UploadContent(UploadFile):
+    size: int

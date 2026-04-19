@@ -1,22 +1,30 @@
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING, cast
+from io import BytesIO
+from typing import IO, TYPE_CHECKING, cast
 from unittest import mock
 
 import pytest
 
 from app.app.blobs.domain import Blob
-from app.toolkit import timezone
+from app.toolkit import thumbnails, timezone
+from app.toolkit.mediatypes import MediaType
 from app.toolkit.thumbnails import ThumbnailUnavailable
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
     from unittest.mock import MagicMock
 
     from app.app.blobs.domain import IBlobContent
     from app.app.blobs.services import BlobThumbnailService
 
 pytestmark = [pytest.mark.anyio]
+
+
+async def _aiter(content: IO[bytes]) -> AsyncIterator[bytes]:
+    for chunk in content:
+        yield chunk
 
 
 def _make_blob(
@@ -150,3 +158,95 @@ class TestGenerate:
         storage.download.assert_not_called()
         storage.makedirs.assert_not_called()
         storage.save.assert_not_called()
+
+
+class TestThumbnail:
+    async def test_thumbnail_retrieved_from_storage(
+        self,
+        thumbnailer: BlobThumbnailService,
+        image_content: IBlobContent,
+    ):
+        # GIVEN
+        blob = _make_blob("admin/im.jpeg", chash="abcdef")
+        thumbnail, _ = await thumbnails.thumbnail(image_content.file, size=32)
+        storage = cast(mock.MagicMock, thumbnailer.storage)
+        storage.exists.return_value = True
+        storage.download.return_value = _aiter(BytesIO(thumbnail))
+        # WHEN
+        result = await thumbnailer.thumbnail(blob.id, blob.chash, 32)
+        # THEN
+        assert result == (thumbnail, MediaType.IMAGE_WEBP)
+        storage.exists.assert_awaited_once_with(
+            "thumbnails/ab/cd/ef/abcdef_32.webp"
+        )
+        storage.download.assert_called_once_with(
+            "thumbnails/ab/cd/ef/abcdef_32.webp"
+        )
+
+    async def test_thumbnail_created_and_put_to_storage(
+        self,
+        thumbnailer: BlobThumbnailService,
+        image_content: IBlobContent,
+    ):
+        # GIVEN
+        blob = _make_blob("admin/im.jpeg", chash="abcdef")
+        storage = cast(mock.MagicMock, thumbnailer.storage)
+        storage.exists.return_value = False
+        blob_service = cast(mock.MagicMock, thumbnailer.blob_service)
+        blob_service.get_by_id.return_value = blob
+        blob_service.download.return_value = _aiter(image_content.file)
+        # WHEN
+        thumbnail, mediatype = await thumbnailer.thumbnail(blob.id, blob.chash, 32)
+        # THEN
+        assert thumbnail
+        assert mediatype == MediaType.IMAGE_WEBP
+        blob_service.get_by_id.assert_awaited_once_with(blob.id)
+        blob_service.download.assert_called_once_with(blob.storage_key)
+        storage.makedirs.assert_awaited_once_with("thumbnails/ab/cd/ef")
+        storage.save.assert_awaited_once()
+
+    @mock.patch("app.app.blobs.services.thumbnailer.thumbnails.thumbnail")
+    async def test_when_thumbnail_unavailable(
+        self,
+        thumbnail_mock: MagicMock,
+        thumbnailer: BlobThumbnailService,
+        image_content: IBlobContent,
+    ):
+        # GIVEN
+        blob = _make_blob("admin/im.jpeg", chash="abcdef")
+        storage = cast(mock.MagicMock, thumbnailer.storage)
+        storage.exists.return_value = False
+        blob_service = cast(mock.MagicMock, thumbnailer.blob_service)
+        blob_service.get_by_id.return_value = blob
+        blob_service.download.return_value = _aiter(image_content.file)
+        thumbnail_mock.side_effect = ThumbnailUnavailable
+        # WHEN / THEN
+        with pytest.raises(Blob.ThumbnailUnavailable):
+            await thumbnailer.thumbnail(blob.id, blob.chash, 32)
+
+    async def test_when_blob_size_exceeds_limits(
+        self,
+        thumbnailer: BlobThumbnailService,
+    ):
+        # GIVEN
+        blob_size = thumbnailer.max_file_size + 1
+        blob = _make_blob("admin/im.jpeg", chash="abcdef", size=blob_size)
+        storage = cast(mock.MagicMock, thumbnailer.storage)
+        storage.exists.return_value = False
+        blob_service = cast(mock.MagicMock, thumbnailer.blob_service)
+        blob_service.get_by_id.return_value = blob
+        # WHEN / THEN
+        with pytest.raises(Blob.ThumbnailUnavailable):
+            await thumbnailer.thumbnail(blob.id, blob.chash, 32)
+        blob_service.download.assert_not_called()
+        storage.makedirs.assert_not_called()
+        storage.save.assert_not_called()
+
+    async def test_when_chash_is_empty(self, thumbnailer: BlobThumbnailService):
+        # GIVEN
+        blob_id = uuid.uuid7()
+        storage = cast(mock.MagicMock, thumbnailer.storage)
+        # WHEN / THEN
+        with pytest.raises(Blob.ThumbnailUnavailable):
+            await thumbnailer.thumbnail(blob_id, "", 32)
+        storage.exists.assert_not_called()

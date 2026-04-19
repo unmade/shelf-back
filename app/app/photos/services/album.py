@@ -23,14 +23,16 @@ class AlbumService:
     def __init__(self, database: IServiceDatabase):
         self.db = database
 
-    async def add_items(self, owner_id: UUID, slug: str, file_ids: list[UUID]) -> Album:
+    async def add_items(
+        self, owner_id: UUID, slug: str, media_item_ids: list[UUID]
+    ) -> Album:
         """
         Adds items to the album.
 
         Raises:
             Album.NotFound: If album does not exist.
         """
-        return await self.db.album.add_items(owner_id, slug, file_ids)
+        return await self.db.album.add_items(owner_id, slug, media_item_ids)
 
     async def create(self, title: str, owner_id: UUID, created_at: datetime) -> Album:
         """Creates a new album."""
@@ -104,10 +106,10 @@ class AlbumService:
         Raises:
             Album.NotFound: If album does not exist.
         """
-        return await self.db.album.set_cover(owner_id, slug, file_id=None)
+        return await self.db.album.set_cover(owner_id, slug, media_item_id=None)
 
     async def remove_items(
-        self, owner_id: UUID, slug: str, file_ids: list[UUID]
+        self, owner_id: UUID, slug: str, media_item_ids: list[UUID]
     ) -> Album:
         """
         Removes items from the album.
@@ -115,7 +117,7 @@ class AlbumService:
         Raises:
             Album.NotFound: If album does not exist.
         """
-        return await self.db.album.remove_items(owner_id, slug, file_ids)
+        return await self.db.album.remove_items(owner_id, slug, media_item_ids)
 
     async def rename(
         self, owner_id: UUID, slug: str, new_title: str
@@ -133,11 +135,13 @@ class AlbumService:
         new_slug = await self.get_available_slug(owner_id, slug=slugify(new_title))
         return await self.db.album.update(album, title=new_title, slug=new_slug)
 
-    async def set_cover(self, owner_id: UUID, slug: str, file_id: UUID | None) -> Album:
+    async def set_cover(
+        self, owner_id: UUID, slug: str, media_item_id: UUID | None
+    ) -> Album:
         """
         Sets the album cover.
 
         Raises:
             Album.NotFound: If album does not exist.
         """
-        return await self.db.album.set_cover(owner_id, slug, file_id)
+        return await self.db.album.set_cover(owner_id, slug, media_item_id)

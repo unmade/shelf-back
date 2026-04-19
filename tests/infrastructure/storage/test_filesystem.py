@@ -184,6 +184,28 @@ class TestDownloadBatch:
             assert archive.read("x.txt") == b"Hello"
             assert archive.read("c/f.txt") == b"!"
 
+    async def test_with_custom_archive_path(
+        self, fs_storage: FileSystemStorage, file_factory: FileFactory
+    ):
+        # GIVEN
+        await file_factory("user/a/x.txt", content=BytesIO(b"Hello"))
+        items = [
+            DownloadBatchItem(
+                key="user/a/x.txt",
+                is_dir=False,
+                archive_path="photos/photo.jpg",
+            ),
+        ]
+
+        # WHEN
+        chunks = fs_storage.download_batch(items)
+
+        # THEN
+        content = BytesIO(b"".join(chunk for chunk in chunks))
+        with ZipFile(content, "r") as archive:
+            assert archive.namelist() == ["photos/photo.jpg"]
+            assert archive.read("photos/photo.jpg") == b"Hello"
+
 
 class TestDownloadDir:
     async def test(self, fs_storage: FileSystemStorage, file_factory: FileFactory):

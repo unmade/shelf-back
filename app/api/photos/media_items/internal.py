@@ -18,14 +18,14 @@ async def auto_add_category_batch(
     usecases: UseCasesDeps,
 ) -> None:
     """Add categories auto-extracted from image content."""
-    file_id = payload.file_id
+    media_item_id = payload.media_item_id
     categories=[
         (category.name, category.probability)
         for category in payload.categories
     ]
     try:
         await usecases.media_item.auto_add_category_batch(
-            file_id, categories=categories
+            media_item_id, categories=categories
         )
     except MediaItem.NotFound as exc:
         raise MediaItemNotFound() from exc

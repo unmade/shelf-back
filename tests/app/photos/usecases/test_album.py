@@ -17,38 +17,40 @@ pytestmark = [pytest.mark.anyio]
 class TestAddItems:
     async def test(self, album_use_case: AlbumUseCase):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "new-album"
-        file_ids = [uuid.uuid4() for _ in range(5)]
+        owner_id, slug = uuid.uuid7(), "new-album"
+        media_item_ids = [uuid.uuid7() for _ in range(5)]
         album_service = cast(mock.MagicMock, album_use_case.album)
         # WHEN
-        result = await album_use_case.add_album_items(owner_id, slug, file_ids)
+        result = await album_use_case.add_album_items(owner_id, slug, media_item_ids)
         # THEN
         assert result == album_service.add_items.return_value
-        album_service.add_items.assert_awaited_once_with(owner_id, slug, file_ids)
+        album_service.add_items.assert_awaited_once_with(owner_id, slug, media_item_ids)
 
     async def test_sets_cover_if_not_set(self, album_use_case: AlbumUseCase):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "new-album"
-        file_ids = [uuid.uuid4() for _ in range(3)]
+        owner_id, slug = uuid.uuid7(), "new-album"
+        media_item_ids = [uuid.uuid7() for _ in range(3)]
         album_service = cast(mock.MagicMock, album_use_case.album)
         album = album_service.add_items.return_value
         album.cover = None
         # WHEN
-        result = await album_use_case.add_album_items(owner_id, slug, file_ids)
+        result = await album_use_case.add_album_items(owner_id, slug, media_item_ids)
         # THEN
-        album_service.add_items.assert_awaited_once_with(owner_id, slug, file_ids)
-        album_service.set_cover.assert_awaited_once_with(owner_id, slug, file_ids[0])
+        album_service.add_items.assert_awaited_once_with(owner_id, slug, media_item_ids)
+        album_service.set_cover.assert_awaited_once_with(
+            owner_id, slug, media_item_ids[0]
+        )
         assert result == album_service.set_cover.return_value
 
     async def test_does_not_set_cover_if_already_set(
         self, album_use_case: AlbumUseCase
     ):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "new-album"
-        file_ids = [uuid.uuid4() for _ in range(2)]
+        owner_id, slug = uuid.uuid7(), "new-album"
+        media_item_ids = [uuid.uuid7() for _ in range(2)]
         album_service = cast(mock.MagicMock, album_use_case.album)
         # WHEN
-        await album_use_case.add_album_items(owner_id, slug, file_ids)
+        await album_use_case.add_album_items(owner_id, slug, media_item_ids)
         # THEN
         album_service.set_cover.assert_not_awaited()
 
@@ -56,7 +58,7 @@ class TestAddItems:
 class TestCreate:
     async def test(self, album_use_case: AlbumUseCase):
         # GIVEN
-        title, owner_id = "New Album", uuid.uuid4()
+        title, owner_id = "New Album", uuid.uuid7()
         album_service = cast(mock.MagicMock, album_use_case.album)
         # WHEN
         result = await album_use_case.create(title, owner_id=owner_id)
@@ -72,7 +74,7 @@ class TestCreate:
 class TestDelete:
     async def test(self, album_use_case: AlbumUseCase):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "my-slug"
+        owner_id, slug = uuid.uuid7(), "my-slug"
         album_service = cast(mock.MagicMock, album_use_case.album)
         # WHEN
         result = await album_use_case.delete(owner_id, slug)
@@ -84,7 +86,7 @@ class TestDelete:
 class TestGetBySlug:
     async def test(self, album_use_case: AlbumUseCase):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "new-album"
+        owner_id, slug = uuid.uuid7(), "new-album"
         album_service = cast(mock.MagicMock, album_use_case.album)
         # WHEN
         result = await album_use_case.get_by_slug(owner_id, slug)
@@ -94,7 +96,7 @@ class TestGetBySlug:
 
     async def test_when_album_does_not_exist(self, album_use_case: AlbumUseCase):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "nonexistent-album"
+        owner_id, slug = uuid.uuid7(), "nonexistent-album"
         album_service = cast(mock.MagicMock, album_use_case.album)
         album_service.get_by_slug.side_effect = Album.NotFound()
         # WHEN / THEN
@@ -105,7 +107,7 @@ class TestGetBySlug:
 class TestList:
     async def test(self, album_use_case: AlbumUseCase):
         # GIVEN
-        owner_id = uuid.uuid4()
+        owner_id = uuid.uuid7()
         album_service = cast(mock.MagicMock, album_use_case.album)
         # WHEN
         result = await album_use_case.list_(owner_id, offset=0, limit=10)
@@ -119,7 +121,7 @@ class TestList:
 class TestListItems:
     async def test(self, album_use_case: AlbumUseCase):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "new-album"
+        owner_id, slug = uuid.uuid7(), "new-album"
         album_service = cast(mock.MagicMock, album_use_case.album)
         album_items = album_service.list_items.return_value
         # WHEN
@@ -134,7 +136,7 @@ class TestListItems:
 class TestRemoveCover:
     async def test(self, album_use_case: AlbumUseCase):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "new-album"
+        owner_id, slug = uuid.uuid7(), "new-album"
         album_service = cast(mock.MagicMock, album_use_case.album)
         # WHEN
         result = await album_use_case.remove_cover(owner_id, slug)
@@ -146,14 +148,14 @@ class TestRemoveCover:
 class TestRemoveItems:
     async def test(self, album_use_case: AlbumUseCase):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "new-album"
-        file_ids = [uuid.uuid4() for _ in range(5)]
+        owner_id, slug = uuid.uuid7(), "new-album"
+        media_item_ids = [uuid.uuid7() for _ in range(5)]
         album_service = cast(mock.MagicMock, album_use_case.album)
         # WHEN
-        await album_use_case.remove_album_items(owner_id, slug, file_ids)
+        await album_use_case.remove_album_items(owner_id, slug, media_item_ids)
         # THEN
         album_service.remove_items.assert_awaited_once_with(
-            owner_id, slug, file_ids,
+            owner_id, slug, media_item_ids,
         )
         album_service.list_items.assert_not_awaited()
         album_service.set_cover.assert_not_awaited()
@@ -163,39 +165,39 @@ class TestRemoveItems:
         self, album_use_case: AlbumUseCase
     ):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "new-album"
-        file_ids = [uuid.uuid4() for _ in range(2)]
+        owner_id, slug = uuid.uuid7(), "new-album"
+        media_item_ids = [uuid.uuid7() for _ in range(2)]
         album_service = cast(mock.MagicMock, album_use_case.album)
         album = album_service.remove_items.return_value
-        album.cover = mock.Mock(file_id=file_ids[0])
+        album.cover = mock.Mock(media_item_id=media_item_ids[0])
         album.items_count = 5
         # WHEN
-        await album_use_case.remove_album_items(owner_id, slug, file_ids)
+        await album_use_case.remove_album_items(owner_id, slug, media_item_ids)
         # THEN
         album_service.list_items.assert_awaited_once_with(
             owner_id, slug, offset=0, limit=1
         )
         album_items = album_service.list_items.return_value
         album_service.set_cover.assert_awaited_once_with(
-            owner_id, slug, album_items[0].file_id
+            owner_id, slug, album_items[0].id
         )
 
     async def test_removes_cover_if_list_items_returns_empty_list(
         self, album_use_case: AlbumUseCase
     ):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "new-album"
-        file_ids = [uuid.uuid4() for _ in range(2)]
+        owner_id, slug = uuid.uuid7(), "new-album"
+        media_item_ids = [uuid.uuid7() for _ in range(2)]
 
         album_service = cast(mock.MagicMock, album_use_case.album)
         album_service.list_items.return_value = []
 
         album = album_service.remove_items.return_value
-        album.cover = mock.Mock(file_id=file_ids[0])
+        album.cover = mock.Mock(media_item_id=media_item_ids[0])
         album.items_count = 5
 
         # WHEN
-        await album_use_case.remove_album_items(owner_id, slug, file_ids)
+        await album_use_case.remove_album_items(owner_id, slug, media_item_ids)
 
         # THEN
         album_service.list_items.assert_awaited_once_with(
@@ -208,14 +210,14 @@ class TestRemoveItems:
         self, album_use_case: AlbumUseCase
     ):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "new-album"
-        file_ids = [uuid.uuid4() for _ in range(2)]
+        owner_id, slug = uuid.uuid7(), "new-album"
+        media_item_ids = [uuid.uuid7() for _ in range(2)]
         album_service = cast(mock.MagicMock, album_use_case.album)
         album = album_service.remove_items.return_value
-        album.cover = mock.Mock(file_id=file_ids[0])
+        album.cover = mock.Mock(media_item_id=media_item_ids[0])
         album.items_count = 0
         # WHEN
-        await album_use_case.remove_album_items(owner_id, slug, file_ids)
+        await album_use_case.remove_album_items(owner_id, slug, media_item_ids)
         # THEN
         album_service.list_items.assert_not_awaited()
         album_service.set_cover.assert_not_awaited()
@@ -223,19 +225,19 @@ class TestRemoveItems:
 
     async def test_when_album_does_not_exist(self, album_use_case: AlbumUseCase):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "nonexistent-album"
-        file_ids = [uuid.uuid4() for _ in range(2)]
+        owner_id, slug = uuid.uuid7(), "nonexistent-album"
+        media_item_ids = [uuid.uuid7() for _ in range(2)]
         album_service = cast(mock.MagicMock, album_use_case.album)
         album_service.remove_items.side_effect = Album.NotFound()
         # WHEN / THEN
         with pytest.raises(Album.NotFound):
-            await album_use_case.remove_album_items(owner_id, slug, file_ids)
+            await album_use_case.remove_album_items(owner_id, slug, media_item_ids)
 
 
 class TestRename:
     async def test(self, album_use_case: AlbumUseCase):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "new-album"
+        owner_id, slug = uuid.uuid7(), "new-album"
         new_title = "Renamed Album"
         album_service = cast(mock.MagicMock, album_use_case.album)
         # WHEN
@@ -248,11 +250,11 @@ class TestRename:
 class TestSetCover:
     async def test(self, album_use_case: AlbumUseCase):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "new-album"
-        file_id = uuid.uuid4()
+        owner_id, slug = uuid.uuid7(), "new-album"
+        media_item_id = uuid.uuid7()
         album_service = cast(mock.MagicMock, album_use_case.album)
         # WHEN
-        result = await album_use_case.set_cover(owner_id, slug, file_id)
+        result = await album_use_case.set_cover(owner_id, slug, media_item_id)
         # THEN
         assert result == album_service.set_cover.return_value
-        album_service.set_cover.assert_awaited_once_with(owner_id, slug, file_id)
+        album_service.set_cover.assert_awaited_once_with(owner_id, slug, media_item_id)

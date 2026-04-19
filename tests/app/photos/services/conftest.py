@@ -4,7 +4,12 @@ from unittest import mock
 
 import pytest
 
-from app.app.photos.repositories import IAlbumRepository, IMediaItemRepository
+from app.app.blobs.services import BlobService
+from app.app.photos.repositories import (
+    IAlbumRepository,
+    IMediaItemFavouriteRepository,
+    IMediaItemRepository,
+)
 from app.app.photos.services import AlbumService, MediaItemService
 
 
@@ -23,5 +28,7 @@ def media_item_service() -> MediaItemService:
     """A MediaItemService instance."""
     database = mock.MagicMock(
         media_item=mock.AsyncMock(IMediaItemRepository),
+        media_item_favourite=mock.AsyncMock(IMediaItemFavouriteRepository),
     )
-    return MediaItemService(database=database)
+    blob_service = mock.MagicMock(spec=BlobService)
+    return MediaItemService(database=database, blob_service=blob_service)

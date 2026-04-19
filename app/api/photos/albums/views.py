@@ -37,7 +37,7 @@ async def add_album_items(
         album = await usecases.album.add_album_items(
             user.id,
             slug,
-            file_ids=payload.file_ids,
+            media_item_ids=payload.media_item_ids,
         )
     except Album.NotFound as exc:
         raise exceptions.AlbumNotFound() from exc
@@ -161,7 +161,7 @@ async def remove_album_items(
         album = await usecases.album.remove_album_items(
             user.id,
             slug,
-            file_ids=payload.file_ids,
+            media_item_ids=payload.media_item_ids,
         )
     except Album.NotFound as exc:
         raise exceptions.AlbumNotFound() from exc
@@ -179,7 +179,9 @@ async def set_album_cover(
 ) -> AlbumSchema:
     """Sets the album cover."""
     try:
-        album = await usecases.album.set_cover(user.id, slug, file_id=payload.file_id)
+        album = await usecases.album.set_cover(
+            user.id, slug, media_item_id=payload.media_item_id
+        )
     except Album.NotFound as exc:
         raise exceptions.AlbumNotFound() from exc
 

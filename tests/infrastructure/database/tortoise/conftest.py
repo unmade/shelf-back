@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import os
 import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -23,8 +22,7 @@ from app.app.files.domain import (
 )
 from app.app.infrastructure.database import SENTINEL_ID
 from app.app.photos.domain import Album, MediaItem
-from app.app.users.domain import Account, Bookmark, User
-from app.config import config
+from app.app.users.domain import Account, User
 from app.infrastructure.database.tortoise import models
 from app.toolkit import chash, timezone
 from app.toolkit.mediatypes import MediaType
@@ -48,8 +46,11 @@ if TYPE_CHECKING:
         INamespaceRepository,
         ISharedLinkRepository,
     )
-    from app.app.photos.domain.media_item import IMediaItemType
-    from app.app.photos.repositories import IAlbumRepository, IMediaItemRepository
+    from app.app.photos.repositories import (
+        IAlbumRepository,
+        IMediaItemFavouriteRepository,
+        IMediaItemRepository,
+    )
     from app.app.users.repositories import (
         IAccountRepository,
         IBookmarkRepository,
@@ -63,7 +64,7 @@ if TYPE_CHECKING:
             owner_id: UUID,
             title: str | None = None,
             *,
-            cover_file_id: UUID | None = None,
+            cover_media_item_id: UUID | None = None,
             items: Iterable[MediaItem] | None = None,
         ) -> Album: ...
 
@@ -79,9 +80,6 @@ if TYPE_CHECKING:
 
     class BlobMetadataFactory(Protocol):
         async def __call__(self, blob_id: UUID, data: Exif) -> BlobMetadata: ...
-
-    class BookmarkFactory(Protocol):
-        async def __call__(self, user_id: UUID, file_id: UUID) -> Bookmark: ...
 
     class FileFactory(Protocol):
         async def __call__(
@@ -130,9 +128,9 @@ if TYPE_CHECKING:
     class MediaItemFactory(Protocol):
         async def __call__(
             self,
-            user_id: UUID,
+            owner_id: UUID,
             name: str | None = None,
-            mediatype: IMediaItemType = ...,
+            media_type: str = ...,
             deleted_at: datetime | None = None,
         ) -> MediaItem: ...
 
@@ -212,6 +210,13 @@ def media_item_repo(tortoise_database: TortoiseDatabase) -> IMediaItemRepository
 
 
 @pytest.fixture
+def media_item_favourite_repo(
+    tortoise_database: TortoiseDatabase,
+) -> IMediaItemFavouriteRepository:
+    return tortoise_database.media_item_favourite
+
+
+@pytest.fixture
 def metadata_repo(tortoise_database: TortoiseDatabase) -> IContentMetadataRepository:
     return tortoise_database.metadata
 
@@ -266,7 +271,7 @@ def album_factory(album_repo: IAlbumRepository) -> AlbumFactory:
         owner_id: UUID,
         title: str | None = None,
         *,
-        cover_file_id: UUID | None = None,
+        cover_media_item_id: UUID | None = None,
         items: Iterable[MediaItem] | None = None,
     ) -> Album:
         title = title or fake.unique.name()
@@ -279,11 +284,15 @@ def album_factory(album_repo: IAlbumRepository) -> AlbumFactory:
         )
 
         if items:
-            file_ids = [item.file_id for item in items]
-            album = await album_repo.add_items(owner_id, album.slug, file_ids=file_ids)
+            media_item_ids = [item.id for item in items]
+            album = await album_repo.add_items(
+                owner_id, album.slug, media_item_ids=media_item_ids
+            )
 
-        if cover_file_id:
-            album = await album_repo.set_cover(owner_id, album.slug, cover_file_id)
+        if cover_media_item_id:
+            album = await album_repo.set_cover(
+                owner_id, album.slug, cover_media_item_id
+            )
 
         return album
     return factory
@@ -317,16 +326,6 @@ def blob_metadata_factory(
     async def factory(blob_id: UUID, data: Exif) -> BlobMetadata:
         return await blob_metadata_repo.save(BlobMetadata(blob_id=blob_id, data=data))
     return factory
-
-
-@pytest.fixture
-def bookmark_factory(bookmark_repo: IBookmarkRepository) -> BookmarkFactory:
-    async def factory(user_id: UUID, file_id: UUID) -> Bookmark:
-        bookmark = Bookmark(user_id=user_id, file_id=file_id)
-        await bookmark_repo.save_batch([bookmark])
-        return bookmark
-    return factory
-
 
 
 @pytest.fixture
@@ -402,31 +401,36 @@ def fingerprint_factory(
 
 @pytest.fixture
 def media_item_factory(
-    namespace_repo: INamespaceRepository,
     media_item_repo: IMediaItemRepository,
-    file_factory: FileFactory,
+    blob_factory: BlobFactory,
 ) -> MediaItemFactory:
     async def factory(
-        user_id: UUID,
+        owner_id: UUID,
         name: str | None = None,
-        mediatype: IMediaItemType = MediaType.IMAGE_JPEG,
+        media_type: str = MediaType.IMAGE_JPEG,
         deleted_at: datetime | None = None,
     ) -> MediaItem:
-        namespace = await namespace_repo.get_by_owner_id(user_id)
+        now = timezone.now()
         name = name or fake.unique.file_name(category="image")
-        path = os.path.join(config.features.photos_library_path, name)
-        file = await file_factory(namespace.path, path, mediatype=mediatype)
-        if deleted_at:
-            await media_item_repo.set_deleted_at_batch(user_id, [file.id], deleted_at)
-
-        return MediaItem(
-            file_id=file.id,
-            name=file.name,
-            size=file.size,
-            modified_at=file.modified_at,
-            mediatype=mediatype,
+        blob = await blob_factory(
+            storage_key=f"{owner_id}/photos/{now:%Y/%m/%d}/{name}",
+            media_type=media_type,
+        )
+        deleted_at = deleted_at or None
+        item = MediaItem(
+            id=SENTINEL_ID,
+            owner_id=owner_id,
+            blob_id=blob.id,
+            name=name,
+            media_type=blob.media_type,
+            size=blob.size,
+            chash=blob.chash,
+            taken_at=None,
+            created_at=now,
+            modified_at=now,
             deleted_at=deleted_at,
         )
+        return await media_item_repo.save(item)
     return factory
 
 

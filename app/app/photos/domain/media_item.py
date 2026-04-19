@@ -2,31 +2,17 @@ from __future__ import annotations
 
 import enum
 from datetime import datetime
-from typing import ClassVar, Literal
+from typing import ClassVar
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 from app.toolkit import timezone
-from app.toolkit.mediatypes import MediaType
 
 __all__ = [
-    "IMediaItemType",
     "MediaItem",
     "MediaItemCategory",
     "MediaItemCategoryName",
-]
-
-
-type IMediaItemType = Literal[
-    MediaType.IMAGE_BMP,
-    MediaType.IMAGE_HEIC,
-    MediaType.IMAGE_HEIF,
-    MediaType.IMAGE_JPEG,
-    MediaType.IMAGE_PNG,
-    MediaType.IMAGE_SVG,
-    MediaType.IMAGE_TIFF,
-    MediaType.IMAGE_WEBP,
 ]
 
 
@@ -86,24 +72,18 @@ class MediaItemCategory(BaseModel):
 
 
 class MediaItem(BaseModel):
-    ALLOWED_MEDIA_TYPES: ClassVar[set[IMediaItemType]] = {
-        MediaType.IMAGE_BMP,
-        MediaType.IMAGE_HEIC,
-        MediaType.IMAGE_HEIF,
-        MediaType.IMAGE_JPEG,
-        MediaType.IMAGE_PNG,
-        MediaType.IMAGE_SVG,
-        MediaType.IMAGE_TIFF,
-        MediaType.IMAGE_WEBP,
-    }
-
     Category: ClassVar[type[MediaItemCategory]] = MediaItemCategory
 
     NotFound: ClassVar[type[MediaItemNotFound]] = MediaItemNotFound
 
-    file_id: UUID
+    id: UUID
+    owner_id: UUID
+    blob_id: UUID
     name: str
+    media_type: str
     size: int
+    chash: str
+    taken_at: datetime | None = None
+    created_at: datetime = Field(default_factory=timezone.now)
     modified_at: datetime = Field(default_factory=timezone.now)
     deleted_at: datetime | None = None
-    mediatype: IMediaItemType

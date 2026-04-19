@@ -122,15 +122,16 @@ class FileSystemStorage(IStorage):
     def _download_batch_iter(
         self, items: Iterable[DownloadBatchItem]
     ) -> Iterator[StreamZipFile]:
-        for key, _ in items:
-            fullpath = self._fullpath(key)
+        for item in items:
+            fullpath = self._fullpath(item.key)
             file = self._from_path(fullpath)
             if file.is_dir():
-                yield from self._downloaddir_iter(key, prefix=file.name)
+                prefix = item.archive_path or file.name
+                yield from self._downloaddir_iter(item.key, prefix=prefix)
             else:
                 with open(fullpath, "rb") as content:
                     yield StreamZipFile(
-                        path=file.name,
+                        path=item.archive_path or file.name,
                         modified_at=datetime.datetime.fromtimestamp(file.mtime),
                         perms=0o600,
                         compression=stream_zip.ZIP_32,

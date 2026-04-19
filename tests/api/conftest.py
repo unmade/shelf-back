@@ -102,8 +102,8 @@ def ns_use_case(_usecases: UseCases):
 
 
 @pytest.fixture
-def photos_use_case(_usecases: UseCases):
-    """A mocked instance of PhotosUseCase."""
+def media_item_use_case(_usecases: UseCases):
+    """A mocked instance of MediaItemUseCase."""
     return _usecases.media_item
 
 

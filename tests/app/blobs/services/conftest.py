@@ -47,5 +47,10 @@ def blob_metadata_service() -> BlobMetadataService:
 @pytest.fixture
 def thumbnailer() -> BlobThumbnailService:
     """A BlobThumbnailService instance."""
+    blob_service = mock.MagicMock(BlobService)
     storage = mock.AsyncMock(IStorage)
-    return BlobThumbnailService(storage=storage, max_file_size=10 * 1024 * 1024)
+    return BlobThumbnailService(
+        blob_service=blob_service,
+        storage=storage,
+        max_file_size=10 * 1024 * 1024,
+    )

@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Unpack, cast
+from typing import TYPE_CHECKING, Unpack
 
 from tortoise.exceptions import DoesNotExist
 
 from app.app.photos.domain import Album, MediaItem
-from app.app.photos.domain.media_item import IMediaItemType
 from app.app.photos.repositories import IAlbumRepository
 from app.app.photos.repositories.album import AlbumUpdate
 from app.infrastructure.database.tortoise import models
+from app.infrastructure.database.tortoise.repositories.media_item import (
+    _from_db as _media_item_from_db,
+)
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -17,7 +19,7 @@ __all__ = ["AlbumRepository"]
 
 
 def _from_db(obj: models.Album) -> Album:
-    cover = Album.Cover(file_id=obj.cover_id) if obj.cover_id else None  # type: ignore[attr-defined]
+    cover = Album.Cover(media_item_id=obj.cover_id) if obj.cover_id else None  # type: ignore[attr-defined]
     return Album(
         id=obj.id,
         owner_id=obj.owner_id,  # type: ignore[attr-defined]
@@ -29,29 +31,18 @@ def _from_db(obj: models.Album) -> Album:
     )
 
 
-def _media_item_from_db(obj: models.File) -> MediaItem:
-    return MediaItem(
-        file_id=obj.id,
-        name=obj.name,
-        size=obj.size,
-        modified_at=obj.modified_at,
-        deleted_at=obj.deleted_at,
-        mediatype=cast(IMediaItemType, obj.mediatype.name),
-    )
-
-
 class AlbumRepository(IAlbumRepository):
     async def add_items(
-        self, owner_id: UUID, slug: str, file_ids: list[UUID]
+        self, owner_id: UUID, slug: str, media_item_ids: list[UUID]
     ) -> Album:
         try:
             obj = await models.Album.get(owner_id=owner_id, slug=slug)
         except DoesNotExist as exc:
             raise Album.NotFound() from exc
 
-        files = await models.File.filter(id__in=file_ids)
-        await obj.items.add(*files)
-        obj.items_count += len(file_ids)
+        items = await models.MediaItem.filter(id__in=media_item_ids)
+        await obj.items.add(*items)
+        obj.items_count += len(media_item_ids)
         await obj.save(update_fields=["items_count"])
         return _from_db(obj)
 
@@ -99,16 +90,17 @@ class AlbumRepository(IAlbumRepository):
 
     async def list_items(
         self,
-        user_id: UUID,
+        owner_id: UUID,
         slug: str,
         *,
         offset: int,
         limit: int = 25,
     ) -> list[MediaItem]:
         items = await (
-            models.File
-            .filter(albums__owner_id=user_id, albums__slug=slug)
-            .select_related("mediatype")
+            models.MediaItem
+            .filter(albums__owner_id=owner_id, albums__slug=slug)
+            .select_related("blob")
+            .prefetch_related("blob__metadata")
             .order_by("-modified_at")
             .offset(offset)
             .limit(limit)
@@ -116,16 +108,16 @@ class AlbumRepository(IAlbumRepository):
         return [_media_item_from_db(item) for item in items]
 
     async def remove_items(
-        self, owner_id: UUID, slug: str, file_ids: list[UUID]
+        self, owner_id: UUID, slug: str, media_item_ids: list[UUID]
     ) -> Album:
         try:
             obj = await models.Album.get(owner_id=owner_id, slug=slug)
         except DoesNotExist as exc:
             raise Album.NotFound() from exc
 
-        files = await models.File.filter(id__in=file_ids)
-        await obj.items.remove(*files)
-        obj.items_count -= len(file_ids)
+        items = await models.MediaItem.filter(id__in=media_item_ids)
+        await obj.items.remove(*items)
+        obj.items_count -= len(media_item_ids)
         await obj.save(update_fields=["items_count"])
         return _from_db(obj)
 
@@ -140,14 +132,14 @@ class AlbumRepository(IAlbumRepository):
         return entity.model_copy(update={"id": obj.id})
 
     async def set_cover(
-        self, owner_id: UUID, slug: str, file_id: UUID | None
+        self, owner_id: UUID, slug: str, media_item_id: UUID | None
     ) -> Album:
         try:
             obj = await models.Album.get(owner_id=owner_id, slug=slug)
         except DoesNotExist as exc:
             raise Album.NotFound() from exc
 
-        obj.cover_id = file_id
+        obj.cover_id = media_item_id
         await obj.save(update_fields=["cover_id"])
         return _from_db(obj)
 

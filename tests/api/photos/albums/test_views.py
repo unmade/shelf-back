@@ -17,22 +17,29 @@ if TYPE_CHECKING:
 
 def _make_album(owner_id: UUID, *, cover_id: UUID | None = None) -> Album:
     return Album(
-        id=uuid.uuid4(),
+        id=uuid.uuid7(),
         owner_id=owner_id,
         title="New Album",
         created_at=timezone.now(),
-        cover=Album.Cover(file_id=cover_id) if cover_id else None,
+        cover=Album.Cover(media_item_id=cover_id) if cover_id else None,
     )
 
 
 def _make_media_item(
-    name: str | None = None, mediatype: str | None = None
+    name: str | None = None, media_type: str | None = None
 ) -> MediaItem:
     return MediaItem(
-        file_id=uuid.uuid4(),
+        id=uuid.uuid7(),
+        owner_id=uuid.uuid7(),
+        blob_id=uuid.uuid7(),
         name=name or f"{uuid.uuid4().hex}.jpeg",
         size=12,
-        mediatype=mediatype or MediaType.IMAGE_JPEG,  # type: ignore
+        media_type=media_type or MediaType.IMAGE_JPEG,
+        chash=uuid.uuid4().hex,
+        taken_at=None,
+        created_at=timezone.now(),
+        modified_at=timezone.now(),
+        deleted_at=None,
     )
 
 
@@ -44,15 +51,15 @@ class TestAddItems:
         album = _make_album(user.id)
         album_use_case.add_album_items.return_value = album
         items = [_make_media_item() for _ in range(3)]
-        file_ids = [item.file_id for item in items]
-        payload = {"file_ids": [str(file_id) for file_id in file_ids]}
+        media_item_ids = [item.id for item in items]
+        payload = {"media_item_ids": [str(id_) for id_ in media_item_ids]}
         client.mock_user(user)
         # WHEN
         response = await client.put(self.url.format(slug=album.slug), json=payload)
         # THEN
         assert response.status_code == 200
         album_use_case.add_album_items.assert_awaited_once_with(
-            user.id, album.slug, file_ids=file_ids
+            user.id, album.slug, media_item_ids=media_item_ids
         )
 
     async def test_when_album_not_found(
@@ -61,15 +68,15 @@ class TestAddItems:
         # GIVEN
         album = _make_album(user.id)
         album_use_case.add_album_items.side_effect = Album.NotFound()
-        file_ids = [uuid.uuid4() for _ in range(2)]
-        payload = {"file_ids": [str(file_id) for file_id in file_ids]}
+        media_item_ids = [uuid.uuid7() for _ in range(2)]
+        payload = {"media_item_ids": [str(id_) for id_ in media_item_ids]}
         client.mock_user(user)
         # WHEN
         response = await client.put(self.url.format(slug=album.slug), json=payload)
         # THEN
         assert response.status_code == 404
         album_use_case.add_album_items.assert_awaited_once_with(
-            user.id, album.slug, file_ids=file_ids
+            user.id, album.slug, media_item_ids=media_item_ids
         )
 
 
@@ -157,7 +164,7 @@ class TestList:
         # GIVEN
         albums = [
             _make_album(user.id),
-            _make_album(user.id, cover_id=uuid.uuid4()),
+            _make_album(user.id, cover_id=uuid.uuid7()),
         ]
         album_use_case.list_.return_value = albums
         # WHEN
@@ -166,6 +173,10 @@ class TestList:
         # THEN
         assert response.status_code == 200
         assert len(response.json()["items"]) == len(albums)
+        assert albums[1].cover is not None
+        assert response.json()["items"][1]["cover"]["thumbnail_url"].endswith(
+            f"/photos/media_items/get_thumbnail/{albums[1].cover.media_item_id}"
+        )
         album_use_case.list_.assert_awaited_once_with(user.id, offset=0, limit=100)
 
 
@@ -197,7 +208,7 @@ class TestRemoveCover:
 
     async def test(self, client: TestClient, album_use_case: MagicMock, user: User):
         # GIVEN
-        album = _make_album(user.id, cover_id=uuid.uuid4())
+        album = _make_album(user.id, cover_id=uuid.uuid7())
         album_use_case.remove_cover.return_value = album
         client.mock_user(user)
         # WHEN
@@ -229,8 +240,8 @@ class TestRemoveItems:
         album = _make_album(user.id)
         album_use_case.remove_album_items.return_value = album
         items = [_make_media_item() for _ in range(3)]
-        file_ids = [item.file_id for item in items]
-        payload = {"file_ids": [str(file_id) for file_id in file_ids]}
+        media_item_ids = [item.id for item in items]
+        payload = {"media_item_ids": [str(id_) for id_ in media_item_ids]}
         client.mock_user(user)
         # WHEN
         # see: https://www.python-httpx.org/compatibility/#request-body-on-http-methods
@@ -240,7 +251,7 @@ class TestRemoveItems:
         # THEN
         assert response.status_code == 200
         album_use_case.remove_album_items.assert_awaited_once_with(
-            user.id, album.slug, file_ids=file_ids
+            user.id, album.slug, media_item_ids=media_item_ids
         )
 
     async def test_when_album_not_found(
@@ -249,8 +260,8 @@ class TestRemoveItems:
         # GIVEN
         album = _make_album(user.id)
         album_use_case.remove_album_items.side_effect = Album.NotFound()
-        file_ids = [uuid.uuid4() for _ in range(2)]
-        payload = {"file_ids": [str(file_id) for file_id in file_ids]}
+        media_item_ids = [uuid.uuid7() for _ in range(2)]
+        payload = {"media_item_ids": [str(id_) for id_ in media_item_ids]}
         client.mock_user(user)
         # WHEN
         response = await client.request(
@@ -259,7 +270,7 @@ class TestRemoveItems:
         # THEN
         assert response.status_code == 404
         album_use_case.remove_album_items.assert_awaited_once_with(
-            user.id, album.slug, file_ids=file_ids
+            user.id, album.slug, media_item_ids=media_item_ids
         )
 
 
@@ -269,8 +280,8 @@ class TestSetCover:
     async def test(self, client: TestClient, album_use_case: MagicMock, user: User):
         # GIVEN
         album = _make_album(user.id)
-        cover_id = uuid.uuid4()
-        payload = {"file_id": str(cover_id)}
+        cover_id = uuid.uuid7()
+        payload = {"media_item_id": str(cover_id)}
         album_use_case.set_cover.return_value = album
         client.mock_user(user)
         # WHEN
@@ -278,7 +289,7 @@ class TestSetCover:
         # THEN
         assert response.status_code == 200
         album_use_case.set_cover.assert_awaited_once_with(
-            user.id, album.slug, file_id=cover_id
+            user.id, album.slug, media_item_id=cover_id
         )
 
     async def test_when_album_not_found(
@@ -287,15 +298,15 @@ class TestSetCover:
         # GIVEN
         slug = "non-existent-album"
         album_use_case.set_cover.side_effect = Album.NotFound()
-        cover_id = uuid.uuid4()
-        payload = {"file_id": str(cover_id)}
+        cover_id = uuid.uuid7()
+        payload = {"media_item_id": str(cover_id)}
         client.mock_user(user)
         # WHEN
         response = await client.put(self.url.format(slug=slug), json=payload)
         # THEN
         assert response.status_code == 404
         album_use_case.set_cover.assert_awaited_once_with(
-            user.id, slug, file_id=cover_id
+            user.id, slug, media_item_id=cover_id
         )
 
 

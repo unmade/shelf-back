@@ -28,7 +28,7 @@ class AlbumUseCase:
         self.album = services.album
 
     async def add_album_items(
-        self, owner_id: UUID, slug: str, file_ids: list[UUID]
+        self, owner_id: UUID, slug: str, media_item_ids: list[UUID]
     ) -> Album:
         """
         Adds items to the album.
@@ -36,9 +36,9 @@ class AlbumUseCase:
         Raises:
             Album.NotFound: If album does not exist.
         """
-        album = await self.album.add_items(owner_id, slug, file_ids)
-        if album.cover is None and file_ids:
-            return await self.album.set_cover(owner_id, slug, file_ids[0])
+        album = await self.album.add_items(owner_id, slug, media_item_ids)
+        if album.cover is None and media_item_ids:
+            return await self.album.set_cover(owner_id, slug, media_item_ids[0])
         return album
 
     async def create(self, title: str, owner_id: UUID) -> Album:
@@ -98,7 +98,7 @@ class AlbumUseCase:
         return await self.album.remove_cover(owner_id, slug)
 
     async def remove_album_items(
-        self, owner_id: UUID, slug: str, file_ids: list[UUID]
+        self, owner_id: UUID, slug: str, media_item_ids: list[UUID]
     ) -> Album:
         """
         Removes items from the album.
@@ -106,12 +106,12 @@ class AlbumUseCase:
         Raises:
             Album.NotFound: If album does not exist.
         """
-        album = await self.album.remove_items(owner_id, slug, file_ids)
-        if album.cover and album.cover.file_id in file_ids:
+        album = await self.album.remove_items(owner_id, slug, media_item_ids)
+        if album.cover and album.cover.media_item_id in media_item_ids:
             if album.items_count > 0:
                 items = await self.album.list_items(owner_id, slug, offset=0, limit=1)
                 if items:
-                    return await self.album.set_cover(owner_id, slug, items[0].file_id)
+                    return await self.album.set_cover(owner_id, slug, items[0].id)
             return await self.album.remove_cover(owner_id, slug)
         return album
 
@@ -127,7 +127,7 @@ class AlbumUseCase:
         return await self.album.rename(owner_id, slug, new_title)
 
     async def set_cover(
-        self, owner_id: UUID, slug: str, file_id: UUID | None
+        self, owner_id: UUID, slug: str, media_item_id: UUID | None
     ) -> Album:
         """
         Sets the album cover.
@@ -135,4 +135,4 @@ class AlbumUseCase:
         Raises:
             Album.NotFound: If album does not exist.
         """
-        return await self.album.set_cover(owner_id, slug, file_id)
+        return await self.album.set_cover(owner_id, slug, media_item_id)
