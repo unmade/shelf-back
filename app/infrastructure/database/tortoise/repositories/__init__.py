@@ -9,6 +9,7 @@ from .file_member import FileMemberRepository
 from .file_pending_deletion import FilePendingDeletionRepository
 from .fingerprint import FingerprintRepository
 from .media_item import MediaItemRepository
+from .media_item_favourite import MediaItemFavouriteRepository
 from .metadata import ContentMetadataRepository
 from .mount import MountRepository
 from .namespace import NamespaceRepository
@@ -27,6 +28,7 @@ __all__ = [
     "FilePendingDeletionRepository",
     "FileRepository",
     "FingerprintRepository",
+    "MediaItemFavouriteRepository",
     "MediaItemRepository",
     "MountRepository",
     "NamespaceRepository",

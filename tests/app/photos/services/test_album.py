@@ -21,26 +21,26 @@ pytestmark = [pytest.mark.anyio]
 class TestAddItems:
     async def test(self, album_service: AlbumService):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "new-album"
-        file_ids = [uuid.uuid4() for _ in range(5)]
+        owner_id, slug = uuid.uuid7(), "new-album"
+        media_item_ids = [uuid.uuid7() for _ in range(5)]
         db = cast(mock.MagicMock, album_service.db)
         # WHEN
-        result = await album_service.add_items(owner_id, slug, file_ids)
+        result = await album_service.add_items(owner_id, slug, media_item_ids)
         # THEN
         assert result == db.album.add_items.return_value
-        db.album.add_items.assert_awaited_once_with(owner_id, slug, file_ids)
+        db.album.add_items.assert_awaited_once_with(owner_id, slug, media_item_ids)
 
     async def test_when_album_does_not_exist(self, album_service: AlbumService):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "new-album"
-        file_ids = [uuid.uuid4() for _ in range(5)]
+        owner_id, slug = uuid.uuid7(), "new-album"
+        media_item_ids = [uuid.uuid7() for _ in range(5)]
         db = cast(mock.MagicMock, album_service.db)
         db.album.add_items.side_effect = Album.NotFound()
         # WHEN
         with pytest.raises(Album.NotFound):
-            await album_service.add_items(owner_id, slug, file_ids)
+            await album_service.add_items(owner_id, slug, media_item_ids)
         # THEN
-        db.album.add_items.assert_awaited_once_with(owner_id, slug, file_ids)
+        db.album.add_items.assert_awaited_once_with(owner_id, slug, media_item_ids)
 
 
 class TestCreate:
@@ -51,7 +51,7 @@ class TestCreate:
         album_service: AlbumService,
     ):
         # GIVEN
-        title, owner_id, created_at = "New Album", uuid.uuid4(), timezone.now()
+        title, owner_id, created_at = "New Album", uuid.uuid7(), timezone.now()
         db = cast(mock.MagicMock, album_service.db)
         get_available_slug_mock.return_value = "new-album"
         # WHEN
@@ -72,7 +72,7 @@ class TestCreate:
 class TestDelete:
     async def test(self, album_service: AlbumService):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "my-slug"
+        owner_id, slug = uuid.uuid7(), "my-slug"
         db = cast(mock.MagicMock, album_service.db)
         album = db.album.delete.return_value
         # WHEN
@@ -85,7 +85,7 @@ class TestDelete:
 class TestGetAvailableSlug:
     async def test_slug_returned_as_is(self, album_service: AlbumService):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "my-slug"
+        owner_id, slug = uuid.uuid7(), "my-slug"
         db = cast(mock.MagicMock, album_service.db)
         db.album.exists_with_slug.return_value = False
 
@@ -99,7 +99,7 @@ class TestGetAvailableSlug:
 
     async def test_slug_returned_with_postfix(self, album_service: AlbumService):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "my-slug"
+        owner_id, slug = uuid.uuid7(), "my-slug"
         db = cast(mock.MagicMock, album_service.db)
         db.album.exists_with_slug.return_value = True
         db.album.count_by_slug_pattern.return_value = 1
@@ -118,7 +118,7 @@ class TestGetAvailableSlug:
 class TestGetBySlug:
     async def test(self, album_service: AlbumService):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "new-album"
+        owner_id, slug = uuid.uuid7(), "new-album"
         db = cast(mock.MagicMock, album_service.db)
         # WHEN
         result = await album_service.get_by_slug(owner_id, slug)
@@ -128,7 +128,7 @@ class TestGetBySlug:
 
     async def test_when_album_does_not_exist(self, album_service: AlbumService):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "nonexistent-album"
+        owner_id, slug = uuid.uuid7(), "nonexistent-album"
         db = cast(mock.MagicMock, album_service.db)
         db.album.get_by_slug.side_effect = Album.NotFound()
         # WHEN
@@ -141,7 +141,7 @@ class TestGetBySlug:
 class TestList:
     async def test(self, album_service: AlbumService):
         # GIVEN
-        owner_id = uuid.uuid4()
+        owner_id = uuid.uuid7()
         db = cast(mock.MagicMock, album_service.db)
         # WHEN
         result = await album_service.list_(owner_id, offset=0, limit=10)
@@ -155,7 +155,7 @@ class TestList:
 class TestListItems:
     async def test(self, album_service: AlbumService):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "new-album"
+        owner_id, slug = uuid.uuid7(), "new-album"
         db = cast(mock.MagicMock, album_service.db)
         items = db.album.list_items.return_value
         # WHEN
@@ -170,38 +170,38 @@ class TestListItems:
 class TestRemoveCover:
     async def test(self, album_service: AlbumService):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "album"
+        owner_id, slug = uuid.uuid7(), "album"
         db = cast(mock.MagicMock, album_service.db)
         # WHEN
         result = await album_service.remove_cover(owner_id, slug)
         # THEN
         assert result == db.album.set_cover.return_value
-        db.album.set_cover.assert_awaited_once_with(owner_id, slug, file_id=None)
+        db.album.set_cover.assert_awaited_once_with(owner_id, slug, media_item_id=None)
 
 
 class TestRemoveItems:
     async def test(self, album_service: AlbumService):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "new-album"
-        file_ids = [uuid.uuid4() for _ in range(5)]
+        owner_id, slug = uuid.uuid7(), "new-album"
+        media_item_ids = [uuid.uuid7() for _ in range(5)]
         db = cast(mock.MagicMock, album_service.db)
         # WHEN
-        result = await album_service.remove_items(owner_id, slug, file_ids)
+        result = await album_service.remove_items(owner_id, slug, media_item_ids)
         # THEN
         assert result == db.album.remove_items.return_value
-        db.album.remove_items.assert_awaited_once_with(owner_id, slug, file_ids)
+        db.album.remove_items.assert_awaited_once_with(owner_id, slug, media_item_ids)
 
     async def test_when_album_does_not_exist(self, album_service: AlbumService):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "new-album"
-        file_ids = [uuid.uuid4() for _ in range(5)]
+        owner_id, slug = uuid.uuid7(), "new-album"
+        media_item_ids = [uuid.uuid7() for _ in range(5)]
         db = cast(mock.MagicMock, album_service.db)
         db.album.remove_items.side_effect = Album.NotFound()
         # WHEN
         with pytest.raises(Album.NotFound):
-            await album_service.remove_items(owner_id, slug, file_ids)
+            await album_service.remove_items(owner_id, slug, media_item_ids)
         # THEN
-        db.album.remove_items.assert_awaited_once_with(owner_id, slug, file_ids)
+        db.album.remove_items.assert_awaited_once_with(owner_id, slug, media_item_ids)
 
 
 class TestRename:
@@ -210,7 +210,7 @@ class TestRename:
         self, get_available_slug_mock: MagicMock, album_service: AlbumService
     ):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "old-album"
+        owner_id, slug = uuid.uuid7(), "old-album"
         new_title, new_slug = "New Album", "new-album"
         db = cast(mock.MagicMock, album_service.db)
         album = db.album.get_by_slug.return_value
@@ -232,7 +232,7 @@ class TestRename:
         self, get_available_slug_mock: MagicMock, album_service: AlbumService
     ):
         # GIVEN
-        owner_id, slug = uuid.uuid4(), "old-album"
+        owner_id, slug = uuid.uuid7(), "old-album"
         db = cast(mock.MagicMock, album_service.db)
         album = db.album.get_by_slug.return_value
         # WHEN
@@ -247,10 +247,10 @@ class TestRename:
 class TestSetCover:
     async def test(self, album_service: AlbumService):
         # GIVEN
-        owner_id, slug, file_id = uuid.uuid4(), "album", uuid.uuid4()
+        owner_id, slug, media_item_id = uuid.uuid7(), "album", uuid.uuid7()
         db = cast(mock.MagicMock, album_service.db)
         # WHEN
-        result = await album_service.set_cover(owner_id, slug, file_id)
+        result = await album_service.set_cover(owner_id, slug, media_item_id)
         # THEN
         assert result == db.album.set_cover.return_value
-        db.album.set_cover.assert_awaited_once_with(owner_id, slug, file_id)
+        db.album.set_cover.assert_awaited_once_with(owner_id, slug, media_item_id)

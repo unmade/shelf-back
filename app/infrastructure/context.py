@@ -27,7 +27,10 @@ from app.app.files.services.file_member import FileMemberService
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
 from app.app.infrastructure.mail import IMailBackend
 from app.app.photos.services import AlbumService, MediaItemService
-from app.app.photos.usecases import AlbumUseCase, MediaItemUseCase
+from app.app.photos.usecases import (
+    AlbumUseCase,
+    MediaItemUseCase,
+)
 from app.app.users.services import BookmarkService, UserService
 from app.app.users.usecases import UserUseCase
 from app.cache import cache
@@ -154,7 +157,10 @@ class Services:
         "_database",
         "album",
         "audit_trail",
-        "blob_content_processor",
+        "blob",
+        "blob_metadata",
+        "blob_processor",
+        "blob_thumbnailer",
         "bookmark",
         "content",
         "dupefinder",
@@ -179,6 +185,20 @@ class Services:
 
         self._database = database
 
+        self.blob = BlobService(database=database, storage=storage_default)
+        self.blob_metadata = BlobMetadataService(database=database)
+        self.blob_thumbnailer = BlobThumbnailService(
+            blob_service=self.blob,
+            storage=storage_media,
+            max_file_size=features.max_file_size_to_thumbnail,
+        )
+        self.blob_processor = BlobContentProcessor(
+            blob_service=self.blob,
+            metadata_service=self.blob_metadata,
+            thumbnail_service=self.blob_thumbnailer,
+            worker=worker,
+        )
+
         self.album = AlbumService(database=database)
         self.audit_trail = AuditTrailService(database=database)
         self.bookmark = BookmarkService(database=database)
@@ -193,7 +213,7 @@ class Services:
         )
         self.file_member = FileMemberService(database=database)
         self.dupefinder = DuplicateFinderService(database=database)
-        self.media_item = MediaItemService(database=database)
+        self.media_item = MediaItemService(database=database, blob_service=self.blob)
         self.metadata = MetadataService(database=database)
         self.namespace = NamespaceService(database=database, filecore=self.filecore)
         self.sharing = SharingService(database=database)
@@ -202,19 +222,6 @@ class Services:
         )
         self.token = TokenService(token_repo=cache)
         self.user = UserService(database=database, mail=mail)
-
-        blob_service = BlobService(database=database, storage=storage_default)
-        blob_metadata_service = BlobMetadataService(database=database)
-        blob_thumbnail_service = BlobThumbnailService(
-            storage=storage_media,
-            max_file_size=features.max_file_size_to_thumbnail,
-        )
-        self.blob_content_processor = BlobContentProcessor(
-            blob_service=blob_service,
-            metadata_service=blob_metadata_service,
-            thumbnail_service=blob_thumbnail_service,
-            worker=worker,
-        )
 
         self.content = ContentService(
             dupefinder=self.dupefinder,
@@ -249,4 +256,4 @@ class UseCases:
         self.user = UserUseCase(services=services)
 
         # let's keep it on the use case to avoid changing worker code too much.
-        self.blob_content_processor = services.blob_content_processor
+        self.blob_content_processor = services.blob_processor

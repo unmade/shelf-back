@@ -105,10 +105,10 @@ class S3Storage(IStorage):
     def _download_batch_iter(
         self, items: Iterable[DownloadBatchItem]
     ) -> Iterator[StreamZipFile]:
-        for key, is_dir in items:
-            key = os.path.normpath(key)
-            filename = os.path.basename(key)
-            if is_dir:
+        for item in items:
+            key = os.path.normpath(item.key)
+            filename = item.archive_path or os.path.basename(key)
+            if item.is_dir:
                 yield from self._downloaddir_iter(key, prefix=filename)
             else:
                 entry = self.sync_s3.head_object(self.bucket, key)

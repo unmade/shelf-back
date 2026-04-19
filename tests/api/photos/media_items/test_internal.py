@@ -19,15 +19,15 @@ pytestmark = [pytest.mark.anyio]
 class TestAddAutoCategoryBatch:
     url = "/photos/-/media_items/add_category_batch"
 
-    async def test(self, client: TestClient, photos_use_case: MagicMock):
+    async def test(self, client: TestClient, media_item_use_case: MagicMock):
         # GIVEN
-        file_id = uuid.uuid4()
+        media_item_id = uuid.uuid7()
         categories = [
             (MediaItem.Category.Name.ANIMALS, 92),
             (MediaItem.Category.Name.PETS, 94),
         ]
         payload = {
-            "file_id": str(file_id),
+            "media_item_id": str(media_item_id),
             "categories": [
                 {
                     "name": name,
@@ -40,24 +40,24 @@ class TestAddAutoCategoryBatch:
         client.mock_service_token()
         response = await client.post(self.url, json=payload)
         # THEN
-        photos_use_case.auto_add_category_batch.assert_awaited_once_with(
-            file_id, categories=categories
+        media_item_use_case.auto_add_category_batch.assert_awaited_once_with(
+            media_item_id, categories=categories
         )
         assert response.status_code == 200
 
     async def test_when_media_item_not_found(
         self,
         client: TestClient,
-        photos_use_case: MagicMock,
+        media_item_use_case: MagicMock,
     ):
         # GIVEN
-        file_id = uuid.uuid4()
+        media_item_id = uuid.uuid7()
         categories = [
             (MediaItem.Category.Name.ANIMALS, 92),
             (MediaItem.Category.Name.PETS, 94),
         ]
         payload = {
-            "file_id": str(file_id),
+            "media_item_id": str(media_item_id),
             "categories": [
                 {
                     "name": name,
@@ -66,13 +66,13 @@ class TestAddAutoCategoryBatch:
                 for name, probability in categories
             ]
         }
-        photos_use_case.auto_add_category_batch.side_effect = MediaItem.NotFound
+        media_item_use_case.auto_add_category_batch.side_effect = MediaItem.NotFound
         # WHEN
         client.mock_service_token()
         response = await client.post(self.url, json=payload)
         # THEN
-        photos_use_case.auto_add_category_batch.assert_awaited_once_with(
-            file_id, categories=categories
+        media_item_use_case.auto_add_category_batch.assert_awaited_once_with(
+            media_item_id, categories=categories
         )
         assert response.status_code == 404
         assert response.json() == MediaItemNotFound().as_dict()

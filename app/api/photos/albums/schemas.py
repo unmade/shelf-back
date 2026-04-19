@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 class AlbumCoverSchema(BaseModel):
-    file_id: UUID
+    media_item_id: UUID
     thumbnail_url: str
 
     @overload
@@ -33,8 +33,13 @@ class AlbumCoverSchema(BaseModel):
             return None
 
         return cls(
-            file_id=entity.file_id,
-            thumbnail_url=str(request.url_for("get_thumbnail", file_id=entity.file_id))
+            media_item_id=entity.media_item_id,
+            thumbnail_url=str(
+                request.url_for(
+                    "get_media_item_thumbnail",
+                    media_item_id=entity.media_item_id,
+                )
+            ),
         )
 
 
@@ -59,29 +64,33 @@ class AlbumSchema(BaseModel):
 
 
 class AlbumItemSchema(BaseModel):
-    file_id: UUID
+    id: UUID
     name: str
     size: int
-    mediatype: str
+    media_type: str
     thumbnail_url: str | None
+    taken_at: datetime | None
+    created_at: datetime
     modified_at: datetime
     deleted_at: datetime | None
 
     @classmethod
     def from_entity(cls, entity: MediaItem, request: Request) -> Self:
         return cls(
-            file_id=entity.file_id,
+            id=entity.id,
             name=entity.name,
             size=entity.size,
-            mediatype=entity.mediatype,
+            media_type=entity.media_type,
             thumbnail_url=make_thumbnail_url(request, entity),
+            taken_at=entity.taken_at,
+            created_at=entity.created_at,
             modified_at=entity.modified_at,
             deleted_at=entity.deleted_at,
         )
 
 
 class AddAlbumItemsRequest(BaseModel):
-    file_ids: list[UUID] = Field(..., min_length=1, max_length=1_000)
+    media_item_ids: list[UUID] = Field(..., min_length=1, max_length=1_000)
 
 
 class CreateAlbumRequest(BaseModel):
@@ -89,11 +98,11 @@ class CreateAlbumRequest(BaseModel):
 
 
 class RemoveAlbumItemsRequest(BaseModel):
-    file_ids: list[UUID] = Field(..., min_length=1, max_length=1_000)
+    media_item_ids: list[UUID] = Field(..., min_length=1, max_length=1_000)
 
 
 class SetAlbumCoverRequest(BaseModel):
-    file_id: UUID
+    media_item_id: UUID
 
 
 class UpdateAlbumRequest(BaseModel):

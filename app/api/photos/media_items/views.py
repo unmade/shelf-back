@@ -1,32 +1,45 @@
-from __future__ import annotations
-
 from typing import Annotated
+from uuid import UUID
 
-from fastapi import APIRouter, Query, Request
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, File, Query, Request
+from fastapi.responses import Response, StreamingResponse
 
 from app.api.deps import CurrentUserDeps, UseCasesDeps
+from app.api.files.schemas import ThumbnailSize
 from app.api.paginator import Page, get_offset
 from app.api.photos import exceptions
-from app.api.photos.media_items.deps import DownloadMediaItemBatchCache
+from app.app.blobs.domain import Blob, BlobMetadata
 from app.app.photos.domain import MediaItem
+from app.cache import disk_cache
 
+from .deps import DownloadMediaItemBatchCache, DownloadMediaItemCache
 from .schemas import (
+    AddFavouriteBatchRequest,
     CountMediaItemsResponse,
     DeleteMediaItemBatchRequest,
     DeleteMediaItemImmediatelyBatchRequest,
-    FileIDRequest,
+    GetContentMetadataResponse,
     GetDownloadUrlRequest,
     GetDownloadUrlResponse,
+    ListFavouriteMediaItemsResponse,
     ListMediaItemCategoriesResponse,
     MediaItemCategorySchema,
+    MediaItemIDRequest,
     MediaItemSchema,
-    MediaItemSharedLinkSchema,
+    RemoveFavouriteBatchRequest,
     RestoreMediaItemBatchRequest,
     SetMediaItemCategoriesRequest,
+    UploadContent,
 )
 
 router = APIRouter()
+
+
+def _make_thumbnail_ttl(*args, size: ThumbnailSize, **kwargs) -> str:
+    size = ThumbnailSize(size)
+    if size.asint() == ThumbnailSize.xs.asint():
+        return "7d"
+    return "24h"
 
 
 @router.get("/count")
@@ -47,7 +60,7 @@ async def delete_media_item_batch(
     user: CurrentUserDeps,
 ) -> Page[MediaItemSchema]:
     """Delete multiple media items at once."""
-    items = await usecases.media_item.delete_batch(user.id, payload.file_ids)
+    items = await usecases.media_item.delete_batch(user.id, payload.ids)
     return Page(
         page=1,
         items=[MediaItemSchema.from_entity(item, request) for item in items]
@@ -60,25 +73,63 @@ async def delete_media_item_immediately_batch(
     usecases: UseCasesDeps,
     user: CurrentUserDeps,
 ) -> None:
-    """Delete multiple media items at once."""
-    await usecases.media_item.delete_immediately_batch(user.id, payload.file_ids)
+    """Delete multiple media items permanently."""
+    await usecases.media_item.delete_immediately_batch(user.id, payload.ids)
 
 
-@router.get("/download_batch")
+@router.get("/download", name="download_media_item")
+def download_media_item(
+    usecases: UseCasesDeps,
+    item: DownloadMediaItemCache,
+):
+    """Download a single media item from a one-time session."""
+    content = usecases.media_item.download(item)
+    filename = item.name.encode("utf-8").decode("latin-1")
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"',
+        "Content-Length": str(item.size),
+        "Content-Type": item.media_type,
+    }
+    return StreamingResponse(content, headers=headers)
+
+
+@router.get("/download_batch", name="download_media_items_batch")
 def download_media_items_batch(
     usecases: UseCasesDeps,
-    value: DownloadMediaItemBatchCache,
+    items: DownloadMediaItemBatchCache,
 ):
-    """
-    Downloads multiple media items as a zip archive.
-    """
-    content = usecases.media_item.download_batch(value)
+    """Download multiple media items as a ZIP archive."""
+    content = usecases.media_item.download_batch(items)
     filename = "Shelf Cloud.zip"
     headers = {
         "Content-Disposition": f'attachment; filename="{filename}"',
         "Content-Type": "attachment/zip",
     }
     return StreamingResponse(content, headers=headers)
+
+
+@router.post("/get_content_metadata")
+async def get_content_metadata(
+    payload: MediaItemIDRequest,
+    usecases: UseCasesDeps,
+    user: CurrentUserDeps,
+) -> GetContentMetadataResponse:
+    """Return content metadata for the specified media item."""
+    try:
+        metadata = await usecases.media_item.get_content_metadata(
+            user.id, payload.media_item_id
+        )
+    except MediaItem.NotFound as exc:
+        raise exceptions.MediaItemNotFound() from exc
+    except BlobMetadata.NotFound as exc:
+        raise exceptions.MediaItemContentMetadataNotFound(
+            media_item_id=payload.media_item_id
+        ) from exc
+
+    return GetContentMetadataResponse.from_entity(
+        payload.media_item_id,
+        metadata,
+    )
 
 
 @router.post("/get_download_url")
@@ -88,12 +139,88 @@ async def get_download_url(
     usecases: UseCasesDeps,
     user: CurrentUserDeps,
 ) -> GetDownloadUrlResponse:
-    """Return a link to download requested media items."""
-    key = await usecases.media_item.download_batch_create_session(
-        user.id, payload.file_ids
-    )
-    download_url = request.url_for("download_media_items_batch")
-    return GetDownloadUrlResponse(download_url=f"{download_url}?key={key}")
+    """Return a one-time download link for one or many media items."""
+    try:
+        session = await usecases.media_item.create_download_session(
+            user.id, payload.ids
+        )
+    except MediaItem.NotFound as exc:
+        raise exceptions.MediaItemNotFound() from exc
+
+    if session.items_count == 1:
+        download_url = request.url_for("download_media_item")
+    else:
+        download_url = request.url_for("download_media_items_batch")
+    return GetDownloadUrlResponse(download_url=f"{download_url}?key={session.key}")
+
+
+@router.post("/favourites/mark_batch")
+async def mark_favourite_batch(
+    payload: AddFavouriteBatchRequest,
+    usecases: UseCasesDeps,
+    user: CurrentUserDeps,
+) -> None:
+    """Marks multiple media items as favourite."""
+    await usecases.media_item.mark_favourite_batch(user.id, payload.ids)
+
+
+@router.get("/favourites/list")
+async def list_favourite_media_item_ids(
+    usecases: UseCasesDeps,
+    user: CurrentUserDeps,
+) -> ListFavouriteMediaItemsResponse:
+    """Lists favourited media item IDs for the current user."""
+    ids = await usecases.media_item.list_favourite_ids(user.id)
+    return ListFavouriteMediaItemsResponse(ids=ids)
+
+
+@router.post("/favourites/unmark_batch")
+async def unmark_favourite_batch(
+    payload: RemoveFavouriteBatchRequest,
+    usecases: UseCasesDeps,
+    user: CurrentUserDeps,
+) -> None:
+    """Removes favourite marks from multiple media items."""
+    await usecases.media_item.unmark_favourite_batch(user.id, payload.ids)
+
+
+@router.get(
+    "/get_thumbnail/{media_item_id}",
+    name="get_media_item_thumbnail",
+)
+@disk_cache(
+    key="{media_item_id}:{size}",
+    ttl=_make_thumbnail_ttl,
+    tags=["thumbnails:{media_item_id}"],
+)
+async def get_thumbnail(
+    media_item_id: str,
+    size: str,
+    usecases: UseCasesDeps,
+    user: CurrentUserDeps,
+):
+    """Get thumbnail for an image media item."""
+    item_id = UUID(media_item_id)
+    thumbnail_size = ThumbnailSize(size)
+
+    try:
+        item, thumbnail, mediatype = await usecases.media_item.thumbnail(
+            user.id, item_id, thumbnail_size.asint()
+        )
+    except Blob.ThumbnailUnavailable as exc:
+        raise exceptions.ThumbnailUnavailable() from exc
+    except MediaItem.NotFound as exc:
+        raise exceptions.MediaItemNotFound() from exc
+
+    filename = item.name.encode("utf-8").decode("latin-1")
+    headers = {
+        "Content-Disposition": f'inline; filename="{filename}"',
+        "Content-Length": str(len(thumbnail)),
+        "Content-Type": mediatype.value,
+        "Cache-Control": "private, max-age=31536000, no-transform",
+    }
+
+    return Response(thumbnail, headers=headers)
 
 
 @router.get("/list")
@@ -135,40 +262,23 @@ async def list_deleted_media_items(
 
 @router.post("/list_categories")
 async def list_media_item_categories(
-    payload: FileIDRequest,
+    payload: MediaItemIDRequest,
     usecases: UseCasesDeps,
     user: CurrentUserDeps,
 ) -> ListMediaItemCategoriesResponse:
     """Return all categories for the specified media item."""
     try:
         categories = await usecases.media_item.list_categories(
-            user.id, payload.file_id
+            user.id, payload.media_item_id
         )
     except MediaItem.NotFound as exc:
         raise exceptions.MediaItemNotFound() from exc
 
     return ListMediaItemCategoriesResponse(
-        file_id=payload.file_id,
+        media_item_id=payload.media_item_id,
         categories=[
             MediaItemCategorySchema.from_entity(category)
             for category in categories
-        ]
-    )
-
-
-@router.get("/list_shared_links")
-async def list_shared_links(
-    request: Request,
-    user: CurrentUserDeps,
-    usecases: UseCasesDeps,
-) -> Page[MediaItemSharedLinkSchema]:
-    """Lists shared links."""
-    items = await usecases.media_item.list_shared_links(user.id)
-    return Page(
-        page=1,
-        items=[
-            MediaItemSharedLinkSchema.from_entity(item, link, request=request)
-            for item, link in items
         ]
     )
 
@@ -190,7 +300,7 @@ async def restore_media_item_batch(
     user: CurrentUserDeps,
 ) -> Page[MediaItemSchema]:
     """Restores multiple deleted media items at once."""
-    items = await usecases.media_item.restore_batch(user.id, payload.file_ids)
+    items = await usecases.media_item.restore_batch(user.id, payload.ids)
     return Page(
         page=1,
         items=[MediaItemSchema.from_entity(item, request) for item in items]
@@ -207,8 +317,25 @@ async def set_media_item_categories(
     try:
         await usecases.media_item.set_categories(
             user.id,
-            payload.file_id,
+            payload.media_item_id,
             categories=payload.categories,
         )
     except MediaItem.NotFound as exc:
         raise exceptions.MediaItemNotFound() from exc
+
+
+@router.post("/upload")
+async def upload_media_item(
+    request: Request,
+    user: CurrentUserDeps,
+    usecases: UseCasesDeps,
+    file: Annotated[UploadContent, File(...)],
+) -> MediaItemSchema:
+    """Upload a new media item."""
+    item = await usecases.media_item.upload(
+        owner_id=user.id,
+        name=file.filename or "untitled",
+        content=file,
+        media_type=file.content_type or "application/octet-stream",
+    )
+    return MediaItemSchema.from_entity(item, request)

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, cast
 from unittest import mock
 
+import freezegun
 import pytest
 
 from app.app.files.domain import File, Fingerprint, Path
@@ -12,8 +13,6 @@ from app.app.users.domain import Account
 from app.config import config
 
 if TYPE_CHECKING:
-    from unittest.mock import MagicMock
-
     from app.app.blobs.domain import IBlobContent
     from app.app.files.domain import AnyPath
     from app.app.files.usecases import NamespaceUseCase
@@ -392,19 +391,17 @@ class TestMoveItemToTrash:
         file_service.move.assert_awaited_once_with(ns_path, path, next_path)
         audit_trail.file_trashed.assert_called_once_with(result)
 
-    @mock.patch("app.toolkit.timezone.now", return_value=datetime(2000, 1, 1, 19, 37))
-    async def test_when_path_at_trash_exists(
-        self, tz_now: MagicMock, ns_use_case: NamespaceUseCase
-    ):
+    async def test_when_path_at_trash_exists(self, ns_use_case: NamespaceUseCase):
         # GIVEN
         ns_path, path = "admin", "f.txt"
+        now = datetime(2000, 1, 1, 19, 37, tzinfo=UTC)
         next_path = Path("Trash/f 193700000000.txt")
         file_service = cast(mock.MagicMock, ns_use_case.file)
         file_service.exists_at_path.return_value = True
         # WHEN
-        await ns_use_case.move_item_to_trash(ns_path, path)
+        with freezegun.freeze_time(now, real_asyncio=True):
+            await ns_use_case.move_item_to_trash(ns_path, path)
         # THEN
-        tz_now.assert_called_once_with()
         file_service.exists_at_path.assert_awaited_once_with(
             ns_path, Path("Trash/f.txt")
         )

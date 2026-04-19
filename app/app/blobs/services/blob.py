@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os.path
 from typing import TYPE_CHECKING, Protocol
 
 from app.app.blobs.domain import Blob
@@ -9,12 +10,13 @@ from app.toolkit import chash as chash_mod
 from app.toolkit import timezone
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Sequence
+    from collections.abc import AsyncIterator, Iterable, Sequence
     from uuid import UUID
 
     from app.app.blobs.domain import IBlobContent
     from app.app.blobs.repositories import IBlobRepository
     from app.app.infrastructure import IStorage
+    from app.app.infrastructure.storage import DownloadBatchItem
 
     class IServiceDatabase(Protocol):
         blob: IBlobRepository
@@ -33,6 +35,7 @@ class BlobService:
         self, storage_key: str, content: IBlobContent, media_type: str
     ) -> Blob:
         content_hash = await asyncio.to_thread(chash_mod.chash, content.file)
+        await self.storage.makedirs(os.path.dirname(storage_key))
         storage_file = await self.storage.save(storage_key, content)
         blob = Blob(
             id=SENTINEL_ID,
@@ -58,5 +61,11 @@ class BlobService:
     def download(self, storage_key: str) -> AsyncIterator[bytes]:
         return self.storage.download(storage_key)
 
+    def download_batch(self, items: Iterable[DownloadBatchItem]) -> Iterable[bytes]:
+        return self.storage.download_batch(items)
+
     async def get_by_id(self, blob_id: UUID) -> Blob:
         return await self.db.blob.get_by_id(blob_id)
+
+    async def get_by_id_batch(self, blob_ids: Sequence[UUID]) -> list[Blob]:
+        return await self.db.blob.get_by_id_batch(blob_ids)

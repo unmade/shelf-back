@@ -1,19 +1,19 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from tortoise.exceptions import DoesNotExist
 
+from app.app.blobs.domain import BlobMetadata
 from app.app.photos.domain import MediaItem
 from app.app.photos.domain.media_item import (
-    IMediaItemType,
     MediaItemCategory,
     MediaItemCategoryName,
 )
 from app.app.photos.repositories.media_item import CountResult
-from app.config import config
 from app.infrastructure.database.tortoise import models
+from app.toolkit import timezone
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -29,31 +29,46 @@ _ORIGIN_TO_INT = {
 _INT_TO_ORIGIN = dict(zip(_ORIGIN_TO_INT.values(), _ORIGIN_TO_INT.keys(), strict=False))
 
 
-def _from_db(obj: models.File) -> MediaItem:
+def _from_db(obj: models.MediaItem) -> MediaItem:
+    blob = obj.blob
+    metadata: BlobMetadata | None = None
+    if raw_metadata := blob.metadata:  # type: ignore[attr-defined]
+        metadata = BlobMetadata(
+            blob_id=raw_metadata.blob_id,
+            data=raw_metadata.data,
+        )
+
+    taken_at = None
+    if metadata is not None and metadata.data.dt_original is not None:
+        taken_at = timezone.fromtimestamp(metadata.data.dt_original)
+
     return MediaItem(
-        file_id=obj.id,
+        id=obj.id,
+        owner_id=obj.owner_id,  # type: ignore[attr-defined]
+        blob_id=obj.blob_id,  # type: ignore[attr-defined]
         name=obj.name,
-        size=obj.size,
+        media_type=blob.media_type,
+        size=blob.size,
+        chash=blob.chash,
+        taken_at=taken_at,
+        created_at=obj.created_at,
         modified_at=obj.modified_at,
         deleted_at=obj.deleted_at,
-        mediatype=cast(IMediaItemType, obj.mediatype.name),
     )
 
 
 def _base_qs():
-    """Base queryset filtered by allowed media types and photos library path."""
+    """Base queryset with Blob and BlobMetadata JOINs."""
     return (
-        models.File
-        .filter(
-            mediatype__name__in=list(MediaItem.ALLOWED_MEDIA_TYPES),
-            path__istartswith=config.features.photos_library_path,
-        )
-        .select_related("mediatype")
+        models.MediaItem
+        .all()
+        .select_related("blob")
+        .prefetch_related("blob__metadata")
     )
 
 
 async def _get_or_create_categories(
-    names: Iterable[str]
+    names: Iterable[str],
 ) -> dict[str, models.FileCategory]:
     unique_names = list(set(names))
     categories = await models.FileCategory.filter(name__in=unique_names)
@@ -70,9 +85,9 @@ async def _get_or_create_categories(
 
 class MediaItemRepository:
     async def add_category_batch(
-        self, file_id: UUID, categories: Sequence[MediaItemCategory]
+        self, media_item_id: UUID, categories: Sequence[MediaItemCategory]
     ) -> None:
-        if not await models.File.filter(id=file_id).exists():
+        if not await models.MediaItem.filter(id=media_item_id).exists():
             raise MediaItem.NotFound()
 
         if not categories:
@@ -81,8 +96,8 @@ class MediaItemRepository:
         cat_by_name = await _get_or_create_categories(c.name for c in categories)
 
         existing_through = await (
-            models.FileFileCategoryThrough
-            .filter(file_id=file_id)
+            models.MediaItemCategoryThrough
+            .filter(media_item_id=media_item_id)
         )
         existing_by_cat_id = {
             obj.file_category_id: obj  # type: ignore[attr-defined]
@@ -101,8 +116,8 @@ class MediaItemRepository:
                 to_update.append(obj)
             else:
                 to_create.append(
-                    models.FileFileCategoryThrough(
-                        file_id=file_id,
+                    models.MediaItemCategoryThrough(
+                        media_item_id=media_item_id,
                         file_category_id=cat_id,
                         origin=origin,
                         probability=category.probability,
@@ -110,48 +125,50 @@ class MediaItemRepository:
                 )
 
         if to_update:
-            await models.FileFileCategoryThrough.bulk_update(
+            await models.MediaItemCategoryThrough.bulk_update(
                 to_update, fields=["origin", "probability"],
             )
         if to_create:
-            await models.FileFileCategoryThrough.bulk_create(to_create)
+            await models.MediaItemCategoryThrough.bulk_create(to_create)
 
-    async def count(self, user_id: UUID) -> CountResult:
-        base = (
-            models.File
-            .filter(
-                mediatype__name__in=list(MediaItem.ALLOWED_MEDIA_TYPES),
-                path__istartswith=config.features.photos_library_path,
-                namespace__owner_id=user_id,
-            )
-        )
+    async def count(self, owner_id: UUID) -> CountResult:
+        base = models.MediaItem.filter(owner_id=owner_id)
         total = await base.filter(deleted_at__isnull=True).count()
         deleted = await base.filter(deleted_at__isnull=False).count()
         return CountResult(total=total, deleted=deleted)
 
-    async def get_by_id_batch(self, file_ids: Sequence[UUID]) -> list[MediaItem]:
-        objs = await (
-            _base_qs()
-            .filter(id__in=list(file_ids))
-            .order_by("-modified_at")
-        )
-        return [_from_db(obj) for obj in objs]
+    async def delete_batch(self, ids: Sequence[UUID]) -> None:
+        await models.MediaItem.filter(id__in=list(ids)).delete()
 
-    async def get_by_user_id(self, user_id: UUID, file_id: UUID) -> MediaItem:
+    async def get_by_id(self, media_item_id: UUID) -> MediaItem:
         try:
-            obj = await (
-                models.File
-                .filter(id=file_id, namespace__owner_id=user_id)
-                .select_related("mediatype")
-                .get()
-            )
+            obj = await _base_qs().get(id=media_item_id)
         except DoesNotExist as exc:
             raise MediaItem.NotFound() from exc
         return _from_db(obj)
 
-    async def list_by_user_id(
+    async def get_by_id_batch(
+        self, media_item_ids: Sequence[UUID]
+    ) -> list[MediaItem]:
+        objs = await (
+            _base_qs()
+            .filter(id__in=list(media_item_ids))
+            .order_by("-modified_at")
+        )
+        return [_from_db(obj) for obj in objs]
+
+    async def get_for_owner(
+        self, owner_id: UUID, media_item_id: UUID
+    ) -> MediaItem:
+        try:
+            obj = await _base_qs().get(id=media_item_id, owner_id=owner_id)
+        except DoesNotExist as exc:
+            raise MediaItem.NotFound() from exc
+        return _from_db(obj)
+
+    async def list_by_owner(
         self,
-        user_id: UUID,
+        owner_id: UUID,
         *,
         only_favourites: bool = False,
         offset: int,
@@ -159,29 +176,28 @@ class MediaItemRepository:
     ) -> list[MediaItem]:
         qs = (
             _base_qs()
-            .filter(
-                namespace__owner_id=user_id,
-                deleted_at__isnull=True,
-            )
+            .filter(owner_id=owner_id, deleted_at__isnull=True)
         )
         if only_favourites:
-            bookmarked_ids = await (
-                models.Bookmark
-                .filter(user_id=user_id)
-                .values_list("file_id", flat=True)
+            favourite_ids: list[UUID] = await (  # type: ignore[assignment]
+                models.MediaItemBookmark
+                .filter(user_id=owner_id)
+                .values_list("media_item_id", flat=True)
             )
-            qs = qs.filter(id__in=list(bookmarked_ids))
+            qs = qs.filter(id__in=list(favourite_ids))
 
         objs = await qs.order_by("-modified_at").offset(offset).limit(limit)
         return [_from_db(obj) for obj in objs]
 
-    async def list_categories(self, file_id: UUID) -> list[MediaItemCategory]:
-        if not await models.File.filter(id=file_id).exists():
+    async def list_categories(
+        self, media_item_id: UUID
+    ) -> list[MediaItemCategory]:
+        if not await models.MediaItem.filter(id=media_item_id).exists():
             raise MediaItem.NotFound()
 
         through_objs = await (
-            models.FileFileCategoryThrough
-            .filter(file_id=file_id)
+            models.MediaItemCategoryThrough
+            .filter(media_item_id=media_item_id)
             .select_related("file_category")
         )
         return [
@@ -194,64 +210,68 @@ class MediaItemRepository:
         ]
 
     async def list_deleted(
-        self, user_id: UUID, *, offset: int, limit: int = 25
+        self, owner_id: UUID, *, offset: int, limit: int = 25
     ) -> list[MediaItem]:
         objs = await (
             _base_qs()
-            .filter(
-                namespace__owner_id=user_id,
-                deleted_at__isnull=False,
-            )
+            .filter(owner_id=owner_id, deleted_at__isnull=False)
             .order_by("-deleted_at")
             .offset(offset)
             .limit(limit)
         )
         return [_from_db(obj) for obj in objs]
 
+    async def save(self, item: MediaItem) -> MediaItem:
+        obj = await models.MediaItem.create(
+            owner_id=item.owner_id,
+            blob_id=item.blob_id,
+            name=item.name,
+            created_at=item.created_at,
+            modified_at=item.modified_at,
+            deleted_at=item.deleted_at,
+        )
+        return item.model_copy(update={"id": obj.id})
+
     async def set_categories(
-        self, file_id: UUID, categories: Sequence[MediaItemCategory]
+        self, media_item_id: UUID, categories: Sequence[MediaItemCategory]
     ) -> None:
-        if not await models.File.filter(id=file_id).exists():
+        if not await models.MediaItem.filter(id=media_item_id).exists():
             raise MediaItem.NotFound()
 
-        await models.FileFileCategoryThrough.filter(file_id=file_id).delete()
+        await models.MediaItemCategoryThrough.filter(
+            media_item_id=media_item_id
+        ).delete()
 
         if not categories:
             return
 
         cat_by_name = await _get_or_create_categories(c.name for c in categories)
         through_objs = [
-            models.FileFileCategoryThrough(
-                file_id=file_id,
+            models.MediaItemCategoryThrough(
+                media_item_id=media_item_id,
                 file_category_id=cat_by_name[category.name].id,
                 origin=_ORIGIN_TO_INT[category.origin],
                 probability=category.probability,
             )
             for category in categories
         ]
-        await models.FileFileCategoryThrough.bulk_create(through_objs)
+        await models.MediaItemCategoryThrough.bulk_create(through_objs)
 
     async def set_deleted_at_batch(
-        self, user_id: UUID, file_ids: Sequence[UUID], deleted_at: datetime | None
+        self, owner_id: UUID, ids: Sequence[UUID], deleted_at: datetime | None
     ) -> list[MediaItem]:
         matching_ids: list[UUID] = await (  # type: ignore[assignment]
-            models.File
-            .filter(
-                id__in=list(file_ids),
-                mediatype__name__in=list(MediaItem.ALLOWED_MEDIA_TYPES),
-                path__istartswith=config.features.photos_library_path,
-                namespace__owner_id=user_id,
-            )
+            models.MediaItem
+            .filter(id__in=list(ids), owner_id=owner_id)
             .values_list("id", flat=True)
         )
-        await models.File.filter(id__in=matching_ids).update(deleted_at=deleted_at)
+        await models.MediaItem.filter(id__in=matching_ids).update(
+            deleted_at=deleted_at
+        )
 
         objs = await (
             _base_qs()
-            .filter(
-                id__in=list(file_ids),
-                namespace__owner_id=user_id,
-            )
+            .filter(id__in=list(ids), owner_id=owner_id)
             .order_by("-modified_at")
         )
         return [_from_db(obj) for obj in objs]

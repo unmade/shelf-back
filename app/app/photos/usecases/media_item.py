@@ -1,184 +1,214 @@
 from __future__ import annotations
 
-import secrets
 from typing import TYPE_CHECKING, Protocol
 
-from app.app.files.services.file.filecore import DownloadBatchItem
 from app.app.photos.domain import MediaItem
-from app.cache import cache
-from app.config import config
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import AsyncIterator, Iterable, Sequence
     from uuid import UUID
 
-    from app.app.files.domain import AnyFile, SharedLink
-    from app.app.files.services import NamespaceService, SharingService
-    from app.app.files.services.file import FileCoreService
+    from app.app.blobs.domain import BlobMetadata, IBlobContent
+    from app.app.blobs.services import (
+        BlobContentProcessor,
+        BlobMetadataService,
+        BlobThumbnailService,
+    )
     from app.app.photos.domain.media_item import (
         MediaItemCategory,
         MediaItemCategoryName,
     )
     from app.app.photos.repositories.media_item import CountResult
     from app.app.photos.services import MediaItemService
+    from app.app.photos.services.media_item import (
+        DownloadMediaItem,
+        DownloadMediaItemSession,
+        DownloadSessionInfo,
+    )
+    from app.toolkit.mediatypes import MediaType
 
     class IUseCaseServices(Protocol):
-        filecore: FileCoreService
+        blob_metadata: BlobMetadataService
+        blob_processor: BlobContentProcessor
+        blob_thumbnailer: BlobThumbnailService
         media_item: MediaItemService
-        namespace: NamespaceService
-        sharing: SharingService
 
 __all__ = [
     "MediaItemUseCase",
 ]
 
-_DOWNLOAD_CACHE_PREFIX = "media_item:batch"
-
-type DownloadBatchSession = list[DownloadBatchItem]
-
 
 class MediaItemUseCase:
-    __slots__ = ["_services", "filecore", "media_item", "namespace", "sharing"]
+    __slots__ = [
+        "_services",
+        "blob_metadata",
+        "blob_processor",
+        "media_item",
+        "thumbnailer",
+    ]
 
     def __init__(self, services: IUseCaseServices):
         self._services = services
-        self.filecore = services.filecore
+        self.blob_metadata = services.blob_metadata
+        self.blob_processor = services.blob_processor
         self.media_item = services.media_item
-        self.namespace = services.namespace
-        self.sharing = services.sharing
-
-    @staticmethod
-    def _is_file_a_media_item(file: AnyFile) -> bool:
-        library_path = config.features.photos_library_path
-        return (
-            file.path.is_relative_to(library_path)
-            and file.mediatype in MediaItem.ALLOWED_MEDIA_TYPES
-        )
+        self.thumbnailer = services.blob_thumbnailer
 
     async def auto_add_category_batch(
-        self, file_id: UUID, categories: Sequence[tuple[MediaItemCategoryName, int]]
+        self,
+        media_item_id: UUID,
+        categories: Sequence[tuple[MediaItemCategoryName, int]],
     ) -> None:
         """
         Adds a set of categories provided by AI recognition.
 
         Raises:
-            MediaItem.NotFound: If media item with a given `file_id` does not exist.
+            MediaItem.NotFound: If media item does not exist.
         """
-        await self.media_item.auto_add_category_batch(file_id, categories=categories)
+        await self.media_item.auto_add_category_batch(
+            media_item_id, categories=categories
+        )
 
-    async def count(self, user_id: UUID) -> CountResult:
-        """Returns total number of media items user has."""
-        return await self.media_item.count(user_id)
+    async def count(self, owner_id: UUID) -> CountResult:
+        """Returns total number of media items owner has."""
+        return await self.media_item.count(owner_id)
+
+    async def create_download_session(
+        self, owner_id: UUID, media_item_ids: Sequence[UUID]
+    ) -> DownloadSessionInfo:
+        return await self.media_item.create_download_session(owner_id, media_item_ids)
 
     async def delete_batch(
-        self, user_id: UUID, file_ids: Sequence[UUID]
+        self, owner_id: UUID, ids: Sequence[UUID]
     ) -> list[MediaItem]:
-        """Deletes multiple media items at once."""
-        return await self.media_item.delete_batch(user_id, file_ids)
+        """Soft-deletes multiple media items at once."""
+        return await self.media_item.delete_batch(owner_id, ids)
 
     async def delete_immediately_batch(
-        self, user_id: UUID, file_ids: Sequence[UUID]
+        self, owner_id: UUID, ids: Sequence[UUID]
     ) -> None:
-        """Deletes multiple media items permanently."""
-        namespace = await self.namespace.get_by_owner_id(user_id)
-        files = await self.filecore.get_by_id_batch(file_ids)
-        paths = [file.path for file in files]
-        await self.filecore.delete_batch(namespace.path, paths)
+        """Permanently deletes multiple media items and their blobs."""
+        items = await self.media_item.get_by_id_batch(ids)
+        item_ids = [item.id for item in items if item.owner_id == owner_id]
+        if item_ids:
+            await self.media_item.delete_permanently(item_ids)
 
-    def download_batch(self, items: DownloadBatchSession) -> Iterable[bytes]:
-        return self.filecore.download_batch(items)
+    def download(self, item: DownloadMediaItem) -> AsyncIterator[bytes]:
+        return self.media_item.download(item)
 
-    async def download_batch_create_session(
-        self, user_id: UUID, file_ids: Sequence[UUID]
-    ) -> str:
-        namespace = await self.namespace.get_by_owner_id(user_id)
-        files = [
-            DownloadBatchItem(
-                key=f"{file.ns_path}/{file.path}",
-                is_dir=file.is_folder(),
-            )
-            for file in await self.filecore.get_by_id_batch(file_ids)
-            if file.ns_path == namespace.path and self._is_file_a_media_item(file)
-        ]
-        key = secrets.token_urlsafe()
-        await cache.set(key=f"{_DOWNLOAD_CACHE_PREFIX}:{key}", value=files, expire=60)
-        return key
+    def download_batch(self, items: DownloadMediaItemSession) -> Iterable[bytes]:
+        return self.media_item.download_batch(items)
 
-    async def download_batch_get_session(self, key: str) -> DownloadBatchSession | None:
-        key = f"{_DOWNLOAD_CACHE_PREFIX}:{key}"
-        value: DownloadBatchSession | None = await cache.get(key)
-        if value is None:
-            return None
-        await cache.delete(key)
-        return value
+    async def get_download_session(
+        self, key: str
+    ) -> DownloadMediaItemSession | None:
+        return await self.media_item.get_download_session(key)
+
+    async def get_content_metadata(
+        self, owner_id: UUID, media_item_id: UUID
+    ) -> BlobMetadata:
+        """
+        Returns content metadata for the specified owner's media item.
+
+        Raises:
+            MediaItem.NotFound: If MediaItem does not exist for the owner.
+            BlobMetadata.NotFound: If metadata does not exist for the backing blob.
+        """
+        item = await self.media_item.get_for_owner(owner_id, media_item_id)
+        return await self.blob_metadata.get_by_blob_id(item.blob_id)
 
     async def list_(
-        self, user_id: UUID, *, only_favourites: bool = False, offset: int, limit: int
+        self, owner_id: UUID, *, only_favourites: bool = False, offset: int, limit: int
     ) -> list[MediaItem]:
-        """Lists media items for a given user."""
+        """Lists media items for a given owner."""
         return await self.media_item.list_(
-            user_id,
+            owner_id,
             only_favourites=only_favourites,
             offset=offset,
             limit=limit,
         )
 
-    async def list_deleted(self, user_id: UUID) -> list[MediaItem]:
+    async def list_deleted(self, owner_id: UUID) -> list[MediaItem]:
         """Lists deleted media items."""
-        return await self.media_item.list_deleted(user_id, offset=0, limit=2_000)
+        return await self.media_item.list_deleted(owner_id, offset=0, limit=2_000)
+
+    async def list_favourite_ids(self, user_id: UUID) -> list[UUID]:
+        """Lists favourite media item IDs for the current user."""
+        return await self.media_item.list_favourite_ids(user_id)
 
     async def list_categories(
-        self, user_id: UUID, file_id: UUID
+        self, owner_id: UUID, media_item_id: UUID
     ) -> list[MediaItemCategory]:
         """
-        Returns categories of the user MediaItem with given ID.
+        Returns categories of the owner's MediaItem with given ID.
 
         Raises:
             MediaItem.NotFound: If MediaItem does not exist.
         """
-        item = await self.media_item.get_for_user(user_id, file_id)
-        return await self.media_item.list_categories(item.file_id)
+        item = await self.media_item.get_for_owner(owner_id, media_item_id)
+        return await self.media_item.list_categories(item.id)
 
-    async def list_shared_links(
-        self, user_id: UUID
-    ) -> list[tuple[MediaItem, SharedLink]]:
-        """Lists shared links."""
-        namespace = await self.namespace.get_by_owner_id(user_id)
-        links = await self.sharing.list_links_by_ns(namespace.path, limit=1000)
-        file_ids = [link.file_id for link in links]
-        items_by_id = {
-            item.file_id: item
-            for item in await self.media_item.get_by_id_batch(file_ids)
-        }
-        return [
-            (item, link)
-            for link in links
-            if (item := items_by_id.get(link.file_id))
-        ]
+    async def mark_favourite_batch(
+        self, user_id: UUID, ids: Sequence[UUID]
+    ) -> None:
+        """Marks multiple media items as favourite for the current user."""
+        await self.media_item.mark_favourite_batch(user_id, ids)
 
-    async def purge(self, user_id: UUID) -> None:
+    async def purge(self, owner_id: UUID) -> None:
         """Permanently deletes all deleted media items."""
-        namespace = await self.namespace.get_by_owner_id(user_id)
-        async for items in self.media_item.iter_deleted(user_id):
-            file_ids = [item.file_id for item in items]
-            files = await self.filecore.get_by_id_batch(file_ids)
-            paths = [file.path for file in files]
-            await self.filecore.delete_batch(namespace.path, paths)
+        async for items in self.media_item.iter_deleted(owner_id):
+            ids = [item.id for item in items]
+            await self.media_item.delete_permanently(ids)
 
     async def restore_batch(
-        self, user_id: UUID, file_ids: Sequence[UUID]
+        self, owner_id: UUID, ids: Sequence[UUID]
     ) -> list[MediaItem]:
         """Restores multiple media items at once."""
-        return await self.media_item.restore_batch(user_id, file_ids)
+        return await self.media_item.restore_batch(owner_id, ids)
 
     async def set_categories(
-        self, user_id: UUID, file_id: UUID, categories: Sequence[MediaItemCategoryName]
+        self,
+        owner_id: UUID,
+        media_item_id: UUID,
+        categories: Sequence[MediaItemCategoryName],
     ) -> None:
         """
-        Clears existing and sets specified categories for MediaItem with given file ID.
+        Clears existing and sets specified categories for MediaItem with given ID.
 
         Raises:
             MediaItem.NotFound: If MediaItem does not exist.
         """
-        item = await self.media_item.get_for_user(user_id, file_id)
-        return await self.media_item.set_categories(item.file_id, categories)
+        item = await self.media_item.get_for_owner(owner_id, media_item_id)
+        return await self.media_item.set_categories(item.id, categories)
+
+    async def thumbnail(
+        self, owner_id: UUID, media_item_id: UUID, size: int
+    ) -> tuple[MediaItem, bytes, MediaType]:
+        """
+        Returns a thumbnail for the specified owner's media item.
+
+        Raises:
+            MediaItem.NotFound: If MediaItem does not exist for the owner.
+            Blob.ThumbnailUnavailable: If thumbnail can't be generated.
+        """
+        item = await self.media_item.get_for_owner(owner_id, media_item_id)
+        thumbnail = await self.thumbnailer.thumbnail(item.blob_id, item.chash, size)
+        return item, *thumbnail
+
+    async def unmark_favourite_batch(
+        self, user_id: UUID, ids: Sequence[UUID]
+    ) -> None:
+        """Removes favourite marks from multiple media items."""
+        await self.media_item.unmark_favourite_batch(user_id, ids)
+
+    async def upload(
+        self,
+        owner_id: UUID,
+        name: str,
+        content: IBlobContent,
+        media_type: str,
+    ) -> MediaItem:
+        """Creates a new media item and schedules content processing."""
+        item = await self.media_item.create(owner_id, name, content, media_type)
+        await self.blob_processor.process_async(item.blob_id)
+        return item
