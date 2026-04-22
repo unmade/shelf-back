@@ -4,8 +4,11 @@ from unittest import mock
 
 import pytest
 
-from app.app.files.services import NamespaceService, SharingService
-from app.app.files.services.file import FileCoreService
+from app.app.blobs.services import (
+    BlobContentProcessor,
+    BlobMetadataService,
+    BlobThumbnailService,
+)
 from app.app.photos.services import AlbumService, MediaItemService
 from app.app.photos.usecases import AlbumUseCase, MediaItemUseCase
 
@@ -20,12 +23,12 @@ def album_use_case() -> AlbumUseCase:
 
 
 @pytest.fixture
-def photos_use_case() -> MediaItemUseCase:
+def media_item_use_case() -> MediaItemUseCase:
     """A mocked MediaItemUseCase instance."""
     services = mock.MagicMock(
-        filecore=mock.MagicMock(spec=FileCoreService),
+        blob_metadata=mock.MagicMock(spec=BlobMetadataService),
+        blob_thumbnailer=mock.MagicMock(spec=BlobThumbnailService),
+        blob_processor=mock.MagicMock(spec=BlobContentProcessor),
         media_item=mock.MagicMock(spec=MediaItemService),
-        namespace=mock.MagicMock(spec=NamespaceService),
-        sharing=mock.MagicMock(spec=SharingService),
     )
     return MediaItemUseCase(services=services)

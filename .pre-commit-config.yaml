@@ -19,9 +19,13 @@ repos:
         language: system
         types: [ python ]
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
-    -   id: trailing-whitespace
-    -   id: end-of-file-fixer
+    -   id: check-json
+    -   id: check-merge-conflict
+    -   id: check-toml
     -   id: check-yaml
     -   id: debug-statements
+    -   id: end-of-file-fixer
+    -   id: pretty-format-json
+    -   id: trailing-whitespace

@@ -3,16 +3,16 @@ from __future__ import annotations
 import enum
 from datetime import datetime
 from os.path import normpath
-from typing import TYPE_CHECKING, Annotated, Literal, Self
+from typing import TYPE_CHECKING, Annotated, Self
 from uuid import UUID
 
 from fastapi import UploadFile
 from pydantic import BaseModel, RootModel, field_validator, model_validator
 from pydantic.functional_validators import AfterValidator
 
-from app.app.files.services.thumbnailer import thumbnails
 from app.config import ThumbnailSize as AppThumbnailSize
-from app.toolkit import timezone
+from app.toolkit import thumbnails, timezone
+from app.toolkit.metadata import Exif
 from app.worker.jobs.files import ErrorCode as TaskErrorCode
 
 from .exceptions import FileAlreadyDeleted, MalformedPath
@@ -190,43 +190,15 @@ class GetBatchResponse(BaseModel):
     count: int
 
 
-class DataExif(BaseModel):
-    type: Literal["exif"] = "exif"
-    make: str | None = None
-    model: str | None = None
-    focal_length: int | None = None
-    focal_length_35mm: int | None = None
-    fnumber: str | None = None
-    exposure: str | None = None
-    iso: str | None = None
-    dt_original: float | None = None
-    dt_digitized: float | None = None
-    height: int | None = None
-    width: int | None = None
-
-
 class GetContentMetadataResponse(BaseModel):
     file_id: UUID
-    data: DataExif
+    data: Exif
 
     @classmethod
     def from_entity(cls, entity: ContentMetadata) -> Self:
         return cls(
             file_id=entity.file_id,
-            data=DataExif(
-                type=entity.data.type,
-                make=entity.data.make,
-                model=entity.data.model,
-                focal_length=entity.data.focal_length,
-                focal_length_35mm=entity.data.focal_length_35mm,
-                fnumber=entity.data.fnumber,
-                exposure=entity.data.exposure,
-                iso=entity.data.iso,
-                dt_original=entity.data.dt_original,
-                dt_digitized=entity.data.dt_digitized,
-                height=entity.data.height,
-                width=entity.data.width,
-            ),
+            data=entity.data,
         )
 
 

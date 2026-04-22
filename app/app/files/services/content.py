@@ -4,9 +4,8 @@ from tempfile import SpooledTemporaryFile
 from typing import IO, TYPE_CHECKING, Protocol
 
 from app.app.files.services.dupefinder import dhash
-from app.app.files.services.metadata import readers as metadata_readers
 from app.config import ThumbnailSize, config
-from app.toolkit import taskgroups
+from app.toolkit import metadata, taskgroups
 from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
@@ -90,7 +89,7 @@ class ContentService:
                 return [dupefinder_tracker, metadata_tracker, chasher]
             return [chasher]
 
-        types = tuple(dhash.SUPPORTED_TYPES | metadata_readers.SUPPORTED_TYPES)
+        types = tuple(dhash.SUPPORTED_TYPES | metadata.SUPPORTED_TYPES)
         ns_path = str(ns_path)
         batch_size = 500
         batches = self.filecore.iter_files(

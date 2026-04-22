@@ -22,7 +22,7 @@ from .clients.exceptions import NoSuchKey, ResourceNotFound
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Collection, Iterable, Iterator
 
-    from app.app.files.domain import IFileContent
+    from app.app.blobs.domain import IBlobContent
     from app.app.infrastructure.storage import DownloadBatchItem
     from app.config import S3StorageConfig
 
@@ -105,10 +105,10 @@ class S3Storage(IStorage):
     def _download_batch_iter(
         self, items: Iterable[DownloadBatchItem]
     ) -> Iterator[StreamZipFile]:
-        for key, is_dir in items:
-            key = os.path.normpath(key)
-            filename = os.path.basename(key)
-            if is_dir:
+        for item in items:
+            key = os.path.normpath(item.key)
+            filename = item.archive_path or os.path.basename(key)
+            if item.is_dir:
                 yield from self._downloaddir_iter(key, prefix=filename)
             else:
                 entry = self.sync_s3.head_object(self.bucket, key)
@@ -196,7 +196,7 @@ class S3Storage(IStorage):
                 )
         await self.s3.delete(self.bucket, *keys_to_delete)
 
-    async def save(self, key: str, content: IFileContent) -> StorageFile:
+    async def save(self, key: str, content: IBlobContent) -> StorageFile:
         key = os.path.normpath(key)
         file = await self.s3.upload_obj(self.bucket, key, content)
         return StorageFile(

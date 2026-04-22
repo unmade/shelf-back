@@ -1,12 +1,15 @@
 from .account import AccountRepository
 from .album import AlbumRepository
 from .audit import AuditTrailRepository
+from .blob import BlobRepository
+from .blob_metadata import BlobMetadataRepository
 from .bookmark import BookmarkRepository
 from .file import FileRepository
 from .file_member import FileMemberRepository
 from .file_pending_deletion import FilePendingDeletionRepository
 from .fingerprint import FingerprintRepository
 from .media_item import MediaItemRepository
+from .media_item_favourite import MediaItemFavouriteRepository
 from .metadata import ContentMetadataRepository
 from .mount import MountRepository
 from .namespace import NamespaceRepository
@@ -17,12 +20,15 @@ __all__ = [
     "AccountRepository",
     "AlbumRepository",
     "AuditTrailRepository",
+    "BlobMetadataRepository",
+    "BlobRepository",
     "BookmarkRepository",
     "ContentMetadataRepository",
     "FileMemberRepository",
     "FilePendingDeletionRepository",
     "FileRepository",
     "FingerprintRepository",
+    "MediaItemFavouriteRepository",
     "MediaItemRepository",
     "MountRepository",
     "NamespaceRepository",

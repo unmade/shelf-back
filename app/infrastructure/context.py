@@ -7,6 +7,12 @@ from typing import TYPE_CHECKING, Self, assert_never
 from app.app.audit.services import AuditTrailService
 from app.app.auth.services import TokenService
 from app.app.auth.usecases import AuthUseCase
+from app.app.blobs.services import (
+    BlobMetadataService,
+    BlobService,
+    BlobThumbnailService,
+)
+from app.app.blobs.services.content_processor import BlobContentProcessor
 from app.app.files.services import (
     DuplicateFinderService,
     FileService,
@@ -21,7 +27,10 @@ from app.app.files.services.file_member import FileMemberService
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
 from app.app.infrastructure.mail import IMailBackend
 from app.app.photos.services import AlbumService, MediaItemService
-from app.app.photos.usecases import AlbumUseCase, MediaItemUseCase
+from app.app.photos.usecases import (
+    AlbumUseCase,
+    MediaItemUseCase,
+)
 from app.app.users.services import BookmarkService, UserService
 from app.app.users.usecases import UserUseCase
 from app.cache import cache
@@ -45,6 +54,7 @@ if TYPE_CHECKING:
     from app.config import (
         AppConfig,
         DatabaseConfig,
+        FeatureConfig,
         IndexerClientConfig,
         StorageConfig,
         WorkerConfig,
@@ -62,7 +72,7 @@ class AppContext:
     def __init__(self, config: AppConfig):
         self._stack = AsyncExitStack()
         self._infra = Infrastructure(config)
-        services = Services(self._infra)
+        services = Services(self._infra, features=config.features)
         self.usecases = UseCases(services)
 
     async def __aenter__(self) -> Self:
@@ -147,6 +157,10 @@ class Services:
         "_database",
         "album",
         "audit_trail",
+        "blob",
+        "blob_metadata",
+        "blob_processor",
+        "blob_thumbnailer",
         "bookmark",
         "content",
         "dupefinder",
@@ -162,7 +176,7 @@ class Services:
         "user",
     ]
 
-    def __init__(self, infra: Infrastructure):
+    def __init__(self, infra: Infrastructure, features: FeatureConfig):
         database = infra.database
         mail = infra.mail
         storage_default = infra.storage_default
@@ -170,6 +184,20 @@ class Services:
         worker = infra.worker
 
         self._database = database
+
+        self.blob = BlobService(database=database, storage=storage_default)
+        self.blob_metadata = BlobMetadataService(database=database)
+        self.blob_thumbnailer = BlobThumbnailService(
+            blob_service=self.blob,
+            storage=storage_media,
+            max_file_size=features.max_file_size_to_thumbnail,
+        )
+        self.blob_processor = BlobContentProcessor(
+            blob_service=self.blob,
+            metadata_service=self.blob_metadata,
+            thumbnail_service=self.blob_thumbnailer,
+            worker=worker,
+        )
 
         self.album = AlbumService(database=database)
         self.audit_trail = AuditTrailService(database=database)
@@ -185,7 +213,7 @@ class Services:
         )
         self.file_member = FileMemberService(database=database)
         self.dupefinder = DuplicateFinderService(database=database)
-        self.media_item = MediaItemService(database=database)
+        self.media_item = MediaItemService(database=database, blob_service=self.blob)
         self.metadata = MetadataService(database=database)
         self.namespace = NamespaceService(database=database, filecore=self.filecore)
         self.sharing = SharingService(database=database)
@@ -209,7 +237,15 @@ class Services:
 
 
 class UseCases:
-    __slots__ = ["album", "auth", "namespace", "media_item", "sharing", "user"]
+    __slots__ = [
+        "album",
+        "auth",
+        "blob_content_processor",
+        "namespace",
+        "media_item",
+        "sharing",
+        "user",
+    ]
 
     def __init__(self, services: Services):
         self.album = AlbumUseCase(services=services)
@@ -218,3 +254,6 @@ class UseCases:
         self.sharing = SharingUseCase(services=services)
         self.media_item = MediaItemUseCase(services=services)
         self.user = UserUseCase(services=services)
+
+        # let's keep it on the use case to avoid changing worker code too much.
+        self.blob_content_processor = services.blob_processor

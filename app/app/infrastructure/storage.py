@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, NamedTuple, Protocol, Self
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Collection, Iterable
 
-    from app.app.files.domain import IFileContent
+    from app.app.blobs.domain import IBlobContent
 
 __all__ = ["IStorage", "StorageFile"]
 
@@ -14,6 +14,7 @@ __all__ = ["IStorage", "StorageFile"]
 class DownloadBatchItem(NamedTuple):
     key: str
     is_dir: bool
+    archive_path: str | None = None
 
 
 class StorageFile:
@@ -172,7 +173,7 @@ class IStorage(Protocol):
         """
 
     @abc.abstractmethod
-    async def save(self, key: str, content: IFileContent) -> StorageFile:
+    async def save(self, key: str, content: IBlobContent) -> StorageFile:
         """
         Save content to a given key.
 

@@ -6,8 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.app.files.domain import mediatypes
 from app.toolkit import timezone
+from app.toolkit.mediatypes import MediaType
 
 from .mount import MountPoint
 from .path import Path
@@ -84,7 +84,7 @@ class _BaseFile(BaseModel):
 
     def is_folder(self) -> bool:
         """True if file is a folder, False otherwise."""
-        return self.mediatype == mediatypes.FOLDER
+        return self.mediatype == MediaType.FOLDER
 
     def is_hidden(self) -> bool:
         """True if file name startswith '.', False othewise."""

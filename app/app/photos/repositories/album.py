@@ -17,7 +17,7 @@ class AlbumUpdate(TypedDict, total=False):
 
 class IAlbumRepository(Protocol):
     async def add_items(
-        self, owner_id: UUID, slug: str, file_ids: list[UUID]
+        self, owner_id: UUID, slug: str, media_item_ids: list[UUID]
     ) -> Album:
         """
         Adds items to the album.
@@ -59,7 +59,7 @@ class IAlbumRepository(Protocol):
 
     async def list_items(
         self,
-        user_id: UUID,
+        owner_id: UUID,
         slug: str,
         *,
         offset: int,
@@ -68,7 +68,7 @@ class IAlbumRepository(Protocol):
         """Lists media items in a given album."""
 
     async def remove_items(
-        self, owner_id: UUID, slug: str, file_ids: list[UUID]
+        self, owner_id: UUID, slug: str, media_item_ids: list[UUID]
     ) -> Album:
         """
         Removes items from the album.
@@ -84,7 +84,9 @@ class IAlbumRepository(Protocol):
         Note, that `cover` field will be ignored even if set on entity.
         """
 
-    async def set_cover(self, owner_id: UUID, slug: str, file_id: UUID | None) -> Album:
+    async def set_cover(
+        self, owner_id: UUID, slug: str, media_item_id: UUID | None
+    ) -> Album:
         """
         Sets the album cover.
 

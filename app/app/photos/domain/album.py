@@ -21,7 +21,7 @@ class AlbumNotFound(AlbumError):
 
 
 class AlbumCover(BaseModel):
-    file_id: UUID
+    media_item_id: UUID
 
 
 class Album(BaseModel):

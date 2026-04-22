@@ -13,10 +13,10 @@ from app.app.files.domain import (
     MountPoint,
     Namespace,
     Path,
-    mediatypes,
 )
 from app.config import config
 from app.toolkit import chash
+from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
     from app.app.files.domain import AnyPath
@@ -41,7 +41,7 @@ def _make_file(
 
 
 def _make_folder(ns_path: str, path: AnyPath) -> File:
-    return _make_file(ns_path, path, mediatype=mediatypes.FOLDER)
+    return _make_file(ns_path, path, mediatype=MediaType.FOLDER)
 
 
 def _make_mounted_file(source_file: File, ns_path: str, path: AnyPath) -> MountedFile:

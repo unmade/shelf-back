@@ -29,18 +29,17 @@ from app.api.files.schemas import MoveBatchRequest, ThumbnailSize
 from app.api.files.views import _make_thumbnail_ttl
 from app.app.files.domain import (
     ContentMetadata,
-    Exif,
     File,
     MountedFile,
     MountPoint,
     Path,
-    mediatypes,
 )
 from app.app.infrastructure.worker import Job, JobStatus
 from app.app.users.domain import Account
 from app.cache import disk_cache
 from app.toolkit import timezone
 from app.toolkit.mediatypes import MediaType
+from app.toolkit.metadata import Exif
 from app.worker.jobs.files import ErrorCode as TaskErrorCode
 from app.worker.jobs.files import FileTaskResult
 
@@ -50,7 +49,8 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from app.api.exceptions import APIError
-    from app.app.files.domain import AnyPath, IFileContent, Namespace
+    from app.app.blobs.domain import IBlobContent
+    from app.app.files.domain import AnyPath, Namespace
     from tests.api.conftest import TestClient
 
 pytestmark = [pytest.mark.anyio]
@@ -101,7 +101,7 @@ class TestCreateFolder:
             ns_path=str(namespace.path),
             path=expected_path,
             size=0,
-            mediatype=mediatypes.FOLDER,
+            mediatype=MediaType.FOLDER,
         )
         ns_use_case.create_folder.return_value = folder
         payload = {"path": str(path)}
@@ -404,7 +404,7 @@ class TestDownloadFolder:
         self, client: TestClient, ns_use_case: MagicMock, namespace: Namespace,
     ):
         # GIVEN
-        file = _make_file(namespace.path, "f", mediatype=mediatypes.FOLDER)
+        file = _make_file(namespace.path, "f", mediatype=MediaType.FOLDER)
         ns_use_case.download_folder.return_value = BytesIO(b"I'm a ZIP archive")
         key = await shortcuts.create_download_cache(file)
         # WHEN
@@ -576,7 +576,7 @@ class TestGetDownloadURL:
         namespace: Namespace,
     ):
         # GIVEN
-        file = _make_file(namespace.path, "f", mediatype=mediatypes.FOLDER)
+        file = _make_file(namespace.path, "f", mediatype=MediaType.FOLDER)
         ns_use_case.get_item_by_id.return_value = file
         payload = {"id": str(file.id)}
         # WHEN
@@ -702,7 +702,7 @@ class TestGetThumbnail:
         client: TestClient,
         ns_use_case: MagicMock,
         namespace: Namespace,
-        image_content: IFileContent,
+        image_content: IBlobContent,
     ):
         # GIVEN
         ns_path, path = namespace.path, "im.jpeg"
@@ -729,7 +729,7 @@ class TestGetThumbnail:
         client: TestClient,
         ns_use_case: MagicMock,
         namespace: Namespace,
-        image_content: IFileContent,
+        image_content: IBlobContent,
     ):
         # GIVEN
         ns_path, path = namespace.path, "im.jpeg"
@@ -771,7 +771,7 @@ class TestGetThumbnail:
         client: TestClient,
         ns_use_case: MagicMock,
         namespace: Namespace,
-        image_content: IFileContent,
+        image_content: IBlobContent,
     ):
         # GIVEN
         ns_path, path = namespace.path, "изо.jpeg"

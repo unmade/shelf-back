@@ -12,12 +12,15 @@ from .repositories import (
     AccountRepository,
     AlbumRepository,
     AuditTrailRepository,
+    BlobMetadataRepository,
+    BlobRepository,
     BookmarkRepository,
     ContentMetadataRepository,
     FileMemberRepository,
     FilePendingDeletionRepository,
     FileRepository,
     FingerprintRepository,
+    MediaItemFavouriteRepository,
     MediaItemRepository,
     MountRepository,
     NamespaceRepository,
@@ -29,6 +32,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
     from app.app.audit.repositories import IAuditTrailRepository
+    from app.app.blobs.repositories import IBlobMetadataRepository, IBlobRepository
     from app.app.files.repositories import (
         IContentMetadataRepository,
         IFileMemberRepository,
@@ -40,7 +44,11 @@ if TYPE_CHECKING:
         ISharedLinkRepository,
     )
     from app.app.infrastructure.database import ITransaction
-    from app.app.photos.repositories import IAlbumRepository, IMediaItemRepository
+    from app.app.photos.repositories import (
+        IAlbumRepository,
+        IMediaItemFavouriteRepository,
+        IMediaItemRepository,
+    )
     from app.app.users.repositories import (
         IAccountRepository,
         IBookmarkRepository,
@@ -71,11 +79,14 @@ class TortoiseDatabase(IDatabase):
     account: IAccountRepository
     album: IAlbumRepository
     audit_trail: IAuditTrailRepository
+    blob: IBlobRepository
+    blob_metadata: IBlobMetadataRepository
     bookmark: IBookmarkRepository
     file: IFileRepository
     file_member: IFileMemberRepository
     file_pending_deletion: IFilePendingDeletionRepository
     fingerprint: IFingerprintRepository
+    media_item_favourite: IMediaItemFavouriteRepository
     media_item: IMediaItemRepository
     metadata: IContentMetadataRepository
     mount: IMountRepository
@@ -88,11 +99,14 @@ class TortoiseDatabase(IDatabase):
         self.account = AccountRepository()
         self.album = AlbumRepository()
         self.audit_trail = AuditTrailRepository()
+        self.blob = BlobRepository()
+        self.blob_metadata = BlobMetadataRepository()
         self.bookmark = BookmarkRepository()
         self.file = FileRepository()
         self.file_member = FileMemberRepository()
         self.file_pending_deletion = FilePendingDeletionRepository()
         self.fingerprint = FingerprintRepository()
+        self.media_item_favourite = MediaItemFavouriteRepository()
         self.media_item = MediaItemRepository()
         self.metadata = ContentMetadataRepository()
         self.mount = MountRepository()

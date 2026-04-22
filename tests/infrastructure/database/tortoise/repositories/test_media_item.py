@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import operator
-import os.path
 import uuid
 from typing import TYPE_CHECKING
 
@@ -9,21 +8,19 @@ import pytest
 
 from app.app.photos.domain import MediaItem
 from app.app.photos.domain.media_item import MediaItemCategoryName
-from app.config import config
 from app.infrastructure.database.tortoise import models
 from app.toolkit import timezone
 from app.toolkit.mediatypes import MediaType
+from app.toolkit.metadata import Exif
 
 if TYPE_CHECKING:
     from uuid import UUID
 
-    from app.app.files.domain import Namespace
     from app.app.photos.domain.media_item import MediaItemCategory
     from app.app.users.domain import User
     from app.infrastructure.database.tortoise.repositories import MediaItemRepository
     from tests.infrastructure.database.tortoise.conftest import (
-        BookmarkFactory,
-        FileFactory,
+        BlobMetadataFactory,
         MediaItemFactory,
     )
 
@@ -38,20 +35,20 @@ _ORIGIN_TO_INT = {
 _INT_TO_ORIGIN = dict(zip(_ORIGIN_TO_INT.values(), _ORIGIN_TO_INT.keys(), strict=False))
 
 
-async def _add_category(file_id: UUID, category: MediaItemCategory) -> None:
+async def _add_category(media_item_id: UUID, category: MediaItemCategory) -> None:
     cat_obj, _ = await models.FileCategory.get_or_create(name=category.name)
-    await models.FileFileCategoryThrough.create(
-        file_id=file_id,
+    await models.MediaItemCategoryThrough.create(
+        media_item_id=media_item_id,
         file_category=cat_obj,
         origin=_ORIGIN_TO_INT[category.origin],
         probability=category.probability,
     )
 
 
-async def _list_categories_by_id(file_id: UUID) -> list[MediaItemCategory]:
+async def _list_categories_by_id(media_item_id: UUID) -> list[MediaItemCategory]:
     through_objs = await (
-        models.FileFileCategoryThrough
-        .filter(file_id=file_id)
+        models.MediaItemCategoryThrough
+        .filter(media_item_id=media_item_id)
         .select_related("file_category")
         .order_by("probability")
     )
@@ -66,7 +63,6 @@ async def _list_categories_by_id(file_id: UUID) -> list[MediaItemCategory]:
 
 
 class TestAddCategoryBatch:
-    @pytest.mark.usefixtures("namespace")
     async def test(
         self,
         media_item_repo: MediaItemRepository,
@@ -88,12 +84,11 @@ class TestAddCategoryBatch:
             ),
         ]
         # WHEN
-        await media_item_repo.add_category_batch(item.file_id, categories)
+        await media_item_repo.add_category_batch(item.id, categories)
         # THEN
-        result = await _list_categories_by_id(item.file_id)
+        result = await _list_categories_by_id(item.id)
         assert result == categories
 
-    @pytest.mark.usefixtures("namespace")
     async def test_adds_new_and_updates_existing(
         self,
         media_item_repo: MediaItemRepository,
@@ -114,7 +109,7 @@ class TestAddCategoryBatch:
                 probability=66,
             ),
         ]
-        await media_item_repo.add_category_batch(item.file_id, existing_categories)
+        await media_item_repo.add_category_batch(item.id, existing_categories)
 
         new_categories = [
             MediaItem.Category(
@@ -129,9 +124,9 @@ class TestAddCategoryBatch:
             ),
         ]
         # WHEN
-        await media_item_repo.add_category_batch(item.file_id, new_categories)
+        await media_item_repo.add_category_batch(item.id, new_categories)
         # THEN: LANDSCAPES unchanged, ANIMALS updated, PETS added
-        result = await _list_categories_by_id(item.file_id)
+        result = await _list_categories_by_id(item.id)
         assert len(result) == 3
         assert result == [
             existing_categories[0],
@@ -139,7 +134,6 @@ class TestAddCategoryBatch:
             new_categories[1],
         ]
 
-    @pytest.mark.usefixtures("namespace")
     async def test_updates_all_existing(
         self,
         media_item_repo: MediaItemRepository,
@@ -155,7 +149,7 @@ class TestAddCategoryBatch:
                 probability=50,
             ),
         ]
-        await media_item_repo.add_category_batch(item.file_id, categories)
+        await media_item_repo.add_category_batch(item.id, categories)
 
         updated_categories = [
             MediaItem.Category(
@@ -165,12 +159,21 @@ class TestAddCategoryBatch:
             ),
         ]
         # WHEN
-        await media_item_repo.add_category_batch(item.file_id, updated_categories)
+        await media_item_repo.add_category_batch(item.id, updated_categories)
         # THEN
-        result = await _list_categories_by_id(item.file_id)
+        result = await _list_categories_by_id(item.id)
         assert result == updated_categories
 
-    @pytest.mark.usefixtures("namespace")
+    async def test_when_media_item_does_not_exist(
+        self,
+        media_item_repo: MediaItemRepository,
+    ):
+        # GIVEN
+        media_item_id = uuid.uuid7()
+        # WHEN / THEN
+        with pytest.raises(MediaItem.NotFound):
+            await media_item_repo.add_category_batch(media_item_id, categories=[])
+
     async def test_with_empty_categories(
         self,
         media_item_repo: MediaItemRepository,
@@ -186,25 +189,14 @@ class TestAddCategoryBatch:
                 probability=90,
             ),
         ]
-        await _add_category(item.file_id, categories[0])
+        await _add_category(item.id, categories[0])
         # WHEN
-        await media_item_repo.add_category_batch(item.file_id, categories=[])
+        await media_item_repo.add_category_batch(item.id, categories=[])
         # THEN
-        assert await _list_categories_by_id(item.file_id) == categories
-
-    async def test_when_media_item_does_not_exist(
-        self,
-        media_item_repo: MediaItemRepository,
-    ):
-        # GIVEN
-        file_id = uuid.uuid4()
-        # WHEN / THEN
-        with pytest.raises(MediaItem.NotFound):
-            await media_item_repo.add_category_batch(file_id, categories=[])
+        assert await _list_categories_by_id(item.id) == categories
 
 
 class TestCount:
-    @pytest.mark.usefixtures("namespace")
     async def test(
         self,
         media_item_repo: MediaItemRepository,
@@ -222,8 +214,7 @@ class TestCount:
         assert result.deleted == 1
 
 
-class TestGetByIDBatch:
-    @pytest.mark.usefixtures("namespace")
+class TestDeleteBatch:
     async def test(
         self,
         media_item_repo: MediaItemRepository,
@@ -236,15 +227,15 @@ class TestGetByIDBatch:
             await media_item_factory(user.id),
             await media_item_factory(user.id),
         ]
-        file_ids = [item.file_id for item in items[:2]]
+        ids = [item.id for item in items[:2]]
         # WHEN
-        result = await media_item_repo.get_by_id_batch(file_ids)
+        await media_item_repo.delete_batch(ids)
         # THEN
-        assert result == list(reversed(items[:2]))
+        assert await models.MediaItem.filter(id__in=ids).count() == 0
+        assert await models.MediaItem.filter(id=items[-1].id).exists() is True
 
 
-class TestGetByUserID:
-    @pytest.mark.usefixtures("namespace")
+class TestGetByID:
     async def test(
         self,
         media_item_repo: MediaItemRepository,
@@ -254,66 +245,113 @@ class TestGetByUserID:
         # GIVEN
         media_item = await media_item_factory(user.id)
         # WHEN
-        result = await media_item_repo.get_by_user_id(user.id, media_item.file_id)
+        result = await media_item_repo.get_by_id(media_item.id)
+        # THEN
+        assert result == media_item
+
+    async def test_when_media_item_does_not_exist(
+        self, media_item_repo: MediaItemRepository,
+    ):
+        # GIVEN
+        media_item_id = uuid.uuid7()
+        # WHEN / THEN
+        with pytest.raises(MediaItem.NotFound):
+            await media_item_repo.get_by_id(media_item_id)
+
+
+class TestGetByIDBatch:
+    async def test(
+        self,
+        media_item_repo: MediaItemRepository,
+        media_item_factory: MediaItemFactory,
+        user: User,
+    ):
+        # GIVEN
+        items = [
+            await media_item_factory(user.id),
+            await media_item_factory(user.id),
+            await media_item_factory(user.id),
+        ]
+        ids = [item.id for item in items[:2]]
+        # WHEN
+        result = await media_item_repo.get_by_id_batch(ids)
+        # THEN
+        assert result == list(reversed(items[:2]))
+
+
+class TestGetByUserID:
+    async def test(
+        self,
+        media_item_repo: MediaItemRepository,
+        media_item_factory: MediaItemFactory,
+        user: User,
+    ):
+        # GIVEN
+        media_item = await media_item_factory(user.id)
+        # WHEN
+        result = await media_item_repo.get_for_owner(user.id, media_item.id)
         # THEN
         assert result == media_item
 
     async def test_when_media_item_does_not_exist(
         self, media_item_repo: MediaItemRepository, user: User,
     ):
-        file_id = uuid.uuid4()
+        media_item_id = uuid.uuid7()
         with pytest.raises(MediaItem.NotFound):
-            await media_item_repo.get_by_user_id(user.id, file_id)
+            await media_item_repo.get_for_owner(user.id, media_item_id)
 
 
-class TestListByUserID:
+class TestListByOwner:
     async def test(
         self,
         media_item_repo: MediaItemRepository,
+        blob_metadata_factory: BlobMetadataFactory,
         media_item_factory: MediaItemFactory,
-        file_factory: FileFactory,
-        namespace: Namespace,
         user: User,
     ):
         # GIVEN
-        await file_factory(
-            namespace.path,
-            os.path.join(config.features.photos_library_path, "f.txt"),
-        )
         await media_item_factory(user.id, deleted_at=timezone.now()),
         items = [
-            await media_item_factory(user.id, "im.jpg", mediatype=MediaType.IMAGE_JPEG),
-            await media_item_factory(user.id, "im.png", mediatype=MediaType.IMAGE_PNG),
+            await media_item_factory(user.id, "im.gif", media_type=MediaType.IMAGE_GIF),
+            await media_item_factory(user.id, "im.png", media_type=MediaType.IMAGE_PNG),
         ]
+        items[0].taken_at = timezone.now()
+        await blob_metadata_factory(
+            items[0].blob_id,
+            Exif(dt_original=items[0].taken_at.timestamp()),
+        )
         # WHEN
-        result = await media_item_repo.list_by_user_id(user.id, offset=0)
+        result = await media_item_repo.list_by_owner(user.id, offset=0)
         # THEN
-        assert result == list(reversed(items))
+        assert result == [
+            items[1],
+            items[0],
+        ]
 
     async def test_only_favourites(
         self,
         media_item_repo: MediaItemRepository,
         media_item_factory: MediaItemFactory,
-        bookmark_factory: BookmarkFactory,
-        file_factory: FileFactory,
-        namespace: Namespace,
         user: User,
     ):
         # GIVEN
-        file = await file_factory(
-            namespace.path,
-            os.path.join(config.features.photos_library_path, "f.txt"),
-        )
         items = [
-            await media_item_factory(user.id, "im.jpg", mediatype=MediaType.IMAGE_JPEG),
-            await media_item_factory(user.id, "im.png", mediatype=MediaType.IMAGE_PNG),
-            await media_item_factory(user.id, "i.heic", mediatype=MediaType.IMAGE_HEIC),
+            await media_item_factory(
+                user.id, "im.jpg", media_type=MediaType.IMAGE_JPEG
+            ),
+            await media_item_factory(user.id, "im.png", media_type=MediaType.IMAGE_PNG),
+            await media_item_factory(
+                user.id, "i.heic", media_type=MediaType.IMAGE_HEIC
+            ),
         ]
-        await bookmark_factory(user.id, file.id)
-        await bookmark_factory(user.id, items[0].file_id)
-        await bookmark_factory(user.id, items[-1].file_id)
+        await models.MediaItemBookmark.create(
+            user_id=user.id, media_item_id=items[0].id
+        )
+        await models.MediaItemBookmark.create(
+            user_id=user.id, media_item_id=items[-1].id
+        )
         # WHEN
-        result = await media_item_repo.list_by_user_id(
+        result = await media_item_repo.list_by_owner(
             user.id, only_favourites=True, offset=0
         )
         # THEN
@@ -323,7 +361,6 @@ class TestListByUserID:
             reverse=True,
         )
 
-    @pytest.mark.usefixtures("namespace")
     async def test_only_favourites_when_its_empty(
         self,
         media_item_repo: MediaItemRepository,
@@ -331,10 +368,10 @@ class TestListByUserID:
         user: User,
     ):
         # GIVEN
-        await media_item_factory(user.id, "im.jpg", mediatype=MediaType.IMAGE_JPEG),
-        await media_item_factory(user.id, "im.png", mediatype=MediaType.IMAGE_PNG),
+        await media_item_factory(user.id, "im.jpg", media_type=MediaType.IMAGE_JPEG),
+        await media_item_factory(user.id, "im.png", media_type=MediaType.IMAGE_PNG),
         # WHEN
-        result = await media_item_repo.list_by_user_id(
+        result = await media_item_repo.list_by_owner(
             user.id, only_favourites=True, offset=0
         )
         # THEN
@@ -342,7 +379,6 @@ class TestListByUserID:
 
 
 class TestListCategories:
-    @pytest.mark.usefixtures("namespace")
     async def test(
         self,
         media_item_repo: MediaItemRepository,
@@ -363,23 +399,22 @@ class TestListCategories:
                 probability=100,
             ),
         ]
-        await _add_category(item.file_id, categories[0])
-        await _add_category(item.file_id, categories[1])
+        await _add_category(item.id, categories[0])
+        await _add_category(item.id, categories[1])
         # WHEN
-        result = await media_item_repo.list_categories(item.file_id)
+        result = await media_item_repo.list_categories(item.id)
         # THEN
         assert result == categories
 
     async def test_when_media_item_does_not_exist(
         self, media_item_repo: MediaItemRepository,
     ):
-        file_id = uuid.uuid4()
+        media_item_id = uuid.uuid7()
         with pytest.raises(MediaItem.NotFound):
-            await media_item_repo.list_categories(file_id)
+            await media_item_repo.list_categories(media_item_id)
 
 
 class TestListDeleted:
-    @pytest.mark.usefixtures("namespace")
     async def test(
         self,
         media_item_repo: MediaItemRepository,
@@ -399,7 +434,6 @@ class TestListDeleted:
 
 
 class TestSetCategories:
-    @pytest.mark.usefixtures("namespace")
     async def test(
         self,
         media_item_repo: MediaItemRepository,
@@ -434,24 +468,30 @@ class TestSetCategories:
         ]
         categories_3: list[MediaItemCategory] = []
         # WHEN: setting categories for the first time
-        await media_item_repo.set_categories(item.file_id, categories=categories_1)
+        await media_item_repo.set_categories(item.id, categories=categories_1)
         # THEN
-        result = await _list_categories_by_id(item.file_id)
+        result = await _list_categories_by_id(item.id)
         assert result == categories_1
 
         # WHEN: changing categories to existing and newly one
-        await media_item_repo.set_categories(item.file_id, categories=categories_2)
+        await media_item_repo.set_categories(item.id, categories=categories_2)
         # THEN
-        result = await _list_categories_by_id(item.file_id)
+        result = await _list_categories_by_id(item.id)
         assert result == categories_2
 
         # WHEN: changing to empty list
-        await media_item_repo.set_categories(item.file_id, categories=categories_3)
+        await media_item_repo.set_categories(item.id, categories=categories_3)
         # THEN
-        result = await _list_categories_by_id(item.file_id)
+        result = await _list_categories_by_id(item.id)
         assert result == categories_3
 
-    @pytest.mark.usefixtures("namespace")
+    async def test_when_media_item_does_not_exist(
+        self, media_item_repo: MediaItemRepository,
+    ):
+        media_item_id = uuid.uuid7()
+        with pytest.raises(MediaItem.NotFound):
+            await media_item_repo.set_categories(media_item_id, categories=[])
+
     async def test_with_empty_categories(
         self,
         media_item_repo: MediaItemRepository,
@@ -467,23 +507,15 @@ class TestSetCategories:
                 probability=90,
             ),
         ]
-        await _add_category(item.file_id, categories[0])
+        await _add_category(item.id, categories[0])
         # WHEN
-        await media_item_repo.set_categories(item.file_id, categories=[])
+        await media_item_repo.set_categories(item.id, categories=[])
         # THEN
-        result = await _list_categories_by_id(item.file_id)
+        result = await _list_categories_by_id(item.id)
         assert result == []
-
-    async def test_when_media_item_does_not_exist(
-        self, media_item_repo: MediaItemRepository,
-    ):
-        file_id = uuid.uuid4()
-        with pytest.raises(MediaItem.NotFound):
-            await media_item_repo.set_categories(file_id, categories=[])
 
 
 class TestSetDeletedAtBatch:
-    @pytest.mark.usefixtures("namespace")
     async def test(
         self,
         media_item_repo: MediaItemRepository,
@@ -496,10 +528,10 @@ class TestSetDeletedAtBatch:
             await media_item_factory(user.id, deleted_at=None),
             await media_item_factory(user.id, deleted_at=None),
         ]
-        file_ids = [item.file_id for item in items]
+        ids = [item.id for item in items]
         # WHEN
         result = await media_item_repo.set_deleted_at_batch(
-            user.id, file_ids, deleted_at
+            user.id, ids, deleted_at
         )
         # THEN
         assert result[0].deleted_at == deleted_at

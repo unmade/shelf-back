@@ -12,7 +12,8 @@ from app.config import ThumbnailSize, config
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-    from app.app.files.domain import AnyPath, IFileContent
+    from app.app.blobs.domain import IBlobContent
+    from app.app.files.domain import AnyPath
     from app.app.files.services import ContentService
 
 pytestmark = [pytest.mark.anyio]
@@ -38,7 +39,7 @@ def _make_file(
 
 
 class TestProcess:
-    async def test(self, content_service: ContentService, content: IFileContent):
+    async def test(self, content_service: ContentService, content: IBlobContent):
         # GIVEN
         file, chunks = _make_file("admin", "im.jpeg"), _aiter(content.file)
         dupefinder = cast(mock.MagicMock, content_service.dupefinder)
@@ -61,7 +62,7 @@ class TestProcess:
         metadata.track.assert_awaited_once()
 
     async def test_without_indexer(
-        self, content_service: ContentService, content: IFileContent
+        self, content_service: ContentService, content: IBlobContent
     ):
         # GIVEN
         file, chunks = _make_file("admin", "im.jpeg"), _aiter(content.file)
@@ -98,7 +99,7 @@ class TestProcessAsync:
 
 
 class TestReindexContents:
-    async def test(self, content_service: ContentService, image_content: IFileContent):
+    async def test(self, content_service: ContentService, image_content: IBlobContent):
         # GIVEN
         ns_path = "admin"
         txt = _make_file(ns_path, "f.txt", mediatype="plain/text")

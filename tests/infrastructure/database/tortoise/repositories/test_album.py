@@ -45,7 +45,6 @@ async def _list_item_ids(album_id: UUID) -> list[UUID]:
 
 
 class TestAddItems:
-    @pytest.mark.usefixtures("namespace")
     async def test(
         self,
         album_repo: AlbumRepository,
@@ -57,15 +56,14 @@ class TestAddItems:
         max_items = 5
         items = [await media_item_factory(user.id) for _ in range(max_items)]
         album = await album_factory(user.id, title="album", items=items[:2])
-        file_ids = sorted(item.file_id for item in items[2:])
+        ids = sorted(item.id for item in items[2:])
         # WHEN
-        result = await album_repo.add_items(user.id, album.slug, file_ids=file_ids)
+        result = await album_repo.add_items(user.id, album.slug, media_item_ids=ids)
         # THEN
         assert result.items_count == max_items
         assert await _get_album_items_count(album.id) == max_items
-        assert await _list_item_ids(album.id) == [item.file_id for item in items]
+        assert await _list_item_ids(album.id) == [item.id for item in items]
 
-    @pytest.mark.usefixtures("namespace")
     async def test_when_album_does_not_exist(
         self,
         album_repo: AlbumRepository,
@@ -73,14 +71,13 @@ class TestAddItems:
     ):
         # GIVEN
         slug = "nonexistent-album"
-        file_ids = [uuid.uuid4() for _ in range(2)]
+        ids = [uuid.uuid7() for _ in range(2)]
         # WHEN / THEN
         with pytest.raises(Album.NotFound):
-            await album_repo.add_items(user.id, slug, file_ids)
+            await album_repo.add_items(user.id, slug, ids)
 
 
 class TestCountBySlugPattern:
-    @pytest.mark.usefixtures("namespace")
     async def test(
         self,
         album_repo: AlbumRepository,
@@ -96,7 +93,6 @@ class TestCountBySlugPattern:
         # THEN
         assert result == 2
 
-    @pytest.mark.usefixtures("namespace")
     async def test_when_no_match_found(
         self,
         album_repo: AlbumRepository,
@@ -113,7 +109,6 @@ class TestCountBySlugPattern:
 
 
 class TestDelete:
-    @pytest.mark.usefixtures("namespace")
     async def test(
         self,
         album_repo: AlbumRepository,
@@ -128,7 +123,6 @@ class TestDelete:
         assert await _exists_with_slug(user.id, album.slug) is False
         assert result.id == album.id
 
-    @pytest.mark.usefixtures("namespace")
     async def test_when_does_not_exist(
         self,
         album_repo: AlbumRepository,
@@ -162,7 +156,6 @@ class TestExistsWithSlug:
 
 
 class TestGetBySlug:
-    @pytest.mark.usefixtures("namespace")
     async def test(
         self,
         album_repo: AlbumRepository,
@@ -176,7 +169,6 @@ class TestGetBySlug:
         # THEN
         assert result == album
 
-    @pytest.mark.usefixtures("namespace")
     async def test_when_does_not_exist(
         self,
         album_repo: AlbumRepository,
@@ -191,7 +183,6 @@ class TestGetBySlug:
 
 
 class TestListByOwnerID:
-    @pytest.mark.usefixtures("namespace")
     async def test(
         self,
         album_repo: AlbumRepository,
@@ -210,7 +201,6 @@ class TestListByOwnerID:
         # THEN
         assert result == sorted(albums, key=operator.attrgetter("title"))[2:4]
 
-    @pytest.mark.usefixtures("namespace")
     async def test_when_empty(self, album_repo: AlbumRepository, user: User):
         # WHEN
         result = await album_repo.list_by_owner_id(user.id, offset=0)
@@ -219,7 +209,6 @@ class TestListByOwnerID:
 
 
 class TestListByAlbum:
-    @pytest.mark.usefixtures("namespace")
     async def test(
         self,
         album_repo: AlbumRepository,
@@ -247,7 +236,6 @@ class TestListByAlbum:
 
 
 class TestRemoveItems:
-    @pytest.mark.usefixtures("namespace")
     async def test(
         self,
         album_repo: AlbumRepository,
@@ -258,16 +246,15 @@ class TestRemoveItems:
         # GIVEN
         items = [await media_item_factory(user.id) for _ in range(5)]
         album = await album_factory(user.id, title="album", items=items)
-        file_ids = sorted(item.file_id for item in items[:2])
+        ids = sorted(item.id for item in items[:2])
         # WHEN
-        result = await album_repo.remove_items(user.id, album.slug, file_ids=file_ids)
+        result = await album_repo.remove_items(user.id, album.slug, media_item_ids=ids)
         # THEN
         assert result.items_count == 3
         assert await _get_album_items_count(album.id) == 3
-        expected_ids = sorted(item.file_id for item in items[2:])
+        expected_ids = sorted(item.id for item in items[2:])
         assert await _list_item_ids(album.id) == expected_ids
 
-    @pytest.mark.usefixtures("namespace")
     async def test_when_album_does_not_exist(
         self,
         album_repo: AlbumRepository,
@@ -275,14 +262,13 @@ class TestRemoveItems:
     ):
         # GIVEN
         slug = "nonexistent-album"
-        file_ids = [uuid.uuid4() for _ in range(2)]
+        ids = [uuid.uuid7() for _ in range(2)]
         # WHEN / THEN
         with pytest.raises(Album.NotFound):
-            await album_repo.remove_items(user.id, slug, file_ids)
+            await album_repo.remove_items(user.id, slug, ids)
 
 
 class TestSave:
-    @pytest.mark.usefixtures("namespace")
     async def test(
         self,
         album_repo: AlbumRepository,
@@ -306,7 +292,6 @@ class TestSave:
 
 
 class TestSetCover:
-    @pytest.mark.usefixtures("namespace")
     async def test(
         self,
         album_repo: AlbumRepository,
@@ -317,15 +302,14 @@ class TestSetCover:
         # GIVEN
         items = [await media_item_factory(user.id) for _ in range(3)]
         album = await album_factory(user.id, title="album", items=items)
-        expected_cover_id = items[1].file_id
+        expected_cover_id = items[1].id
         # WHEN
         result = await album_repo.set_cover(user.id, album.slug, expected_cover_id)
         # THEN
         assert result.cover
-        assert result.cover.file_id == expected_cover_id
+        assert result.cover.media_item_id == expected_cover_id
         assert await _get_album_cover_id(album.id) == expected_cover_id
 
-    @pytest.mark.usefixtures("namespace")
     async def test_sets_empty_cover(
         self,
         album_repo: AlbumRepository,
@@ -335,31 +319,29 @@ class TestSetCover:
     ):
         # GIVEN
         items = [await media_item_factory(user.id) for _ in range(3)]
-        cover_file_id = items[1].file_id
+        cover_media_item_id = items[1].id
         album = await album_factory(
-            user.id, title="album", items=items, cover_file_id=cover_file_id
+            user.id, title="album", items=items, cover_media_item_id=cover_media_item_id
         )
         # WHEN
-        result = await album_repo.set_cover(user.id, album.slug, file_id=None)
+        result = await album_repo.set_cover(user.id, album.slug, media_item_id=None)
         # THEN
         assert result.cover is None
         assert await _get_album_cover_id(album.id) is None
 
-    @pytest.mark.usefixtures("namespace")
     async def test_when_album_does_not_exist(
         self,
         album_repo: AlbumRepository,
         user: User,
     ):
         # GIVEN
-        file_ids = [uuid.uuid4() for _ in range(2)]
+        ids = [uuid.uuid7() for _ in range(2)]
         # WHEN / THEN
         with pytest.raises(Album.NotFound):
-            await album_repo.set_cover(user.id, "non-existing-album", file_ids[1])
+            await album_repo.set_cover(user.id, "non-existing-album", ids[1])
 
 
 class TestUpdate:
-    @pytest.mark.usefixtures("namespace")
     async def test(
         self,
         album_repo: AlbumRepository,
@@ -377,7 +359,6 @@ class TestUpdate:
         assert await _exists_with_slug(user.id, album.slug) is False
         assert await _exists_with_slug(user.id, new_slug) is True
 
-    @pytest.mark.usefixtures("namespace")
     async def test_slug_is_not_changed(
         self,
         album_repo: AlbumRepository,
@@ -394,7 +375,6 @@ class TestUpdate:
         assert result.slug == "old-title"
         assert await _exists_with_slug(user.id, "old-title") is True
 
-    @pytest.mark.usefixtures("namespace")
     async def test_when_album_does_not_exist(
         self,
         album_repo: AlbumRepository,

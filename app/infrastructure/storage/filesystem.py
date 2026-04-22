@@ -20,7 +20,7 @@ from ._datastructures import StreamZipFile
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Collection, Iterable, Iterator
 
-    from app.app.files.domain import IFileContent
+    from app.app.blobs.domain import IBlobContent
     from app.app.infrastructure.storage import DownloadBatchItem
 
 __all__ = ["FileSystemStorage"]
@@ -122,15 +122,16 @@ class FileSystemStorage(IStorage):
     def _download_batch_iter(
         self, items: Iterable[DownloadBatchItem]
     ) -> Iterator[StreamZipFile]:
-        for key, _ in items:
-            fullpath = self._fullpath(key)
+        for item in items:
+            fullpath = self._fullpath(item.key)
             file = self._from_path(fullpath)
             if file.is_dir():
-                yield from self._downloaddir_iter(key, prefix=file.name)
+                prefix = item.archive_path or file.name
+                yield from self._downloaddir_iter(item.key, prefix=prefix)
             else:
                 with open(fullpath, "rb") as content:
                     yield StreamZipFile(
-                        path=file.name,
+                        path=item.archive_path or file.name,
                         modified_at=datetime.datetime.fromtimestamp(file.mtime),
                         perms=0o600,
                         compression=stream_zip.ZIP_32,
@@ -238,7 +239,7 @@ class FileSystemStorage(IStorage):
         except NotADirectoryError as exc:
             raise File.NotADirectory() from exc
 
-    async def save(self, key: str, content: IFileContent) -> StorageFile:
+    async def save(self, key: str, content: IBlobContent) -> StorageFile:
         await content.seek(0)
         fullpath = self._fullpath(key)
 

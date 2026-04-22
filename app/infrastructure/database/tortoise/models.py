@@ -27,12 +27,12 @@ class Album(models.Model):
     )
     created_at = fields.DatetimeField()
     items_count = fields.IntField(default=0)
-    cover: fields.ForeignKeyRelation[File] | None = fields.ForeignKeyField(
-        "models.File", related_name="album_covers", on_delete=fields.SET_NULL,
+    cover: fields.ForeignKeyRelation[MediaItem] | None = fields.ForeignKeyField(
+        "models.MediaItem", related_name="album_covers", on_delete=fields.SET_NULL,
         null=True,
     )
-    items: fields.ManyToManyRelation[File] = fields.ManyToManyField(
-        "models.File",
+    items: fields.ManyToManyRelation[MediaItem] = fields.ManyToManyField(
+        "models.MediaItem",
         related_name="albums",
         through="album_items",
         on_delete=fields.SET_NULL,
@@ -43,13 +43,13 @@ class Album(models.Model):
 
 
 class AlbumItems(models.Model):
-    """Through table for Album-File M2M."""
+    """Through table for Album-MediaItem M2M."""
     id = fields.UUIDField(primary_key=True, default=uuid7)
     album: fields.ForeignKeyRelation[Album] = fields.ForeignKeyField(
         "models.Album", related_name="item_links", on_delete=fields.CASCADE,
     )
-    file: fields.ForeignKeyRelation[File] = fields.ForeignKeyField(
-        "models.File", related_name="album_links", on_delete=fields.CASCADE,
+    media_item: fields.ForeignKeyRelation[MediaItem] = fields.ForeignKeyField(
+        "models.MediaItem", related_name="album_links", on_delete=fields.CASCADE,
     )
 
 
@@ -74,6 +74,23 @@ class AuditTrailAsset(models.Model):
     )
     file: fields.ForeignKeyRelation[File] = fields.ForeignKeyField(
         "models.File", related_name="audit_trail_assets", on_delete=fields.CASCADE,
+    )
+
+
+class Blob(models.Model):
+    id = fields.UUIDField(primary_key=True, default=uuid7)
+    storage_key = fields.CharField(max_length=4096, unique=True)
+    size = fields.BigIntField()
+    chash = fields.CharField(max_length=128, index=True)
+    media_type = fields.CharField(max_length=255)
+    created_at = fields.DatetimeField()
+
+
+class BlobMetadata(models.Model):
+    id = fields.UUIDField(primary_key=True, default=uuid7)
+    data = fields.JSONField()  # type: ignore[var-annotated]
+    blob: fields.ForeignKeyRelation[Blob] = fields.OneToOneField(
+        "models.Blob", related_name="metadata", on_delete=fields.CASCADE,
     )
 
 
@@ -189,6 +206,53 @@ class Fingerprint(models.Model):
 
     class Meta:
         indexes = (("part1",), ("part2",), ("part3",), ("part4",))
+
+
+class MediaItem(models.Model):
+    id = fields.UUIDField(primary_key=True, default=uuid7)
+    owner: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
+        "models.User", related_name="media_items", on_delete=fields.CASCADE,
+    )
+    blob: fields.ForeignKeyRelation[Blob] = fields.ForeignKeyField(
+        "models.Blob", related_name="media_items", on_delete=fields.RESTRICT,
+    )
+    name = fields.CharField(max_length=1024)
+    created_at = fields.DatetimeField()
+    modified_at = fields.DatetimeField()
+    deleted_at = fields.DatetimeField(null=True)
+    categories: fields.ManyToManyRelation[FileCategory] = fields.ManyToManyField(
+        "models.FileCategory",
+        through="media_item_category",
+        related_name="media_items",
+    )
+
+
+class MediaItemBookmark(models.Model):
+    id = fields.UUIDField(primary_key=True, default=uuid7)
+    user: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
+        "models.User", related_name="media_item_bookmarks", on_delete=fields.CASCADE,
+    )
+    media_item: fields.ForeignKeyRelation[MediaItem] = fields.ForeignKeyField(
+        "models.MediaItem", related_name="bookmarks", on_delete=fields.CASCADE,
+    )
+
+    class Meta:
+        unique_together = (("user", "media_item"),)
+
+
+class MediaItemCategoryThrough(models.Model):
+    id = fields.IntField(primary_key=True)
+    media_item: fields.ForeignKeyRelation[MediaItem] = fields.ForeignKeyField(
+        "models.MediaItem", on_delete=fields.CASCADE,
+    )
+    file_category: fields.ForeignKeyRelation[FileCategory] = fields.ForeignKeyField(
+        "models.FileCategory", on_delete=fields.CASCADE,
+    )
+    origin = fields.SmallIntField(null=True)
+    probability = fields.SmallIntField(null=True)
+
+    class Meta:
+        unique_together = (("media_item", "file_category"),)
 
 
 class MediaType(models.Model):

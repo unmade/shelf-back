@@ -15,7 +15,8 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from app.app.audit.services import AuditTrailService
-    from app.app.files.domain import AnyPath, ContentMetadata, IFileContent
+    from app.app.blobs.domain import IBlobContent
+    from app.app.files.domain import AnyPath, ContentMetadata
     from app.app.files.services import (
         ContentService,
         DuplicateFinderService,
@@ -74,7 +75,7 @@ class NamespaceUseCase:
         self,
         ns_path: AnyPath,
         path: AnyPath,
-        content: IFileContent,
+        content: IBlobContent,
         modified_at: datetime | None = None,
     ) -> AnyFile:
         """
