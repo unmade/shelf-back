@@ -24,7 +24,7 @@ dependencies = [
     "pymupdf==1.26.7",
     "python-jose[cryptography]==3.5.0",
     "python-multipart==0.0.22",
-    "sentry-sdk==2.48.0",
+    "sentry-sdk==2.58.0",
     "stream-zip==0.0.84",
     "tortoise-orm[asyncpg]==1.1.7",
     "uvicorn[standard]==0.38.0",
