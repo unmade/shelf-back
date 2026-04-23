@@ -8,6 +8,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 
+
 def dhash_image(content: IO[bytes], size: int = 8) -> int | None:
     """
     Calculates a difference hash for a greyscale image data.
@@ -50,7 +51,7 @@ def _dhash_image_prepare_data(
         Sequence[int]: Downscaled greyscale image data.
     """
     with Image.open(content) as im:
-        return (  # type: ignore
+        return list(
             im
             .convert("L")
             .resize((width, height), Image.Resampling.HAMMING)
