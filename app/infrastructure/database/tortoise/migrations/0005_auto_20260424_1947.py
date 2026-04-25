@@ -11,6 +11,7 @@ class Migration(migrations.Migration):
     initial = False
 
     operations = [
+        ops.RenameModel(old_name="FileCategory", new_name="MediaItemCategory"),
         ops.CreateModel(
             name="MediaItem",
             fields=[
@@ -55,25 +56,12 @@ class Migration(migrations.Migration):
                     "deleted_at",
                     fields.DatetimeField(null=True, auto_now=False, auto_now_add=False),
                 ),
-                (
-                    "categories",
-                    fields.ManyToManyField(
-                        "models.FileCategory",
-                        unique=True,
-                        db_constraint=True,
-                        through="media_item_category",
-                        forward_key="filecategory_id",
-                        backward_key="mediaitem_id",
-                        related_name="media_items",
-                        on_delete=OnDelete.CASCADE,
-                    ),
-                ),
             ],
             options={"table": "mediaitem", "app": "models", "pk_attr": "id"},
             bases=["Model"],
         ),
         ops.CreateModel(
-            name="MediaItemBookmark",
+            name="MediaItemFavourite",
             fields=[
                 (
                     "id",
@@ -88,7 +76,7 @@ class Migration(migrations.Migration):
                         source_field="user_id",
                         db_constraint=True,
                         to_field="id",
-                        related_name="media_item_bookmarks",
+                        related_name="media_item_favourites",
                         on_delete=OnDelete.CASCADE,
                     ),
                 ),
@@ -99,13 +87,13 @@ class Migration(migrations.Migration):
                         source_field="media_item_id",
                         db_constraint=True,
                         to_field="id",
-                        related_name="bookmarks",
+                        related_name="favourited_by",
                         on_delete=OnDelete.CASCADE,
                     ),
                 ),
             ],
             options={
-                "table": "mediaitembookmark",
+                "table": "mediaitemfavourite",
                 "app": "models",
                 "unique_together": (("user", "media_item"),),
                 "pk_attr": "id",
@@ -128,16 +116,18 @@ class Migration(migrations.Migration):
                         source_field="media_item_id",
                         db_constraint=True,
                         to_field="id",
+                        related_name="category_links",
                         on_delete=OnDelete.CASCADE,
                     ),
                 ),
                 (
-                    "file_category",
+                    "media_item_category",
                     fields.ForeignKeyField(
-                        "models.FileCategory",
-                        source_field="file_category_id",
+                        "models.MediaItemCategory",
+                        source_field="media_item_category_id",
                         db_constraint=True,
                         to_field="id",
+                        related_name="media_item_links",
                         on_delete=OnDelete.CASCADE,
                     ),
                 ),
@@ -147,7 +137,7 @@ class Migration(migrations.Migration):
             options={
                 "table": "mediaitemcategorythrough",
                 "app": "models",
-                "unique_together": (("media_item", "file_category"),),
+                "unique_together": (("media_item", "media_item_category"),),
                 "pk_attr": "id",
             },
             bases=["Model"],
@@ -163,30 +153,10 @@ class Migration(migrations.Migration):
                 forward_key="mediaitem_id",
                 backward_key="album_id",
                 related_name="albums",
-                on_delete=OnDelete.SET_NULL,
-            ),
-        ),
-        ops.AlterModelOptions(
-            name="AlbumItems",
-            options={
-                "table": "albumitems",
-                "app": "models",
-                "pk_attr": "id",
-                "table_description": "Through table for Album-MediaItem M2M.",
-            },
-        ),
-        ops.AddField(
-            model_name="AlbumItems",
-            name="media_item",
-            field=fields.ForeignKeyField(
-                "models.MediaItem",
-                source_field="media_item_id",
-                db_constraint=True,
-                to_field="id",
-                related_name="album_links",
                 on_delete=OnDelete.CASCADE,
-                null=True,
             ),
         ),
-        ops.RemoveField(model_name="AlbumItems", name="file"),
+        ops.RemoveField(model_name="File", name="categories"),
+        ops.DeleteModel(name="AlbumItems"),
+        ops.DeleteModel(name="FileFileCategoryThrough"),
     ]

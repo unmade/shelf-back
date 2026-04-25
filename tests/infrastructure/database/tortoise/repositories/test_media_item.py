@@ -36,10 +36,10 @@ _INT_TO_ORIGIN = dict(zip(_ORIGIN_TO_INT.values(), _ORIGIN_TO_INT.keys(), strict
 
 
 async def _add_category(media_item_id: UUID, category: MediaItemCategory) -> None:
-    cat_obj, _ = await models.FileCategory.get_or_create(name=category.name)
+    cat_obj, _ = await models.MediaItemCategory.get_or_create(name=category.name)
     await models.MediaItemCategoryThrough.create(
         media_item_id=media_item_id,
-        file_category=cat_obj,
+        media_item_category=cat_obj,
         origin=_ORIGIN_TO_INT[category.origin],
         probability=category.probability,
     )
@@ -49,12 +49,12 @@ async def _list_categories_by_id(media_item_id: UUID) -> list[MediaItemCategory]
     through_objs = await (
         models.MediaItemCategoryThrough
         .filter(media_item_id=media_item_id)
-        .select_related("file_category")
+        .select_related("media_item_category")
         .order_by("probability")
     )
     return [
         MediaItem.Category(
-            name=MediaItemCategoryName(obj.file_category.name),
+            name=MediaItemCategoryName(obj.media_item_category.name),
             origin=_INT_TO_ORIGIN[obj.origin],
             probability=obj.probability,
         )
@@ -344,10 +344,10 @@ class TestListByOwner:
                 user.id, "i.heic", media_type=MediaType.IMAGE_HEIC
             ),
         ]
-        await models.MediaItemBookmark.create(
+        await models.MediaItemFavourite.create(
             user_id=user.id, media_item_id=items[0].id
         )
-        await models.MediaItemBookmark.create(
+        await models.MediaItemFavourite.create(
             user_id=user.id, media_item_id=items[-1].id
         )
         # WHEN

@@ -18,7 +18,7 @@ pytestmark = [pytest.mark.anyio, pytest.mark.database]
 
 
 async def _list_favourite_ids_by_user_id(user_id: uuid.UUID) -> list[uuid.UUID]:
-    return await models.MediaItemBookmark.filter(  # type: ignore[return-value]
+    return await models.MediaItemFavourite.filter(  # type: ignore[return-value]
         user_id=user_id,
     ).values_list("media_item_id", flat=True)
 
@@ -65,11 +65,11 @@ class TestListIDs:
             await media_item_factory(user.id),
             await media_item_factory(user.id),
         ]
-        await models.MediaItemBookmark.create(
+        await models.MediaItemFavourite.create(
             user_id=user.id,
             media_item_id=items[0].id,
         )
-        await models.MediaItemBookmark.create(
+        await models.MediaItemFavourite.create(
             user_id=user.id,
             media_item_id=items[1].id,
         )
@@ -100,7 +100,7 @@ class TestRemoveBatch:
             await media_item_factory(user.id),
         ]
         for item in items:
-            await models.MediaItemBookmark.create(
+            await models.MediaItemFavourite.create(
                 user_id=user.id,
                 media_item_id=item.id,
             )
