@@ -5,7 +5,7 @@ from typing import IO, TYPE_CHECKING
 from PIL import Image, UnidentifiedImageError
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    pass
 
 
 
@@ -30,7 +30,7 @@ def dhash_image(content: IO[bytes], size: int = 8) -> int | None:
     for i in range(size):
         for j in range(size):
             idx = width * i + j
-            result = result << 1 | (data[idx] < data[idx + 1])
+            result = result << 1 | (data[idx] < data[idx + 1])  # type: ignore[operator]
     return result
 
 
@@ -38,22 +38,22 @@ def _dhash_image_prepare_data(
     content: IO[bytes],
     width: int,
     height: int,
-) -> Sequence[int]:
+) -> tuple[tuple[int, ...], ...] | tuple[float, ...]:
     """
     Converts an image to greyscale and downscale.
 
     Args:
-        content (IO[bytes]): Image content.
-        width (int): Width to downscale image to.
-        height (int): Height to downscale image to.
+        content: Image content.
+        width: Width to downscale image to.
+        height: Height to downscale image to.
 
     Returns:
-        Sequence[int]: Downscaled greyscale image data.
+        Downscaled greyscale image data.
     """
     with Image.open(content) as im:
-        return list(
+        return (
             im
             .convert("L")
             .resize((width, height), Image.Resampling.HAMMING)
-            .getdata()
+            .get_flattened_data()
         )
