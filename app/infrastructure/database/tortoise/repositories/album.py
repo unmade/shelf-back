@@ -98,7 +98,11 @@ class AlbumRepository(IAlbumRepository):
     ) -> list[MediaItem]:
         items = await (
             models.MediaItem
-            .filter(albums__owner_id=owner_id, albums__slug=slug)
+            .filter(
+                albums__owner_id=owner_id,
+                albums__slug=slug,
+                deleted_at__isnull=True,
+            )
             .select_related("blob")
             .prefetch_related("blob__metadata")
             .order_by("-modified_at")
