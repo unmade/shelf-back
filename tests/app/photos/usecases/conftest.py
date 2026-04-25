@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import AsyncExitStack
 from unittest import mock
 
 import pytest
@@ -13,11 +14,16 @@ from app.app.photos.services import AlbumService, MediaItemService
 from app.app.photos.usecases import AlbumUseCase, MediaItemUseCase
 
 
+async def _atomic():
+    yield AsyncExitStack()
+
+
 @pytest.fixture
 def album_use_case() -> AlbumUseCase:
     """A mocked AlbumUseCase instance."""
     services = mock.MagicMock(
         album=mock.MagicMock(spec=AlbumService),
+        atomic=mock.Mock(side_effect=_atomic),
     )
     return AlbumUseCase(services=services)
 
