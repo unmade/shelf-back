@@ -208,7 +208,7 @@ class TestListByOwnerID:
         assert result == []
 
 
-class TestListByAlbum:
+class TestListItems:
     async def test(
         self,
         album_repo: AlbumRepository,
@@ -218,6 +218,7 @@ class TestListByAlbum:
     ):
         # GIVEN
         items = list(reversed([await media_item_factory(user.id) for _ in range(20)]))
+        items.append(await media_item_factory(user.id, deleted_at=timezone.now()))
         album_a = await album_factory(user.id, items=items[:10])
         album_b = await album_factory(user.id, items=items[15:])
         # WHEN
@@ -232,7 +233,7 @@ class TestListByAlbum:
 
         # WHEN
         result = await album_repo.list_items(user.id, album_b.slug, offset=0)
-        assert result == items[15:]
+        assert result == items[15:-1]
 
 
 class TestRemoveItems:
