@@ -17,9 +17,9 @@ class MediaItemFavouriteRepository(IMediaItemFavouriteRepository):
         if not media_item_ids:
             return
 
-        await models.MediaItemBookmark.bulk_create(
+        await models.MediaItemFavourite.bulk_create(
             [
-                models.MediaItemBookmark(user_id=user_id, media_item_id=item_id)
+                models.MediaItemFavourite(user_id=user_id, media_item_id=item_id)
                 for item_id in media_item_ids
             ],
             ignore_conflicts=True,
@@ -27,7 +27,7 @@ class MediaItemFavouriteRepository(IMediaItemFavouriteRepository):
 
     async def list_ids(self, user_id: UUID) -> list[UUID]:
         return await (  # type: ignore[return-value]
-            models.MediaItemBookmark
+            models.MediaItemFavourite
             .filter(
                 user_id=user_id,
             )
@@ -39,7 +39,7 @@ class MediaItemFavouriteRepository(IMediaItemFavouriteRepository):
         if not media_item_ids:
             return
 
-        await models.MediaItemBookmark.filter(
+        await models.MediaItemFavourite.filter(
             user_id=user_id,
             media_item_id__in=media_item_ids,
         ).delete()

@@ -69,15 +69,15 @@ def _base_qs():
 
 async def _get_or_create_categories(
     names: Iterable[str],
-) -> dict[str, models.FileCategory]:
+) -> dict[str, models.MediaItemCategory]:
     unique_names = list(set(names))
-    categories = await models.FileCategory.filter(name__in=unique_names)
+    categories = await models.MediaItemCategory.filter(name__in=unique_names)
     by_name = {cat.name: cat for cat in categories}
 
     missing_names = [name for name in unique_names if name not in by_name]
     if missing_names:
-        to_create = [models.FileCategory(name=name) for name in missing_names]
-        await models.FileCategory.bulk_create(to_create)
+        to_create = [models.MediaItemCategory(name=name) for name in missing_names]
+        await models.MediaItemCategory.bulk_create(to_create)
         by_name.update({category.name: category for category in to_create})
 
     return by_name
@@ -100,7 +100,7 @@ class MediaItemRepository:
             .filter(media_item_id=media_item_id)
         )
         existing_by_cat_id = {
-            obj.file_category_id: obj  # type: ignore[attr-defined]
+            obj.media_item_category_id: obj  # type: ignore[attr-defined]
             for obj in existing_through
         }
 
@@ -118,7 +118,7 @@ class MediaItemRepository:
                 to_create.append(
                     models.MediaItemCategoryThrough(
                         media_item_id=media_item_id,
-                        file_category_id=cat_id,
+                        media_item_category_id=cat_id,
                         origin=origin,
                         probability=category.probability,
                     )
@@ -180,7 +180,7 @@ class MediaItemRepository:
         )
         if only_favourites:
             favourite_ids: list[UUID] = await (  # type: ignore[assignment]
-                models.MediaItemBookmark
+                models.MediaItemFavourite
                 .filter(user_id=owner_id)
                 .values_list("media_item_id", flat=True)
             )
@@ -198,11 +198,11 @@ class MediaItemRepository:
         through_objs = await (
             models.MediaItemCategoryThrough
             .filter(media_item_id=media_item_id)
-            .select_related("file_category")
+            .select_related("media_item_category")
         )
         return [
             MediaItemCategory(
-                name=MediaItemCategoryName(obj.file_category.name),
+                name=MediaItemCategoryName(obj.media_item_category.name),
                 origin=_INT_TO_ORIGIN[obj.origin],
                 probability=obj.probability,
             )
@@ -249,7 +249,7 @@ class MediaItemRepository:
         through_objs = [
             models.MediaItemCategoryThrough(
                 media_item_id=media_item_id,
-                file_category_id=cat_by_name[category.name].id,
+                media_item_category_id=cat_by_name[category.name].id,
                 origin=_ORIGIN_TO_INT[category.origin],
                 probability=category.probability,
             )

@@ -35,22 +35,10 @@ class Album(models.Model):
         "models.MediaItem",
         related_name="albums",
         through="album_items",
-        on_delete=fields.SET_NULL,
     )
 
     class Meta:
         unique_together = (("owner", "slug"),)
-
-
-class AlbumItems(models.Model):
-    """Through table for Album-MediaItem M2M."""
-    id = fields.UUIDField(primary_key=True, default=uuid7)
-    album: fields.ForeignKeyRelation[Album] = fields.ForeignKeyField(
-        "models.Album", related_name="item_links", on_delete=fields.CASCADE,
-    )
-    media_item: fields.ForeignKeyRelation[MediaItem] = fields.ForeignKeyField(
-        "models.MediaItem", related_name="album_links", on_delete=fields.CASCADE,
-    )
 
 
 class AuditTrail(models.Model):
@@ -122,33 +110,10 @@ class File(models.Model):
         "models.Namespace", related_name="files", on_delete=fields.CASCADE,
     )
     deleted_at = fields.DatetimeField(null=True)
-    categories: fields.ManyToManyRelation[FileCategory] = fields.ManyToManyField(
-        "models.FileCategory",
-        related_name="files",
-        through="file_file_category",
-    )
 
     class Meta:
         unique_together = (("path", "namespace"),)
         indexes = (("chash", "namespace"),)
-
-
-class FileCategory(models.Model):
-    id = fields.UUIDField(primary_key=True, default=uuid7)
-    name = fields.CharField(max_length=255, unique=True)
-
-
-class FileFileCategoryThrough(models.Model):
-    """Through table for File-FileCategory M2M with extra fields."""
-    id = fields.IntField(primary_key=True)
-    file: fields.ForeignKeyRelation[File] = fields.ForeignKeyField(
-        "models.File", related_name="category_links", on_delete=fields.CASCADE,
-    )
-    file_category: fields.ForeignKeyRelation[FileCategory] = fields.ForeignKeyField(
-        "models.FileCategory", related_name="file_links", on_delete=fields.CASCADE,
-    )
-    origin = fields.SmallIntField(null=True)
-    probability = fields.SmallIntField(null=True)
 
 
 class FileMember(models.Model):
@@ -220,39 +185,43 @@ class MediaItem(models.Model):
     created_at = fields.DatetimeField()
     modified_at = fields.DatetimeField()
     deleted_at = fields.DatetimeField(null=True)
-    categories: fields.ManyToManyRelation[FileCategory] = fields.ManyToManyField(
-        "models.FileCategory",
-        through="media_item_category",
-        related_name="media_items",
-    )
 
 
-class MediaItemBookmark(models.Model):
+class MediaItemFavourite(models.Model):
     id = fields.UUIDField(primary_key=True, default=uuid7)
     user: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
-        "models.User", related_name="media_item_bookmarks", on_delete=fields.CASCADE,
+        "models.User", related_name="media_item_favourites", on_delete=fields.CASCADE,
     )
     media_item: fields.ForeignKeyRelation[MediaItem] = fields.ForeignKeyField(
-        "models.MediaItem", related_name="bookmarks", on_delete=fields.CASCADE,
+        "models.MediaItem", related_name="favourited_by", on_delete=fields.CASCADE,
     )
 
     class Meta:
         unique_together = (("user", "media_item"),)
 
 
+class MediaItemCategory(models.Model):
+    id = fields.UUIDField(primary_key=True, default=uuid7)
+    name = fields.CharField(max_length=255, unique=True)
+
+
 class MediaItemCategoryThrough(models.Model):
     id = fields.IntField(primary_key=True)
     media_item: fields.ForeignKeyRelation[MediaItem] = fields.ForeignKeyField(
-        "models.MediaItem", on_delete=fields.CASCADE,
+        "models.MediaItem", related_name="category_links", on_delete=fields.CASCADE,
     )
-    file_category: fields.ForeignKeyRelation[FileCategory] = fields.ForeignKeyField(
-        "models.FileCategory", on_delete=fields.CASCADE,
+    media_item_category: fields.ForeignKeyRelation[MediaItemCategory] = (
+        fields.ForeignKeyField(
+            "models.MediaItemCategory",
+            related_name="media_item_links",
+            on_delete=fields.CASCADE,
+        )
     )
     origin = fields.SmallIntField(null=True)
     probability = fields.SmallIntField(null=True)
 
     class Meta:
-        unique_together = (("media_item", "file_category"),)
+        unique_together = (("media_item", "media_item_category"),)
 
 
 class MediaType(models.Model):
