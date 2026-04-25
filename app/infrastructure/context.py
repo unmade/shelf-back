@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING, Self, assert_never
 
@@ -232,8 +231,8 @@ class Services:
             worker=worker,
         )
 
-    def atomic(self, *, attempts: int = 3) -> AsyncIterator[ITransaction]:
-        return self._database.atomic(attempts=attempts)
+    def atomic(self) -> ITransaction:
+        return self._database.atomic()
 
 
 class UseCases:

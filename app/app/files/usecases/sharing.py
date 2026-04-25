@@ -81,13 +81,12 @@ class SharingUseCase:
                     file_id, namespace.owner_id, actions=FileMember.OWNER
                 )
 
-        async for tx in self._services.atomic():
-            async with tx:
-                user = await self.user.get_by_username(username)
-                member = await self.file_member.add(
-                    file_id, user.id, actions=FileMember.EDITOR
-                )
-                await self.file.mount(file_id, at_folder=(user.username, "."))
+        async with self._services.atomic():
+            user = await self.user.get_by_username(username)
+            member = await self.file_member.add(
+                file_id, user.id, actions=FileMember.EDITOR
+            )
+            await self.file.mount(file_id, at_folder=(user.username, "."))
         return member
 
     async def create_link(self, ns_path: str, file_id: UUID) -> SharedLink:

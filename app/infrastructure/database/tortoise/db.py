@@ -29,8 +29,6 @@ from .repositories import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
-
     from app.app.audit.repositories import IAuditTrailRepository
     from app.app.blobs.repositories import IBlobMetadataRepository, IBlobRepository
     from app.app.files.repositories import (
@@ -134,8 +132,8 @@ class TortoiseDatabase(IDatabase):
         )
         return self
 
-    async def atomic(self, attempts: int = 3) -> AsyncIterator[ITransaction]:
-        yield Transaction()
+    def atomic(self) -> ITransaction:
+        return Transaction()
 
     async def migrate(self) -> None:
         await Tortoise.generate_schemas()  # pragma: no cover

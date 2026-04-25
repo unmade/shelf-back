@@ -59,6 +59,6 @@ class TestServices:
             features=mock.MagicMock(FeatureConfig, max_file_size_to_thumbnail=1024),
         )
         # WHEN
-        services.atomic(attempts=5)
+        services.atomic()
         # THEN
-        infra.database.atomic.assert_called_once_with(attempts=5)
+        infra.database.atomic.assert_called_once_with()

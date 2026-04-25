@@ -100,12 +100,11 @@ class UserUseCase:
             Namespace.AlreadyExists: If namespace with a given `path` already exists.
             User.AlreadyExists: If user with a username already exists.
         """
-        async for tx in self._services.atomic():
-            async with tx:
-                user = await self.user_service.create(
-                    username, password, superuser=True
-                )
-                await self.ns_service.create(user.username, owner_id=user.id)
+        async with self._services.atomic():
+            user = await self.user_service.create(
+                username, password, superuser=True
+            )
+            await self.ns_service.create(user.username, owner_id=user.id)
         return user
 
     async def get_account(self, user_id: UUID) -> Account:

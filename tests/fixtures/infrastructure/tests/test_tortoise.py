@@ -62,9 +62,11 @@ class TestTortoiseDatabase:
 
     @pytest.mark.database
     async def test_atomic(self, tortoise_database: TortoiseDatabase):
-        async for tx in tortoise_database.atomic():
-            async with tx:
-                assert tx is not None
+        # GIVEN
+        # WHEN
+        async with tortoise_database.atomic() as tx:
+            # THEN
+            assert tx is not None
 
     @pytest.mark.database
     async def test_schema_created(self, tortoise_database: TortoiseDatabase):

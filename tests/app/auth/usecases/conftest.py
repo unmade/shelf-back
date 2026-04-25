@@ -12,8 +12,8 @@ from app.app.files.services import NamespaceService
 from app.app.users.services import UserService
 
 
-async def _atomic():
-    yield AsyncExitStack()
+def _atomic() -> AsyncExitStack:
+    return AsyncExitStack()
 
 
 @pytest.fixture

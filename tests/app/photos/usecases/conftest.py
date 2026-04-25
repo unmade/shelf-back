@@ -14,8 +14,8 @@ from app.app.photos.services import AlbumService, MediaItemService
 from app.app.photos.usecases import AlbumUseCase, MediaItemUseCase
 
 
-async def _atomic():
-    yield AsyncExitStack()
+def _atomic() -> AsyncExitStack:
+    return AsyncExitStack()
 
 
 @pytest.fixture

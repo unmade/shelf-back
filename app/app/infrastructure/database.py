@@ -2,11 +2,7 @@ from __future__ import annotations
 
 import uuid
 from contextlib import AbstractAsyncContextManager
-from typing import TYPE_CHECKING, Protocol, Self
-
-if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
-
+from typing import Protocol, Self
 
 __all__ = [
     "SENTINEL_ID",
@@ -23,15 +19,12 @@ class ITransaction(Protocol, AbstractAsyncContextManager["ITransaction"]):
 
 
 class IAtomic(Protocol):
-    def atomic(self, *, attempts: int = 3) -> AsyncIterator[ITransaction]:
+    def atomic(self) -> ITransaction:
         """
-        Opens a retryable atomic block.
+        Opens an atomic block.
 
-        All database operations either all occurs, or nothing occurs. The atomic block
-        will attempt to re-execute its body if a transient error occurs, such as a
-        network error or a transaction serialization error.
-
-        Nested atomic blocks are allowed, but they will act as no-op.
+        All database operations either all occur, or nothing occurs. Nested atomic
+        blocks are allowed, but they will act as no-op.
         """
 
 

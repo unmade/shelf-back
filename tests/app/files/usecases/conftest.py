@@ -21,8 +21,8 @@ from app.app.files.usecases import NamespaceUseCase, SharingUseCase
 from app.app.users.services import UserService
 
 
-async def _atomic():
-    yield AsyncExitStack()
+def _atomic() -> AsyncExitStack:
+    return AsyncExitStack()
 
 
 @pytest.fixture
