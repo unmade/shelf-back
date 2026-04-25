@@ -36,12 +36,11 @@ class AlbumUseCase:
         Raises:
             Album.NotFound: If album does not exist.
         """
-        async for tx in self._services.atomic():
-            async with tx:
-                album = await self.album.add_items(owner_id, slug, media_item_ids)
-                if album.cover is None and media_item_ids:
-                    return await self.album.set_cover(owner_id, slug, media_item_ids[0])
-        return album
+        async with self._services.atomic():
+            album = await self.album.add_items(owner_id, slug, media_item_ids)
+            if album.cover is None and media_item_ids:
+                return await self.album.set_cover(owner_id, slug, media_item_ids[0])
+            return album
 
     async def create(self, title: str, owner_id: UUID) -> Album:
         """Creates a new album."""
@@ -108,20 +107,17 @@ class AlbumUseCase:
         Raises:
             Album.NotFound: If album does not exist.
         """
-        async for tx in self._services.atomic():
-            async with tx:
-                album = await self.album.remove_items(owner_id, slug, media_item_ids)
-                if album.cover and album.cover.media_item_id in media_item_ids:
-                    if album.items_count > 0:
-                        items = await self.album.list_items(
-                            owner_id, slug, offset=0, limit=1
-                        )
-                        if items:
-                            return await self.album.set_cover(
-                                owner_id, slug, items[0].id
-                            )
-                    return await self.album.remove_cover(owner_id, slug)
-        return album
+        async with self._services.atomic():
+            album = await self.album.remove_items(owner_id, slug, media_item_ids)
+            if album.cover and album.cover.media_item_id in media_item_ids:
+                if album.items_count > 0:
+                    items = await self.album.list_items(
+                        owner_id, slug, offset=0, limit=1
+                    )
+                    if items:
+                        return await self.album.set_cover(owner_id, slug, items[0].id)
+                return await self.album.remove_cover(owner_id, slug)
+            return album
 
     async def rename(
         self, owner_id: UUID, slug: str, new_title: str

@@ -50,18 +50,16 @@ class AuthUseCase:
         password: str,
         display_name: str,
     ) -> Tokens:
-        async for tx in self._services.atomic():
-            async with tx:
-                user = await self.user_service.create(
-                    email,
-                    password,
-                    email=email,
-                    display_name=display_name,
-                    storage_quota=config.features.quota,
-                )
-                await self.ns_service.create(user.username, owner_id=user.id)
-                tokens = await self.token_service.create(str(user.id))
-        return tokens
+        async with self._services.atomic():
+            user = await self.user_service.create(
+                email,
+                password,
+                email=email,
+                display_name=display_name,
+                storage_quota=config.features.quota,
+            )
+            await self.ns_service.create(user.username, owner_id=user.id)
+            return await self.token_service.create(str(user.id))
 
     async def rotate_tokens(self, refresh_token: str) -> Tokens:
         return await self.token_service.rotate(refresh_token)

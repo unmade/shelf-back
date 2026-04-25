@@ -14,8 +14,8 @@ from app.app.users.repositories import (
 from app.app.users.services import BookmarkService, UserService
 
 
-async def _atomic():
-    yield AsyncExitStack()
+def _atomic() -> AsyncExitStack:
+    return AsyncExitStack()
 
 
 @pytest.fixture

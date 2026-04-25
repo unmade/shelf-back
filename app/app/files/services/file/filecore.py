@@ -132,21 +132,20 @@ class FileCoreService:
             _storage_key(ns_path, next_path), content
         )
 
-        async for tx in self.db.atomic(attempts=10):
-            async with tx:
-                file = await self.db.file.save(
-                    File(
-                        id=SENTINEL_ID,
-                        ns_path=str(ns_path),
-                        name=next_path.name,
-                        path=next_path,
-                        chash=content_hash,
-                        size=storage_file.size,
-                        modified_at=modified_at or timezone.now(),
-                        mediatype=mediatype,
-                    ),
-                )
-                await self.db.file.incr_size_batch(ns_path, path.parents, file.size)
+        async with self.db.atomic():
+            file = await self.db.file.save(
+                File(
+                    id=SENTINEL_ID,
+                    ns_path=str(ns_path),
+                    name=next_path.name,
+                    path=next_path,
+                    chash=content_hash,
+                    size=storage_file.size,
+                    modified_at=modified_at or timezone.now(),
+                    mediatype=mediatype,
+                ),
+            )
+            await self.db.file.incr_size_batch(ns_path, path.parents, file.size)
 
         return file
 
@@ -198,14 +197,13 @@ class FileCoreService:
         Raises:
             File.NotFound: If a file/folder with a given path does not exists.
         """
-        async for tx in self.db.atomic():
-            async with tx:
-                file = await self.db.file.delete(ns_path, path)
-                if file.is_folder():
-                    prefix = f"{path}/"
-                    await self.db.file.delete_all_with_prefix(ns_path, prefix=prefix)
-                parents = file.path.parents
-                await self.db.file.incr_size_batch(ns_path, parents, value=-file.size)
+        async with self.db.atomic():
+            file = await self.db.file.delete(ns_path, path)
+            if file.is_folder():
+                prefix = f"{path}/"
+                await self.db.file.delete_all_with_prefix(ns_path, prefix=prefix)
+            parents = file.path.parents
+            await self.db.file.incr_size_batch(ns_path, parents, value=-file.size)
 
         storage = self.storage
         delete_from_storage = storage.deletedir if file.is_folder() else storage.delete
@@ -215,25 +213,24 @@ class FileCoreService:
 
     async def delete_batch(self, ns_path: AnyPath, paths: Sequence[AnyPath]) -> None:
         """Permanently deletes multiple files at once."""
-        async for tx in self.db.atomic():
-            async with tx:
-                files = await self.db.file.get_by_path_batch(ns_path, paths)
-                await self.db.file.delete_batch(ns_path, paths)
+        async with self.db.atomic():
+            files = await self.db.file.get_by_path_batch(ns_path, paths)
+            await self.db.file.delete_batch(ns_path, paths)
 
-                for file in files:
-                    await self.db.file.incr_size_batch(
-                        ns_path, file.path.parents, value=-file.size
-                    )
+            for file in files:
+                await self.db.file.incr_size_batch(
+                    ns_path, file.path.parents, value=-file.size
+                )
 
-                deletions = await self.db.file_pending_deletion.save_batch([
-                    FilePendingDeletion(
-                        id=SENTINEL_ID,
-                        storage_key=_storage_key(file.ns_path, file.path),
-                        chash=file.chash,
-                        mediatype=file.mediatype,
-                    )
-                    for file in files
-                ])
+            deletions = await self.db.file_pending_deletion.save_batch([
+                FilePendingDeletion(
+                    id=SENTINEL_ID,
+                    storage_key=_storage_key(file.ns_path, file.path),
+                    chash=file.chash,
+                    mediatype=file.mediatype,
+                )
+                for file in files
+            ])
 
         await self.worker.enqueue(
             "process_file_pending_deletion",
@@ -278,10 +275,9 @@ class FileCoreService:
             return
 
         paths = [*file.path.parents, path]
-        async for tx in self.db.atomic():
-            async with tx:
-                await self.db.file.delete_all_with_prefix(ns_path, f"{path}/")
-                await self.db.file.incr_size_batch(ns_path, paths, value=-file.size)
+        async with self.db.atomic():
+            await self.db.file.delete_all_with_prefix(ns_path, f"{path}/")
+            await self.db.file.incr_size_batch(ns_path, paths, value=-file.size)
         await self.storage.emptydir(_storage_key(ns_path, file.path))
 
     async def exists_with_id(self, ns_path: AnyPath, file_id: UUID) -> bool:
@@ -441,16 +437,15 @@ class FileCoreService:
             at=_storage_key(at_ns_path, file.path),
             to=_storage_key(to_ns_path, to_path),
         )
-        async for tx in self.db.atomic():
-            async with tx:
-                updated_file = await self.db.file.update(file, file_update)
-                if file.is_folder():
-                    await self.db.file.replace_path_prefix(
-                        at=(at_ns_path, at_path),
-                        to=(to_ns_path, to_path),
-                    )
-                await self.db.file.incr_size_batch(at_ns_path, to_decrease, value=-size)
-                await self.db.file.incr_size_batch(to_ns_path, to_increase, value=size)
+        async with self.db.atomic():
+            updated_file = await self.db.file.update(file, file_update)
+            if file.is_folder():
+                await self.db.file.replace_path_prefix(
+                    at=(at_ns_path, at_path),
+                    to=(to_ns_path, to_path),
+                )
+            await self.db.file.incr_size_batch(at_ns_path, to_decrease, value=-size)
+            await self.db.file.incr_size_batch(to_ns_path, to_increase, value=size)
         return updated_file
 
     async def process_file_pending_deletion(
@@ -478,10 +473,9 @@ class FileCoreService:
         await self.storage.delete_batch(to_delete)
 
         # remove from the database
-        async for tx in self.db.atomic():
-            async with tx:
-                await self.db.file_pending_deletion.delete_by_id_batch(ids)
-                await self.db.file.delete_all_with_prefix_batch(folders_by_ns)
+        async with self.db.atomic():
+            await self.db.file_pending_deletion.delete_by_id_batch(ids)
+            await self.db.file.delete_all_with_prefix_batch(folders_by_ns)
 
         result: list[ProcessFilePendingDeletionResult] = [
             ProcessFilePendingDeletionResult(

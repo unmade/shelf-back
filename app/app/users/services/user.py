@@ -147,28 +147,27 @@ class UserService:
             UserAlreadyExists: If user with a username already exists.
         """
 
-        async for tx in self.db.atomic():
-            async with tx:
-                user = await self.db.user.save(
-                    User(
-                        id=SENTINEL_ID,
-                        username=username.lower(),
-                        password=security.make_password(password),
-                        email=email,
-                        email_verified=False,
-                        display_name=display_name,
-                        active=True,
-                        last_login_at=None,
-                        superuser=superuser,
-                    )
+        async with self.db.atomic():
+            user = await self.db.user.save(
+                User(
+                    id=SENTINEL_ID,
+                    username=username.lower(),
+                    password=security.make_password(password),
+                    email=email,
+                    email_verified=False,
+                    display_name=display_name,
+                    active=True,
+                    last_login_at=None,
+                    superuser=superuser,
                 )
-                await self.db.account.save(
-                    Account(
-                        id=SENTINEL_ID,
-                        user_id=user.id,
-                        storage_quota=storage_quota,
-                    )
+            )
+            await self.db.account.save(
+                Account(
+                    id=SENTINEL_ID,
+                    user_id=user.id,
+                    storage_quota=storage_quota,
                 )
+            )
         return user
 
     async def get_account(self, user_id: StrOrUUID) -> Account:

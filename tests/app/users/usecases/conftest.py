@@ -10,8 +10,8 @@ from app.app.users.services import BookmarkService, UserService
 from app.app.users.usecases import UserUseCase
 
 
-async def _atomic():
-    yield AsyncExitStack()
+def _atomic() -> AsyncExitStack:
+    return AsyncExitStack()
 
 
 @pytest.fixture
