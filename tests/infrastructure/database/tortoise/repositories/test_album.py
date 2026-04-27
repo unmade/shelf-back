@@ -15,7 +15,9 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from app.app.users.domain import User
-    from app.infrastructure.database.tortoise.repositories import AlbumRepository
+    from app.infrastructure.database.tortoise.repositories import (
+        AlbumRepository,
+    )
     from tests.infrastructure.database.tortoise.conftest import (
         AlbumFactory,
         MediaItemFactory,
@@ -208,6 +210,128 @@ class TestListByOwnerID:
         assert result == []
 
 
+class TestListCoverCandidates:
+    async def test(
+        self,
+        album_repo: AlbumRepository,
+        album_factory: AlbumFactory,
+        media_item_factory: MediaItemFactory,
+        user: User,
+    ):
+        # GIVEN
+        shared_cover = await media_item_factory(user.id, deleted_at=timezone.now())
+        album_a_replacement = await media_item_factory(user.id)
+        album_a_latest = await media_item_factory(user.id)
+        album_b_replacement = await media_item_factory(user.id)
+        deleted_only_item = await media_item_factory(
+            user.id, deleted_at=timezone.now()
+        )
+
+        album_a = await album_factory(
+            user.id,
+            items=[shared_cover, album_a_replacement, album_a_latest],
+        )
+        album_b = await album_factory(
+            user.id,
+            items=[shared_cover, album_b_replacement],
+        )
+        album_c = await album_factory(
+            user.id,
+            items=[shared_cover, deleted_only_item],
+        )
+
+        # WHEN
+        result = await album_repo.list_cover_candidates(
+            [album_a.id, album_b.id, album_c.id]
+        )
+
+        # THEN
+        result_by_album_id = dict(result)
+        assert result_by_album_id == {
+            album_a.id: album_a_latest.id,
+            album_b.id: album_b_replacement.id,
+        }
+
+    async def test_when_empty(self, album_repo: AlbumRepository):
+        result = await album_repo.list_cover_candidates([])
+        assert result == []
+
+    async def test_when_all_album_items_are_deleted(
+        self,
+        album_repo: AlbumRepository,
+        album_factory: AlbumFactory,
+        media_item_factory: MediaItemFactory,
+        user: User,
+    ):
+        # GIVEN
+        deleted_items = [
+            await media_item_factory(user.id, deleted_at=timezone.now())
+            for _ in range(2)
+        ]
+        album = await album_factory(user.id, items=deleted_items)
+        # WHEN
+        result = await album_repo.list_cover_candidates([album.id])
+        # THEN
+        assert result == []
+
+    async def test_returns_only_one_candidate_per_album_on_timestamp_tie(
+        self,
+        album_repo: AlbumRepository,
+        album_factory: AlbumFactory,
+        media_item_factory: MediaItemFactory,
+        user: User,
+    ):
+        # GIVEN
+        tied_modified_at = timezone.now()
+        candidate_a = await media_item_factory(user.id, modified_at=tied_modified_at)
+        candidate_b = await media_item_factory(user.id, modified_at=tied_modified_at)
+        album = await album_factory(user.id, items=[candidate_a, candidate_b])
+        # WHEN
+        result = await album_repo.list_cover_candidates([album.id])
+        # THEN
+        assert len(result) == 1
+        assert result[0][0] == album.id
+        assert result[0][1] in {candidate_a.id, candidate_b.id}
+
+
+class TestListIDsByCoverIDs:
+    async def test(
+        self,
+        album_repo: AlbumRepository,
+        album_factory: AlbumFactory,
+        media_item_factory: MediaItemFactory,
+        user: User,
+    ):
+        # GIVEN
+        shared_cover = await media_item_factory(user.id)
+        unaffected_cover = await media_item_factory(user.id)
+        album_a = await album_factory(
+            user.id,
+            cover_media_item_id=shared_cover.id,
+            items=[shared_cover],
+        )
+        album_b = await album_factory(
+            user.id,
+            cover_media_item_id=shared_cover.id,
+            items=[shared_cover],
+        )
+        await album_factory(
+            user.id,
+            cover_media_item_id=unaffected_cover.id,
+            items=[unaffected_cover],
+        )
+
+        # WHEN
+        result = await album_repo.list_ids_by_cover_ids(user.id, [shared_cover.id])
+
+        # THEN
+        assert sorted(result) == sorted([album_a.id, album_b.id])
+
+    async def test_when_empty(self, album_repo: AlbumRepository, user: User):
+        result = await album_repo.list_ids_by_cover_ids(user.id, [])
+        assert result == []
+
+
 class TestListItems:
     async def test(
         self,
@@ -340,6 +464,47 @@ class TestSetCover:
         # WHEN / THEN
         with pytest.raises(Album.NotFound):
             await album_repo.set_cover(user.id, "non-existing-album", ids[1])
+
+
+class TestSetCoverBatch:
+    async def test(
+        self,
+        album_repo: AlbumRepository,
+        album_factory: AlbumFactory,
+        media_item_factory: MediaItemFactory,
+        user: User,
+    ):
+        # GIVEN
+        old_cover = await media_item_factory(user.id)
+        new_cover = await media_item_factory(user.id)
+        album_a = await album_factory(
+            user.id,
+            cover_media_item_id=old_cover.id,
+            items=[old_cover, new_cover],
+        )
+        album_b = await album_factory(
+            user.id,
+            cover_media_item_id=old_cover.id,
+            items=[old_cover],
+        )
+
+        # WHEN
+        await album_repo.set_cover_batch([
+            (album_a.id, new_cover.id),
+            (album_b.id, None),
+        ])
+
+        # THEN
+        assert await _get_album_cover_id(album_a.id) == new_cover.id
+        assert await _get_album_cover_id(album_b.id) is None
+
+    async def test_when_albums_do_not_exist(self, album_repo: AlbumRepository):
+        await album_repo.set_cover_batch([(uuid.uuid7(), uuid.uuid7())])
+        assert True
+
+    async def test_when_empty(self, album_repo: AlbumRepository):
+        await album_repo.set_cover_batch([])
+        assert True
 
 
 class TestUpdate:

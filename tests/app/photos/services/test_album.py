@@ -152,6 +152,55 @@ class TestList:
         )
 
 
+class TestListIDsByCoverIDs:
+    async def test(self, album_service: AlbumService):
+        # GIVEN
+        owner_id = uuid.uuid7()
+        cover_ids = [uuid.uuid7(), uuid.uuid7()]
+        db = cast(mock.MagicMock, album_service.db)
+
+        # WHEN
+        result = await album_service.list_ids_by_cover_ids(owner_id, cover_ids)
+
+        # THEN
+        assert result == db.album.list_ids_by_cover_ids.return_value
+        db.album.list_ids_by_cover_ids.assert_awaited_once_with(owner_id, cover_ids)
+
+
+class TestReassignCovers:
+    async def test(self, album_service: AlbumService):
+        # GIVEN
+        album_ids = [uuid.uuid7(), uuid.uuid7(), uuid.uuid7()]
+        candidate_ids = [uuid.uuid7(), uuid.uuid7()]
+        db = cast(mock.MagicMock, album_service.db)
+        db.album.list_cover_candidates.return_value = [
+            (album_ids[0], candidate_ids[0]),
+            (album_ids[1], candidate_ids[1]),
+        ]
+
+        # WHEN
+        await album_service.reassign_covers(album_ids)
+
+        # THEN
+        db.album.list_cover_candidates.assert_awaited_once_with(album_ids)
+        db.album.set_cover_batch.assert_awaited_once_with([
+            (album_ids[0], candidate_ids[0]),
+            (album_ids[1], candidate_ids[1]),
+            (album_ids[2], None),
+        ])
+
+    async def test_when_album_ids_are_empty(self, album_service: AlbumService):
+        # GIVEN
+        db = cast(mock.MagicMock, album_service.db)
+
+        # WHEN
+        await album_service.reassign_covers([])
+
+        # THEN
+        db.album.list_cover_candidates.assert_not_awaited()
+        db.album.set_cover_batch.assert_not_awaited()
+
+
 class TestListItems:
     async def test(self, album_service: AlbumService):
         # GIVEN

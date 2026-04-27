@@ -32,9 +32,11 @@ def album_use_case() -> AlbumUseCase:
 def media_item_use_case() -> MediaItemUseCase:
     """A mocked MediaItemUseCase instance."""
     services = mock.MagicMock(
+        album=mock.MagicMock(spec=AlbumService),
         blob_metadata=mock.MagicMock(spec=BlobMetadataService),
         blob_thumbnailer=mock.MagicMock(spec=BlobThumbnailService),
         blob_processor=mock.MagicMock(spec=BlobContentProcessor),
         media_item=mock.MagicMock(spec=MediaItemService),
+        atomic=mock.Mock(side_effect=_atomic),
     )
     return MediaItemUseCase(services=services)

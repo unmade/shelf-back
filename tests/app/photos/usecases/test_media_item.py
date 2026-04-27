@@ -109,12 +109,39 @@ class TestDeleteBatch:
         # GIVEN
         owner_id = uuid.uuid7()
         ids = [uuid.uuid7(), uuid.uuid7()]
+        deleted_items = [_make_media_item(owner_id=owner_id) for _ in ids]
+        album_ids = [uuid.uuid7(), uuid.uuid7()]
+        album_service = cast(mock.MagicMock, media_item_use_case.album)
         media_item_service = cast(mock.MagicMock, media_item_use_case.media_item)
+        media_item_service.delete_batch.return_value = deleted_items
+        album_service.list_ids_by_cover_ids.return_value = album_ids
         # WHEN
         result = await media_item_use_case.delete_batch(owner_id, ids)
         # THEN
-        assert result == media_item_service.delete_batch.return_value
+        assert result == deleted_items
         media_item_service.delete_batch.assert_awaited_once_with(owner_id, ids)
+        album_service.list_ids_by_cover_ids.assert_awaited_once_with(
+            owner_id,
+            [item.id for item in deleted_items],
+        )
+        album_service.reassign_covers.assert_awaited_once_with(album_ids)
+
+    async def test_when_no_media_items_are_deleted(
+        self, media_item_use_case: MediaItemUseCase
+    ):
+        # GIVEN
+        owner_id = uuid.uuid7()
+        ids = [uuid.uuid7(), uuid.uuid7()]
+        album_service = cast(mock.MagicMock, media_item_use_case.album)
+        media_item_service = cast(mock.MagicMock, media_item_use_case.media_item)
+        media_item_service.delete_batch.return_value = []
+        # WHEN
+        result = await media_item_use_case.delete_batch(owner_id, ids)
+        # THEN
+        assert result == []
+        media_item_service.delete_batch.assert_awaited_once_with(owner_id, ids)
+        album_service.list_ids_by_cover_ids.assert_not_awaited()
+        album_service.reassign_covers.assert_not_awaited()
 
 
 class TestDeleteImmediatelyBatch:

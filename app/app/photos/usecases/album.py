@@ -110,13 +110,8 @@ class AlbumUseCase:
         async with self._services.atomic():
             album = await self.album.remove_items(owner_id, slug, media_item_ids)
             if album.cover and album.cover.media_item_id in media_item_ids:
-                if album.items_count > 0:
-                    items = await self.album.list_items(
-                        owner_id, slug, offset=0, limit=1
-                    )
-                    if items:
-                        return await self.album.set_cover(owner_id, slug, items[0].id)
-                return await self.album.remove_cover(owner_id, slug)
+                await self.album.reassign_covers([album.id])
+                return await self.album.get_by_slug(owner_id, slug)
             return album
 
     async def rename(

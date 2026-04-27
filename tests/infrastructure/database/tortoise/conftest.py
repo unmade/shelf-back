@@ -131,6 +131,7 @@ if TYPE_CHECKING:
             owner_id: UUID,
             name: str | None = None,
             media_type: str = ...,
+            modified_at: datetime | None = None,
             deleted_at: datetime | None = None,
         ) -> MediaItem: ...
 
@@ -408,6 +409,7 @@ def media_item_factory(
         owner_id: UUID,
         name: str | None = None,
         media_type: str = MediaType.IMAGE_JPEG,
+        modified_at: datetime | None = None,
         deleted_at: datetime | None = None,
     ) -> MediaItem:
         now = timezone.now()
@@ -427,7 +429,7 @@ def media_item_factory(
             chash=blob.chash,
             taken_at=None,
             created_at=now,
-            modified_at=now,
+            modified_at=modified_at or now,
             deleted_at=deleted_at,
         )
         return await media_item_repo.save(item)
