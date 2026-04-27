@@ -8,6 +8,7 @@ from app.app.photos.repositories import IAlbumRepository
 from app.contrib.slugify import slugify
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from datetime import datetime
     from uuid import UUID
 
@@ -86,6 +87,12 @@ class AlbumService:
             owner_id, offset=offset, limit=limit
         )
 
+    async def list_ids_by_cover_ids(
+        self, owner_id: UUID, cover_ids: Sequence[UUID]
+    ) -> list[UUID]:
+        """Lists albums whose cover uses one of the specified media items."""
+        return await self.db.album.list_ids_by_cover_ids(owner_id, cover_ids)
+
     async def list_items(
         self,
         owner_id: UUID,
@@ -98,6 +105,23 @@ class AlbumService:
         return await self.db.album.list_items(
             owner_id, slug, offset=offset, limit=limit
         )
+
+    async def reassign_covers(self, album_ids: Sequence[UUID]) -> None:
+        """
+        Reassigns covers for the specified albums.
+
+        If an album has no remaining non-deleted items, its cover is cleared.
+        """
+        if not album_ids:
+            return
+
+        candidate_rows = await self.db.album.list_cover_candidates(album_ids)
+        cover_by_album_id = dict(candidate_rows)
+
+        await self.db.album.set_cover_batch([
+            (album_id, cover_by_album_id.get(album_id))
+            for album_id in album_ids
+        ])
 
     async def remove_cover(self, owner_id: UUID, slug: str) -> Album:
         """

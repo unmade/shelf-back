@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol
 
+from app.app.infrastructure.database import IAtomic
 from app.app.photos.domain import MediaItem
 
 if TYPE_CHECKING:
@@ -19,7 +20,7 @@ if TYPE_CHECKING:
         MediaItemCategoryName,
     )
     from app.app.photos.repositories.media_item import CountResult
-    from app.app.photos.services import MediaItemService
+    from app.app.photos.services import AlbumService, MediaItemService
     from app.app.photos.services.media_item import (
         DownloadMediaItem,
         DownloadMediaItemSession,
@@ -27,7 +28,8 @@ if TYPE_CHECKING:
     )
     from app.toolkit.mediatypes import MediaType
 
-    class IUseCaseServices(Protocol):
+    class IUseCaseServices(IAtomic, Protocol):
+        album: AlbumService
         blob_metadata: BlobMetadataService
         blob_processor: BlobContentProcessor
         blob_thumbnailer: BlobThumbnailService
@@ -41,6 +43,7 @@ __all__ = [
 class MediaItemUseCase:
     __slots__ = [
         "_services",
+        "album",
         "blob_metadata",
         "blob_processor",
         "media_item",
@@ -49,6 +52,7 @@ class MediaItemUseCase:
 
     def __init__(self, services: IUseCaseServices):
         self._services = services
+        self.album = services.album
         self.blob_metadata = services.blob_metadata
         self.blob_processor = services.blob_processor
         self.media_item = services.media_item
@@ -82,7 +86,12 @@ class MediaItemUseCase:
         self, owner_id: UUID, ids: Sequence[UUID]
     ) -> list[MediaItem]:
         """Soft-deletes multiple media items at once."""
-        return await self.media_item.delete_batch(owner_id, ids)
+        async with self._services.atomic():
+            items = await self.media_item.delete_batch(owner_id, ids)
+            if item_ids := [item.id for item in items]:
+                album_ids = await self.album.list_ids_by_cover_ids(owner_id, item_ids)
+                await self.album.reassign_covers(album_ids)
+            return items
 
     async def delete_immediately_batch(
         self, owner_id: UUID, ids: Sequence[UUID]

@@ -170,43 +170,14 @@ class TestRemoveItems:
         album_service = cast(mock.MagicMock, album_use_case.album)
         album = album_service.remove_items.return_value
         album.cover = mock.Mock(media_item_id=media_item_ids[0])
-        album.items_count = 5
         # WHEN
-        await album_use_case.remove_album_items(owner_id, slug, media_item_ids)
+        result = await album_use_case.remove_album_items(owner_id, slug, media_item_ids)
         # THEN
-        album_service.list_items.assert_awaited_once_with(
-            owner_id, slug, offset=0, limit=1
-        )
-        album_items = album_service.list_items.return_value
-        album_service.set_cover.assert_awaited_once_with(
-            owner_id, slug, album_items[0].id
-        )
+        album_service.reassign_covers.assert_awaited_once_with([album.id])
+        album_service.get_by_slug.assert_awaited_once_with(owner_id, slug)
+        assert result == album_service.get_by_slug.return_value
 
-    async def test_removes_cover_if_list_items_returns_empty_list(
-        self, album_use_case: AlbumUseCase
-    ):
-        # GIVEN
-        owner_id, slug = uuid.uuid7(), "new-album"
-        media_item_ids = [uuid.uuid7() for _ in range(2)]
-
-        album_service = cast(mock.MagicMock, album_use_case.album)
-        album_service.list_items.return_value = []
-
-        album = album_service.remove_items.return_value
-        album.cover = mock.Mock(media_item_id=media_item_ids[0])
-        album.items_count = 5
-
-        # WHEN
-        await album_use_case.remove_album_items(owner_id, slug, media_item_ids)
-
-        # THEN
-        album_service.list_items.assert_awaited_once_with(
-            owner_id, slug, offset=0, limit=1
-        )
-        album_service.set_cover.assert_not_awaited()
-        album_service.remove_cover.assert_awaited_once_with(owner_id, slug)
-
-    async def test_removes_cover_if_no_items_left(
+    async def test_does_not_reassign_if_current_cover_not_removed(
         self, album_use_case: AlbumUseCase
     ):
         # GIVEN
@@ -214,14 +185,12 @@ class TestRemoveItems:
         media_item_ids = [uuid.uuid7() for _ in range(2)]
         album_service = cast(mock.MagicMock, album_use_case.album)
         album = album_service.remove_items.return_value
-        album.cover = mock.Mock(media_item_id=media_item_ids[0])
-        album.items_count = 0
+        album.cover = mock.Mock(media_item_id=uuid.uuid7())
         # WHEN
         await album_use_case.remove_album_items(owner_id, slug, media_item_ids)
         # THEN
-        album_service.list_items.assert_not_awaited()
-        album_service.set_cover.assert_not_awaited()
-        album_service.remove_cover.assert_awaited_once_with(owner_id, slug)
+        album_service.reassign_covers.assert_not_awaited()
+        album_service.get_by_slug.assert_not_awaited()
 
     async def test_when_album_does_not_exist(self, album_use_case: AlbumUseCase):
         # GIVEN

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol, TypedDict, Unpack
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from uuid import UUID
 
     from app.app.photos.domain import Album, MediaItem
@@ -57,6 +58,16 @@ class IAlbumRepository(Protocol):
     ) -> list[Album]:
         """Lists albums of a given owner."""
 
+    async def list_cover_candidates(
+        self, album_ids: Sequence[UUID]
+    ) -> list[tuple[UUID, UUID]]:
+        """Lists one non-deleted cover candidate media item ID per album."""
+
+    async def list_ids_by_cover_ids(
+        self, owner_id: UUID, cover_ids: Sequence[UUID]
+    ) -> list[UUID]:
+        """Lists album IDs whose cover matches one of the specified items."""
+
     async def list_items(
         self,
         owner_id: UUID,
@@ -93,6 +104,11 @@ class IAlbumRepository(Protocol):
         Raises:
             Album.NotFound: If album does not exist.
         """
+
+    async def set_cover_batch(
+        self, covers: Sequence[tuple[UUID, UUID | None]]
+    ) -> None:
+        """Sets cover IDs for multiple albums at once."""
 
     async def update(
         self, entity: Album, **fields: Unpack[AlbumUpdate]
