@@ -73,6 +73,7 @@ class _BaseFile(BaseModel):
     ThumbnailUnavailable: ClassVar[type[ThumbnailUnavailable]] = ThumbnailUnavailable
 
     id: UUID
+    blob_id: UUID | None = None
     ns_path: str
     name: str
     path: Path

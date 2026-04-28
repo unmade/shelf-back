@@ -15,6 +15,7 @@ __all__ = [
 
 class FilePendingDeletion(BaseModel):
     id: UUID
+    blob_id: UUID | None = None
     storage_key: str
     chash: str
     mediatype: str

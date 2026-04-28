@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from app.infrastructure.database.tortoise.repositories import (
         FilePendingDeletionRepository,
     )
+    from tests.infrastructure.database.tortoise.conftest import BlobFactory
 
     from ..conftest import FilePendingDeletionFactory
 
@@ -59,11 +60,17 @@ class TestGetByIdBatch:
 
 
 class TestSaveBatch:
-    async def test(self, file_pending_deletion_repo: FilePendingDeletionRepository):
+    async def test(
+        self,
+        file_pending_deletion_repo: FilePendingDeletionRepository,
+        blob_factory: BlobFactory,
+    ):
         # GIVEN
+        blob = await blob_factory()
         entities = [
             FilePendingDeletion(
                 id=SENTINEL_ID,
+                blob_id=blob.id,
                 storage_key="admin/f.txt",
                 chash=uuid.uuid4().hex,
                 mediatype=MediaType.TEXT_PLAIN,

@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from app.app.files.domain import AnyPath, Namespace
     from app.infrastructure.database.tortoise.repositories import FileRepository
     from tests.infrastructure.database.tortoise.conftest import (
+        BlobFactory,
         FileFactory,
         FolderFactory,
         MountFactory,
@@ -43,6 +44,7 @@ async def _get_by_id(file_id: UUID) -> File:
     )
     return File(
         id=obj.id,
+        blob_id=obj.blob_id,  # type: ignore[attr-defined]
         name=obj.name,
         ns_path=obj.namespace.path,
         path=Path(obj.path),
@@ -65,6 +67,7 @@ async def _get_by_path(ns_path: AnyPath, path: AnyPath) -> File:
     )
     return File(
         id=obj.id,
+        blob_id=obj.blob_id,  # type: ignore[attr-defined]
         name=obj.name,
         ns_path=obj.namespace.path,
         chash=obj.chash,
@@ -726,11 +729,16 @@ class TestReplacePathPrefix:
 
 class TestSave:
     async def test(
-        self, file_repo: FileRepository, namespace: Namespace
+        self,
+        file_repo: FileRepository,
+        blob_factory: BlobFactory,
+        namespace: Namespace,
     ):
+        blob = await blob_factory()
         saved_file = await file_repo.save(
             File(
                 id=SENTINEL_ID,
+                blob_id=blob.id,
                 name="f.txt",
                 ns_path=namespace.path,
                 path=Path("folder/f.txt"),
@@ -746,6 +754,28 @@ class TestSave:
 
         file = await _get_by_id(saved_file.id)
         assert file == saved_file
+
+    async def test_preserves_null_blob_id_for_folder(
+        self, file_repo: FileRepository, namespace: Namespace
+    ):
+        # GIVEN / WHEN
+        saved_folder = await file_repo.save(
+            File(
+                id=SENTINEL_ID,
+                name="folder",
+                ns_path=namespace.path,
+                path=Path("folder"),
+                chash=chash.EMPTY_CONTENT_HASH,
+                size=0,
+                modified_at=datetime(
+                    2020, 8, 13, 9, 26, 14, tzinfo=UTC
+                ),
+                mediatype="application/directory",
+            )
+        )
+        # THEN
+        assert saved_folder.blob_id is None
+        assert await _get_by_id(saved_folder.id) == saved_folder
 
     async def test_when_file_at_path_already_exists(
         self, file_repo: FileRepository, file: File

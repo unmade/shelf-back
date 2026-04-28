@@ -30,6 +30,7 @@ __all__ = ["FileRepository"]
 def _from_db(ns_path: str | None, obj: models.File) -> File:
     return File(
         id=obj.id,
+        blob_id=obj.blob_id,  # type: ignore[attr-defined]
         ns_path=ns_path or obj.namespace.path,
         name=obj.name,
         path=Path(obj.path),
@@ -45,6 +46,7 @@ def _from_db_v2(ns_path: str, obj: models.File) -> AnyFile:
     if mount_point_obj is None:
         return File(
             id=obj.id,
+            blob_id=obj.blob_id,  # type: ignore[attr-defined]
             ns_path=ns_path,
             name=obj.name,
             path=Path(obj.path),
@@ -70,6 +72,7 @@ def _from_db_v2(ns_path: str, obj: models.File) -> AnyFile:
 
     return MountedFile(
         id=obj.id,
+        blob_id=obj.blob_id,  # type: ignore[attr-defined]
         ns_path=mount_point.folder.ns_path,
         name=mount_point.display_path.name,
         path=mount_point.display_path,
@@ -422,6 +425,7 @@ class FileRepository(IFileRepository):
                 modified_at=file.modified_at,
                 mediatype=mediatype,
                 namespace=namespace,
+                blob_id=file.blob_id,
             )
         except IntegrityError as exc:
             raise File.AlreadyExists() from exc
@@ -457,6 +461,7 @@ class FileRepository(IFileRepository):
                 modified_at=f.modified_at,
                 mediatype=mediatypes[f.mediatype],
                 namespace=namespaces[f.ns_path],
+                blob_id=f.blob_id,
             )
             for f in files
         ]

@@ -109,6 +109,10 @@ class File(models.Model):
     namespace: fields.ForeignKeyRelation[Namespace] = fields.ForeignKeyField(
         "models.Namespace", related_name="files", on_delete=fields.CASCADE,
     )
+    blob: fields.ForeignKeyRelation[Blob] | None = fields.ForeignKeyField(
+        "models.Blob", related_name="files", on_delete=fields.RESTRICT,
+        null=True,
+    )
     deleted_at = fields.DatetimeField(null=True)
 
     class Meta:
@@ -155,6 +159,10 @@ class FilePendingDeletion(models.Model):
     storage_key = fields.CharField(max_length=4096)
     chash = fields.CharField(max_length=128)
     mediatype = fields.CharField(max_length=255)
+    blob: fields.ForeignKeyRelation[Blob] | None = fields.ForeignKeyField(
+        "models.Blob", related_name="file_pending_deletions",
+        on_delete=fields.RESTRICT, null=True,
+    )
     created_at = fields.DatetimeField()
 
 
