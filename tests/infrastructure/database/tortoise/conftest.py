@@ -8,12 +8,12 @@ from typing import TYPE_CHECKING
 import pytest
 from faker import Faker
 
-from app.app.blobs.domain import Blob, BlobMetadata
+from app.app.blobs.domain import Blob, BlobJob, BlobMetadata
+from app.app.blobs.domain.blob_job import BlobJobDeletePayload
 from app.app.files.domain import (
     ContentMetadata,
     File,
     FileMember,
-    FilePendingDeletion,
     Fingerprint,
     MountPoint,
     Namespace,
@@ -34,12 +34,15 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from app.app.audit.repositories import IAuditTrailRepository
-    from app.app.blobs.repositories import IBlobMetadataRepository, IBlobRepository
+    from app.app.blobs.repositories import (
+        IBlobJobRepository,
+        IBlobMetadataRepository,
+        IBlobRepository,
+    )
     from app.app.files.domain import AnyPath
     from app.app.files.repositories import (
         IContentMetadataRepository,
         IFileMemberRepository,
-        IFilePendingDeletionRepository,
         IFileRepository,
         IFingerprintRepository,
         IMountRepository,
@@ -78,6 +81,13 @@ if TYPE_CHECKING:
         ) -> Blob:
             ...
 
+    class BlobJobFactory(Protocol):
+        async def __call__(
+            self,
+            storage_key: str | None = None,
+            media_type: str | None = None,
+        ) -> BlobJob: ...
+
     class BlobMetadataFactory(Protocol):
         async def __call__(self, blob_id: UUID, data: Exif) -> BlobMetadata: ...
 
@@ -92,13 +102,6 @@ if TYPE_CHECKING:
 
     class FileMemberFactory(Protocol):
         async def __call__(self, file_id: UUID, user_id: UUID) -> FileMember: ...
-
-    class FilePendingDeletionFactory(Protocol):
-        async def __call__(
-            self,
-            storage_key: str | None = None,
-            mediatype: str | None = None,
-        ) -> FilePendingDeletion: ...
 
     class FingerprintFactory(Protocol):
         async def __call__(self, file_id: UUID, value: int) -> Fingerprint: ...
@@ -179,6 +182,13 @@ def blob_metadata_repo(
 
 
 @pytest.fixture
+def blob_job_repo(
+    tortoise_database: TortoiseDatabase,
+) -> IBlobJobRepository:
+    return tortoise_database.blob_job
+
+
+@pytest.fixture
 def bookmark_repo(tortoise_database: TortoiseDatabase) -> IBookmarkRepository:
     return tortoise_database.bookmark
 
@@ -191,13 +201,6 @@ def fingerprint_repo(tortoise_database: TortoiseDatabase) -> IFingerprintReposit
 @pytest.fixture
 def file_member_repo(tortoise_database: TortoiseDatabase) -> IFileMemberRepository:
     return tortoise_database.file_member
-
-
-@pytest.fixture
-def file_pending_deletion_repo(
-    tortoise_database: TortoiseDatabase,
-) -> IFilePendingDeletionRepository:
-    return tortoise_database.file_pending_deletion
 
 
 @pytest.fixture
@@ -326,6 +329,28 @@ def blob_metadata_factory(
 ) -> BlobMetadataFactory:
     async def factory(blob_id: UUID, data: Exif) -> BlobMetadata:
         return await blob_metadata_repo.save(BlobMetadata(blob_id=blob_id, data=data))
+    return factory
+
+
+@pytest.fixture
+def blob_job_factory(blob_job_repo: IBlobJobRepository) -> BlobJobFactory:
+    async def factory(
+        storage_key: str | None = None,
+        media_type: str | None = None,
+    ) -> BlobJob:
+        items = await blob_job_repo.save_batch([
+            BlobJob(
+                id=SENTINEL_ID,
+                payload=BlobJobDeletePayload(
+                    blob_id=uuid.uuid7(),
+                    storage_key=(
+                        storage_key
+                        or f"{fake.unique.user_name()}/{fake.unique.file_name()}"
+                    ),
+                ),
+            )
+        ])
+        return items[0]
     return factory
 
 
@@ -472,29 +497,6 @@ def namespace_factory():
             owner_id=owner_id,
         )
         return Namespace(id=obj.id, path=obj.path, owner_id=owner_id)
-    return factory
-
-
-@pytest.fixture
-def file_pending_deletion_factory(
-    file_pending_deletion_repo: IFilePendingDeletionRepository,
-) -> FilePendingDeletionFactory:
-    async def factory(
-        storage_key: str | None = None,
-        mediatype: str | None = None,
-    ) -> FilePendingDeletion:
-        items = await file_pending_deletion_repo.save_batch([
-            FilePendingDeletion(
-                id=SENTINEL_ID,
-                storage_key=(
-                    storage_key
-                    or f"{fake.unique.user_name()}/{fake.unique.file_name()}"
-                ),
-                chash=uuid.uuid4().hex,
-                mediatype=mediatype or "plain/text",
-            )
-        ])
-        return items[0]
     return factory
 
 

@@ -74,6 +74,13 @@ class Blob(models.Model):
     created_at = fields.DatetimeField()
 
 
+class BlobJob(models.Model):
+    id = fields.UUIDField(primary_key=True, default=uuid7)
+    type = fields.CharField(max_length=255)
+    data = fields.JSONField()  # type: ignore[var-annotated]
+    created_at = fields.DatetimeField()
+
+
 class BlobMetadata(models.Model):
     id = fields.UUIDField(primary_key=True, default=uuid7)
     data = fields.JSONField()  # type: ignore[var-annotated]
@@ -152,18 +159,6 @@ class FileMetadata(models.Model):
     file: fields.ForeignKeyRelation[File] = fields.OneToOneField(
         "models.File", related_name="metadata", on_delete=fields.CASCADE,
     )
-
-
-class FilePendingDeletion(models.Model):
-    id = fields.UUIDField(primary_key=True, default=uuid7)
-    storage_key = fields.CharField(max_length=4096)
-    chash = fields.CharField(max_length=128)
-    mediatype = fields.CharField(max_length=255)
-    blob: fields.ForeignKeyRelation[Blob] | None = fields.ForeignKeyField(
-        "models.Blob", related_name="file_pending_deletions",
-        on_delete=fields.RESTRICT, null=True,
-    )
-    created_at = fields.DatetimeField()
 
 
 

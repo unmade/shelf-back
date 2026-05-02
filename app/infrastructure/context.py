@@ -184,7 +184,11 @@ class Services:
 
         self._database = database
 
-        self.blob = BlobService(database=database, storage=storage_default)
+        self.blob = BlobService(
+            database=database,
+            storage=storage_default,
+            worker=worker,
+        )
         self.blob_metadata = BlobMetadataService(database=database)
         self.blob_thumbnailer = BlobThumbnailService(
             blob_service=self.blob,
@@ -203,8 +207,8 @@ class Services:
         self.bookmark = BookmarkService(database=database)
         self.filecore = FileCoreService(
             database=database,
+            blob_service=self.blob,
             storage=storage_default,
-            worker=worker,
         )
         self.file = FileService(
             filecore=self.filecore,
@@ -239,7 +243,9 @@ class UseCases:
     __slots__ = [
         "album",
         "auth",
+        "blob",
         "blob_content_processor",
+        "blob_thumbnailer",
         "namespace",
         "media_item",
         "sharing",
@@ -255,4 +261,6 @@ class UseCases:
         self.user = UserUseCase(services=services)
 
         # let's keep it on the use case to avoid changing worker code too much.
+        self.blob = services.blob
         self.blob_content_processor = services.blob_processor
+        self.blob_thumbnailer = services.blob_thumbnailer

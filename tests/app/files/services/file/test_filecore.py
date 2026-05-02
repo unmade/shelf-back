@@ -8,7 +8,6 @@ from unittest import mock
 import pytest
 
 from app.app.files.domain import File, Path
-from app.app.files.services.file.filecore import ProcessFilePendingDeletionResult
 from app.app.infrastructure.storage import DownloadBatchItem
 from app.toolkit import chash, taskgroups
 from app.toolkit.mediatypes import MediaType
@@ -24,7 +23,6 @@ if TYPE_CHECKING:
     from ..conftest import (
         BookmarkFactory,
         FileFactory,
-        FilePendingDeletionFactory,
         FolderFactory,
     )
 
@@ -78,11 +76,20 @@ class TestCreateFile:
     async def test(
         self, filecore: FileCoreService, namespace: Namespace, content: IBlobContent
     ):
+        # GIVEN / WHEN
         file = await filecore.create_file(namespace.path, "f.txt", content)
+
+        # THEN
         assert file.name == "f.txt"
         assert file.path == "f.txt"
         assert file.size == content.size
         assert file.mediatype == 'text/plain'
+        assert file.blob_id is not None
+
+        blob = await filecore.blob_service.get_by_id(file.blob_id)
+        assert blob.storage_key == f"{namespace.path}/{file.path}"
+        assert blob.size == file.size
+        assert blob.chash == file.chash
 
     async def test_saving_an_image(
         self,
@@ -213,7 +220,6 @@ class TestDelete:
         # THEN
         assert deleted_file == file
         assert not await filecore.db.file.exists_with_id(ns_path, file.id)
-        assert not await filecore.storage.exists(f"{ns_path}/{file.path}")
 
     async def test_deleting_a_folder(
         self,
@@ -237,9 +243,6 @@ class TestDelete:
         assert len(files) == 2
         assert files[0].path == "a"
         assert files[1].path == "a/c"
-
-        # check folder deleted from the storage
-        assert not await filecore.storage.exists(f"{ns_path}/a/b")
 
     async def test_updating_parent_size(
         self,
@@ -282,7 +285,6 @@ class TestDelete:
         await filecore.delete(ns_path, file.path)
         # THEN
         assert not await filecore.db.file.exists_with_id(ns_path, file.id)
-        assert not await filecore.storage.exists(f"{ns_path}/{file.path}")
 
     async def test_when_file_does_not_exists(
         self, filecore: FileCoreService, namespace: Namespace
@@ -291,7 +293,39 @@ class TestDelete:
             await filecore.delete(namespace.path, "f.txt")
 
 
-class TestDeleteBatch:
+class TestDownload:
+    async def test_on_file(self, filecore: FileCoreService, file: File):
+        # WHEN
+        result_file, content = await filecore.download(file.id)
+
+        # THEN
+        assert result_file == file
+        downloaded = b"".join([chunk async for chunk in content])
+        assert len(downloaded) > 0
+
+    async def test_when_is_a_folder(self, filecore, folder: File):
+        with pytest.raises(File.IsADirectory):
+            await filecore.download(folder.id)
+
+
+class TestDownloadBatch:
+    async def test(self, filecore: FileCoreService, file: File):
+        # GIVEN
+        assert file.blob_id is not None
+        blob = await filecore.blob_service.get_by_id(file.blob_id)
+        items = [
+            DownloadBatchItem(
+                key=blob.storage_key, is_dir=False, archive_path=str(file.path)
+            )
+        ]
+        # WHEN
+        result = filecore.download_batch(items)
+        # THEN
+        archive_bytes = b"".join(result)
+        assert len(archive_bytes) > 0
+
+
+class TestDownloadFolder:
     async def test(
         self,
         filecore: FileCoreService,
@@ -299,95 +333,12 @@ class TestDeleteBatch:
         namespace: Namespace,
     ):
         # GIVEN
-        ns_path = namespace.path
-        await file_factory(ns_path, "a/b/c/f.txt")
-        await file_factory(ns_path, "a/b/f (1).txt")
-        await file_factory(ns_path, "a/c/f.txt")
-        paths = ["a/b", "a/c/f.txt"]
-        worker = cast(mock.MagicMock, filecore.worker)
+        await file_factory(namespace.path, "my_folder/f.txt")
         # WHEN
-        await filecore.delete_batch(ns_path, paths)
+        result = filecore.download_folder(namespace.path, "my_folder")
         # THEN
-        paths = [
-            "a", "a/c", "a/c/f.txt", "a/b", "a/b/c", "a/b/c/f.txt", "a/b/f (1).txt"
-        ]
-        files = await filecore.db.file.get_by_path_batch(ns_path, paths)
-        actual = {str(file.path) for file in files}
-        expected = {"a", "a/c", "a/b/c", "a/b/c/f.txt", "a/b/f (1).txt"}
-        assert actual == expected
-
-        worker.enqueue.assert_awaited_once_with(
-            "process_file_pending_deletion",
-            ids=mock.ANY
-        )
-        # # check folder exists in the storage
-        assert await filecore.storage.exists(f"{ns_path}/a/b")
-        assert await filecore.storage.exists(f"{ns_path}/a/c/f.txt")
-
-    async def test_updating_parent_size(
-        self,
-        filecore: FileCoreService,
-        file_factory: FileFactory,
-        namespace: Namespace,
-    ):
-        # GIVEN
-        ns_path = namespace.path
-        await file_factory(ns_path, "a/b/f.txt")
-        await file_factory(ns_path, "a/b/g.txt")
-        await file_factory(ns_path, "a/c/f.txt")
-
-        # check parent sizes before deletion
-        paths = ["a", "a/b", "a/c"]
-        a, a_b, a_c = await filecore.db.file.get_by_path_batch(ns_path, paths)
-        assert a.size == 30
-        assert a_b.size == 20
-        assert a_c.size == 10
-
-        # WHEN - delete one file from a/b (leaving g.txt) and all of a/c
-        await filecore.delete_batch(ns_path, ["a/b/f.txt", "a/c/f.txt"])
-
-        # THEN
-        a, a_b, a_c = await filecore.db.file.get_by_path_batch(ns_path, paths)
-        assert a.size == 10   # only a/b/g.txt remains
-        assert a_b.size == 10  # g.txt still in a/b
-        assert a_c.size == 0   # a/c is now empty
-
-
-class TestDownload:
-    async def test_on_file(self, filecore: FileCoreService, file: File):
-        with mock.patch.object(filecore, "storage") as storage_mock:
-            result = await filecore.download(file.id)
-        storage_mock.download.assert_called_once_with(f"{file.ns_path}/{file.path}")
-        assert result == (file, storage_mock.download.return_value)
-
-    async def test_when_is_a_folder(self, filecore, folder: File):
-        with mock.patch.object(filecore, "storage") as storage_mock:  # noqa: SIM117
-            with pytest.raises(File.IsADirectory):
-                await filecore.download(folder.id)
-        storage_mock.downloaddir.assert_not_called()
-
-
-class TestDownloadBatch:
-    async def test(self, filecore: FileCoreService):
-        # GIVEN
-        items = [
-            DownloadBatchItem(key="admin/f.txt", is_dir=False),
-            DownloadBatchItem(key="admin/f.txt", is_dir=False),
-        ]
-        # WHEN
-        with mock.patch.object(filecore, "storage") as storage_mock:
-            result = filecore.download_batch(items)
-        # THEN
-        storage_mock.download_batch.assert_called_once_with(items)
-        assert result == storage_mock.download_batch.return_value
-
-
-class TestDownloadFolder:
-    async def test(self, filecore: FileCoreService, file: File):
-        with mock.patch.object(filecore, "storage") as storage_mock:
-            result = filecore.download_folder(file.ns_path, file.path)
-        storage_mock.downloaddir.assert_called_once_with(f"{file.ns_path}/{file.path}")
-        assert result == storage_mock.downloaddir.return_value
+        archive_bytes = b"".join(result)
+        assert len(archive_bytes) > 0
 
 
 class TestEmptyFolder:
@@ -406,8 +357,6 @@ class TestEmptyFolder:
         # THEN
         assert not await filecore.db.file.exists_with_id(ns_path, file_a.id)
         assert not await filecore.db.file.exists_with_id(ns_path, file_b.id)
-        assert not await filecore.storage.exists(f"{ns_path}/{file_a.path}")
-        assert not await filecore.storage.exists(f"{ns_path}/{file_b.path}")
 
     async def test_updating_folder_size(
         self,
@@ -437,12 +386,11 @@ class TestEmptyFolder:
     async def test_when_folder_is_empty(self, filecore: FileCoreService, folder: File):
         with (
             mock.patch.object(filecore.db.file, "delete_all_with_prefix") as db_mock,
-            mock.patch.object(filecore.storage, "emptydir") as storage_mock,
         ):
             await filecore.empty_folder(folder.ns_path, folder.path)
 
         db_mock.assert_not_awaited()
-        storage_mock.assert_not_awaited()
+        cast(mock.AsyncMock, filecore.blob_service.worker).enqueue.assert_not_awaited()
 
 
 class TestExistsWithID:
@@ -680,7 +628,6 @@ class TestMove:
         # THEN
         assert moved_file.name == ".f.txt"
         assert moved_file.path == ".f.txt"
-        assert await filecore.storage.exists(f"{namespace.path}/.f.txt")
         assert await filecore.db.file.exists_at_path(namespace.path, ".f.txt")
 
     async def test_moving_a_file_beetwen_namespaces(
@@ -700,7 +647,6 @@ class TestMove:
         # THEN
         assert result.ns_path == namespace_b.path
         assert result.path == "f.txt"
-        assert not await filecore.storage.exists(f"{namespace_a.path}/f.txt")
         assert not await filecore.db.file.exists_at_path(namespace_a.path, "f.txt")
         assert await filecore.db.file.exists_at_path(namespace_b.path, "f.txt")
 
@@ -724,14 +670,10 @@ class TestMove:
         assert moved_file.name == "c"
         assert moved_file.path == "a/c"
 
-        assert not await filecore.storage.exists(f"{ns_path}/a/b")
         assert not await filecore.db.file.exists_at_path(ns_path, "a/b")
-        assert not await filecore.storage.exists(f"{ns_path}/a/b/f.txt")
         assert not await filecore.db.file.exists_at_path(ns_path, "a/b/f.txt")
 
-        assert await filecore.storage.exists(f"{ns_path}/a/c")
         assert await filecore.db.file.exists_at_path(ns_path, "a/c")
-        assert await filecore.storage.exists(f"{ns_path}/a/c/f.txt")
         assert await filecore.db.file.exists_at_path(ns_path, "a/c/f.txt")
 
     async def test_moving_a_folder_beetwen_namespaces(
@@ -758,14 +700,10 @@ class TestMove:
         assert moved_file.name == "c"
         assert moved_file.path == "a/c"
 
-        assert not await filecore.storage.exists(f"{ns_path}/a/b")
         assert not await filecore.db.file.exists_at_path(ns_path, "a/b")
-        assert not await filecore.storage.exists(f"{ns_path}/a/b/f.txt")
         assert not await filecore.db.file.exists_at_path(ns_path, "a/b/f.txt")
 
-        assert await filecore.storage.exists(f"{namespace_b.path}/a/c")
         assert await filecore.db.file.exists_at_path(namespace_b.path, "a/c")
-        assert await filecore.storage.exists(f"{namespace_b.path}/a/c/f.txt")
         assert await filecore.db.file.exists_at_path(namespace_b.path, "a/c/f.txt")
 
     async def test_updating_parents_size(
@@ -809,7 +747,6 @@ class TestMove:
         # THEN
         assert moved_file.name == "File.txt"
         assert str(moved_file.path) == "File.txt"
-        assert await filecore.storage.exists(f"{ns_path}/File.txt")
         assert await filecore.db.file.exists_at_path(ns_path, "File.txt")
 
     async def test_case_insensitiveness(
@@ -904,120 +841,6 @@ class TestMove:
         with pytest.raises(File.MalformedPath) as excinfo:
             await filecore.move(at=(namespace.path, a), to=(namespace.path, b))
         assert str(excinfo.value) == "Can't move to itself."
-
-
-class TestProcessFileDeletion:
-    async def test_files_are_deleted(
-        self,
-        filecore: FileCoreService,
-        file_factory: FileFactory,
-        file_pending_deletion_factory: FilePendingDeletionFactory,
-        namespace_a: Namespace,
-        namespace_b: Namespace,
-    ):
-        # GIVEN
-        storage = filecore.storage
-
-        files = [
-            await file_factory(namespace_a.path),
-            await file_factory(namespace_a.path),
-            await file_factory(namespace_b.path),
-            await file_factory(namespace_b.path),
-        ]
-
-        file_deletions = []
-        for file in files:
-            file_deletions.append(
-                await file_pending_deletion_factory(
-                    storage_key=f"{file.ns_path}/{file.path}",
-                    mediatype=MediaType.TEXT_PLAIN,
-                )
-            )
-
-        ids = [item.id for item in file_deletions]
-
-        # WHEN
-        result = await filecore.process_file_pending_deletion(ids)
-
-        # THEN
-        assert result == [
-            ProcessFilePendingDeletionResult(
-                storage_key=item.storage_key,
-                chash=item.chash,
-                mediatype=item.mediatype,
-            )
-            for item in file_deletions
-        ]
-
-        for item in file_deletions:
-            assert not await storage.exists(item.storage_key)
-
-    async def test_folders_are_deleted_with_its_children(
-        self,
-        filecore: FileCoreService,
-        file_factory: FileFactory,
-        folder_factory: FolderFactory,
-        file_pending_deletion_factory: FilePendingDeletionFactory,
-        namespace_a: Namespace,
-        namespace_b: Namespace,
-    ):
-        # GIVEN
-        db = filecore.db
-        storage = filecore.storage
-
-        folders = [
-            await folder_factory(namespace_a.path),
-            await folder_factory(namespace_a.path),
-            await folder_factory(namespace_b.path),
-            await folder_factory(namespace_b.path),
-        ]
-
-        children = []
-        folder_deletions = []
-        for folder in folders:
-            folder_deletions.append(
-                await file_pending_deletion_factory(
-                    storage_key=f"{folder.ns_path}/{folder.path}",
-                    mediatype=MediaType.FOLDER,
-                ),
-            )
-            path = folder.path / uuid.uuid4().hex
-            children.append(
-                await file_factory(folder.ns_path, path),
-           )
-
-        ids = [item.id for item in folder_deletions]
-
-        # WHEN
-        result = await filecore.process_file_pending_deletion(ids)
-
-        # THEN
-        actual = sorted(result, key=operator.attrgetter("storage_key"))
-        expected_items = [
-            ProcessFilePendingDeletionResult(
-                storage_key=item.storage_key,
-                chash=item.chash,
-                mediatype=item.mediatype,
-            )
-            for item in folder_deletions
-        ] + [
-            ProcessFilePendingDeletionResult(
-                storage_key=f"{item.ns_path}/{item.path}",
-                chash=item.chash,
-                mediatype=item.mediatype,
-            )
-            for item in children
-        ]
-        expected = sorted(expected_items, key=operator.attrgetter("storage_key"))
-        assert actual == expected
-
-        # check folder children deleted
-        for item in folder_deletions:
-            ns_path, _, item_path = item.storage_key.partition("/")
-            assert not await db.file.list_with_prefix(ns_path, f"{item_path}/")
-            assert not [file async for file in storage.iterdir(item.storage_key)]
-
-
 class TestReindex:
     async def test_creating_missing_files(
         self,
@@ -1063,6 +886,7 @@ class TestReindex:
     ):
         # GIVEN
         db = filecore.db
+        await filecore.storage.makedirs(namespace.path)
 
         # these files exist in the database, but not in the storage
         await db.file.save_batch([
@@ -1122,6 +946,7 @@ class TestReindex:
     ):
         db = filecore.db
         await folder_factory(namespace.path, path="a")
+        await filecore.storage.makedirs(f"{namespace.path}/a")
         await filecore.reindex(namespace.path, "a")
         assert await db.file.exists_at_path(namespace.path, "a")
 

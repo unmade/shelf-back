@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import uuid
 from typing import TYPE_CHECKING
 from unittest import mock
 
@@ -8,7 +7,7 @@ import pytest
 from faker import Faker
 
 from app.app.blobs.domain.content import InMemoryBlobContent
-from app.app.files.domain import FilePendingDeletion
+from app.app.blobs.services import BlobService
 from app.app.files.repositories import (
     IContentMetadataRepository,
     IFileMemberRepository,
@@ -27,11 +26,9 @@ from app.app.files.services import (
 )
 from app.app.files.services.file import FileCoreService, MountService
 from app.app.infrastructure import IIndexerClient, IMailBackend, IStorage, IWorker
-from app.app.infrastructure.database import SENTINEL_ID
 from app.app.users.repositories import IUserRepository
 from app.app.users.services import BookmarkService, UserService
 from app.toolkit import security
-from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
     from typing import Protocol
@@ -53,14 +50,6 @@ if TYPE_CHECKING:
             path: AnyPath | None = None,
             content: IBlobContent | None = None,
         ) -> File:
-            ...
-
-    class FilePendingDeletionFactory(Protocol):
-        async def __call__(
-            self,
-            storage_key: str | None = None,
-            mediatype: str | None = None,
-        ) -> FilePendingDeletion:
             ...
 
     class FolderFactory(Protocol):
@@ -101,8 +90,15 @@ def dupefinder():
 def filecore(tortoise_database: TortoiseDatabase, fs_storage: IStorage):
     """A filecore service instance."""
     worker = mock.MagicMock(IWorker)
+    blob_service = BlobService(
+        database=tortoise_database,
+        storage=fs_storage,
+        worker=worker,
+    )
     return FileCoreService(
-        database=tortoise_database, storage=fs_storage, worker=worker,
+        database=tortoise_database,
+        blob_service=blob_service,
+        storage=fs_storage,
     )
 
 
@@ -182,30 +178,6 @@ def file_factory(filecore: FileCoreService) -> FileFactory:
         content = content or InMemoryBlobContent(b"Dummy file")
         path = path or fake.unique.file_name()
         return await filecore.create_file(ns_path, path, content)
-    return factory
-
-
-@pytest.fixture
-def file_pending_deletion_factory(
-    filecore: FileCoreService
-) -> FilePendingDeletionFactory:
-    """A factory to create a FilePendingDeletion instance saved to the DB."""
-    async def factory(
-        storage_key: str | None = None,
-        mediatype: str | None = None,
-    ) -> FilePendingDeletion:
-        items = await filecore.db.file_pending_deletion.save_batch([
-            FilePendingDeletion(
-                id=SENTINEL_ID,
-                storage_key=(
-                    storage_key
-                    or f"{fake.unique.user_name()}/{fake.unique.file_name()}"
-                ),
-                chash=uuid.uuid4().hex,
-                mediatype=mediatype or MediaType.TEXT_PLAIN,
-            )
-        ])
-        return items[0]
     return factory
 
 

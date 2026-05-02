@@ -9,9 +9,7 @@ import pytest
 
 from app.app.audit.domain import CurrentUserContext
 from app.app.files.domain import File, Path
-from app.app.files.services.file.filecore import ProcessFilePendingDeletionResult
 from app.toolkit import chash
-from app.toolkit.mediatypes import MediaType
 from app.worker.jobs import files
 from app.worker.jobs.files import ErrorCode, RelocationPath
 
@@ -26,7 +24,7 @@ pytestmark = [pytest.mark.anyio]
 
 def _make_file(ns_path: str, path: AnyPath):
     return File(
-        id=uuid.uuid4(),
+        id=uuid.uuid7(),
         ns_path=ns_path,
         name=Path(path).name,
         path=Path(path),
@@ -212,33 +210,3 @@ class TestProcessFileContent:
         await files.process_file_content(arq_context, file_id, user_id)
         # THEN
         content_service.process.assert_awaited_once_with(file_id, user_id)
-
-
-class TestProcessFilePendingDeletion:
-    @staticmethod
-    def _make_deletion_result(mediatype: str) -> ProcessFilePendingDeletionResult:
-        return ProcessFilePendingDeletionResult(
-            storage_key=f"{uuid.uuid4().hex}/{uuid.uuid4().hex}",
-            chash=uuid.uuid4().hex,
-            mediatype=mediatype,
-        )
-
-    async def test(self, arq_context: ARQContext):
-        # GIVEN
-        ids = [uuid.uuid4() for _ in range(3)]
-        deletion_result = [
-            self._make_deletion_result(MediaType.IMAGE_JPEG),
-            self._make_deletion_result(MediaType.IMAGE_WEBP),
-            self._make_deletion_result(MediaType.TEXT_PLAIN),
-        ]
-        usecases = cast(mock.MagicMock, arq_context["usecases"])
-        filecore = usecases.namespace.file.filecore
-        filecore.process_file_pending_deletion.return_value = deletion_result
-        thumbnailer = usecases.namespace.thumbnailer
-        thumbnailer.is_supported.side_effect = [True, True, False]
-        # WHEN
-        await files.process_file_pending_deletion(arq_context, ids)
-        # THEN
-        filecore.process_file_pending_deletion.assert_awaited_once_with(ids)
-        chashes = [item.chash for item in deletion_result[:2]]
-        thumbnailer.delete_stale_thumbnails.assert_awaited_once_with(chashes)

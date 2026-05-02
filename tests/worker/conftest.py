@@ -6,7 +6,10 @@ from unittest import mock
 
 import pytest
 
-from app.app.blobs.services import BlobContentProcessor
+from app.app.blobs.services import (
+    BlobContentProcessor,
+    BlobService,
+)
 from app.app.files.services import ContentService, FileService, ThumbnailService
 from app.app.files.services.file import FileCoreService
 from app.app.files.usecases.namespace import NamespaceUseCase
@@ -21,6 +24,7 @@ def arq_context() -> ARQContext:
     return {
         "usecases": mock.MagicMock(
             UseCases,
+            blob=mock.MagicMock(BlobService),
             blob_content_processor=mock.MagicMock(BlobContentProcessor),
             namespace=mock.MagicMock(
                 NamespaceUseCase,

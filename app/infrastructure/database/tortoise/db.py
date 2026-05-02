@@ -12,12 +12,12 @@ from .repositories import (
     AccountRepository,
     AlbumRepository,
     AuditTrailRepository,
+    BlobJobRepository,
     BlobMetadataRepository,
     BlobRepository,
     BookmarkRepository,
     ContentMetadataRepository,
     FileMemberRepository,
-    FilePendingDeletionRepository,
     FileRepository,
     FingerprintRepository,
     MediaItemFavouriteRepository,
@@ -30,11 +30,14 @@ from .repositories import (
 
 if TYPE_CHECKING:
     from app.app.audit.repositories import IAuditTrailRepository
-    from app.app.blobs.repositories import IBlobMetadataRepository, IBlobRepository
+    from app.app.blobs.repositories import (
+        IBlobJobRepository,
+        IBlobMetadataRepository,
+        IBlobRepository,
+    )
     from app.app.files.repositories import (
         IContentMetadataRepository,
         IFileMemberRepository,
-        IFilePendingDeletionRepository,
         IFileRepository,
         IFingerprintRepository,
         IMountRepository,
@@ -78,11 +81,11 @@ class TortoiseDatabase(IDatabase):
     album: IAlbumRepository
     audit_trail: IAuditTrailRepository
     blob: IBlobRepository
+    blob_job: IBlobJobRepository
     blob_metadata: IBlobMetadataRepository
     bookmark: IBookmarkRepository
     file: IFileRepository
     file_member: IFileMemberRepository
-    file_pending_deletion: IFilePendingDeletionRepository
     fingerprint: IFingerprintRepository
     media_item_favourite: IMediaItemFavouriteRepository
     media_item: IMediaItemRepository
@@ -98,11 +101,11 @@ class TortoiseDatabase(IDatabase):
         self.album = AlbumRepository()
         self.audit_trail = AuditTrailRepository()
         self.blob = BlobRepository()
+        self.blob_job = BlobJobRepository()
         self.blob_metadata = BlobMetadataRepository()
         self.bookmark = BookmarkRepository()
         self.file = FileRepository()
         self.file_member = FileMemberRepository()
-        self.file_pending_deletion = FilePendingDeletionRepository()
         self.fingerprint = FingerprintRepository()
         self.media_item_favourite = MediaItemFavouriteRepository()
         self.media_item = MediaItemRepository()

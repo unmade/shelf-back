@@ -22,17 +22,4 @@ class Migration(migrations.Migration):
                 on_delete=OnDelete.RESTRICT,
             ),
         ),
-        ops.AddField(
-            model_name="FilePendingDeletion",
-            name="blob",
-            field=fields.ForeignKeyField(
-                "models.Blob",
-                source_field="blob_id",
-                null=True,
-                db_constraint=True,
-                to_field="id",
-                related_name="file_pending_deletions",
-                on_delete=OnDelete.RESTRICT,
-            ),
-        ),
     ]
