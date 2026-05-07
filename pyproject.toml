@@ -19,7 +19,7 @@ dependencies = [
     "passlib==1.7.4",
     "pi-heif==1.1.1",
     "pillow==12.2.0",
-    "pydantic-settings==2.11.0",
+    "pydantic-settings==2.14.0",
     "pydantic[email]==2.12.5",
     "pymupdf==1.26.7",
     "python-jose[cryptography]==3.5.0",
