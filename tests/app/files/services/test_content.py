@@ -44,12 +44,10 @@ class TestProcess:
         dupefinder = cast(mock.MagicMock, content_service.dupefinder)
         filecore = cast(mock.MagicMock, content_service.filecore)
         filecore.download.return_value = file, chunks
-        metadata = cast(mock.MagicMock, content_service.metadata)
         # WHEN
         await content_service.process(file.id, uuid.uuid4())
         # THEN
         dupefinder.track.assert_awaited_once()
-        metadata.track.assert_awaited_once()
 
     async def test_without_indexer(
         self, content_service: ContentService, content: IBlobContent
@@ -60,12 +58,10 @@ class TestProcess:
         filecore = cast(mock.MagicMock, content_service.filecore)
         filecore.download.return_value = file, chunks
         content_service.indexer = None
-        metadata = cast(mock.MagicMock, content_service.metadata)
         # WHEN
         await content_service.process(file.id, uuid.uuid4())
         # THEN
         dupefinder.track.assert_awaited_once()
-        metadata.track.assert_awaited_once()
 
 
 class TestProcessAsync:
@@ -104,7 +100,6 @@ class TestReindexContents:
             (jpg_2, _aiter(image_content.file)),
         ]
         dupefinder = cast(mock.MagicMock, content_service.dupefinder)
-        meta_service = cast(mock.MagicMock, content_service.metadata)
 
         # WHEN
         await content_service.reindex_contents(ns_path)
@@ -113,7 +108,5 @@ class TestReindexContents:
         filecore.iter_files.assert_called_once()
         dupefinder_tracker = dupefinder.track_batch.return_value.__aenter__.return_value
         assert len(dupefinder_tracker.mock_calls) == 2
-        metadata_tracker = meta_service.track_batch.return_value.__aenter__.return_value
-        assert len(metadata_tracker.mock_calls) == 2
         chasher = filecore.chash_batch.return_value.__aenter__.return_value
         assert len(chasher.mock_calls) == 3

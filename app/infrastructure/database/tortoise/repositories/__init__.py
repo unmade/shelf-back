@@ -10,7 +10,6 @@ from .file_member import FileMemberRepository
 from .fingerprint import FingerprintRepository
 from .media_item import MediaItemRepository
 from .media_item_favourite import MediaItemFavouriteRepository
-from .metadata import ContentMetadataRepository
 from .mount import MountRepository
 from .namespace import NamespaceRepository
 from .shared_link import SharedLinkRepository
@@ -24,7 +23,6 @@ __all__ = [
     "BlobMetadataRepository",
     "BlobRepository",
     "BookmarkRepository",
-    "ContentMetadataRepository",
     "FileMemberRepository",
     "FileRepository",
     "FingerprintRepository",

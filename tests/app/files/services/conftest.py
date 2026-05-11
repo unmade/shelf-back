@@ -9,7 +9,6 @@ from faker import Faker
 from app.app.blobs.domain.content import InMemoryBlobContent
 from app.app.blobs.services import BlobService
 from app.app.files.repositories import (
-    IContentMetadataRepository,
     IFileMemberRepository,
     IFingerprintRepository,
     ISharedLinkRepository,
@@ -19,7 +18,6 @@ from app.app.files.services import (
     DuplicateFinderService,
     FileMemberService,
     FileService,
-    MetadataService,
     NamespaceService,
     SharingService,
 )
@@ -72,7 +70,6 @@ def content_service():
         dupefinder=mock.MagicMock(DuplicateFinderService),
         filecore=mock.MagicMock(FileCoreService),
         indexer=mock.MagicMock(IIndexerClient),
-        metadata=mock.MagicMock(MetadataService),
         worker=mock.MagicMock(IWorker),
     )
 
@@ -116,13 +113,6 @@ def file_member_service():
         user=mock.AsyncMock(IUserRepository),
     )
     return FileMemberService(database=database)
-
-
-@pytest.fixture
-def metadata_service():
-    """A content metadata service instance."""
-    database = mock.MagicMock(metadata=mock.AsyncMock(IContentMetadataRepository))
-    return MetadataService(database=database)
 
 
 @pytest.fixture

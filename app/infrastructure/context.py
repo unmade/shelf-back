@@ -15,7 +15,6 @@ from app.app.blobs.services.content_processor import BlobContentProcessor
 from app.app.files.services import (
     DuplicateFinderService,
     FileService,
-    MetadataService,
     NamespaceService,
     SharingService,
 )
@@ -166,7 +165,6 @@ class Services:
         "filecore",
         "file_member",
         "media_item",
-        "metadata",
         "namespace",
         "sharing",
         "thumbnailer",
@@ -216,7 +214,6 @@ class Services:
         self.file_member = FileMemberService(database=database)
         self.dupefinder = DuplicateFinderService(database=database)
         self.media_item = MediaItemService(database=database, blob_service=self.blob)
-        self.metadata = MetadataService(database=database)
         self.namespace = NamespaceService(database=database, filecore=self.filecore)
         self.sharing = SharingService(database=database)
         self.token = TokenService(token_repo=cache)
@@ -226,7 +223,6 @@ class Services:
             dupefinder=self.dupefinder,
             filecore=self.filecore,
             indexer=infra.indexer,
-            metadata=self.metadata,
             worker=worker,
         )
 

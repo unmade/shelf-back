@@ -11,10 +11,7 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from app.app.files.domain import AnyPath, File
-    from app.app.files.services import (
-        DuplicateFinderService,
-        MetadataService,
-    )
+    from app.app.files.services import DuplicateFinderService
     from app.app.files.services.file import FileCoreService
     from app.app.infrastructure import IIndexerClient
     from app.app.infrastructure.worker import IWorker
@@ -25,21 +22,17 @@ if TYPE_CHECKING:
 
 
 class ContentService:
-    __slots__ = (
-        "dupefinder", "filecore", "indexer", "metadata", "thumbnailer", "worker"
-    )
+    __slots__ = ("dupefinder", "filecore", "indexer", "worker")
 
     def __init__(
         self,
         dupefinder: DuplicateFinderService,
         filecore: FileCoreService,
         indexer: IIndexerClient | None,
-        metadata: MetadataService,
         worker: IWorker,
     ):
         self.dupefinder = dupefinder
         self.filecore = filecore
-        self.metadata = metadata
         self.indexer = indexer
         self.worker = worker
 
@@ -54,7 +47,6 @@ class ContentService:
                 content.write(chunk)
 
             await self.dupefinder.track(file.id, content)
-            await self.metadata.track(file.id, content)
 
     async def process_async(self, file_id: UUID, user_id: UUID) -> None:
         """Schedules file content processing in a worker."""
@@ -71,7 +63,7 @@ class ContentService:
         """
         def get_trackers(mediatype: str) -> list[ITracker]:
             if mediatype in types:
-                return [dupefinder_tracker, metadata_tracker, chasher]
+                return [dupefinder_tracker, chasher]
             return [chasher]
 
         types = tuple(dhash.SUPPORTED_TYPES | metadata.SUPPORTED_TYPES)
@@ -84,7 +76,6 @@ class ContentService:
         async for files in batches:
             async with (
                 self.dupefinder.track_batch() as dupefinder_tracker,
-                self.metadata.track_batch() as metadata_tracker,
                 self.filecore.chash_batch() as chasher,
             ):
                 await taskgroups.gather(*(

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from .content_metadata import ContentMetadata
 from .file import File, MountedFile
 from .file_member import FileMember
 from .fingerprint import Fingerprint
@@ -10,7 +9,6 @@ from .path import AnyPath, Path
 from .shared_link import SharedLink
 
 __all__ = [
-    "ContentMetadata",
     "File",
     "FileMember",
     "MountedFile",

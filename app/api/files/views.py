@@ -14,7 +14,8 @@ from app.api.deps import (
     VerifiedCurrentUserDeps,
     WorkerDeps,
 )
-from app.app.files.domain import ContentMetadata, File
+from app.app.blobs.domain import BlobMetadata
+from app.app.files.domain import File
 from app.app.infrastructure.worker import JobStatus
 from app.app.users.domain import Account
 from app.cache import disk_cache
@@ -300,9 +301,9 @@ async def get_content_metadata(
         raise exceptions.FileActionNotAllowed() from exc
     except File.NotFound as exc:
         raise exceptions.PathNotFound(path=str(payload.id)) from exc
-    except ContentMetadata.NotFound as exc:
+    except BlobMetadata.NotFound as exc:
         raise exceptions.FileContentMetadataNotFound(path=str(payload.id)) from exc
-    return GetContentMetadataResponse.from_entity(meta)
+    return GetContentMetadataResponse.from_entity(payload.id, meta)
 
 
 @router.get("/get_thumbnail/{file_id}")

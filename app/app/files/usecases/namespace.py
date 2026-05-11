@@ -15,14 +15,13 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from app.app.audit.services import AuditTrailService
-    from app.app.blobs.domain import IBlobContent
-    from app.app.blobs.services import BlobThumbnailService
-    from app.app.files.domain import AnyPath, ContentMetadata
+    from app.app.blobs.domain import BlobMetadata, IBlobContent
+    from app.app.blobs.services import BlobMetadataService, BlobThumbnailService
+    from app.app.files.domain import AnyPath
     from app.app.files.services import (
         ContentService,
         DuplicateFinderService,
         FileService,
-        MetadataService,
         NamespaceService,
     )
     from app.app.infrastructure.database import IAtomic
@@ -31,10 +30,10 @@ if TYPE_CHECKING:
 
     class IUseCaseServices(IAtomic, Protocol):
         audit_trail: AuditTrailService
+        blob_metadata: BlobMetadataService
         content: ContentService
         dupefinder: DuplicateFinderService
         file: FileService
-        metadata: MetadataService
         namespace: NamespaceService
         thumbnailer: BlobThumbnailService
         user: UserService
@@ -50,10 +49,10 @@ class NamespaceUseCase:
         "_imagesearch",
 
         "audit_trail",
+        "blob_metadata",
         "content",
         "dupefinder",
         "file",
-        "metadata",
         "namespace",
         "thumbnailer",
         "user",
@@ -63,10 +62,10 @@ class NamespaceUseCase:
         self._services = services
 
         self.audit_trail = services.audit_trail
+        self.blob_metadata = services.blob_metadata
         self.content = services.content
         self.dupefinder = services.dupefinder
         self.file = services.file
-        self.metadata = services.metadata
         self.namespace = services.namespace
         self.thumbnailer = services.thumbnailer
         self.user = services.user
@@ -203,7 +202,7 @@ class NamespaceUseCase:
 
     async def get_file_metadata(
         self, ns_path: AnyPath, file_id: UUID
-    ) -> ContentMetadata:
+    ) -> BlobMetadata:
         """
         Returns a file content metadata.
 
@@ -213,7 +212,8 @@ class NamespaceUseCase:
             ContentMetadata.NotFound: If file metadata does not exist.
         """
         file = await self.file.get_by_id(ns_path, file_id)
-        return await self.metadata.get_by_file_id(file.id)
+        assert file.blob_id is not None
+        return await self.blob_metadata.get_by_blob_id(file.blob_id)
 
     async def get_file_thumbnail(
         self, ns_path: AnyPath, file_id: UUID, size: int

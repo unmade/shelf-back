@@ -283,14 +283,14 @@ class TestGetFileMetadata:
         # GIVEN
         ns_path, file_id = "admin", uuid.uuid4()
         file_service = cast(mock.MagicMock, ns_use_case.file)
-        metadata = cast(mock.MagicMock, ns_use_case.metadata)
+        blob_metadata = cast(mock.MagicMock, ns_use_case.blob_metadata)
         # WHEN
         result = await ns_use_case.get_file_metadata(ns_path, file_id)
         # THEN
-        assert result == metadata.get_by_file_id.return_value
+        assert result == blob_metadata.get_by_blob_id.return_value
         file_service.get_by_id.assert_awaited_once_with(ns_path, file_id)
         file = file_service.get_by_id.return_value
-        metadata.get_by_file_id.assert_awaited_once_with(file.id)
+        blob_metadata.get_by_blob_id.assert_awaited_once_with(file.blob_id)
 
 
 class TestGetFileThumbnail:

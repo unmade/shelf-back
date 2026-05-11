@@ -27,8 +27,8 @@ from app.api.files.exceptions import (
 )
 from app.api.files.schemas import MoveBatchRequest, ThumbnailSize
 from app.api.files.views import _make_thumbnail_ttl
+from app.app.blobs.domain import BlobMetadata
 from app.app.files.domain import (
-    ContentMetadata,
     File,
     MountedFile,
     MountPoint,
@@ -656,7 +656,7 @@ class TestGetContentMetadata:
         # GIVEN
         file_id = uuid.uuid4()
         exif = Exif(width=1280, height=800)
-        metadata = ContentMetadata(file_id=file_id, data=exif)
+        metadata = BlobMetadata(blob_id=uuid.uuid7(), data=exif)
         ns_use_case.get_file_metadata.return_value = metadata
         payload = {"id": str(file_id)}
         # WHEN
@@ -669,7 +669,7 @@ class TestGetContentMetadata:
         ns_use_case.get_file_metadata.assert_awaited_once_with(namespace.path, file_id)
 
     @pytest.mark.parametrize(["error", "expected_error_cls"], [
-        (ContentMetadata.NotFound, FileContentMetadataNotFound),
+        (BlobMetadata.NotFound, FileContentMetadataNotFound),
         (File.ActionNotAllowed(), FileActionNotAllowed),
         (File.NotFound(), PathNotFound),
     ])

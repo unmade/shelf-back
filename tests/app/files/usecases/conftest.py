@@ -6,13 +6,12 @@ from unittest import mock
 import pytest
 
 from app.app.audit.services import AuditTrailService
-from app.app.blobs.services import BlobThumbnailService
+from app.app.blobs.services import BlobMetadataService, BlobThumbnailService
 from app.app.files.services import (
     ContentService,
     DuplicateFinderService,
     FileMemberService,
     FileService,
-    MetadataService,
     NamespaceService,
     SharingService,
 )
@@ -31,9 +30,9 @@ def ns_use_case():
     services = mock.MagicMock(
         content=mock.MagicMock(spec=ContentService),
         audit_trail=mock.MagicMock(spec=AuditTrailService),
+        blob_metadata=mock.MagicMock(spec=BlobMetadataService),
         dupefinder=mock.MagicMock(spec=DuplicateFinderService),
         file=mock.MagicMock(spec=FileService, filecore=mock.MagicMock(FileCoreService)),
-        metadata=mock.MagicMock(spec=MetadataService),
         namespace=mock.MagicMock(spec=NamespaceService),
         thumbnailer=mock.MagicMock(spec=BlobThumbnailService),
         user=mock.MagicMock(spec=UserService),

@@ -20,7 +20,8 @@ from .exceptions import FileAlreadyDeleted, MalformedPath
 if TYPE_CHECKING:
     from fastapi import Request
 
-    from app.app.files.domain import AnyFile, ContentMetadata
+    from app.app.blobs.domain import BlobMetadata
+    from app.app.files.domain import AnyFile
     from app.worker.jobs.files import FileTaskResult
 
 
@@ -195,9 +196,9 @@ class GetContentMetadataResponse(BaseModel):
     data: Exif
 
     @classmethod
-    def from_entity(cls, entity: ContentMetadata) -> Self:
+    def from_entity(cls, file_id: UUID, entity: BlobMetadata) -> Self:
         return cls(
-            file_id=entity.file_id,
+            file_id=file_id,
             data=entity.data,
         )
 

@@ -11,7 +11,6 @@ from faker import Faker
 from app.app.blobs.domain import Blob, BlobJob, BlobMetadata
 from app.app.blobs.domain.blob_job import BlobJobDeletePayload
 from app.app.files.domain import (
-    ContentMetadata,
     File,
     FileMember,
     Fingerprint,
@@ -41,7 +40,6 @@ if TYPE_CHECKING:
     )
     from app.app.files.domain import AnyPath
     from app.app.files.repositories import (
-        IContentMetadataRepository,
         IFileMemberRepository,
         IFileRepository,
         IFingerprintRepository,
@@ -218,11 +216,6 @@ def media_item_favourite_repo(
     tortoise_database: TortoiseDatabase,
 ) -> IMediaItemFavouriteRepository:
     return tortoise_database.media_item_favourite
-
-
-@pytest.fixture
-def metadata_repo(tortoise_database: TortoiseDatabase) -> IContentMetadataRepository:
-    return tortoise_database.metadata
 
 
 @pytest.fixture
@@ -555,16 +548,6 @@ async def file(
     file_factory: FileFactory, namespace: Namespace
 ) -> File:
     return await file_factory(namespace.path)
-
-
-@pytest.fixture
-async def content_metadata(
-    metadata_repo: IContentMetadataRepository, file: File
-) -> ContentMetadata:
-    exif = Exif(width=1280, height=800)
-    return await metadata_repo.save(
-        ContentMetadata(file_id=file.id, data=exif)
-    )
 
 
 @pytest.fixture
