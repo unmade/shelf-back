@@ -9,8 +9,9 @@ import pytest
 from app.app.blobs.services import (
     BlobContentProcessor,
     BlobService,
+    BlobThumbnailService,
 )
-from app.app.files.services import ContentService, FileService, ThumbnailService
+from app.app.files.services import ContentService, FileService
 from app.app.files.services.file import FileCoreService
 from app.app.files.usecases.namespace import NamespaceUseCase
 from app.infrastructure.context import UseCases
@@ -33,7 +34,7 @@ def arq_context() -> ARQContext:
                     FileService,
                     filecore=mock.MagicMock(FileCoreService),
                 ),
-                thumbnailer=mock.MagicMock(ThumbnailService),
+                thumbnailer=mock.MagicMock(BlobThumbnailService),
             ),
         ),
         "_stack": AsyncExitStack(),

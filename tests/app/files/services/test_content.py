@@ -7,7 +7,6 @@ from unittest import mock
 import pytest
 
 from app.app.files.domain import File, Path
-from app.config import ThumbnailSize, config
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -45,19 +44,10 @@ class TestProcess:
         dupefinder = cast(mock.MagicMock, content_service.dupefinder)
         filecore = cast(mock.MagicMock, content_service.filecore)
         filecore.download.return_value = file, chunks
-        indexer = cast(mock.MagicMock, content_service.indexer)
         metadata = cast(mock.MagicMock, content_service.metadata)
-        thumbnailer = cast(mock.MagicMock, content_service.thumbnailer)
         # WHEN
         await content_service.process(file.id, uuid.uuid4())
         # THEN
-        thumbnailer.generate_thumbnails.assert_awaited_once_with(
-            file.id, sizes=config.features.pre_generated_thumbnail_sizes
-        )
-        thumbnailer.get_storage_key.assert_called_once_with(
-            file.chash, ThumbnailSize.lg
-        )
-        indexer.track.assert_called_once()
         dupefinder.track.assert_awaited_once()
         metadata.track.assert_awaited_once()
 
@@ -71,14 +61,9 @@ class TestProcess:
         filecore.download.return_value = file, chunks
         content_service.indexer = None
         metadata = cast(mock.MagicMock, content_service.metadata)
-        thumbnailer = cast(mock.MagicMock, content_service.thumbnailer)
         # WHEN
         await content_service.process(file.id, uuid.uuid4())
         # THEN
-        thumbnailer.generate_thumbnails.assert_awaited_once_with(
-            file.id, sizes=config.features.pre_generated_thumbnail_sizes
-        )
-        thumbnailer.get_storage_key.assert_not_called()
         dupefinder.track.assert_awaited_once()
         metadata.track.assert_awaited_once()
 

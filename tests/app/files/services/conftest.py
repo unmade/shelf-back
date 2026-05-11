@@ -22,7 +22,6 @@ from app.app.files.services import (
     MetadataService,
     NamespaceService,
     SharingService,
-    ThumbnailService,
 )
 from app.app.files.services.file import FileCoreService, MountService
 from app.app.infrastructure import IIndexerClient, IMailBackend, IStorage, IWorker
@@ -74,7 +73,6 @@ def content_service():
         filecore=mock.MagicMock(FileCoreService),
         indexer=mock.MagicMock(IIndexerClient),
         metadata=mock.MagicMock(MetadataService),
-        thumbnailer=mock.MagicMock(ThumbnailService),
         worker=mock.MagicMock(IWorker),
     )
 
@@ -138,14 +136,6 @@ def sharing_service():
     """A sharing service instance."""
     database = mock.MagicMock(shared_link=mock.AsyncMock(ISharedLinkRepository))
     return SharingService(database=database)
-
-
-@pytest.fixture
-def thumbnailer():
-    """A thumbnail service instance."""
-    filecore = mock.MagicMock(FileCoreService)
-    storage = mock.AsyncMock(IStorage)
-    return ThumbnailService(filecore=filecore, storage=storage)
 
 
 @pytest.fixture

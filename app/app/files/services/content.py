@@ -4,7 +4,6 @@ from tempfile import SpooledTemporaryFile
 from typing import IO, TYPE_CHECKING, Protocol
 
 from app.app.files.services.dupefinder import dhash
-from app.config import ThumbnailSize, config
 from app.toolkit import metadata, taskgroups
 from app.toolkit.mediatypes import MediaType
 
@@ -15,7 +14,6 @@ if TYPE_CHECKING:
     from app.app.files.services import (
         DuplicateFinderService,
         MetadataService,
-        ThumbnailService,
     )
     from app.app.files.services.file import FileCoreService
     from app.app.infrastructure import IIndexerClient
@@ -37,14 +35,12 @@ class ContentService:
         filecore: FileCoreService,
         indexer: IIndexerClient | None,
         metadata: MetadataService,
-        thumbnailer: ThumbnailService,
         worker: IWorker,
     ):
         self.dupefinder = dupefinder
         self.filecore = filecore
         self.metadata = metadata
         self.indexer = indexer
-        self.thumbnailer = thumbnailer
         self.worker = worker
 
     async def process(self, file_id: UUID, user_id: UUID) -> None:
@@ -56,17 +52,6 @@ class ContentService:
         with SpooledTemporaryFile() as content:
             async for chunk in chunks:
                 content.write(chunk)
-
-            await self.thumbnailer.generate_thumbnails(
-                file_id,
-                sizes=config.features.pre_generated_thumbnail_sizes,
-            )
-            if self.indexer is not None:
-                size = ThumbnailSize.ai
-                storage_key = self.thumbnailer.get_storage_key(file.chash, size)
-                taskgroups.schedule(
-                    self.indexer.track(file.id, storage_key, file.name, user_id),
-                )
 
             await self.dupefinder.track(file.id, content)
             await self.metadata.track(file.id, content)

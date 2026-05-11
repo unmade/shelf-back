@@ -18,7 +18,6 @@ from app.app.files.services import (
     MetadataService,
     NamespaceService,
     SharingService,
-    ThumbnailService,
 )
 from app.app.files.services.content import ContentService
 from app.app.files.services.file import FileCoreService, MountService
@@ -190,7 +189,7 @@ class Services:
             worker=worker,
         )
         self.blob_metadata = BlobMetadataService(database=database)
-        self.blob_thumbnailer = BlobThumbnailService(
+        self.blob_thumbnailer = self.thumbnailer = BlobThumbnailService(
             blob_service=self.blob,
             storage=storage_media,
             max_file_size=features.max_file_size_to_thumbnail,
@@ -220,9 +219,6 @@ class Services:
         self.metadata = MetadataService(database=database)
         self.namespace = NamespaceService(database=database, filecore=self.filecore)
         self.sharing = SharingService(database=database)
-        self.thumbnailer = ThumbnailService(
-            filecore=self.filecore, storage=storage_media
-        )
         self.token = TokenService(token_repo=cache)
         self.user = UserService(database=database, mail=mail)
 
@@ -231,7 +227,6 @@ class Services:
             filecore=self.filecore,
             indexer=infra.indexer,
             metadata=self.metadata,
-            thumbnailer=self.thumbnailer,
             worker=worker,
         )
 

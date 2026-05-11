@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
     from app.app.audit.services import AuditTrailService
     from app.app.blobs.domain import IBlobContent
+    from app.app.blobs.services import BlobThumbnailService
     from app.app.files.domain import AnyPath, ContentMetadata
     from app.app.files.services import (
         ContentService,
@@ -23,7 +24,6 @@ if TYPE_CHECKING:
         FileService,
         MetadataService,
         NamespaceService,
-        ThumbnailService,
     )
     from app.app.infrastructure.database import IAtomic
     from app.app.users.services import UserService
@@ -36,7 +36,7 @@ if TYPE_CHECKING:
         file: FileService
         metadata: MetadataService
         namespace: NamespaceService
-        thumbnailer: ThumbnailService
+        thumbnailer: BlobThumbnailService
         user: UserService
 
 __all__ = ["NamespaceUseCase"]
@@ -228,7 +228,8 @@ class NamespaceUseCase:
             File.ThumbnailUnavailable: If file is not an image.
         """
         file = await self.file.get_by_id(ns_path, file_id)
-        thumb = await self.thumbnailer.thumbnail(file_id, file.chash, size)
+        assert file.blob_id is not None
+        thumb = await self.thumbnailer.thumbnail(file.blob_id, file.chash, size)
         return file, *thumb
 
     async def get_item_at_path(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:

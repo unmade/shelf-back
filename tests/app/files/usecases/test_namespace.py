@@ -13,6 +13,8 @@ from app.app.users.domain import Account
 from app.config import config
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from app.app.blobs.domain import IBlobContent
     from app.app.files.domain import AnyPath
     from app.app.files.usecases import NamespaceUseCase
@@ -21,10 +23,16 @@ pytestmark = [pytest.mark.anyio]
 
 
 def _make_file(
-    ns_path: str, path: AnyPath, size: int = 10, mediatype: str = "image/jpeg"
+    ns_path: str,
+    path: AnyPath,
+    *,
+    blob_id: UUID | None = None,
+    size: int = 10,
+    mediatype: str = "image/jpeg",
 ) -> File:
     return File(
-        id=uuid.uuid4(),
+        id=uuid.uuid7(),
+        blob_id=blob_id or uuid.uuid7(),
         ns_path=ns_path,
         name=Path(path).name,
         path=Path(path),
@@ -299,7 +307,7 @@ class TestGetFileThumbnail:
         # THEN
         assert result == (file, *thumbnail)
         file_service.get_by_id.assert_awaited_once_with(ns_path, file.id)
-        thumbnailer.thumbnail.assert_awaited_once_with(file.id, file.chash, 32)
+        thumbnailer.thumbnail.assert_awaited_once_with(file.blob_id, file.chash, 32)
 
 
 class TestGetItemAtPath:
