@@ -30,15 +30,14 @@ class TestCreate:
     async def test(self, blob_service: BlobService, content: IBlobContent):
         # GIVEN
         storage_key = "blobs/abc123"
-        media_type = "image/jpeg"
 
         # WHEN
-        blob = await blob_service.create(storage_key, content, media_type)
+        blob = await blob_service.create(storage_key, content)
 
         # THEN
         assert blob.storage_key == storage_key
         assert blob.size == content.size
-        assert blob.media_type == media_type
+        assert blob.media_type == "application/octet-stream"
         assert await blob_service.storage.exists(storage_key)
         assert await blob_service.db.blob.get_by_id(blob.id) == blob
 

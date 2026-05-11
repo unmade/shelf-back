@@ -137,11 +137,10 @@ class MediaItemService:
         owner_id: UUID,
         name: str,
         content: IBlobContent,
-        media_type: str,
     ) -> MediaItem:
         """Creates a new media item backed by a Blob."""
         storage_key = _make_storage_key(owner_id, name)
-        blob = await self.blob_service.create(storage_key, content, media_type)
+        blob = await self.blob_service.create(storage_key, content)
 
         now = timezone.now()
         item = MediaItem(

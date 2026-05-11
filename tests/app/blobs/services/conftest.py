@@ -22,12 +22,7 @@ if TYPE_CHECKING:
     from app.infrastructure.database.tortoise import TortoiseDatabase
 
     class BlobFactory(Protocol):
-        async def __call__(
-            self,
-            storage_key: str,
-            content: IBlobContent,
-            media_type: str = "text/plain",
-        ) -> Blob:
+        async def __call__(self, storage_key: str, content: IBlobContent) -> Blob:
             ...
 
 
@@ -74,11 +69,7 @@ def thumbnailer() -> BlobThumbnailService:
 
 @pytest.fixture
 def blob_factory(blob_service: BlobService) -> BlobFactory:
-    async def factory(
-        storage_key: str,
-        content: IBlobContent,
-        media_type: str = "text/plain",
-    ) -> Blob:
-        return await blob_service.create(storage_key, content, media_type)
+    async def factory(storage_key: str, content: IBlobContent) -> Blob:
+        return await blob_service.create(storage_key, content)
 
     return factory

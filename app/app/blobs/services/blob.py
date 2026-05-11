@@ -14,7 +14,7 @@ from app.app.blobs.domain.blob_job import (
 from app.app.infrastructure.database import SENTINEL_ID
 from app.app.infrastructure.storage import DownloadBatchItem
 from app.toolkit import chash as chash_mod
-from app.toolkit import timezone
+from app.toolkit import mediatypes, timezone
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterable, Sequence
@@ -45,9 +45,8 @@ class BlobService:
         self.storage = storage
         self.worker = worker
 
-    async def create(
-        self, storage_key: str, content: IBlobContent, media_type: str
-    ) -> Blob:
+    async def create(self, storage_key: str, content: IBlobContent) -> Blob:
+        media_type = mediatypes.guess(content.file, name=storage_key)
         content_hash = await asyncio.to_thread(chash_mod.chash, content.file)
         await self.storage.makedirs(os.path.dirname(storage_key))
         storage_file = await self.storage.save(storage_key, content)

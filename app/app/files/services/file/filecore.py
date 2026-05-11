@@ -113,11 +113,9 @@ class FileCoreService:
                 raise File.NotADirectory()
 
         next_path = await self.get_available_path(ns_path, path)
-        mediatype = mediatypes.guess(content.file, name=path.name)
         blob = await self.blob_service.create(
             _storage_key(ns_path, next_path),
             content,
-            mediatype,
         )
 
         async with self.db.atomic():
