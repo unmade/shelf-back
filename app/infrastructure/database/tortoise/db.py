@@ -18,7 +18,6 @@ from .repositories import (
     BookmarkRepository,
     FileMemberRepository,
     FileRepository,
-    FingerprintRepository,
     MediaItemFavouriteRepository,
     MediaItemRepository,
     MountRepository,
@@ -37,7 +36,6 @@ if TYPE_CHECKING:
     from app.app.files.repositories import (
         IFileMemberRepository,
         IFileRepository,
-        IFingerprintRepository,
         IMountRepository,
         INamespaceRepository,
         ISharedLinkRepository,
@@ -84,7 +82,6 @@ class TortoiseDatabase(IDatabase):
     bookmark: IBookmarkRepository
     file: IFileRepository
     file_member: IFileMemberRepository
-    fingerprint: IFingerprintRepository
     media_item_favourite: IMediaItemFavouriteRepository
     media_item: IMediaItemRepository
     mount: IMountRepository
@@ -103,7 +100,6 @@ class TortoiseDatabase(IDatabase):
         self.bookmark = BookmarkRepository()
         self.file = FileRepository()
         self.file_member = FileMemberRepository()
-        self.fingerprint = FingerprintRepository()
         self.media_item_favourite = MediaItemFavouriteRepository()
         self.media_item = MediaItemRepository()
         self.mount = MountRepository()

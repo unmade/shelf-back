@@ -13,7 +13,6 @@ from app.app.blobs.services import (
 )
 from app.app.blobs.services.content_processor import BlobContentProcessor
 from app.app.files.services import (
-    DuplicateFinderService,
     FileService,
     NamespaceService,
     SharingService,
@@ -210,7 +209,6 @@ class Services:
             mount_service=MountService(database=database),
         )
         self.file_member = FileMemberService(database=database)
-        self.dupefinder = DuplicateFinderService(database=database)
         self.media_item = MediaItemService(database=database, blob_service=self.blob)
         self.namespace = NamespaceService(database=database, filecore=self.filecore)
         self.sharing = SharingService(database=database)

@@ -10,11 +10,9 @@ from app.app.blobs.domain.content import InMemoryBlobContent
 from app.app.blobs.services import BlobService
 from app.app.files.repositories import (
     IFileMemberRepository,
-    IFingerprintRepository,
     ISharedLinkRepository,
 )
 from app.app.files.services import (
-    DuplicateFinderService,
     FileMemberService,
     FileService,
     NamespaceService,
@@ -60,13 +58,6 @@ if TYPE_CHECKING:
 
 
 fake = Faker()
-
-
-@pytest.fixture
-def dupefinder():
-    """A duplicate finder service instance."""
-    database = mock.MagicMock(fingerprint=mock.AsyncMock(IFingerprintRepository))
-    return DuplicateFinderService(database=database)
 
 
 @pytest.fixture

@@ -13,7 +13,6 @@ from app.app.blobs.domain.blob_job import BlobJobDeletePayload
 from app.app.files.domain import (
     File,
     FileMember,
-    Fingerprint,
     MountPoint,
     Namespace,
     Path,
@@ -42,7 +41,6 @@ if TYPE_CHECKING:
     from app.app.files.repositories import (
         IFileMemberRepository,
         IFileRepository,
-        IFingerprintRepository,
         IMountRepository,
         INamespaceRepository,
         ISharedLinkRepository,
@@ -100,9 +98,6 @@ if TYPE_CHECKING:
 
     class FileMemberFactory(Protocol):
         async def __call__(self, file_id: UUID, user_id: UUID) -> FileMember: ...
-
-    class FingerprintFactory(Protocol):
-        async def __call__(self, file_id: UUID, value: int) -> Fingerprint: ...
 
     class FolderFactory(Protocol):
         async def __call__(
@@ -189,11 +184,6 @@ def blob_job_repo(
 @pytest.fixture
 def bookmark_repo(tortoise_database: TortoiseDatabase) -> IBookmarkRepository:
     return tortoise_database.bookmark
-
-
-@pytest.fixture
-def fingerprint_repo(tortoise_database: TortoiseDatabase) -> IFingerprintRepository:
-    return tortoise_database.fingerprint
 
 
 @pytest.fixture
@@ -405,16 +395,6 @@ def folder_factory(file_repo: IFileRepository) -> FolderFactory:
                 mediatype=MediaType.FOLDER,
             )
         )
-    return factory
-
-
-
-@pytest.fixture
-def fingerprint_factory(
-    fingerprint_repo: IFingerprintRepository,
-) -> FingerprintFactory:
-    async def factory(file_id: UUID, value: int) -> Fingerprint:
-        return await fingerprint_repo.save(Fingerprint(file_id, value=value))
     return factory
 
 

@@ -31,8 +31,6 @@ from .schemas import (
     DeleteImmediatelyBatchRequest,
     EmptyTrashCheckResponse,
     FileSchema,
-    FindDuplicatesRequest,
-    FindDuplicatesResponse,
     GetBatchRequest,
     GetBatchResponse,
     GetContentMetadataResponse,
@@ -217,32 +215,6 @@ async def empty_trash_check(
         await worker.get_result(payload.async_task_id)
         return response_model(status=AsyncTaskStatus.completed)
     return response_model(status=AsyncTaskStatus.pending)
-
-
-@router.post("/find_duplicates")
-async def find_duplicates(
-    request: Request,
-    payload: FindDuplicatesRequest,
-    namespace: NamespaceDeps,
-    usecases: UseCasesDeps,
-) -> FindDuplicatesResponse:
-    """Find all duplicate files in a folder including all sub-folders."""
-    ns_path = namespace.path
-    path, max_distance = payload.path, payload.max_distance
-
-    groups = await usecases.namespace.find_duplicates(ns_path, path, max_distance)
-
-    return FindDuplicatesResponse(
-        path=payload.path,
-        items=[
-            [
-                FileSchema.from_entity(file, request=request)
-                for file in group
-            ]
-            for group in groups
-        ],
-        count=len(groups),
-    )
 
 
 @router.post("/get_batch")

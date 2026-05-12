@@ -161,21 +161,6 @@ class FileMetadata(models.Model):
     )
 
 
-
-class Fingerprint(models.Model):
-    id = fields.UUIDField(primary_key=True, default=uuid7)
-    part1 = fields.IntField()
-    part2 = fields.IntField()
-    part3 = fields.IntField()
-    part4 = fields.IntField()
-    file: fields.ForeignKeyRelation[File] = fields.OneToOneField(
-        "models.File", related_name="fingerprint", on_delete=fields.CASCADE,
-    )
-
-    class Meta:
-        indexes = (("part1",), ("part2",), ("part3",), ("part4",))
-
-
 class MediaItem(models.Model):
     id = fields.UUIDField(primary_key=True, default=uuid7)
     owner: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(

@@ -8,7 +8,7 @@ from unittest import mock
 import freezegun
 import pytest
 
-from app.app.files.domain import File, Fingerprint, Path
+from app.app.files.domain import File, Path
 from app.app.users.domain import Account
 from app.config import config
 
@@ -229,47 +229,6 @@ class TestEmptyTrash:
         # THEN
         file_service.empty_folder.assert_awaited_once_with(ns_path, "trash")
         audit_trail.trash_emptied.assert_called_once_with()
-
-
-class TestFindDuplicates:
-    async def test(self, ns_use_case: NamespaceUseCase):
-        # GIVEN
-        ns_path = "admin"
-        files = [_make_file(ns_path, f"{idx}.txt") for idx in range(4)]
-        intersection = [
-            [
-                Fingerprint(file_id=files[0].id, value=14841886093006266496),
-                Fingerprint(file_id=files[2].id, value=14841886093006266496),
-            ],
-            [
-                Fingerprint(file_id=files[1].id, value=16493668159829433821),
-                Fingerprint(file_id=files[3].id, value=16493668159830482397),
-            ]
-        ]
-        dupefinder = cast(mock.MagicMock, ns_use_case.dupefinder)
-        dupefinder.find_in_folder.return_value = intersection
-        file_service = cast(mock.MagicMock, ns_use_case.file)
-        file_service.get_by_id_batch.return_value = files
-        # WHEN
-        duplicates = await ns_use_case.find_duplicates(ns_path, ".")
-        # THEN
-        assert duplicates == [[files[0], files[2]], [files[1], files[3]]]
-        dupefinder.find_in_folder.assert_awaited_once_with(ns_path, ".", 5)
-        file_service.get_by_id_batch.assert_awaited_once()
-
-    async def test_when_no_duplicates(self, ns_use_case: NamespaceUseCase):
-        # GIVEN
-        ns_path = "admin"
-        dupefinder = cast(mock.MagicMock, ns_use_case.dupefinder)
-        dupefinder.find_in_folder.return_value = []
-        file_service = cast(mock.MagicMock, ns_use_case.file)
-        file_service.get_by_id_batch.return_value = []
-        # WHEN
-        duplicates = await ns_use_case.find_duplicates(ns_path, ".")
-        # THEN
-        assert duplicates == []
-        dupefinder.find_in_folder.assert_awaited_once_with(ns_path, ".", 5)
-        file_service.get_by_id_batch.assert_awaited_once()
 
 
 class TestGetFileMetadata:

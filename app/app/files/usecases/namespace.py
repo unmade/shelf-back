@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import itertools
 from typing import TYPE_CHECKING, Protocol
 
 from app.app.files.domain import AnyFile, File, Path
@@ -18,7 +17,6 @@ if TYPE_CHECKING:
     from app.app.blobs.services import BlobMetadataService, BlobThumbnailService
     from app.app.files.domain import AnyPath
     from app.app.files.services import (
-        DuplicateFinderService,
         FileService,
         NamespaceService,
     )
@@ -29,7 +27,6 @@ if TYPE_CHECKING:
     class IUseCaseServices(IAtomic, Protocol):
         audit_trail: AuditTrailService
         blob_metadata: BlobMetadataService
-        dupefinder: DuplicateFinderService
         file: FileService
         namespace: NamespaceService
         thumbnailer: BlobThumbnailService
@@ -48,7 +45,6 @@ class NamespaceUseCase:
         "audit_trail",
         "blob_metadata",
         "content",
-        "dupefinder",
         "file",
         "namespace",
         "thumbnailer",
@@ -60,7 +56,6 @@ class NamespaceUseCase:
 
         self.audit_trail = services.audit_trail
         self.blob_metadata = services.blob_metadata
-        self.dupefinder = services.dupefinder
         self.file = services.file
         self.namespace = services.namespace
         self.thumbnailer = services.thumbnailer
@@ -169,31 +164,6 @@ class NamespaceUseCase:
         """Deletes all files and folders in the Trash folder in a target namespace."""
         await self.file.empty_folder(ns_path, "trash")
         taskgroups.schedule(self.audit_trail.trash_emptied())
-
-    async def find_duplicates(
-        self, ns_path: AnyPath, path: AnyPath, max_distance: int = 5
-    ) -> list[list[AnyFile]]:
-        """
-        Finds all duplicate fingerprints in a folder, including sub-folders.
-
-        The `max_distance` arg is maximum distance at which two fingerprints
-        are considered the same. Defaults to 5.
-        """
-        groups = await self.dupefinder.find_in_folder(ns_path, path, max_distance)
-        ids = itertools.chain.from_iterable(  # pragma: no branch
-            (fp.file_id for fp in group)
-            for group in groups
-        )
-
-        files = {
-            file.id: file
-            for file in await self.file.get_by_id_batch(ns_path, ids=ids)
-        }
-
-        return [
-            [files[fp.file_id] for fp in group]
-            for group in groups
-        ]
 
     async def get_file_metadata(
         self, ns_path: AnyPath, file_id: UUID

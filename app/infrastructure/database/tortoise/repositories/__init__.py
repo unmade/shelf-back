@@ -7,7 +7,6 @@ from .blob_metadata import BlobMetadataRepository
 from .bookmark import BookmarkRepository
 from .file import FileRepository
 from .file_member import FileMemberRepository
-from .fingerprint import FingerprintRepository
 from .media_item import MediaItemRepository
 from .media_item_favourite import MediaItemFavouriteRepository
 from .mount import MountRepository
@@ -25,7 +24,6 @@ __all__ = [
     "BookmarkRepository",
     "FileMemberRepository",
     "FileRepository",
-    "FingerprintRepository",
     "MediaItemFavouriteRepository",
     "MediaItemRepository",
     "MountRepository",

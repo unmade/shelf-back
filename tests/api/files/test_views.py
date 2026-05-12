@@ -476,45 +476,6 @@ class TestEmptyTrashCheck:
         worker_mock.get_status.assert_awaited_once_with(job_id)
 
 
-class TestFindDuplicates:
-    url = "/files/find_duplicates"
-
-    async def test(
-        self, client: TestClient, namespace: Namespace, ns_use_case: MagicMock
-    ):
-        # GIVEN
-        ns_path = namespace.path
-        files = [_make_file(str(ns_path), f"{idx}.txt") for idx in range(4)]
-        ns_use_case.find_duplicates.return_value = [
-            [files[0], files[2]], [files[1], files[3]]
-        ]
-        payload = {"path": "."}
-        client.mock_namespace(namespace)
-        # WHEN
-        response = await client.post(self.url, json=payload)
-        # THEN
-        assert response.json()["path"] == "."
-        assert response.json()["count"] == 2
-        assert len(response.json()["items"][0]) == 2
-        assert len(response.json()["items"][1]) == 2
-        ns_use_case.find_duplicates.assert_awaited_once_with(ns_path, ".", 5)
-
-    async def test_when_result_is_empty(
-        self, client: TestClient, namespace: Namespace, ns_use_case: MagicMock
-    ):
-        # GIVEN
-        ns_path = namespace.path
-        ns_use_case.find_duplicates.return_value = []
-        payload = {"path": "."}
-        client.mock_namespace(namespace)
-        # WHEN
-        response = await client.post(self.url, json=payload)
-        # THEN
-        assert response.json()["path"] == "."
-        assert response.json()["count"] == 0
-        ns_use_case.find_duplicates.assert_awaited_once_with(ns_path, ".", 5)
-
-
 class TestGetBatch:
     async def test(
         self,

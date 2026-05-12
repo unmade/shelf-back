@@ -24,10 +24,10 @@ def _storage_key(ns_path: str, path: str) -> str:
 
 
 async def backfill_files_to_blobs(apps, _schema_editor) -> None:
-    BlobModel=apps.get_model("models.Blob")
-    BlobMetadataModel=apps.get_model("models.BlobMetadata")
-    FileModel=apps.get_model("models.File")
-    FileMetadataModel=apps.get_model("models.FileMetadata")
+    BlobModel = apps.get_model("models.Blob")
+    BlobMetadataModel = apps.get_model("models.BlobMetadata")
+    FileModel = apps.get_model("models.File")
+    FileMetadataModel = apps.get_model("models.FileMetadata")
 
     async for files in _iter_files(FileModel=FileModel):
         await _process_batch(
@@ -46,8 +46,7 @@ async def _iter_files(
     while True:
         offset += batch_size
         batch = await (
-            FileModel
-            .filter(blob_id__isnull=True)
+            FileModel.filter(blob_id__isnull=True)
             .exclude(mediatype__name=MediaType.FOLDER)
             .select_related("namespace", "mediatype")
             .offset(offset)
