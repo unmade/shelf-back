@@ -5,8 +5,7 @@ from collections import defaultdict
 from typing import IO, TYPE_CHECKING, Protocol
 
 from app.app.files.domain import Fingerprint
-
-from . import dhash
+from app.toolkit import dhash
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator

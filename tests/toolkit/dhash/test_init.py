@@ -5,7 +5,7 @@ from unittest import mock
 
 import pytest
 
-from app.app.files.services.dupefinder import dhash
+from app.toolkit import dhash
 
 pytestmark = [pytest.mark.anyio]
 
@@ -14,8 +14,8 @@ class TestDHash:
     async def test_image(self):
         # GIVEN
         content = mock.MagicMock()
-        target_guess = "app.app.files.services.dupefinder.dhash.mediatypes.guess"
-        target_dhash = "app.app.files.services.dupefinder.dhash.dhash_image"
+        target_guess = "app.toolkit.dhash.mediatypes.guess"
+        target_dhash = "app.toolkit.dhash.dhash_image"
         # WHEN
         with (
             mock.patch(target_guess, return_value="image/jpeg") as guess_mock,

@@ -81,7 +81,7 @@ class TestGroup:
 
 
 @pytest.mark.anyio
-@mock.patch("app.app.files.services.dupefinder.dhash.dhash")
+@mock.patch("app.app.files.services.dupefinder.dupefinder.dhash.dhash")
 class TestTrack:
     async def test(
         self,
@@ -119,7 +119,7 @@ class TestTrack:
 
 
 @pytest.mark.anyio
-@mock.patch("app.app.files.services.dupefinder.dhash.dhash")
+@mock.patch("app.app.files.services.dupefinder.dupefinder.dhash.dhash")
 class TestTrackBatch:
     async def test(
         self,
