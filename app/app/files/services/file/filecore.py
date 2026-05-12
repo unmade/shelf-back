@@ -1,16 +1,13 @@
 from __future__ import annotations
 
-import contextlib
-import itertools
 import os.path
-from collections import deque
-from typing import IO, TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from app.app.files.domain import File, Path
 from app.app.files.repositories.file import FileUpdate
 from app.app.infrastructure.database import SENTINEL_ID
 from app.app.infrastructure.storage import DownloadBatchItem
-from app.toolkit import chash, mediatypes, taskgroups, timezone
+from app.toolkit import timezone
 from app.toolkit.chash import EMPTY_CONTENT_HASH
 from app.toolkit.mediatypes import MediaType
 
@@ -39,21 +36,6 @@ def _storage_key(ns_path: AnyPath, path: AnyPath) -> str:
     return os.path.join(str(ns_path), str(path))
 
 
-class _ContentHashTracker:
-    __slots__ = ["_items"]
-
-    def __init__(self):
-        self._items: list[tuple[UUID, str]] = []
-
-    @property
-    def items(self) -> list[tuple[UUID, str]]:
-        return self._items
-
-    async def add(self, file_id: UUID, content: IO[bytes]) -> None:
-        content_hash = chash.chash(content)
-        self._items.append((file_id, content_hash))
-
-
 class FileCoreService:
     """
     A service with file manipulation primitives.
@@ -72,18 +54,6 @@ class FileCoreService:
         self.db = database
         self.blob_service = blob_service
         self.storage = storage
-
-    @contextlib.asynccontextmanager
-    async def chash_batch(self) -> AsyncIterator[_ContentHashTracker]:
-        """
-        A context manager to calculate content hash for multiple files and update it
-        in bulk.
-        """
-        tracker = _ContentHashTracker()
-        try:
-            yield tracker
-        finally:
-            await self.db.file.set_chash_batch(tracker.items)
 
     async def create_file(
         self,
@@ -416,74 +386,3 @@ class FileCoreService:
             await self.db.file.incr_size_batch(at_ns_path, to_decrease, value=-size)
             await self.db.file.incr_size_batch(to_ns_path, to_increase, value=size)
         return updated_file
-
-    async def reindex(self, ns_path: AnyPath, path: AnyPath) -> None:
-        """
-        Creates files that are missing in the database, but present in the storage and
-        removes files that are present in the database, but missing in the storage
-        at a given path.
-
-        The method doesn't re-calculate file content hash.
-        The method doesn't guarantee to accurately re-calculate path parents sizes.
-
-        Raises:
-            File.NotADirectory: If given path does not exist.
-        """
-        ns_path = str(ns_path)
-        # For now, it is faster to re-create all files from scratch
-        # than iterating through large directories looking for one missing/dangling file
-        prefix = "" if path == "." else f"{path}/"
-        await self.db.file.delete_all_with_prefix(ns_path, prefix)
-
-        root = None
-        with contextlib.suppress(File.NotFound):
-            root = await self.db.file.get_by_path(ns_path, path)
-            if root.mediatype != MediaType.FOLDER:
-                raise File.NotADirectory() from None
-
-        missing: dict[Path, File] = {}
-        total_size = 0
-        folders = deque([Path(path)])
-        while len(folders):
-            folder = folders.pop()
-            # TODO: after upgrading to Python 3.14 it reports 520 -> 515 as uncovered
-            # which seems to be a false positive. should check with new versions.
-            iterdir = self.storage.iterdir(_storage_key(ns_path, folder))
-            async for file in iterdir:  # pragma: no branch
-                rel_path = file.path[len(ns_path) + 1:]
-                if file.is_dir():
-                    folders.append(Path(rel_path))
-                    size = 0
-                    mediatype = MediaType.FOLDER.value
-                else:
-                    for item in itertools.chain((folder, ), folder.parents):
-                        if item in missing:
-                            missing[item].size += file.size
-                    total_size += file.size
-                    size = file.size
-                    mediatype = mediatypes.guess_unsafe(file.name)
-
-                missing[Path(rel_path)] = File(
-                    id=SENTINEL_ID,
-                    ns_path=ns_path,
-                    name=file.name,
-                    path=Path(rel_path),
-                    chash=chash.EMPTY_CONTENT_HASH,
-                    size=size,
-                    modified_at=timezone.fromtimestamp(file.mtime),
-                    mediatype=mediatype,
-                )
-
-        chunk_size = min(len(missing), 500)
-        await taskgroups.gather(*(
-            self.db.file.save_batch(file for file in chunk if file is not None)
-            for chunk in itertools.zip_longest(*[iter(missing.values())] * chunk_size)
-        ))
-
-        # creating a folder after `storage.iterdir` do its job in case it fails
-        # with `File.NotADirectory` error
-        if root is None:
-            root = await self.create_folder(ns_path, path)
-
-        file_update = FileUpdate(size=total_size)
-        await self.db.file.update(root, file_update)

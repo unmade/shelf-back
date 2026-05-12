@@ -61,26 +61,5 @@ async def createsuperuser(username, password, exist_ok):
             click.echo("User created successfully.")
 
 
-@cli.command()
-@click.argument("namespace", type=str)
-@async_to_sync
-async def reindex(namespace: str) -> None:
-    """Reindex files in the storage for a given namespace."""
-    async with AppContext(config) as ctx:
-        await ctx.usecases.namespace.reindex(namespace)
-
-
-@cli.command()
-@click.argument("namespace", type=str)
-@async_to_sync
-async def reindex_content(namespace: str) -> None:
-    """
-    Restore additional information about files, such as file fingerprints and content
-    metadata.
-    """
-    async with AppContext(config) as ctx:
-        await ctx.usecases.namespace.reindex_contents(namespace)
-
-
 if __name__ == "__main__":
     cli()

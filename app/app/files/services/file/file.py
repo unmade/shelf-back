@@ -349,14 +349,3 @@ class FileService:
             to=(to_fq_path.ns_path, to_fq_path.path),
         )
         return _resolve_file(file, to_fq_path.mount_point)
-
-    async def reindex(self, ns_path: AnyPath, path: AnyPath) -> None:
-        """
-        Creates files that are missing in the database, but present in the storage and
-        removes files that are present in the database, but missing in the storage
-        at a given path.
-
-        Raises:
-            File.NotADirectory: If given path does not exist.
-        """
-        await self.filecore.reindex(ns_path, path)

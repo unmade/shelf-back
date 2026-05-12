@@ -18,7 +18,6 @@ from app.app.files.services import (
     NamespaceService,
     SharingService,
 )
-from app.app.files.services.content import ContentService
 from app.app.files.services.file import FileCoreService, MountService
 from app.app.files.services.file_member import FileMemberService
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
@@ -159,7 +158,6 @@ class Services:
         "blob_processor",
         "blob_thumbnailer",
         "bookmark",
-        "content",
         "dupefinder",
         "file",
         "filecore",
@@ -218,13 +216,6 @@ class Services:
         self.sharing = SharingService(database=database)
         self.token = TokenService(token_repo=cache)
         self.user = UserService(database=database, mail=mail)
-
-        self.content = ContentService(
-            dupefinder=self.dupefinder,
-            filecore=self.filecore,
-            indexer=infra.indexer,
-            worker=worker,
-        )
 
     def atomic(self) -> ITransaction:
         return self._database.atomic()

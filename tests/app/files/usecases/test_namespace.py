@@ -56,7 +56,6 @@ class TestAddFile:
     ):
         # GIVEN
         audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
-        content_service = cast(mock.MagicMock, ns_use_case.content)
         file_service = cast(mock.MagicMock, ns_use_case.file)
         ns_service = cast(mock.MagicMock, ns_use_case.namespace)
         user_service = cast(mock.MagicMock, ns_use_case.user)
@@ -73,7 +72,6 @@ class TestAddFile:
             ns_path, path, content, modified_at
         )
         owner_id = ns_service.get_by_path.return_value.owner_id
-        content_service.process_async.assert_awaited_once_with(result.id, owner_id)
 
         user_service.get_account.assert_awaited_once_with(owner_id)
         ns_service.get_space_used_by_owner_id.assert_not_awaited()
@@ -84,7 +82,6 @@ class TestAddFile:
     ):
         # GIVEN
         audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
-        content_service = cast(mock.MagicMock, ns_use_case.content)
         file_service = cast(mock.MagicMock, ns_use_case.file)
         ns_service = cast(mock.MagicMock, ns_use_case.namespace)
         ns_service.get_space_used_by_owner_id = mock.AsyncMock(return_value=512)
@@ -102,7 +99,6 @@ class TestAddFile:
             ns_path, path, content, modified_at
         )
         owner_id = ns_service.get_by_path.return_value.owner_id
-        content_service.process_async.assert_awaited_once_with(result.id, owner_id)
 
         user_service.get_account.assert_awaited_once_with(owner_id)
         ns_service.get_space_used_by_owner_id.assert_awaited_once_with(owner_id)
@@ -130,7 +126,6 @@ class TestAddFile:
     ):
         # GIVEN
         audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
-        content_service = cast(mock.MagicMock, ns_use_case.content)
         file_service = cast(mock.MagicMock, ns_use_case.file)
         ns_service = cast(mock.MagicMock, ns_use_case.namespace)
         ns_service.get_space_used_by_owner_id = mock.AsyncMock(return_value=1024)
@@ -144,7 +139,6 @@ class TestAddFile:
 
         # THEN
         file_service.create_file.assert_not_awaited()
-        content_service.process_async.assert_not_awaited()
 
         owner_id = ns_service.get_by_path.return_value.owner_id
         user_service.get_account.assert_awaited_once_with(owner_id)
@@ -414,39 +408,3 @@ class TestMoveItemToTrash:
             ns_path, Path("Trash/f.txt")
         )
         file_service.move.assert_awaited_once_with(ns_path, path, next_path)
-
-
-class TestReindex:
-    async def test(self, ns_use_case: NamespaceUseCase):
-        # GIVEN
-        ns_service = cast(mock.MagicMock, ns_use_case.namespace)
-        file_service = cast(mock.MagicMock, ns_use_case.file)
-        # WHEN
-        await ns_use_case.reindex("admin")
-        # THEN
-        ns_service.get_by_path.assert_awaited_once_with("admin")
-        file_service.reindex.assert_awaited_once_with("admin", ".")
-        file_service.filecore.create_folder.assert_awaited_once_with("admin", "Trash")
-
-    async def test_when_trash_folder_was_created(self, ns_use_case: NamespaceUseCase):
-        # GIVEN
-        ns_service = cast(mock.MagicMock, ns_use_case.namespace)
-        file_service = cast(mock.MagicMock, ns_use_case.file)
-        file_service.filecore.create_folder.side_effect = File.AlreadyExists
-        # WHEN
-        await ns_use_case.reindex("admin")
-        # THEN
-        ns_service.get_by_path.assert_awaited_once_with("admin")
-        file_service.reindex.assert_awaited_once_with("admin", ".")
-        file_service.filecore.create_folder.assert_awaited_once_with("admin", "Trash")
-
-
-class TestReindexContents:
-    async def test(self, ns_use_case: NamespaceUseCase):
-        # GIVEN
-        ns_path = "admin"
-        content_service = cast(mock.MagicMock, ns_use_case.content)
-        # WHEN
-        await ns_use_case.reindex_contents(ns_path)
-        # THEN
-        content_service.reindex_contents.assert_awaited_once_with(ns_path)

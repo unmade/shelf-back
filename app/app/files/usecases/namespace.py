@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 import itertools
 from typing import TYPE_CHECKING, Protocol
 
@@ -19,7 +18,6 @@ if TYPE_CHECKING:
     from app.app.blobs.services import BlobMetadataService, BlobThumbnailService
     from app.app.files.domain import AnyPath
     from app.app.files.services import (
-        ContentService,
         DuplicateFinderService,
         FileService,
         NamespaceService,
@@ -31,7 +29,6 @@ if TYPE_CHECKING:
     class IUseCaseServices(IAtomic, Protocol):
         audit_trail: AuditTrailService
         blob_metadata: BlobMetadataService
-        content: ContentService
         dupefinder: DuplicateFinderService
         file: FileService
         namespace: NamespaceService
@@ -63,7 +60,6 @@ class NamespaceUseCase:
 
         self.audit_trail = services.audit_trail
         self.blob_metadata = services.blob_metadata
-        self.content = services.content
         self.dupefinder = services.dupefinder
         self.file = services.file
         self.namespace = services.namespace
@@ -109,7 +105,6 @@ class NamespaceUseCase:
                 raise Account.StorageQuotaExceeded()
 
         file = await self.file.create_file(ns_path, path, content, modified_at)
-        await self.content.process_async(file.id, ns.owner_id)
 
         taskgroups.schedule(self.audit_trail.file_added(file))
         return file
@@ -311,29 +306,3 @@ class NamespaceUseCase:
         file = await self.file.move(ns_path, path, next_path)
         taskgroups.schedule(self.audit_trail.file_trashed(file))
         return file
-
-    async def reindex(self, ns_path: AnyPath) -> None:
-        """
-        Reindexes all files in the given namespace.
-
-        This method creates files that are missing in the database, but present in the
-        storage and removes files that are present in the database, but missing in the
-        storage.
-
-        Raises:
-            File.NotADirectory: If given path does not exist.
-            Namespace.NotFound: If namespace does not exist.
-        """
-        await self.namespace.get_by_path(str(ns_path))  # ensures namespace exists
-        await self.file.reindex(ns_path, ".")
-        # s3-compatible storage stores only files and empty folders are not re-created
-        # as a result. Therefore create Trash folder manually
-        with contextlib.suppress(File.AlreadyExists):
-            await self.file.filecore.create_folder(ns_path, "Trash")
-
-    async def reindex_contents(self, ns_path: AnyPath) -> None:
-        """
-        Restores additional information about files, such as fingerprint and content
-        metadata.
-        """
-        await self.content.reindex_contents(ns_path)

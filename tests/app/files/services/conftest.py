@@ -14,7 +14,6 @@ from app.app.files.repositories import (
     ISharedLinkRepository,
 )
 from app.app.files.services import (
-    ContentService,
     DuplicateFinderService,
     FileMemberService,
     FileService,
@@ -22,7 +21,7 @@ from app.app.files.services import (
     SharingService,
 )
 from app.app.files.services.file import FileCoreService, MountService
-from app.app.infrastructure import IIndexerClient, IMailBackend, IStorage, IWorker
+from app.app.infrastructure import IMailBackend, IStorage, IWorker
 from app.app.users.repositories import IUserRepository
 from app.app.users.services import BookmarkService, UserService
 from app.toolkit import security
@@ -61,17 +60,6 @@ if TYPE_CHECKING:
 
 
 fake = Faker()
-
-
-@pytest.fixture
-def content_service():
-    """A content service instance."""
-    return ContentService(
-        dupefinder=mock.MagicMock(DuplicateFinderService),
-        filecore=mock.MagicMock(FileCoreService),
-        indexer=mock.MagicMock(IIndexerClient),
-        worker=mock.MagicMock(IWorker),
-    )
 
 
 @pytest.fixture

@@ -9,14 +9,12 @@ import pytest
 
 from app.app.files.domain import File, Path
 from app.app.infrastructure.storage import DownloadBatchItem
-from app.toolkit import chash, taskgroups
-from app.toolkit.mediatypes import MediaType
+from app.toolkit import taskgroups
 
 if TYPE_CHECKING:
-    from unittest.mock import MagicMock
 
     from app.app.blobs.domain import IBlobContent
-    from app.app.files.domain import AnyPath, Namespace
+    from app.app.files.domain import Namespace
     from app.app.files.services.file import FileCoreService
     from tests.fixtures.app.files import ContentFactory
 
@@ -27,49 +25,6 @@ if TYPE_CHECKING:
     )
 
 pytestmark = [pytest.mark.anyio, pytest.mark.database]
-
-
-def _make_file(
-    ns_path: str, path: AnyPath, size: int = 10, mediatype: str = "plain/text"
-) -> File:
-    path = Path(path)
-    return File(
-        id=uuid.uuid4(),
-        ns_path=ns_path,
-        name=path.name,
-        path=path,
-        chash=chash.EMPTY_CONTENT_HASH,
-        size=size,
-        mediatype=mediatype,
-    )
-
-
-@mock.patch("app.app.files.services.file.filecore.chash.chash")
-class TestCHashBatch:
-    async def test(
-        self,
-        chash: MagicMock,
-        filecore: FileCoreService,
-        image_content: IBlobContent,
-    ):
-        # GIVEN
-        file_ids = [uuid.uuid4() for _ in range(3)]
-        chahes = [uuid.uuid4().hex, "", uuid.uuid4().hex]
-        chash.side_effect = chahes
-        # WHEN
-        with mock.patch.object(filecore.db.file, "set_chash_batch") as db_mock:
-            async with filecore.chash_batch() as chasher:
-                await chasher.add(file_ids[0], image_content.file)
-                await chasher.add(file_ids[1], image_content.file)
-                await chasher.add(file_ids[2], image_content.file)
-        # THEN
-        items = list(zip(file_ids, chahes, strict=False))
-        db_mock.assert_awaited_once_with(items)
-        chash.assert_has_calls([
-            mock.call(image_content.file),
-            mock.call(image_content.file),
-            mock.call(image_content.file),
-        ])
 
 
 class TestCreateFile:
@@ -841,133 +796,3 @@ class TestMove:
         with pytest.raises(File.MalformedPath) as excinfo:
             await filecore.move(at=(namespace.path, a), to=(namespace.path, b))
         assert str(excinfo.value) == "Can't move to itself."
-class TestReindex:
-    async def test_creating_missing_files(
-        self,
-        filecore: FileCoreService,
-        namespace: Namespace,
-        content: IBlobContent,
-        image_content: IBlobContent,
-    ):
-        # GIVEN
-        db = filecore.db
-        storage = filecore.storage
-
-        # these files exist in the storage, but not in the database
-        await storage.makedirs(f"{namespace.path}/a")
-        await storage.makedirs(f"{namespace.path}/b")
-        await storage.save(f"{namespace.path}/b/f.txt", content=content)
-        await storage.save(f"{namespace.path}/im.jpeg", content=image_content)
-
-        # WHEN
-        await filecore.reindex(namespace.path, ".")
-
-        # THEN
-        # ensure home size is correct
-        home = await db.file.get_by_path(namespace.path, ".")
-        assert home.size == 1668
-
-        # ensure missing files in the database has been created
-        paths = ["a", "b", "b/f.txt", "im.jpeg"]
-        a, b, f, i = await db.file.get_by_path_batch(namespace.path, paths=paths)
-        assert a.is_folder()
-        assert a.size == 0
-        assert b.is_folder()
-        assert b.size == content.size
-        assert f.size == content.size
-        assert f.mediatype == "text/plain"
-        assert i.mediatype == "image/jpeg"
-        assert i.size == image_content.size
-
-    async def test_removing_dangling_files(
-        self,
-        filecore: FileCoreService,
-        namespace: Namespace,
-    ):
-        # GIVEN
-        db = filecore.db
-        await filecore.storage.makedirs(namespace.path)
-
-        # these files exist in the database, but not in the storage
-        await db.file.save_batch([
-            _make_file(namespace.path, "c", size=32, mediatype=MediaType.FOLDER),
-            _make_file(namespace.path, "c/d", size=32, mediatype=MediaType.FOLDER),
-            _make_file(namespace.path, "c/d/f.txt", size=32),
-        ])
-
-        # WHEN
-        await filecore.reindex(namespace.path, ".")
-
-        # THEN
-        # ensure home size is updated
-        home = await db.file.get_by_path(namespace.path, ".")
-        assert home.size == 0
-
-        # ensure stale files has been deleted
-        assert not await db.file.exists_at_path(namespace.path, "c")
-        assert not await db.file.exists_at_path(namespace.path, "c/d")
-        assert not await db.file.exists_at_path(namespace.path, "c/d/f.txt")
-
-    async def test_when_files_consistent(
-        self,
-        filecore: FileCoreService,
-        file_factory: FileFactory,
-        namespace: Namespace,
-    ):
-        # GIVEN
-        db = filecore.db
-        file = await file_factory(namespace.path, path="e/g/f.txt")
-
-        # WHEN
-        await filecore.reindex(namespace.path, "e")
-
-        # THEN
-        # parent size is correct
-        e = await db.file.get_by_path(namespace.path, "e")
-        assert e.size == file.size
-
-        # ensure correct files remain the same
-        assert await db.file.exists_at_path(namespace.path, "e/g/f.txt")
-
-    async def test_when_path_is_missing_in_the_db(
-        self,
-        filecore: FileCoreService,
-        namespace: Namespace,
-    ):
-        await filecore.storage.makedirs(f"{namespace.path}/a")
-        await filecore.reindex(namespace.path, "a")
-        assert await filecore.db.file.exists_at_path(namespace.path, "a")
-
-    async def test_when_path_is_present_in_the_db(
-        self,
-        filecore: FileCoreService,
-        namespace: Namespace,
-        folder_factory: FolderFactory,
-    ):
-        db = filecore.db
-        await folder_factory(namespace.path, path="a")
-        await filecore.storage.makedirs(f"{namespace.path}/a")
-        await filecore.reindex(namespace.path, "a")
-        assert await db.file.exists_at_path(namespace.path, "a")
-
-    async def test_when_path_is_a_file(
-        self,
-        filecore: FileCoreService,
-        namespace: Namespace,
-        file_factory: FileFactory,
-    ):
-        await file_factory(namespace.path, path="a")
-        with pytest.raises(File.NotADirectory):
-            await filecore.reindex(namespace.path, "a")
-
-    async def test_when_path_is_a_file_in_the_storage(
-        self,
-        filecore: FileCoreService,
-        namespace: Namespace,
-        content: IBlobContent,
-    ):
-        await filecore.storage.makedirs(f"{namespace.path}/.")
-        await filecore.storage.save(f"{namespace.path}/a", content=content)
-        with pytest.raises(File.NotADirectory):
-            await filecore.reindex(namespace.path, "a")
-        assert not await filecore.db.file.exists_at_path(namespace.path, "a")

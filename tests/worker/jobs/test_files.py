@@ -198,15 +198,3 @@ class TestMovetoTrashFile:
         msg = "Unexpectedly failed to move file to trash"
         log_record = ("app.worker.jobs.files", logging.ERROR, msg)
         assert caplog.record_tuples == [log_record]
-
-
-class TestProcessFileContent:
-    async def test(self, arq_context: ARQContext):
-        # GIVEN
-        file_id, user_id = uuid.uuid4(), uuid.uuid4()
-        usecases = cast(mock.MagicMock, arq_context["usecases"])
-        content_service = usecases.namespace.content
-        # WHEN
-        await files.process_file_content(arq_context, file_id, user_id)
-        # THEN
-        content_service.process.assert_awaited_once_with(file_id, user_id)

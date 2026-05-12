@@ -10,7 +10,6 @@ from app.app.files.domain import File
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-    from uuid import UUID
 
     from app.app.audit.domain import CurrentUserContext
     from app.app.files.domain import AnyFile, AnyPath
@@ -156,8 +155,3 @@ async def move_to_trash_batch(
             result = FileTaskResult(file=file, err_code=err_code)
             results.append(result)
     return results
-
-
-async def process_file_content(ctx: ARQContext, file_id: UUID, user_id: UUID) -> None:
-    content_service = ctx["usecases"].namespace.content
-    await content_service.process(file_id, user_id)

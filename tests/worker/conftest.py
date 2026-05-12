@@ -11,7 +11,7 @@ from app.app.blobs.services import (
     BlobService,
     BlobThumbnailService,
 )
-from app.app.files.services import ContentService, FileService
+from app.app.files.services import FileService
 from app.app.files.services.file import FileCoreService
 from app.app.files.usecases.namespace import NamespaceUseCase
 from app.infrastructure.context import UseCases
@@ -29,7 +29,6 @@ def arq_context() -> ARQContext:
             blob_content_processor=mock.MagicMock(BlobContentProcessor),
             namespace=mock.MagicMock(
                 NamespaceUseCase,
-                content=mock.MagicMock(ContentService),
                 file=mock.MagicMock(
                     FileService,
                     filecore=mock.MagicMock(FileCoreService),

@@ -1180,17 +1180,3 @@ class TestMove:
         ])
         mount_service.move.assert_not_awaited()
         filecore.move.assert_not_awaited()
-
-
-@pytest.mark.anyio
-class TestReindex:
-    async def test(self, file_service: FileService):
-        # GIVEN
-        ns_path, path = "admin", "folder"
-        filecore = cast(mock.AsyncMock, file_service.filecore)
-        mount_service = cast(mock.AsyncMock, file_service.mount_service)
-        # WHEN
-        await file_service.reindex("admin", "folder")
-        # THEN
-        mount_service.resolve_path.assert_not_called()
-        filecore.reindex.assert_awaited_once_with(ns_path, path)

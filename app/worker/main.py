@@ -41,7 +41,6 @@ class WorkerSettings:
         files.empty_trash,
         files.move_batch,
         files.move_to_trash_batch,
-        files.process_file_content,
     ]
     on_startup = startup
     on_shutdown = shutdown

@@ -8,7 +8,6 @@ import pytest
 from app.app.audit.services import AuditTrailService
 from app.app.blobs.services import BlobMetadataService, BlobThumbnailService
 from app.app.files.services import (
-    ContentService,
     DuplicateFinderService,
     FileMemberService,
     FileService,
@@ -28,7 +27,6 @@ def _atomic() -> AsyncExitStack:
 def ns_use_case():
     """A mocked NamespaceUseCase instance."""
     services = mock.MagicMock(
-        content=mock.MagicMock(spec=ContentService),
         audit_trail=mock.MagicMock(spec=AuditTrailService),
         blob_metadata=mock.MagicMock(spec=BlobMetadataService),
         dupefinder=mock.MagicMock(spec=DuplicateFinderService),
