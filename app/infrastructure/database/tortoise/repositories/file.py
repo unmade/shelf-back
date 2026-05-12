@@ -190,16 +190,6 @@ class FileRepository(IFileRepository):
             .exists()
         )
 
-    async def get_by_chash_batch(
-        self, chashes: Sequence[str]
-    ) -> list[File]:
-        objs = await (
-            models.File
-            .filter(chash__in=chashes)
-            .select_related("mediatype", "namespace")
-        )
-        return [_from_db(None, obj) for obj in objs]
-
     async def get_by_id(self, file_id: UUID) -> File:
         try:
             obj = await (
@@ -442,15 +432,6 @@ class FileRepository(IFileRepository):
             for f in files
         ]
         await models.File.bulk_create(objs, ignore_conflicts=True)
-
-    async def set_chash_batch(
-        self, items: Iterable[tuple[UUID, str]]
-    ) -> None:
-        chash_map = dict(items)
-        objs = await models.File.filter(id__in=list(chash_map.keys()))
-        for obj in objs:
-            obj.chash = chash_map[obj.id]
-        await models.File.bulk_update(objs, fields=["chash"])
 
     async def update(self, file: File, fields: FileUpdate) -> File:
         update_kwargs: dict[str, object] = {}

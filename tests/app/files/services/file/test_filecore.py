@@ -428,19 +428,6 @@ class TestGetAvailablePath:
         next_path = await filecore.get_available_path(namespace.path, "f.txt")
         assert next_path == "f.txt"
 
-
-class TestGetByCHashBatch:
-    async def test(self, filecore: FileCoreService):
-        # GIVEN
-        chashes = [uuid.uuid4().hex for _ in range(3)]
-        # WHEN
-        with mock.patch.object(filecore, "db", autospec=filecore.db) as db:
-            result = await filecore.get_by_chash_batch(chashes)
-        # THEN
-        assert result == db.file.get_by_chash_batch.return_value
-        db.file.get_by_chash_batch.assert_awaited_once_with(chashes)
-
-
 class TestGetById:
     async def test(self, filecore: FileCoreService):
         # GIVEN

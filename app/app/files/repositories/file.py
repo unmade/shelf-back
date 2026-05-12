@@ -60,9 +60,6 @@ class IFileRepository(Protocol):
         Checks whether a file or a folder with a given ID exists in a target namespace.
         """
 
-    async def get_by_chash_batch(self, chashes: Sequence[str]) -> list[File]:
-        """Returns all files with specified chashes."""
-
     async def get_by_id(self, file_id: UUID) -> File:
         """
         Return a file by ID.
@@ -117,9 +114,6 @@ class IFileRepository(Protocol):
 
     async def save_batch(self, files: Iterable[File]) -> None:
         """Save multiple files at once."""
-
-    async def set_chash_batch(self, items: Iterable[tuple[UUID, str]]) -> None:
-        """Sets a chash for all provideded (file ID - chash) pairs."""
 
     async def update(self, file: File, fields: FileUpdate) -> File:
         """

@@ -250,28 +250,6 @@ class TestExistsWithID:
         assert exists is False
 
 
-class TestGetByCHashBatch:
-    async def test(
-        self,
-        file_repo: FileRepository,
-        file_factory: FileFactory,
-        namespace: Namespace,
-    ):
-        # GIVEN
-        files = [
-            await file_factory(namespace.path),
-            await file_factory(namespace.path),
-            await file_factory(namespace.path),
-        ]
-        chashes = [file.chash for file in files[:2]]
-        # WHEN
-        result = await file_repo.get_by_chash_batch(chashes)
-        # THEN
-        assert sorted(
-            result, key=operator.attrgetter("modified_at")
-        ) == files[:2]
-
-
 class TestGetById:
     async def test(self, file_repo: FileRepository, file: File):
         result = await file_repo.get_by_id(file.id)
@@ -779,32 +757,6 @@ class TestSaveBatch:
         self, file_repo: FileRepository
     ):
         await file_repo.save_batch([])
-
-
-class TestSetCHashBatch:
-    async def test(
-        self,
-        file_repo: FileRepository,
-        file_factory: FileFactory,
-        namespace: Namespace,
-    ):
-        # GIVEN
-        files = [
-            await file_factory(namespace.path),
-            await file_factory(namespace.path),
-        ]
-        chashes = [uuid.uuid4().hex, uuid.uuid4().hex]
-        items = [
-            (files[0].id, chashes[0]),
-            (files[1].id, chashes[1]),
-        ]
-        # WHEN
-        await file_repo.set_chash_batch(items)
-        # THEN
-        file = await _get_by_id(files[0].id)
-        assert file.chash == chashes[0]
-        file = await _get_by_id(files[1].id)
-        assert file.chash == chashes[1]
 
 
 class TestUpdate:

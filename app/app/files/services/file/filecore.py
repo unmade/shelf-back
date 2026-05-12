@@ -15,7 +15,6 @@ if TYPE_CHECKING:
     from collections.abc import (
         AsyncIterator,
         Iterable,
-        Sequence,
     )
     from datetime import datetime
     from uuid import UUID
@@ -238,9 +237,6 @@ class FileCoreService:
         pattern = f"{path.stem} \\(\\d+\\){path.suffix}$"
         count = await self.db.file.count_by_path_pattern(ns_path, pattern)
         return path.with_stem(f"{path.stem} ({count + 1})")
-
-    async def get_by_chash_batch(self, chashes: Sequence[str]) -> list[File]:
-        return await self.db.file.get_by_chash_batch(chashes)
 
     async def get_by_id(self, file_id: UUID) -> File:
         """
