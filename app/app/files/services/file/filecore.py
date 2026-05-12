@@ -264,31 +264,6 @@ class FileCoreService:
         """
         return await self.db.file.get_by_path(ns_path, path)
 
-    async def iter_files(
-        self,
-        ns_path: AnyPath,
-        *,
-        included_mediatypes: Sequence[str] | None = None,
-        excluded_mediatypes: Sequence[str] | None = None,
-        batch_size: int = 25,
-    ) -> AsyncIterator[list[File]]:
-        """Iterates through all files in batches in the specified namespace."""
-        limit = batch_size
-        offset = -limit
-
-        while True:
-            offset += limit
-            files = await self.db.file.list_files(
-                ns_path,
-                included_mediatypes=included_mediatypes,
-                excluded_mediatypes=excluded_mediatypes,
-                offset=offset,
-                limit=limit,
-            )
-            if not files:
-                return
-            yield files
-
     async def list_folder(self, ns_path: AnyPath, path: AnyPath) -> list[AnyFile]:
         """
         Lists all files in the folder at a given path. Use "." to list top-level files

@@ -272,30 +272,6 @@ class FileRepository(IFileRepository):
             .update(size=F("size") + value)
         )
 
-    async def list_files(
-        self,
-        ns_path: AnyPath,
-        *,
-        included_mediatypes: Sequence[str] | None = None,
-        excluded_mediatypes: Sequence[str] | None = None,
-        offset: int,
-        limit: int = 25,
-    ) -> list[File]:
-        qs = models.File.filter(namespace__path=str(ns_path))
-        if included_mediatypes:
-            qs = qs.filter(mediatype__name__in=included_mediatypes)
-        if excluded_mediatypes:
-            qs = qs.filter(mediatype__name__not_in=excluded_mediatypes)
-
-        objs = await (
-            qs
-            .select_related("mediatype")
-            .order_by("path")
-            .offset(offset)
-            .limit(limit)
-        )
-        return [_from_db(str(ns_path), obj) for obj in objs]
-
     async def list_with_prefix(
         self, ns_path: AnyPath, prefix: AnyPath
     ) -> list[AnyFile]:

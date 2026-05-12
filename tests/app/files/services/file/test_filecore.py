@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import operator
 import uuid
 from typing import TYPE_CHECKING, cast
 from unittest import mock
@@ -476,45 +475,6 @@ class TestGetByPath:
         # THEN
         assert result == db.file.get_by_path.return_value
         db.file.get_by_path.assert_awaited_once_with(ns_path, path)
-
-
-class TestIterFiles:
-    async def test(
-        self,
-        filecore: FileCoreService,
-        file_factory: FileFactory,
-        namespace: Namespace,
-        image_content: IBlobContent,
-    ):
-        # GIVEN
-        ns_path = str(namespace.path)
-        await file_factory(ns_path, "plain.txt")
-        jpg_1 = await file_factory(ns_path, "img (1).jpg", content=image_content)
-        jpg_2 = await file_factory(ns_path, "img (2).jpg", content=image_content)
-        mediatypes = ["image/jpeg"]
-        # WHEN
-        batches = filecore.iter_files(
-            ns_path, included_mediatypes=mediatypes, batch_size=1
-        )
-        result = [files async for files in batches]
-        # THEN
-        assert len(result) == 2
-        actual = [*result[0], *result[1]]
-        assert sorted(actual, key=operator.attrgetter("modified_at")) == [jpg_1, jpg_2]
-
-    async def test_when_no_files(
-        self, filecore: FileCoreService, namespace: Namespace
-    ):
-        # GIVEN
-        ns_path = namespace.path
-        mediatypes = ["image/jpeg", "image/png"]
-        # WHEN
-        batches = filecore.iter_files(
-            ns_path, included_mediatypes=mediatypes, batch_size=1
-        )
-        result = [files async for files in batches]
-        # THEN
-        assert result == []
 
 
 class TestListFolder:
