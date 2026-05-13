@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -338,23 +337,30 @@ def blob_job_factory(blob_job_repo: IBlobJobRepository) -> BlobJobFactory:
 
 
 @pytest.fixture
-def file_factory(file_repo: IFileRepository) -> FileFactory:
+def file_factory(file_repo: IFileRepository, blob_factory: BlobFactory) -> FileFactory:
     async def factory(
         ns_path: str,
         path: AnyPath | None = None,
         mediatype: str = "plain/text",
     ) -> File:
+        assert mediatype != MediaType.FOLDER, "Use `folder_factory` to create folders"
         if path is None:
             path = fake.unique.file_name(category="text", extension="txt")
+
+        blob = await blob_factory(
+            storage_key=f"{ns_path}/{path}",
+            media_type=mediatype,
+        )
         return await file_repo.save(
             File(
                 id=SENTINEL_ID,
+                blob_id=blob.id,
                 ns_path=ns_path,
                 name=Path(path).name,
                 path=Path(path),
-                chash=hashlib.sha256(str(path).encode()).hexdigest(),
-                size=10,
-                mediatype=mediatype,
+                chash=blob.chash,
+                size=blob.size,
+                mediatype=blob.media_type,
             )
         )
     return factory

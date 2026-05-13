@@ -107,12 +107,8 @@ class File(models.Model):
     id = fields.UUIDField(primary_key=True, default=uuid7)
     name = fields.CharField(max_length=1024)
     path = fields.CharField(max_length=4096)
-    chash = fields.CharField(max_length=128)
     size = fields.BigIntField()
     modified_at = fields.DatetimeField()
-    mediatype: fields.ForeignKeyRelation[MediaType] = fields.ForeignKeyField(
-        "models.MediaType", related_name="files", on_delete=fields.RESTRICT,
-    )
     namespace: fields.ForeignKeyRelation[Namespace] = fields.ForeignKeyField(
         "models.Namespace", related_name="files", on_delete=fields.CASCADE,
     )
@@ -124,7 +120,6 @@ class File(models.Model):
 
     class Meta:
         unique_together = (("path", "namespace"),)
-        indexes = (("chash", "namespace"),)
 
 
 class FileMember(models.Model):
@@ -210,11 +205,6 @@ class MediaItemCategoryThrough(models.Model):
 
     class Meta:
         unique_together = (("media_item", "media_item_category"),)
-
-
-class MediaType(models.Model):
-    id = fields.UUIDField(primary_key=True, default=uuid7)
-    name = fields.CharField(max_length=255, unique=True)
 
 
 class Namespace(models.Model):

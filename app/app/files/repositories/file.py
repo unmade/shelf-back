@@ -21,7 +21,6 @@ class FileUpdate(TypedDict, total=False):
     ns_path: str
     name: str
     path: str
-    chash: str
     size: int
 
 

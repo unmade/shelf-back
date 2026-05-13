@@ -13,6 +13,7 @@ from app.app.files.repositories.file import FileUpdate
 from app.app.infrastructure.database import SENTINEL_ID
 from app.infrastructure.database.tortoise import models
 from app.toolkit import chash
+from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -36,45 +37,57 @@ async def _exists_with_id(file_id: UUID) -> bool:
 
 
 async def _get_by_id(file_id: UUID) -> File:
-    obj = await (
-        models.File
-        .filter(id=file_id)
-        .select_related("mediatype", "namespace")
-        .get()
-    )
+    obj = await models.File.get(id=file_id).select_related("blob", "namespace")
+    if obj.blob_id is None:  # type: ignore[attr-defined]
+        chash_value = ""
+        mediatype = MediaType.FOLDER.value
+    else:
+        blob = obj.blob
+        assert blob is not None
+        chash_value = blob.chash
+        mediatype = blob.media_type
+
     return File(
         id=obj.id,
         blob_id=obj.blob_id,  # type: ignore[attr-defined]
         name=obj.name,
         ns_path=obj.namespace.path,
         path=Path(obj.path),
-        chash=obj.chash,
+        chash=chash_value,
         size=obj.size,
         modified_at=obj.modified_at,
-        mediatype=obj.mediatype.name,
+        mediatype=mediatype,
     )
 
 
 async def _get_by_path(ns_path: AnyPath, path: AnyPath) -> File:
     obj = await (
         models.File
-        .filter(
+        .get(
             namespace__path=str(ns_path),
             path=str(path),
         )
-        .select_related("mediatype", "namespace")
-        .get()
+        .select_related("blob", "namespace")
     )
+    if obj.blob_id is None:  # type: ignore[attr-defined]
+        chash_value = ""
+        mediatype = MediaType.FOLDER.value
+    else:
+        blob = obj.blob
+        assert blob is not None
+        chash_value = blob.chash
+        mediatype = blob.media_type
+
     return File(
         id=obj.id,
         blob_id=obj.blob_id,  # type: ignore[attr-defined]
         name=obj.name,
         ns_path=obj.namespace.path,
-        chash=obj.chash,
+        chash=chash_value,
         path=Path(obj.path),
         size=obj.size,
         modified_at=obj.modified_at,
-        mediatype=obj.mediatype.name,
+        mediatype=mediatype,
     )
 
 
@@ -636,7 +649,11 @@ class TestSave:
         blob_factory: BlobFactory,
         namespace: Namespace,
     ):
-        blob = await blob_factory()
+        expected_chash = chash.chash(BytesIO(b"blob"))
+        blob = await blob_factory(
+            chash=expected_chash,
+            media_type="plain/text",
+        )
         saved_file = await file_repo.save(
             File(
                 id=SENTINEL_ID,
@@ -644,15 +661,17 @@ class TestSave:
                 name="f.txt",
                 ns_path=namespace.path,
                 path=Path("folder/f.txt"),
-                chash=chash.chash(BytesIO(b"Dummy Content!")),
+                chash=uuid.uuid4().hex,
                 size=10,
                 modified_at=datetime(
                     2020, 8, 13, 9, 26, 14, tzinfo=UTC
                 ),
-                mediatype="plain/text",
+                mediatype="ignored/type",
             )
         )
         assert saved_file.id != SENTINEL_ID
+        assert saved_file.chash == blob.chash
+        assert saved_file.mediatype == blob.media_type
 
         file = await _get_by_id(saved_file.id)
         assert file == saved_file
@@ -677,13 +696,20 @@ class TestSave:
         )
         # THEN
         assert saved_folder.blob_id is None
+        assert saved_folder.chash == ""
+        assert saved_folder.mediatype == MediaType.FOLDER
         assert await _get_by_id(saved_folder.id) == saved_folder
 
     async def test_when_file_at_path_already_exists(
-        self, file_repo: FileRepository, file: File
+        self,
+        file_repo: FileRepository,
+        blob_factory: BlobFactory,
+        file: File,
     ):
+        blob = await blob_factory(media_type="plain/text")
         file_to_save = File(
             id=SENTINEL_ID,
+            blob_id=blob.id,
             name=file.name,
             ns_path=file.ns_path,
             path=file.path,
@@ -700,8 +726,15 @@ class TestSave:
 
 class TestSaveBatch:
     async def test(
-        self, file_repo: FileRepository, namespace: Namespace
+        self,
+        file_repo: FileRepository,
+        blob_factory: BlobFactory,
+        namespace: Namespace,
     ):
+        blob = await blob_factory(
+            storage_key=f"{namespace.path}/folder/f.txt",
+            media_type="plain/text",
+        )
         await file_repo.save_batch([
             File(
                 id=SENTINEL_ID,
@@ -717,30 +750,38 @@ class TestSaveBatch:
             ),
             File(
                 id=SENTINEL_ID,
+                blob_id=blob.id,
                 name="f.txt",
                 ns_path=namespace.path,
                 path=Path("folder/f.txt"),
-                chash=chash.chash(BytesIO(b"Dummy Content!")),
+                chash=uuid.uuid4().hex,
                 size=10,
                 modified_at=datetime(
                     2020, 8, 13, 9, 26, 14, tzinfo=UTC
                 ),
-                mediatype="plain/text",
+                mediatype="ignored/type",
             ),
         ])
         folder = await _get_by_path(namespace.path, "folder")
         assert folder.id != SENTINEL_ID
-        assert folder.mediatype == "application/directory"
+        assert folder.chash == ""
+        assert folder.mediatype == MediaType.FOLDER
 
         file = await _get_by_path(namespace.path, "folder/f.txt")
         assert file.id != SENTINEL_ID
-        assert file.mediatype == "plain/text"
+        assert file.chash == blob.chash
+        assert file.mediatype == blob.media_type
 
     async def test_when_file_at_path_already_exists(
-        self, file_repo: FileRepository, file: File
+        self,
+        file_repo: FileRepository,
+        blob_factory: BlobFactory,
+        file: File,
     ):
+        blob = await blob_factory(media_type="plain/text")
         file_to_save = File(
             id=SENTINEL_ID,
+            blob_id=blob.id,
             name=file.name,
             ns_path=file.ns_path,
             path=file.path,
