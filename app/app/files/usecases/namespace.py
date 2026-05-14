@@ -156,9 +156,9 @@ class NamespaceUseCase:
         _, chunks = await self.file.download_by_id(file_id)
         return chunks
 
-    def download_folder(self, ns_path: AnyPath, path: AnyPath) -> Iterable[bytes]:
+    def download_folder(self, owner_id: UUID, path: AnyPath) -> Iterable[bytes]:
         """Downloads a folder as a ZIP archive."""
-        return self.file.download_folder(ns_path, path)
+        return self.file.download_folder(owner_id, path)
 
     async def empty_trash(self, ns_path: AnyPath) -> None:
         """Deletes all files and folders in the Trash folder in a target namespace."""

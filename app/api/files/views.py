@@ -118,13 +118,14 @@ async def delete_immediately_check(
 @router.get("/download")
 async def download(
     usecases: UseCasesDeps,
-    file: DownloadCacheDeps,
+    value: DownloadCacheDeps,
 ):
     """
     Download a file.
 
     A `key` is obtained by calling `get_download_url` endpoint.
     """
+    _, file = value
     try:
         content = await usecases.namespace.download_by_id(file.id)
     except File.IsADirectory as exc:
@@ -174,14 +175,15 @@ async def download_xhr(
 @router.get("/download_folder")
 def download_folder(
     usecases: UseCasesDeps,
-    file: DownloadCacheDeps,
+    value: DownloadCacheDeps,
 ):
     """
     Download a folder as a ZIP archive.
 
     A `key` is obtained by calling `get_download_url` endpoint.
     """
-    content = usecases.namespace.download_folder(file.ns_path, file.path)
+    owner_id, file = value
+    content = usecases.namespace.download_folder(owner_id, file.path)
 
     filename = file.name.encode("utf-8").decode("latin-1")
     headers = {
@@ -252,7 +254,7 @@ async def get_download_url(
     if not file.can_download():
         raise exceptions.FileActionNotAllowed() from None
 
-    key = await shortcuts.create_download_cache(file)
+    key = await shortcuts.create_download_cache(namespace.owner_id, file)
     if file.is_folder():
         download_url = request.url_for("download_folder")
     else:

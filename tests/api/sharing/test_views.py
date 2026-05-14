@@ -229,6 +229,7 @@ class TestGetSharedLinkDownloadUrl:
         # GIVEN
         file = _make_file("admin", "f", mediatype=mediatype)
         sharing_use_case.get_shared_item.return_value = file
+        namespace = sharing_use_case.namespace.get_by_path.return_value
         download_key = uuid.uuid4().hex
         download_cache_mock.return_value = download_key
         payload = {"token": "link-token", "filename": file.name}
@@ -247,8 +248,9 @@ class TestGetSharedLinkDownloadUrl:
         assert qs["key"] == [download_key]
 
         sharing_use_case.get_shared_item.assert_awaited_once_with("link-token")
+        sharing_use_case.namespace.get_by_path.assert_awaited_once_with(file.ns_path)
         file = sharing_use_case.get_shared_item.return_value
-        download_cache_mock.assert_awaited_once_with(file)
+        download_cache_mock.assert_awaited_once_with(namespace.owner_id, file)
 
     async def test_when_link_not_found(
         self, client: TestClient, sharing_use_case: MagicMock

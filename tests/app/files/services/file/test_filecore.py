@@ -41,7 +41,7 @@ class TestCreateFile:
         assert file.blob_id is not None
 
         blob = await filecore.blob_service.get_by_id(file.blob_id)
-        assert blob.storage_key == f"{namespace.path}/{file.path}"
+        assert blob.storage_key == f"{namespace.owner_id}/files/{file.path}"
         assert blob.size == file.size
         assert blob.chash == file.chash
 
@@ -289,7 +289,7 @@ class TestDownloadFolder:
         # GIVEN
         await file_factory(namespace.path, "my_folder/f.txt")
         # WHEN
-        result = filecore.download_folder(namespace.path, "my_folder")
+        result = filecore.download_folder(namespace.owner_id, "my_folder")
         # THEN
         archive_bytes = b"".join(result)
         assert len(archive_bytes) > 0

@@ -32,13 +32,13 @@ def _make_file(
 class TestCreateDownloadCache:
     async def test(self):
         # GIVEN
-        file = _make_file("admin", "f.txt")
+        owner_id, file = uuid.uuid7(), _make_file("admin", "f.txt")
         # WHEN
-        key = await shortcuts.create_download_cache(file)
+        key = await shortcuts.create_download_cache(owner_id, file)
         # THEN
         assert len(key) > 32
         value = await cache.get(key)
-        assert value == file
+        assert value == (owner_id, file)
 
 
 class TestPopDownloadCache:

@@ -22,17 +22,18 @@ if TYPE_CHECKING:
     from app.app.blobs.domain import IBlobContent
     from app.app.blobs.services import BlobService
     from app.app.files.domain import AnyFile, AnyPath
-    from app.app.files.repositories import IFileRepository
+    from app.app.files.repositories import IFileRepository, INamespaceRepository
     from app.app.infrastructure import IDatabase, IStorage
 
     class IServiceDatabase(IDatabase, Protocol):
         file: IFileRepository
+        namespace: INamespaceRepository
 
 __all__ = ["FileCoreService", "DownloadBatchItem"]
 
 
-def _storage_key(ns_path: AnyPath, path: AnyPath) -> str:
-    return os.path.join(str(ns_path), str(path))
+def _storage_key(owner_id: UUID, path: AnyPath) -> str:
+    return os.path.join(str(owner_id), "files", str(path))
 
 
 class FileCoreService:
@@ -82,8 +83,9 @@ class FileCoreService:
                 raise File.NotADirectory()
 
         next_path = await self.get_available_path(ns_path, path)
+        namespace = await self.db.namespace.get_by_path(ns_path)
         blob = await self.blob_service.create(
-            _storage_key(ns_path, next_path),
+            _storage_key(namespace.owner_id, next_path),
             content,
         )
 
@@ -155,10 +157,11 @@ class FileCoreService:
         async with self.db.atomic():
             file = await self.db.file.delete(ns_path, path)
             if file.is_folder():
+                namespace = await self.db.namespace.get_by_path(file.ns_path)
                 prefix = f"{path}/"
                 await self.db.file.delete_all_with_prefix(ns_path, prefix=prefix)
                 await self.blob_service.delete_all_with_prefix(
-                    f"{_storage_key(ns_path, file.path)}/"
+                    f"{_storage_key(namespace.owner_id, file.path)}/"
                 )
             if file.blob_id is not None:
                 await self.blob_service.delete_batch([file.blob_id])
@@ -187,14 +190,14 @@ class FileCoreService:
         """Downloads multiple items as zip archive."""
         return self.blob_service.download_batch(items)
 
-    def download_folder(self, ns_path: AnyPath, path: AnyPath) -> Iterable[bytes]:
+    def download_folder(self, owner_id: UUID, path: AnyPath) -> Iterable[bytes]:
         """
         Downloads a file at a given path.
 
         Raises:
             File.NotFound: If a file at a target path does not exist.
         """
-        return self.blob_service.download_with_prefix(_storage_key(ns_path, path))
+        return self.blob_service.download_with_prefix(_storage_key(owner_id, path))
 
     async def empty_folder(self, ns_path: AnyPath, path: AnyPath) -> None:
         """
@@ -208,7 +211,8 @@ class FileCoreService:
             return
 
         paths = [*file.path.parents, path]
-        storage_key_prefix = f"{_storage_key(ns_path, file.path)}/"
+        namespace = await self.db.namespace.get_by_path(file.ns_path)
+        storage_key_prefix = f"{_storage_key(namespace.owner_id, file.path)}/"
         async with self.db.atomic():
             await self.db.file.delete_all_with_prefix(ns_path, f"{path}/")
             await self.db.file.incr_size_batch(ns_path, paths, value=-file.size)
@@ -337,18 +341,22 @@ class FileCoreService:
             name=to_path.name,
             path=str(to_path),
         )
+        to_namespace = await self.db.namespace.get_by_path(to_ns_path)
+        at_namespace = to_namespace
+        if file.is_folder() and at_ns_path != to_ns_path:
+            at_namespace = await self.db.namespace.get_by_path(at_ns_path)
 
         async with self.db.atomic():
             updated_file = await self.db.file.update(file, file_update)
             if file.blob_id is not None:
                 await self.blob_service.move(
                     file.blob_id,
-                    _storage_key(to_ns_path, to_path),
+                    _storage_key(to_namespace.owner_id, to_path),
                 )
             if file.is_folder():
                 await self.blob_service.move_with_prefix(
-                    prefix=f"{_storage_key(at_ns_path, file.path)}/",
-                    to_prefix=f"{_storage_key(to_ns_path, to_path)}/",
+                    prefix=f"{_storage_key(at_namespace.owner_id, file.path)}/",
+                    to_prefix=f"{_storage_key(to_namespace.owner_id, to_path)}/",
                 )
                 await self.db.file.replace_path_prefix(
                     at=(at_ns_path, at_path),

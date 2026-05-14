@@ -142,14 +142,14 @@ class FileService:
         file, content = await self.filecore.download(file_id)
         return file, content
 
-    def download_folder(self, ns_path: AnyPath, path: AnyPath) -> Iterable[bytes]:
+    def download_folder(self, owner_id: UUID, path: AnyPath) -> Iterable[bytes]:
         """
         Downloads a folder at a given path.
 
         Raises:
             File.NotFound: If a file at a target path does not exist.
         """
-        return self.filecore.download_folder(ns_path, path)
+        return self.filecore.download_folder(owner_id, path)
 
     async def empty_folder(self, ns_path: AnyPath, path: AnyPath) -> None:
         """

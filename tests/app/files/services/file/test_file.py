@@ -400,13 +400,13 @@ class TestDownloadByID:
 class TestDownloadFolder:
     def test(self, file_service: FileService):
         # GIVEN
-        ns_path, path = "admin", Path("f.txt")
+        owner_id, path = uuid.uuid7(), Path("f.txt")
         filecore = cast(mock.MagicMock, file_service.filecore)
         # WHEN
-        result = file_service.download_folder(ns_path, path)
+        result = file_service.download_folder(owner_id, path)
         # THEN
         assert result == filecore.download_folder.return_value
-        filecore.download_folder.assert_called_once_with(ns_path, path)
+        filecore.download_folder.assert_called_once_with(owner_id, path)
 
 
 @pytest.mark.anyio

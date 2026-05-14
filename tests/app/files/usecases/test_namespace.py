@@ -209,13 +209,13 @@ class TestDownloadByID:
 class TestDownloadFolder:
     async def test(self, ns_use_case: NamespaceUseCase):
         # GIVEN
-        ns_path, path = "admin", "f.txt"
+        owner_id, path = uuid.uuid7(), "f.txt"
         file_service = cast(mock.MagicMock, ns_use_case.file)
         # WHEN
-        result = ns_use_case.download_folder(ns_path, path)
+        result = ns_use_case.download_folder(owner_id, path)
         # THEN
         assert result == file_service.download_folder.return_value
-        file_service.download_folder.assert_called_once_with(ns_path, path)
+        file_service.download_folder.assert_called_once_with(owner_id, path)
 
 
 class TestEmptyTrash:
