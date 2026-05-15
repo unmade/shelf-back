@@ -14,7 +14,11 @@ if TYPE_CHECKING:
 
     from app.app.audit.services import AuditTrailService
     from app.app.blobs.domain import BlobMetadata, IBlobContent
-    from app.app.blobs.services import BlobMetadataService, BlobThumbnailService
+    from app.app.blobs.services import (
+        BlobContentProcessor,
+        BlobMetadataService,
+        BlobThumbnailService,
+    )
     from app.app.files.domain import AnyPath
     from app.app.files.services import (
         FileService,
@@ -27,6 +31,7 @@ if TYPE_CHECKING:
     class IUseCaseServices(IAtomic, Protocol):
         audit_trail: AuditTrailService
         blob_metadata: BlobMetadataService
+        blob_processor: BlobContentProcessor
         file: FileService
         namespace: NamespaceService
         thumbnailer: BlobThumbnailService
@@ -44,6 +49,7 @@ class NamespaceUseCase:
 
         "audit_trail",
         "blob_metadata",
+        "blob_processor",
         "content",
         "file",
         "namespace",
@@ -56,6 +62,7 @@ class NamespaceUseCase:
 
         self.audit_trail = services.audit_trail
         self.blob_metadata = services.blob_metadata
+        self.blob_processor = services.blob_processor
         self.file = services.file
         self.namespace = services.namespace
         self.thumbnailer = services.thumbnailer
@@ -100,6 +107,8 @@ class NamespaceUseCase:
                 raise Account.StorageQuotaExceeded()
 
         file = await self.file.create_file(ns_path, path, content, modified_at)
+        assert file.blob_id is not None
+        await self.blob_processor.process_async(file.blob_id)
 
         taskgroups.schedule(self.audit_trail.file_added(file))
         return file

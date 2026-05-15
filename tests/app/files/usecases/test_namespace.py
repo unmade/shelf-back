@@ -56,6 +56,7 @@ class TestAddFile:
     ):
         # GIVEN
         audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
+        blob_processor = cast(mock.MagicMock, ns_use_case.blob_processor)
         file_service = cast(mock.MagicMock, ns_use_case.file)
         ns_service = cast(mock.MagicMock, ns_use_case.namespace)
         user_service = cast(mock.MagicMock, ns_use_case.user)
@@ -75,6 +76,7 @@ class TestAddFile:
 
         user_service.get_account.assert_awaited_once_with(owner_id)
         ns_service.get_space_used_by_owner_id.assert_not_awaited()
+        blob_processor.process_async.assert_awaited_once_with(result.blob_id)
         audit_trail.file_added.assert_called_once_with(result)
 
     async def test_limited_storage_quota(
@@ -82,6 +84,7 @@ class TestAddFile:
     ):
         # GIVEN
         audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
+        blob_processor = cast(mock.MagicMock, ns_use_case.blob_processor)
         file_service = cast(mock.MagicMock, ns_use_case.file)
         ns_service = cast(mock.MagicMock, ns_use_case.namespace)
         ns_service.get_space_used_by_owner_id = mock.AsyncMock(return_value=512)
@@ -102,6 +105,7 @@ class TestAddFile:
 
         user_service.get_account.assert_awaited_once_with(owner_id)
         ns_service.get_space_used_by_owner_id.assert_awaited_once_with(owner_id)
+        blob_processor.process_async.assert_awaited_once_with(result.blob_id)
         audit_trail.file_added.assert_called_once_with(result)
 
     async def test_when_adding_to_trash_folder(
@@ -126,6 +130,7 @@ class TestAddFile:
     ):
         # GIVEN
         audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
+        blob_processor = cast(mock.MagicMock, ns_use_case.blob_processor)
         file_service = cast(mock.MagicMock, ns_use_case.file)
         ns_service = cast(mock.MagicMock, ns_use_case.namespace)
         ns_service.get_space_used_by_owner_id = mock.AsyncMock(return_value=1024)
@@ -143,6 +148,7 @@ class TestAddFile:
         owner_id = ns_service.get_by_path.return_value.owner_id
         user_service.get_account.assert_awaited_once_with(owner_id)
         ns_service.get_space_used_by_owner_id.assert_awaited_once_with(owner_id)
+        blob_processor.process_async.assert_not_awaited()
         audit_trail.file_added.assert_not_called()
 
 
