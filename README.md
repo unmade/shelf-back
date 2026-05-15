@@ -94,8 +94,6 @@ superuser on the first image run:
 |FEATURES__SHARED_LINKS_ENABLED | - | True  | Whether via link enabled. Note, this setting doesn't affect superusers. |
 |FEATURES__UPLOAD_FILE_MAX     | - | 100MB  | Maximum upload file size. Default to 100 MB |
 |FEATURES__VERIFICATION_REQUIRED | - | False | Whether user account has to be verified to upload files. |
-|INDEXER__URL                  | - | None   | A URL to the Indexer service. If not specified, the file won't be indexed. |
-|INDEXER__TIMEOUT              | - | 10     | A timeout to wait response from indexer. |
 |MAIL__TYPE                    | - | smtp   | Backend to use for sending emails. |
 |MAIL__SENDER                  | - | <no-reply@getshelf.cloud>  | Email sender on behalf of application. |
 |MAIL__SMTP_HOSTNAME           | - | localhost  | SMTP hostname. |
