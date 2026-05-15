@@ -24,9 +24,6 @@ if TYPE_CHECKING:
         BlobFactory,
         FileFactory,
         FolderFactory,
-        MountFactory,
-        NamespaceFactory,
-        UserFactory,
     )
 
 pytestmark = [pytest.mark.anyio, pytest.mark.database]
@@ -459,45 +456,6 @@ class TestListWithPrefix:
         # THEN
         assert len(files) == 1
         assert files[0].path == "home"
-
-    async def test_listing_folder_containing_mount_points(
-        self,
-        file_repo: FileRepository,
-        user_factory: UserFactory,
-        namespace_factory: NamespaceFactory,
-        folder_factory: FolderFactory,
-        file_factory: FileFactory,
-        mount_factory: MountFactory,
-        namespace: Namespace,
-    ):
-        # GIVEN
-        folder = await folder_factory(namespace.path, "Folder")
-        await folder_factory(
-            namespace.path, "Folder/Personal Folder"
-        )
-        await file_factory(namespace.path, "Folder/f.txt")
-
-        user_b = await user_factory()
-        ns_b = await namespace_factory(
-            user_b.username, owner_id=user_b.id
-        )
-        shared_folder = await folder_factory(
-            ns_b.path, "Shared Folder"
-        )
-        await mount_factory(
-            shared_folder.id, folder.id, "Team Folder"
-        )
-
-        # WHEN
-        files = await file_repo.list_with_prefix(
-            namespace.path, "Folder/"
-        )
-
-        # THEN
-        assert len(files) == 3
-        assert files[0].path == "Folder/Personal Folder"
-        assert files[1].path == "Folder/Team Folder"
-        assert files[2].path == "Folder/f.txt"
 
     async def test_when_folder_does_not_exist(
         self, file_repo: FileRepository, namespace: Namespace

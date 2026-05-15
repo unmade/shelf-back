@@ -17,7 +17,7 @@ from app.app.files.services import (
     NamespaceService,
     SharingService,
 )
-from app.app.files.services.file import FileCoreService, MountService
+from app.app.files.services.file import FileCoreService
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
 from app.app.infrastructure.mail import IMailBackend
 from app.app.photos.services import AlbumService, MediaItemService
@@ -192,7 +192,6 @@ class Services:
         )
         self.file = FileService(
             filecore=self.filecore,
-            mount_service=MountService(database=database),
         )
         self.media_item = MediaItemService(database=database, blob_service=self.blob)
         self.namespace = NamespaceService(database=database, filecore=self.filecore)

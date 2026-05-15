@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 import pytest
@@ -11,8 +11,6 @@ from app.app.blobs.domain import Blob, BlobJob, BlobMetadata
 from app.app.blobs.domain.blob_job import BlobJobDeletePayload
 from app.app.files.domain import (
     File,
-    FileMember,
-    MountPoint,
     Namespace,
     Path,
     SharedLink,
@@ -39,7 +37,6 @@ if TYPE_CHECKING:
     from app.app.files.domain import AnyPath
     from app.app.files.repositories import (
         IFileRepository,
-        IMountRepository,
         INamespaceRepository,
         ISharedLinkRepository,
     )
@@ -94,9 +91,6 @@ if TYPE_CHECKING:
         ) -> File:
             ...
 
-    class FileMemberFactory(Protocol):
-        async def __call__(self, file_id: UUID, user_id: UUID) -> FileMember: ...
-
     class FolderFactory(Protocol):
         async def __call__(
             self,
@@ -108,15 +102,6 @@ if TYPE_CHECKING:
 
     class NamespaceFactory(Protocol):
         async def __call__(self, path: str, owner_id: UUID) -> Namespace:
-            ...
-
-    class MountFactory(Protocol):
-        async def __call__(
-            self,
-            source_file_id: UUID,
-            target_folder_id: UUID,
-            display_name: str,
-        ) -> MountPoint:
             ...
 
     class MediaItemFactory(Protocol):
@@ -199,11 +184,6 @@ def media_item_favourite_repo(
     tortoise_database: TortoiseDatabase,
 ) -> IMediaItemFavouriteRepository:
     return tortoise_database.media_item_favourite
-
-
-@pytest.fixture
-def mount_repo(tortoise_database: TortoiseDatabase) -> IMountRepository:
-    return tortoise_database.mount
 
 
 @pytest.fixture
@@ -363,26 +343,6 @@ def file_factory(file_repo: IFileRepository, blob_factory: BlobFactory) -> FileF
 
 
 @pytest.fixture
-def file_member_factory() -> FileMemberFactory:
-    async def factory(file_id: UUID, user_id: UUID) -> FileMember:
-        await models.FileMember.create(
-            file_id=file_id,
-            user_id=user_id,
-            actions=63,
-            created_at=timezone.now(),
-        )
-        return FileMember(
-            file_id=file_id,
-            actions=FileMember.EDITOR,
-            user=FileMember.User(
-                id=user_id,
-                username="",
-            ),
-        )
-    return factory
-
-
-@pytest.fixture
 def folder_factory(file_repo: IFileRepository) -> FolderFactory:
     async def factory(
         ns_path: str, path: AnyPath | None = None, size: int = 0
@@ -437,34 +397,6 @@ def media_item_factory(
             deleted_at=deleted_at,
         )
         return await media_item_repo.save(item)
-    return factory
-
-
-@pytest.fixture
-def mount_factory(mount_repo: IMountRepository) -> MountFactory:
-    async def factory(
-        source_file_id: UUID,
-        target_folder_id: UUID,
-        display_name: str,
-    ) -> MountPoint:
-        target_folder = await models.File.get(id=target_folder_id)
-        namespace = await models.Namespace.get(
-            id=target_folder.namespace_id  # type: ignore[attr-defined]
-        )
-        owner_id = namespace.owner_id  # type: ignore[attr-defined]
-        member = await models.FileMember.create(
-            actions=0,
-            created_at=datetime.now(UTC),
-            user_id=owner_id,
-            file_id=source_file_id,
-        )
-        await models.FileMemberMountPoint.create(
-            display_name=display_name,
-            member=member,
-            parent_id=target_folder_id,
-        )
-        display_path = Path(target_folder.path) / display_name
-        return await mount_repo.get_closest(namespace.path, display_path)
     return factory
 
 

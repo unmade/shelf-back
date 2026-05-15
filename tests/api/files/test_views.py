@@ -30,8 +30,6 @@ from app.api.files.views import _make_thumbnail_ttl
 from app.app.blobs.domain import BlobMetadata
 from app.app.files.domain import (
     File,
-    MountedFile,
-    MountPoint,
     Path,
 )
 from app.app.infrastructure.worker import Job, JobStatus
@@ -553,33 +551,6 @@ class TestGetDownloadURL:
         parts = urllib.parse.urlsplit(download_url)
         qs = urllib.parse.parse_qs(parts.query)
         assert len(qs["key"]) == 1
-
-    async def test_when_mounted_file_is_not_permitted_to_download(
-        self,
-        client: TestClient,
-        ns_use_case: MagicMock,
-        namespace: Namespace,
-    ):
-        # GIVEN
-        file = _make_file(namespace.path, "f.txt")
-        mounted_file = MountedFile(
-            **file.model_dump(),
-            mount_point=MountPoint(
-                source=MountPoint.Source(ns_path="user", path=Path("f.txt")),
-                folder=MountPoint.ContainingFolder(ns_path="admin", path=Path(".")),
-                display_name="f.txt",
-                actions=MountPoint.Actions(can_download=False),
-            ),
-        )
-        ns_use_case.get_item_by_id.return_value = mounted_file
-        payload = {"id": str(mounted_file.id)}
-        # WHEN
-        client.mock_namespace(namespace)
-        response = await client.post(self.url, json=payload)
-        # THEN
-        assert response.json() == FileActionNotAllowed().as_dict()
-        assert response.status_code == FileActionNotAllowed.status_code
-        ns_use_case.get_item_by_id.assert_awaited_once_with(file.ns_path, file.id)
 
     @pytest.mark.parametrize(["path", "error", "expected_error"], [
         (_FILE_ID, File.ActionNotAllowed(), FileActionNotAllowed()),

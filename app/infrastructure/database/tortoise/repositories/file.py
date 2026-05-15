@@ -7,8 +7,7 @@ from tortoise.exceptions import DoesNotExist, IntegrityError
 from tortoise.expressions import F, Q
 from tortoise.functions import Lower
 
-from app.app.files.domain import File, MountedFile
-from app.app.files.domain.mount import MountPoint
+from app.app.files.domain import File
 from app.app.files.domain.path import Path
 from app.app.files.repositories import IFileRepository
 from app.app.files.repositories.file import FileUpdate
@@ -16,13 +15,11 @@ from app.infrastructure.database.tortoise import models
 from app.toolkit import chash
 from app.toolkit.mediatypes import MediaType
 
-from .file_member import ActionFlag
-
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
     from uuid import UUID
 
-    from app.app.files.domain import AnyFile, AnyPath
+    from app.app.files.domain import AnyPath
     from app.typedefs import StrOrUUID
 
 __all__ = ["FileRepository"]
@@ -51,53 +48,6 @@ def _from_db(ns_path: str | None, obj: models.File) -> File:
         size=obj.size,
         modified_at=obj.modified_at,
         mediatype=mediatype,
-    )
-
-
-def _from_db_v2(ns_path: str, obj: models.File) -> AnyFile:
-    chash, mediatype = _file_fields(obj)
-    mount_point_obj = getattr(obj, "_mount_point", None)
-    if mount_point_obj is None:
-        return File(
-            id=obj.id,
-            blob_id=obj.blob_id,  # type: ignore[attr-defined]
-            owner_id=obj.owner_id,  # type: ignore[attr-defined]
-            ns_path=ns_path,
-            name=obj.name,
-            path=Path(obj.path),
-            chash=chash,
-            size=obj.size,
-            modified_at=obj.modified_at,
-            shared=getattr(obj, "_shared", False),
-            mediatype=mediatype,
-        )
-
-    mount_point = MountPoint(
-        display_name=mount_point_obj.display_name,
-        source=MountPoint.Source(
-            ns_path=obj.namespace.path,
-            path=Path(obj.path),
-        ),
-        folder=MountPoint.ContainingFolder(
-            ns_path=ns_path,
-            path=Path(mount_point_obj.parent.path),
-        ),
-        actions=ActionFlag.load(mount_point_obj.member.actions),
-    )
-
-    return MountedFile(
-        id=obj.id,
-        blob_id=obj.blob_id,  # type: ignore[attr-defined]
-        owner_id=obj.owner_id,  # type: ignore[attr-defined]
-        ns_path=mount_point.folder.ns_path,
-        name=mount_point.display_path.name,
-        path=mount_point.display_path,
-        chash=chash,
-        size=obj.size,
-        modified_at=obj.modified_at,
-        mediatype=mediatype,
-        shared=True,
-        mount_point=mount_point,
     )
 
 
@@ -275,17 +225,10 @@ class FileRepository(IFileRepository):
             .update(size=F("size") + value)
         )
 
-    async def list_with_prefix(
-        self, ns_path: AnyPath, prefix: AnyPath
-    ) -> list[AnyFile]:
-        # That method is poor design of shared files. it was possible to do it
-        # in gel within a single query. For now let's keep it as is until shared files
-        # implementation is reconsidered.
+    async def list_with_prefix(self, ns_path: AnyPath, prefix: AnyPath) -> list[File]:
         prefix_str = str(prefix)
-        parent_path = str(Path(prefix_str)) if prefix_str else ""
-
         pattern = f"^{re.escape(prefix_str)}[^/]+$"
-        direct_children = await (
+        objs = await (
             models.File
             .filter(
                 namespace__path=str(ns_path),
@@ -293,46 +236,7 @@ class FileRepository(IFileRepository):
             )
             .select_related("blob", "namespace")
         )
-
-        # Get mount points for the parent folder
-        mounted_files: list[models.File] = []
-        if parent_path:
-            mount_points = await (
-                models.FileMemberMountPoint
-                .filter(
-                    parent__path=parent_path,
-                    parent__namespace__path=str(ns_path),
-                )
-                .select_related(
-                    "member__file__blob",
-                    "member__file__namespace",
-                    "member",
-                    "parent",
-                )
-            )
-            for mp in mount_points:
-                file_obj = mp.member.file
-                file_obj._mount_point = mp
-                file_obj._shared = True
-                mounted_files.append(file_obj)
-
-        # Also check for shared status on direct children
-        direct_file_ids = [obj.id for obj in direct_children]
-        shared_ids: set[UUID] = set()
-        if direct_file_ids:
-            shared_members = await (
-                models.FileMember
-                .filter(file_id__in=direct_file_ids)
-                .values_list("file_id", flat=True)
-            )
-            shared_ids = set(shared_members)  # type: ignore[arg-type]
-
-        for obj in direct_children:
-            obj._shared = obj.id in shared_ids
-            obj._mount_point = None
-
-        all_files = direct_children + mounted_files
-        results = [_from_db_v2(str(ns_path), obj) for obj in all_files]
+        results = [_from_db(str(ns_path), obj) for obj in objs]
 
         # Sort: folders first, then alphabetically by name (case-insensitive)
         results.sort(

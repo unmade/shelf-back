@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from fastapi import Request
 
     from app.app.blobs.domain import BlobMetadata
-    from app.app.files.domain import AnyFile
+    from app.app.files.domain import File
     from app.worker.jobs.files import FileTaskResult
 
 
@@ -74,7 +74,7 @@ class FileSchema(BaseModel):
     modified_at: datetime
 
     @classmethod
-    def from_entity(cls, file: AnyFile, request: Request) -> Self:
+    def from_entity(cls, file: File, request: Request) -> Self:
         return cls(
             id=file.id,
             name=file.name,
@@ -88,7 +88,7 @@ class FileSchema(BaseModel):
         )
 
     @staticmethod
-    def _make_thumbnail_url(request: Request, file: AnyFile) -> str | None:
+    def _make_thumbnail_url(request: Request, file: File) -> str | None:
         if thumbnails.is_supported(file.mediatype):
             return str(request.url_for("get_thumbnail", file_id=file.id))
         return None

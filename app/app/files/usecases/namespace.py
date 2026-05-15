@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol
 
-from app.app.files.domain import AnyFile, File, Path
+from app.app.files.domain import File, Path
 from app.app.users.domain import Account
 from app.config import config
 from app.toolkit import taskgroups, timezone
@@ -20,10 +20,7 @@ if TYPE_CHECKING:
         BlobThumbnailService,
     )
     from app.app.files.domain import AnyPath
-    from app.app.files.services import (
-        FileService,
-        NamespaceService,
-    )
+    from app.app.files.services import FileService, NamespaceService
     from app.app.infrastructure.database import IAtomic
     from app.app.users.services import UserService
     from app.toolkit.mediatypes import MediaType
@@ -74,7 +71,7 @@ class NamespaceUseCase:
         path: AnyPath,
         content: IBlobContent,
         modified_at: datetime | None = None,
-    ) -> AnyFile:
+    ) -> File:
         """
         Saves a file to a storage and to a database. Additionally calculates and saves
         dhash and fingerprint for supported mediatypes.
@@ -113,7 +110,7 @@ class NamespaceUseCase:
         taskgroups.schedule(self.audit_trail.file_added(file))
         return file
 
-    async def create_folder(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:
+    async def create_folder(self, ns_path: AnyPath, path: AnyPath) -> File:
         """
         Creates a folder with any missing parents in a namespace with a `ns_path`.
 
@@ -127,7 +124,7 @@ class NamespaceUseCase:
         taskgroups.schedule(self.audit_trail.folder_created(folder))
         return folder
 
-    async def delete_item(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:
+    async def delete_item(self, ns_path: AnyPath, path: AnyPath) -> File:
         """
         Permanently deletes a file or a folder. If path is a folder deletes a folder
         with all of its contents.
@@ -143,7 +140,7 @@ class NamespaceUseCase:
 
     async def download(
         self, ns_path: AnyPath, path: AnyPath
-    ) -> tuple[AnyFile, AsyncIterator[bytes]]:
+    ) -> tuple[File, AsyncIterator[bytes]]:
         """
         Downloads a file at a given path.
 
@@ -191,7 +188,7 @@ class NamespaceUseCase:
 
     async def get_file_thumbnail(
         self, ns_path: AnyPath, file_id: UUID, size: int
-    ) -> tuple[AnyFile, bytes, MediaType]:
+    ) -> tuple[File, bytes, MediaType]:
         """
         Generates in-memory thumbnail with preserved aspect ratio.
 
@@ -206,7 +203,7 @@ class NamespaceUseCase:
         thumb = await self.thumbnailer.thumbnail(file.blob_id, file.chash, size)
         return file, *thumb
 
-    async def get_item_at_path(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:
+    async def get_item_at_path(self, ns_path: AnyPath, path: AnyPath) -> File:
         """
         Returns a file at a given path.
 
@@ -216,7 +213,7 @@ class NamespaceUseCase:
         """
         return await self.file.get_at_path(ns_path, path)
 
-    async def get_item_by_id(self, ns_path: AnyPath, file_id: UUID) -> AnyFile:
+    async def get_item_by_id(self, ns_path: AnyPath, file_id: UUID) -> File:
         """
         Returns a file with specified ID.
 
@@ -226,7 +223,7 @@ class NamespaceUseCase:
         """
         return await self.file.get_by_id(ns_path, file_id)
 
-    async def list_folder(self, ns_path: AnyPath, path: AnyPath) -> list[AnyFile]:
+    async def list_folder(self, ns_path: AnyPath, path: AnyPath) -> list[File]:
         """
         Lists all files in the folder at a given path.
 
@@ -246,7 +243,7 @@ class NamespaceUseCase:
 
     async def move_item(
         self, ns_path: AnyPath, path: AnyPath, next_path: AnyPath
-    ) -> AnyFile:
+    ) -> File:
         """
         Moves a file or a folder to a different location in the target Namespace.
         If the source path is a folder all its contents will be moved.
@@ -266,7 +263,7 @@ class NamespaceUseCase:
         taskgroups.schedule(self.audit_trail.file_moved(file))
         return file
 
-    async def move_item_to_trash(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:
+    async def move_item_to_trash(self, ns_path: AnyPath, path: AnyPath) -> File:
         """
         Moves a file or folder to the Trash folder in the target Namespace.
         If path is a folder all its contents will be moved.

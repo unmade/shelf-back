@@ -9,10 +9,9 @@ from pydantic import BaseModel, Field
 from app.toolkit import timezone
 from app.toolkit.mediatypes import MediaType
 
-from .mount import MountPoint
 from .path import Path
 
-__all__ = ["File", "MountedFile"]
+__all__ = ["File"]
 
 
 class FileError(Exception):
@@ -39,10 +38,6 @@ class IsADirectory(FileError):
     pass
 
 
-class IsMounted(FileError):
-    pass
-
-
 class MalformedPath(FileError):
     pass
 
@@ -59,14 +54,13 @@ class ThumbnailUnavailable(FileError):
     pass
 
 
-class _BaseFile(BaseModel):
+class File(BaseModel):
     Error: ClassVar[type[Exception]] = FileError
     ActionNotAllowed: ClassVar[type[FileActionNotAllowed]] = FileActionNotAllowed
     AlreadyExists: ClassVar[type[FileAlreadyExists]] = FileAlreadyExists
     NotFound: ClassVar[type[FileNotFound]] = FileNotFound
     TooLarge: ClassVar[type[FileTooLarge]] = FileTooLarge
     IsADirectory: ClassVar[type[IsADirectory]] = IsADirectory
-    IsMounted: ClassVar[type[IsMounted]] = IsMounted
     MalformedPath: ClassVar[type[MalformedPath]] = MalformedPath
     MissingParent: ClassVar[type[MissingParent]] = MissingParent
     NotADirectory: ClassVar[type[NotADirectory]] = NotADirectory
@@ -91,19 +85,3 @@ class _BaseFile(BaseModel):
     def is_hidden(self) -> bool:
         """True if file name startswith '.', False othewise."""
         return self.name.startswith(".")
-
-
-class File(_BaseFile):
-    """Regular file with a path pointing to the actual location of the file."""
-
-    def can_download(self) -> bool:
-        return True
-
-
-class MountedFile(_BaseFile):
-    """A file with a path that is a mount point or a location in a mount point."""
-
-    mount_point: MountPoint
-
-    def can_download(self) -> bool:
-        return self.mount_point.can_download()

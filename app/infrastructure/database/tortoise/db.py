@@ -19,7 +19,6 @@ from .repositories import (
     FileRepository,
     MediaItemFavouriteRepository,
     MediaItemRepository,
-    MountRepository,
     NamespaceRepository,
     SharedLinkRepository,
     UserRepository,
@@ -34,7 +33,6 @@ if TYPE_CHECKING:
     )
     from app.app.files.repositories import (
         IFileRepository,
-        IMountRepository,
         INamespaceRepository,
         ISharedLinkRepository,
     )
@@ -81,7 +79,6 @@ class TortoiseDatabase(IDatabase):
     file: IFileRepository
     media_item_favourite: IMediaItemFavouriteRepository
     media_item: IMediaItemRepository
-    mount: IMountRepository
     namespace: INamespaceRepository
     shared_link: ISharedLinkRepository
     user: IUserRepository
@@ -98,7 +95,6 @@ class TortoiseDatabase(IDatabase):
         self.file = FileRepository()
         self.media_item_favourite = MediaItemFavouriteRepository()
         self.media_item = MediaItemRepository()
-        self.mount = MountRepository()
         self.namespace = NamespaceRepository()
         self.shared_link = SharedLinkRepository()
         self.user = UserRepository()
