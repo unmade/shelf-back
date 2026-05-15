@@ -53,23 +53,6 @@ def _make_download_media_item(name: str) -> DownloadMediaItem:
     )
 
 
-class TestAutoAddCategoryBatch:
-    async def test(self, media_item_use_case: MediaItemUseCase):
-        # GIVEN
-        media_item_id = uuid.uuid7()
-        categories = [
-            (MediaItem.Category.Name.ANIMALS, 92),
-            (MediaItem.Category.Name.PETS, 94),
-        ]
-        media_item_service = cast(mock.MagicMock, media_item_use_case.media_item)
-        # WHEN
-        await media_item_use_case.auto_add_category_batch(media_item_id, categories)
-        # THEN
-        media_item_service.auto_add_category_batch.assert_awaited_once_with(
-            media_item_id, categories=categories
-        )
-
-
 class TestCount:
     async def test(self, media_item_use_case: MediaItemUseCase):
         # GIVEN
@@ -291,22 +274,6 @@ class TestList:
         )
 
 
-class TestListCategories:
-    async def test(self, media_item_use_case: MediaItemUseCase):
-        # GIVEN
-        owner_id, media_item_id = uuid.uuid7(), uuid.uuid7()
-        media_item_service = cast(mock.MagicMock, media_item_use_case.media_item)
-        # WHEN
-        result = await media_item_use_case.list_categories(owner_id, media_item_id)
-        # THEN
-        assert result == media_item_service.list_categories.return_value
-        media_item_service.get_for_owner.assert_awaited_once_with(
-            owner_id, media_item_id
-        )
-        item = media_item_service.get_for_owner.return_value
-        media_item_service.list_categories.assert_awaited_once_with(item.id)
-
-
 class TestListDeleted:
     async def test(self, media_item_use_case: MediaItemUseCase):
         # GIVEN
@@ -382,26 +349,6 @@ class TestRestoreBatch:
         # THEN
         assert result == media_item_service.restore_batch.return_value
         media_item_service.restore_batch.assert_awaited_once_with(owner_id, ids)
-
-
-class TestSetCategories:
-    async def test(self, media_item_use_case: MediaItemUseCase):
-        # GIVEN
-        owner_id, media_item_id = uuid.uuid7(), uuid.uuid7()
-        media_item_service = cast(mock.MagicMock, media_item_use_case.media_item)
-        categories = [MediaItem.Category.Name.ANIMALS, MediaItem.Category.Name.PETS]
-        # WHEN
-        await media_item_use_case.set_categories(
-            owner_id, media_item_id, categories=categories
-        )
-        # THEN
-        media_item_service.get_for_owner.assert_awaited_once_with(
-            owner_id, media_item_id
-        )
-        item = media_item_service.get_for_owner.return_value
-        media_item_service.set_categories.assert_awaited_once_with(
-            item.id, categories
-        )
 
 
 class TestThumbnail:

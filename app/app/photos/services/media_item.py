@@ -18,10 +18,6 @@ if TYPE_CHECKING:
     from app.app.blobs.domain import IBlobContent
     from app.app.blobs.services import BlobService
     from app.app.infrastructure.database import IDatabase
-    from app.app.photos.domain.media_item import (
-        MediaItemCategory,
-        MediaItemCategoryName,
-    )
     from app.app.photos.repositories import (
         IMediaItemFavouriteRepository,
         IMediaItemRepository,
@@ -104,29 +100,6 @@ class MediaItemService:
         if not result:
             raise MediaItem.NotFound()
         return tuple(result)
-
-    async def auto_add_category_batch(
-        self,
-        media_item_id: UUID,
-        categories: Sequence[tuple[MediaItemCategoryName, int]],
-    ) -> None:
-        """
-        Adds a set of AI-recognized categories.
-
-        Raises:
-            MediaItem.NotFound: If media item does not exist.
-        """
-        await self.db.media_item.add_category_batch(
-            media_item_id,
-            categories=[
-                MediaItem.Category(
-                    name=name,
-                    origin=MediaItem.Category.Origin.AUTO,
-                    probability=probability,
-                )
-                for name, probability in categories
-            ]
-        )
 
     async def count(self, owner_id: UUID) -> CountResult:
         """Returns total number of media items owner with specified ID has."""
@@ -249,15 +222,6 @@ class MediaItemService:
             owner_id, only_favourites=only_favourites, offset=offset, limit=limit
         )
 
-    async def list_categories(self, media_item_id: UUID) -> list[MediaItemCategory]:
-        """
-        Return categories of the MediaItem with specified ID.
-
-        Raises:
-            MediaItem.NotFound: If MediaItem does not exist.
-        """
-        return await self.db.media_item.list_categories(media_item_id)
-
     async def list_deleted(
         self, owner_id: UUID, *, offset: int, limit: int = 25
     ) -> list[MediaItem]:
@@ -294,24 +258,3 @@ class MediaItemService:
     ) -> None:
         """Removes favourite marks from multiple media items."""
         await self.db.media_item_favourite.remove_batch(user_id, media_item_ids)
-
-    async def set_categories(
-        self, media_item_id: UUID, categories: Sequence[MediaItemCategoryName]
-    ) -> None:
-        """
-        Clears existing and sets specified categories for MediaItem with given ID.
-
-        Raises:
-            MediaItem.NotFound: If MediaItem does not exist.
-        """
-        await self.db.media_item.set_categories(
-            media_item_id,
-            categories=[
-                MediaItem.Category(
-                    name=category,
-                    origin=MediaItem.Category.Origin.USER,
-                    probability=100,
-                )
-                for category in categories
-            ]
-        )

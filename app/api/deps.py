@@ -23,7 +23,6 @@ __all__ = [
     "CurrentUserDeps",
     "CurrentUserContextDeps",
     "NamespaceDeps",
-    "ServiceTokenDeps",
     "UseCasesDeps",
     "VerifiedCurrentUserDeps",
     "WorkerDeps",
@@ -103,22 +102,12 @@ async def namespace(
     return await usecases.namespace.namespace.get_by_owner_id(user.id)
 
 
-async def service_token(token: str | None = Depends(reusable_oauth2)):
-    """Requires a service token."""
-    if not token:
-        raise exceptions.MissingToken() from None
-
-    if token != config.auth.service_token:
-        raise exceptions.InvalidToken() from None
-
-
 CurrentUserDeps = Annotated[User, Depends(current_user)]
 CurrentUserContextDeps = Annotated[
     CurrentUserContext, Depends(current_user_ctx)
 ]
 DownloadCacheDeps = Annotated[AnyFile, Depends(download_cache)]
 NamespaceDeps = Annotated[Namespace, Depends(namespace)]
-ServiceTokenDeps = Annotated[None, Depends(service_token)]
 UseCasesDeps = Annotated[UseCases, Depends(usecases)]
 VerifiedCurrentUserDeps = Annotated[User, Depends(verified_current_user)]
 WorkerDeps = Annotated[IWorker, Depends(worker)]

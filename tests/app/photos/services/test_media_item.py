@@ -79,35 +79,6 @@ def _make_photo_storage_key(name: str) -> str:
     return f"owner_id/photos/2026/04/20/{name}"
 
 
-class TestAutoAddCategoryBatch:
-    async def test(self, media_item_service: MediaItemService):
-        # GIVEN
-        media_item_id = uuid.uuid7()
-        categories = [
-            (MediaItem.Category.Name.ANIMALS, 92),
-            (MediaItem.Category.Name.PETS, 94),
-        ]
-        db = cast(mock.MagicMock, media_item_service.db)
-        # WHEN
-        await media_item_service.auto_add_category_batch(media_item_id, categories)
-        # THEN
-        db.media_item.add_category_batch.assert_awaited_once_with(
-            media_item_id,
-            categories=[
-                MediaItem.Category(
-                    name=MediaItem.Category.Name.ANIMALS,
-                    origin=MediaItem.Category.Origin.AUTO,
-                    probability=92,
-                ),
-                MediaItem.Category(
-                    name=MediaItem.Category.Name.PETS,
-                    origin=MediaItem.Category.Origin.AUTO,
-                    probability=94,
-                ),
-            ]
-        )
-
-
 class TestCount:
     async def test(self, media_item_service: MediaItemService):
         # GIVEN
@@ -416,18 +387,6 @@ class TestIterDeleted:
         ])
 
 
-class TestListCategories:
-    async def test(self, media_item_service: MediaItemService):
-        # GIVEN
-        media_item_id = uuid.uuid7()
-        db = cast(mock.AsyncMock, media_item_service.db)
-        # WHEN
-        result = await media_item_service.list_categories(media_item_id)
-        # THEN
-        assert result == db.media_item.list_categories.return_value
-        db.media_item.list_categories.assert_awaited_once_with(media_item_id)
-
-
 class TestListDeleted:
     async def test(self, media_item_service: MediaItemService):
         # GIVEN
@@ -528,34 +487,6 @@ class TestRestoreBatch:
             user_id, media_item_ids, deleted_at=deleted_at
         )
 
-
-class TestSetCategories:
-    async def test(self, media_item_service: MediaItemService):
-        # GIVEN
-        media_item_id = uuid.uuid7()
-        categories = [
-            MediaItem.Category.Name.ANIMALS,
-            MediaItem.Category.Name.PETS,
-        ]
-        db = cast(mock.MagicMock, media_item_service.db)
-        # WHEN
-        await media_item_service.set_categories(media_item_id, categories)
-        # THEN
-        db.media_item.set_categories.assert_awaited_once_with(
-            media_item_id,
-            categories=[
-                MediaItem.Category(
-                    name=MediaItem.Category.Name.ANIMALS,
-                    origin=MediaItem.Category.Origin.USER,
-                    probability=100,
-                ),
-                MediaItem.Category(
-                    name=MediaItem.Category.Name.PETS,
-                    origin=MediaItem.Category.Origin.USER,
-                    probability=100,
-                ),
-            ]
-        )
 
 
 class TestUnmarkFavouriteBatch:

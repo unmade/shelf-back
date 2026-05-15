@@ -22,13 +22,10 @@ from .schemas import (
     GetDownloadUrlRequest,
     GetDownloadUrlResponse,
     ListFavouriteMediaItemsResponse,
-    ListMediaItemCategoriesResponse,
-    MediaItemCategorySchema,
     MediaItemIDRequest,
     MediaItemSchema,
     RemoveFavouriteBatchRequest,
     RestoreMediaItemBatchRequest,
-    SetMediaItemCategoriesRequest,
     UploadContent,
 )
 
@@ -260,29 +257,6 @@ async def list_deleted_media_items(
     )
 
 
-@router.post("/list_categories")
-async def list_media_item_categories(
-    payload: MediaItemIDRequest,
-    usecases: UseCasesDeps,
-    user: CurrentUserDeps,
-) -> ListMediaItemCategoriesResponse:
-    """Return all categories for the specified media item."""
-    try:
-        categories = await usecases.media_item.list_categories(
-            user.id, payload.media_item_id
-        )
-    except MediaItem.NotFound as exc:
-        raise exceptions.MediaItemNotFound() from exc
-
-    return ListMediaItemCategoriesResponse(
-        media_item_id=payload.media_item_id,
-        categories=[
-            MediaItemCategorySchema.from_entity(category)
-            for category in categories
-        ]
-    )
-
-
 @router.post("/purge")
 async def purge(
     usecases: UseCasesDeps,
@@ -305,23 +279,6 @@ async def restore_media_item_batch(
         page=1,
         items=[MediaItemSchema.from_entity(item, request) for item in items]
     )
-
-
-@router.post("/set_categories")
-async def set_media_item_categories(
-    payload: SetMediaItemCategoriesRequest,
-    usecases: UseCasesDeps,
-    user: CurrentUserDeps,
-) -> None:
-    """Clears existing and sets specified categories for the media item."""
-    try:
-        await usecases.media_item.set_categories(
-            user.id,
-            payload.media_item_id,
-            categories=payload.categories,
-        )
-    except MediaItem.NotFound as exc:
-        raise exceptions.MediaItemNotFound() from exc
 
 
 @router.post("/upload")

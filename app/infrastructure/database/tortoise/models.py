@@ -186,30 +186,6 @@ class MediaItemFavourite(models.Model):
         unique_together = (("user", "media_item"),)
 
 
-class MediaItemCategory(models.Model):
-    id = fields.UUIDField(primary_key=True, default=uuid7)
-    name = fields.CharField(max_length=255, unique=True)
-
-
-class MediaItemCategoryThrough(models.Model):
-    id = fields.IntField(primary_key=True)
-    media_item: fields.ForeignKeyRelation[MediaItem] = fields.ForeignKeyField(
-        "models.MediaItem", related_name="category_links", on_delete=fields.CASCADE,
-    )
-    media_item_category: fields.ForeignKeyRelation[MediaItemCategory] = (
-        fields.ForeignKeyField(
-            "models.MediaItemCategory",
-            related_name="media_item_links",
-            on_delete=fields.CASCADE,
-        )
-    )
-    origin = fields.SmallIntField(null=True)
-    probability = fields.SmallIntField(null=True)
-
-    class Meta:
-        unique_together = (("media_item", "media_item_category"),)
-
-
 class Namespace(models.Model):
     id = fields.UUIDField(primary_key=True, default=uuid7)
     path = fields.CharField(max_length=1024, unique=True)

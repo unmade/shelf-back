@@ -7,26 +7,15 @@ from tortoise.exceptions import DoesNotExist
 
 from app.app.blobs.domain import BlobMetadata
 from app.app.photos.domain import MediaItem
-from app.app.photos.domain.media_item import (
-    MediaItemCategory,
-    MediaItemCategoryName,
-)
 from app.app.photos.repositories.media_item import CountResult
 from app.infrastructure.database.tortoise import models
 from app.toolkit import timezone
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Sequence
     from uuid import UUID
 
 __all__ = ["MediaItemRepository"]
-
-_ORIGIN_TO_INT = {
-    MediaItemCategory.Origin.AUTO: 0,
-    MediaItemCategory.Origin.USER: 1,
-}
-
-_INT_TO_ORIGIN = dict(zip(_ORIGIN_TO_INT.values(), _ORIGIN_TO_INT.keys(), strict=False))
 
 
 def _from_db(obj: models.MediaItem) -> MediaItem:
@@ -67,70 +56,7 @@ def _base_qs():
     )
 
 
-async def _get_or_create_categories(
-    names: Iterable[str],
-) -> dict[str, models.MediaItemCategory]:
-    unique_names = list(set(names))
-    categories = await models.MediaItemCategory.filter(name__in=unique_names)
-    by_name = {cat.name: cat for cat in categories}
-
-    missing_names = [name for name in unique_names if name not in by_name]
-    if missing_names:
-        to_create = [models.MediaItemCategory(name=name) for name in missing_names]
-        await models.MediaItemCategory.bulk_create(to_create)
-        by_name.update({category.name: category for category in to_create})
-
-    return by_name
-
-
 class MediaItemRepository:
-    async def add_category_batch(
-        self, media_item_id: UUID, categories: Sequence[MediaItemCategory]
-    ) -> None:
-        if not await models.MediaItem.filter(id=media_item_id).exists():
-            raise MediaItem.NotFound()
-
-        if not categories:
-            return
-
-        cat_by_name = await _get_or_create_categories(c.name for c in categories)
-
-        existing_through = await (
-            models.MediaItemCategoryThrough
-            .filter(media_item_id=media_item_id)
-        )
-        existing_by_cat_id = {
-            obj.media_item_category_id: obj  # type: ignore[attr-defined]
-            for obj in existing_through
-        }
-
-        to_create = []
-        to_update = []
-        for category in categories:
-            cat_id = cat_by_name[category.name].id
-            origin = _ORIGIN_TO_INT[category.origin]
-            if cat_id in existing_by_cat_id:
-                obj = existing_by_cat_id[cat_id]
-                obj.origin = origin
-                obj.probability = category.probability
-                to_update.append(obj)
-            else:
-                to_create.append(
-                    models.MediaItemCategoryThrough(
-                        media_item_id=media_item_id,
-                        media_item_category_id=cat_id,
-                        origin=origin,
-                        probability=category.probability,
-                    )
-                )
-
-        if to_update:
-            await models.MediaItemCategoryThrough.bulk_update(
-                to_update, fields=["origin", "probability"],
-            )
-        if to_create:
-            await models.MediaItemCategoryThrough.bulk_create(to_create)
-
     async def count(self, owner_id: UUID) -> CountResult:
         base = models.MediaItem.filter(owner_id=owner_id)
         total = await base.filter(deleted_at__isnull=True).count()
@@ -189,26 +115,6 @@ class MediaItemRepository:
         objs = await qs.order_by("-modified_at").offset(offset).limit(limit)
         return [_from_db(obj) for obj in objs]
 
-    async def list_categories(
-        self, media_item_id: UUID
-    ) -> list[MediaItemCategory]:
-        if not await models.MediaItem.filter(id=media_item_id).exists():
-            raise MediaItem.NotFound()
-
-        through_objs = await (
-            models.MediaItemCategoryThrough
-            .filter(media_item_id=media_item_id)
-            .select_related("media_item_category")
-        )
-        return [
-            MediaItemCategory(
-                name=MediaItemCategoryName(obj.media_item_category.name),
-                origin=_INT_TO_ORIGIN[obj.origin],
-                probability=obj.probability,
-            )
-            for obj in through_objs
-        ]
-
     async def list_deleted(
         self, owner_id: UUID, *, offset: int, limit: int = 25
     ) -> list[MediaItem]:
@@ -231,31 +137,6 @@ class MediaItemRepository:
             deleted_at=item.deleted_at,
         )
         return item.model_copy(update={"id": obj.id})
-
-    async def set_categories(
-        self, media_item_id: UUID, categories: Sequence[MediaItemCategory]
-    ) -> None:
-        if not await models.MediaItem.filter(id=media_item_id).exists():
-            raise MediaItem.NotFound()
-
-        await models.MediaItemCategoryThrough.filter(
-            media_item_id=media_item_id
-        ).delete()
-
-        if not categories:
-            return
-
-        cat_by_name = await _get_or_create_categories(c.name for c in categories)
-        through_objs = [
-            models.MediaItemCategoryThrough(
-                media_item_id=media_item_id,
-                media_item_category_id=cat_by_name[category.name].id,
-                origin=_ORIGIN_TO_INT[category.origin],
-                probability=category.probability,
-            )
-            for category in categories
-        ]
-        await models.MediaItemCategoryThrough.bulk_create(through_objs)
 
     async def set_deleted_at_batch(
         self, owner_id: UUID, ids: Sequence[UUID], deleted_at: datetime | None

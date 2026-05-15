@@ -666,56 +666,6 @@ class TestUnmarkFavouriteBatch:
         assert response.status_code == 200
 
 
-class TestListCategories:
-    url = "/photos/media_items/list_categories"
-
-    async def test(
-        self, client: TestClient, media_item_use_case: MagicMock, user: User,
-    ):
-        # GIVEN
-        media_item_id = uuid.uuid7()
-        media_item_use_case.list_categories.return_value = [
-            MediaItem.Category(
-                name=MediaItem.Category.Name.ANIMALS,
-                origin=MediaItem.Category.Origin.AUTO,
-                probability=54,
-            ),
-            MediaItem.Category(
-                name=MediaItem.Category.Name.PETS,
-                origin=MediaItem.Category.Origin.AUTO,
-                probability=62,
-            ),
-        ]
-        payload = {"media_item_id": str(media_item_id)}
-        # WHEN
-        client.mock_user(user)
-        response = await client.post(self.url, json=payload)
-        # THEN
-        assert response.status_code == 200
-        media_item_use_case.list_categories.assert_awaited_once_with(
-            user.id, media_item_id
-        )
-
-    async def test_when_media_item_not_found(
-        self,
-        client: TestClient,
-        media_item_use_case: MagicMock,
-        user: User,
-    ):
-        # GIVEN
-        media_item_id = uuid.uuid7()
-        media_item_use_case.list_categories.side_effect = MediaItem.NotFound
-        payload = {"media_item_id": str(media_item_id)}
-        # WHEN
-        client.mock_user(user)
-        response = await client.post(self.url, json=payload)
-        # THEN
-        assert response.status_code == 404
-        media_item_use_case.list_categories.assert_awaited_once_with(
-            user.id, media_item_id
-        )
-
-
 class TestPurge:
     url = "/photos/media_items/purge"
 
@@ -755,55 +705,6 @@ class TestRestoreBatch:
         assert response.json()["items"][0]["thumbnail_url"] is not None
         assert response.json()["items"][1]["name"] == "img.png"
         assert response.json()["items"][1]["thumbnail_url"] is not None
-
-
-class TestSetCategories:
-    url = "/photos/media_items/set_categories"
-
-    async def test(
-        self, client: TestClient, media_item_use_case: MagicMock, user: User
-    ):
-        # GIVEN
-        media_item_id = uuid.uuid7()
-        categories = [
-            MediaItem.Category.Name.ANIMALS,
-            MediaItem.Category.Name.PETS,
-        ]
-        payload = {
-            "media_item_id": str(media_item_id),
-            "categories": categories,
-        }
-        # WHEN
-        client.mock_user(user)
-        response = await client.post(self.url, json=payload)
-        # THEN
-        media_item_use_case.set_categories.assert_awaited_once_with(
-            user.id, media_item_id, categories=categories
-        )
-        assert response.status_code == 200
-
-    async def test_when_media_item_not_found(
-        self,
-        client: TestClient,
-        media_item_use_case: MagicMock,
-        user: User,
-    ):
-        # GIVEN
-        media_item_id = uuid.uuid7()
-        payload = {
-            "media_item_id": str(media_item_id),
-            "categories": [],
-        }
-        media_item_use_case.set_categories.side_effect = MediaItem.NotFound
-        # WHEN
-        client.mock_user(user)
-        response = await client.post(self.url, json=payload)
-        # THEN
-        media_item_use_case.set_categories.assert_awaited_once_with(
-            user.id, media_item_id, categories=[]
-        )
-        assert response.status_code == 404
-        assert response.json() == MediaItemNotFound().as_dict()
 
 
 class TestUpload:
