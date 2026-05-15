@@ -87,7 +87,6 @@ superuser on the first image run:
 |DATABASE__DSN                 | + | -      | Database DSN |
 |FEATURES__MAX_FILE_SIZE_TO_THUMBNAIL | - | 20MB | Thumbnails won't be generated for files larger than specified size. |
 |FEATURES__MAX_IMAGE_PIXELS | - | 89_478_485 | Don't process images if the number of pixels in an image is over limit. |
-|FEATURES__PHOTOS_LIBRARY_PATH | - | Photos/Library | All media files within that path will appear in the Photos. |
 |FEATURES__PRE_GENERATED_THUMBNAIL_SIZES | - | [72, 768, 2880] | Thumbnail sizes that are automatically generated on file upload. |
 |FEATURES__SIGN_UP_ENABLED     | - | True   | Whether sign up is enabled or not |
 |FEATURES__SHARED_LINKS_ENABLED | - | True  | Whether via link enabled. Note, this setting doesn't affect superusers. |

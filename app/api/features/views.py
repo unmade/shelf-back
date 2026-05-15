@@ -19,10 +19,6 @@ async def list_all() -> ListFeatureResponse:
                 value=config.features.max_file_size_to_thumbnail,
             ),
             Feature(
-                name=FeatureName.photos_library_path,
-                value=config.features.photos_library_path,
-            ),
-            Feature(
                 name=FeatureName.sign_up_enabled,
                 value=config.features.sign_up_enabled,
             ),
