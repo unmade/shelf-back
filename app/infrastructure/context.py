@@ -36,7 +36,6 @@ from app.config import (
     S3StorageConfig,
     TortoiseConfig,
 )
-from app.infrastructure.clients.indexer import IndexerClient
 from app.infrastructure.database.tortoise import TortoiseDatabase
 from app.infrastructure.mail import SMTPEmailBackend
 from app.infrastructure.storage import FileSystemStorage, S3Storage
@@ -44,13 +43,12 @@ from app.infrastructure.worker import ARQWorker
 from app.toolkit import taskgroups
 
 if TYPE_CHECKING:
-    from app.app.infrastructure import IIndexerClient, IStorage, IWorker
+    from app.app.infrastructure import IStorage, IWorker
     from app.app.infrastructure.database import ITransaction
     from app.config import (
         AppConfig,
         DatabaseConfig,
         FeatureConfig,
-        IndexerClientConfig,
         StorageConfig,
         WorkerConfig,
     )
@@ -82,7 +80,6 @@ class AppContext:
 class Infrastructure:
     __slots__ = [
         "database",
-        "indexer",
         "mail",
         "storage_media",
         "storage_default",
@@ -92,7 +89,6 @@ class Infrastructure:
 
     def __init__(self, config: AppConfig):
         self.database = self._get_database(config.database)
-        self.indexer = self._get_indexer(config.indexer)
         self.mail = self._get_mail_backend(config.mail)
         assert config.storages.media is not None
         self.storage_default = self._get_storage(config.storages.default)
@@ -107,8 +103,6 @@ class Infrastructure:
             self._stack.enter_async_context(self.storage_media),
             self._stack.enter_async_context(self.worker),
         ]
-        if self.indexer is not None:
-            ctx.append(self._stack.enter_async_context(self.indexer))
 
         await taskgroups.gather(*ctx)
         return self
@@ -121,12 +115,6 @@ class Infrastructure:
         if isinstance(db_config, TortoiseConfig):
             return TortoiseDatabase(db_config)
         assert_never(db_config)
-
-    @staticmethod
-    def _get_indexer(indexer_config: IndexerClientConfig) -> IIndexerClient | None:
-        if indexer_config.url is None:
-            return None
-        return IndexerClient(indexer_config)
 
     @staticmethod
     def _get_mail_backend(mail_config: MailConfig) -> IMailBackend:

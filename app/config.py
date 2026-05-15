@@ -193,11 +193,6 @@ class FileSystemStorageConfig(BaseModel):
     fs_location: str
 
 
-class IndexerClientConfig(BaseModel):
-    url: AnyHttpUrl | None = None
-    timeout: float = 10.0
-
-
 class MailSMTPConfig(BaseModel):
     type: Literal[MailBackendType.smtp] = MailBackendType.smtp
     sender: str = "no-reply@getshelf.cloud"
@@ -273,7 +268,6 @@ class AppConfig(BaseSettings):
     cors: CORSConfig
     database: DatabaseConfig
     features: FeatureConfig = FeatureConfig()
-    indexer: IndexerClientConfig = IndexerClientConfig()
     mail: MailConfig
     sentry: SentryConfig = SentryConfig()
     storages: StoragesConfig
