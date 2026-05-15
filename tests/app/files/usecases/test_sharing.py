@@ -39,6 +39,7 @@ def _make_file(
     return File(
         id=uuid.uuid7(),
         blob_id=blob_id or uuid.uuid7(),
+        owner_id=uuid.uuid7(),
         ns_path=ns_path,
         name=path.name,
         path=path,
@@ -56,6 +57,7 @@ def _make_mounted_file(source_file: File, ns_path: str, path: AnyPath) -> Mounte
     path = Path(path)
     return MountedFile(
             id=source_file.id,
+            owner_id=source_file.owner_id,
             ns_path=ns_path,
             name=path.name,
             path=path,

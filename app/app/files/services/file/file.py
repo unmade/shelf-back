@@ -27,6 +27,7 @@ def _resolve_file(file: AnyFile, mount_point: MountPoint | None) -> AnyFile:
 
     return MountedFile.model_construct(
         id=file.id,
+        owner_id=file.owner_id,
         ns_path=mount_point.folder.ns_path,
         name=path.name,
         path=path,

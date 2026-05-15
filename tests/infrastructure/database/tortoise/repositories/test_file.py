@@ -50,6 +50,7 @@ async def _get_by_id(file_id: UUID) -> File:
     return File(
         id=obj.id,
         blob_id=obj.blob_id,  # type: ignore[attr-defined]
+        owner_id=obj.owner_id,  # type: ignore[attr-defined]
         name=obj.name,
         ns_path=obj.namespace.path,
         path=Path(obj.path),
@@ -81,6 +82,7 @@ async def _get_by_path(ns_path: AnyPath, path: AnyPath) -> File:
     return File(
         id=obj.id,
         blob_id=obj.blob_id,  # type: ignore[attr-defined]
+        owner_id=obj.owner_id,  # type: ignore[attr-defined]
         name=obj.name,
         ns_path=obj.namespace.path,
         chash=chash_value,
@@ -658,6 +660,7 @@ class TestSave:
             File(
                 id=SENTINEL_ID,
                 blob_id=blob.id,
+                owner_id=namespace.owner_id,
                 name="f.txt",
                 ns_path=namespace.path,
                 path=Path("folder/f.txt"),
@@ -672,6 +675,7 @@ class TestSave:
         assert saved_file.id != SENTINEL_ID
         assert saved_file.chash == blob.chash
         assert saved_file.mediatype == blob.media_type
+        assert saved_file.owner_id == namespace.owner_id
 
         file = await _get_by_id(saved_file.id)
         assert file == saved_file
@@ -683,6 +687,7 @@ class TestSave:
         saved_folder = await file_repo.save(
             File(
                 id=SENTINEL_ID,
+                owner_id=namespace.owner_id,
                 name="folder",
                 ns_path=namespace.path,
                 path=Path("folder"),
@@ -710,6 +715,7 @@ class TestSave:
         file_to_save = File(
             id=SENTINEL_ID,
             blob_id=blob.id,
+            owner_id=file.owner_id,
             name=file.name,
             ns_path=file.ns_path,
             path=file.path,
@@ -738,6 +744,7 @@ class TestSaveBatch:
         await file_repo.save_batch([
             File(
                 id=SENTINEL_ID,
+                owner_id=namespace.owner_id,
                 name="folder",
                 ns_path=namespace.path,
                 path=Path("folder"),
@@ -751,6 +758,7 @@ class TestSaveBatch:
             File(
                 id=SENTINEL_ID,
                 blob_id=blob.id,
+                owner_id=namespace.owner_id,
                 name="f.txt",
                 ns_path=namespace.path,
                 path=Path("folder/f.txt"),
@@ -766,11 +774,13 @@ class TestSaveBatch:
         assert folder.id != SENTINEL_ID
         assert folder.chash == ""
         assert folder.mediatype == MediaType.FOLDER
+        assert folder.owner_id == namespace.owner_id
 
         file = await _get_by_path(namespace.path, "folder/f.txt")
         assert file.id != SENTINEL_ID
         assert file.chash == blob.chash
         assert file.mediatype == blob.media_type
+        assert file.owner_id == namespace.owner_id
 
     async def test_when_file_at_path_already_exists(
         self,
@@ -782,6 +792,7 @@ class TestSaveBatch:
         file_to_save = File(
             id=SENTINEL_ID,
             blob_id=blob.id,
+            owner_id=file.owner_id,
             name=file.name,
             ns_path=file.ns_path,
             path=file.path,
@@ -809,5 +820,28 @@ class TestUpdate:
         updated_file = await file_repo.update(file, file_update)
         assert updated_file.name == f".{file.name}"
         assert updated_file.path == f".{file.path}"
+        file_in_db = await _get_by_id(file.id)
+        assert file_in_db == updated_file
+
+    async def test_when_namespace_changes(
+        self,
+        file_repo: FileRepository,
+        file_factory: FileFactory,
+        namespace_a: Namespace,
+        namespace_b: Namespace,
+    ):
+        # GIVEN
+        file = await file_factory(namespace_a.path, "f.txt")
+
+        # WHEN
+        updated_file = await file_repo.update(
+            file,
+            FileUpdate(ns_path=namespace_b.path),
+        )
+
+        # THEN
+        assert updated_file.ns_path == namespace_b.path
+        assert updated_file.owner_id == namespace_b.owner_id
+
         file_in_db = await _get_by_id(file.id)
         assert file_in_db == updated_file

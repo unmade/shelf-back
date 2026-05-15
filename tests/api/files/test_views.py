@@ -66,7 +66,8 @@ def _make_file(
     mediatype: str = "plain/text",
 ) -> File:
     return File(
-        id=uuid.uuid4(),
+        id=uuid.uuid7(),
+        owner_id=uuid.uuid7(),
         ns_path=str(ns_path),
         name=Path(path).name,
         path=Path(path),
@@ -269,7 +270,7 @@ class TestDownload:
         # GIVEN
         file = _make_file(str(namespace.path), "f.txt")
         ns_use_case.download_by_id.return_value = _aiter(b"Hello, World!")
-        key = await shortcuts.create_download_cache(namespace.owner_id, file)
+        key = await shortcuts.create_download_cache(file)
         # WHEN
         client.mock_namespace(namespace)
         response = await client.get(self.url(key))
@@ -287,7 +288,7 @@ class TestDownload:
         # GIVEN
         file = _make_file(str(namespace.path), "ф.txt")
         ns_use_case.download_by_id.return_value = _aiter(b"Hello, World!")
-        key = await shortcuts.create_download_cache(namespace.owner_id, file)
+        key = await shortcuts.create_download_cache(file)
         # WHEN
         client.mock_namespace(namespace)
         response = await client.get(self.url(key))
@@ -320,7 +321,7 @@ class TestDownload:
     ):
         # GIVEN
         file = _make_file(namespace.path, path)
-        key = await shortcuts.create_download_cache(namespace.owner_id, file)
+        key = await shortcuts.create_download_cache(file)
         ns_use_case.download_by_id.side_effect = error
         # WHEN
         client.mock_namespace(namespace)
@@ -406,7 +407,7 @@ class TestDownloadFolder:
         # GIVEN
         file = _make_file(namespace.path, "f", mediatype=MediaType.FOLDER)
         ns_use_case.download_folder.return_value = BytesIO(b"I'm a ZIP archive")
-        key = await shortcuts.create_download_cache(namespace.owner_id, file)
+        key = await shortcuts.create_download_cache(file)
         # WHEN
         client.mock_namespace(namespace)
         response = await client.get(self.url(key))
@@ -415,9 +416,7 @@ class TestDownloadFolder:
         assert response.headers["Content-Disposition"] == 'attachment; filename="f.zip"'
         assert "Content-Length" not in response.headers
         assert response.content == b"I'm a ZIP archive"
-        ns_use_case.download_folder.assert_called_once_with(
-            namespace.owner_id, file.path
-        )
+        ns_use_case.download_folder.assert_called_once_with(file.owner_id, file.path)
 
 
 class TestEmptyTrash:

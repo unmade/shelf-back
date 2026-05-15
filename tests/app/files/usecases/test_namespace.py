@@ -33,6 +33,7 @@ def _make_file(
     return File(
         id=uuid.uuid7(),
         blob_id=blob_id or uuid.uuid7(),
+        owner_id=uuid.uuid7(),
         ns_path=ns_path,
         name=Path(path).name,
         path=Path(path),

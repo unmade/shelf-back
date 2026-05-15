@@ -74,6 +74,7 @@ class _BaseFile(BaseModel):
 
     id: UUID
     blob_id: UUID | None = None
+    owner_id: UUID
     ns_path: str
     name: str
     path: Path

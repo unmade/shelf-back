@@ -94,6 +94,7 @@ class FileCoreService:
                 File(
                     id=SENTINEL_ID,
                     ns_path=str(ns_path),
+                    owner_id=namespace.owner_id,
                     name=next_path.name,
                     path=next_path,
                     blob_id=blob.id,
@@ -130,11 +131,14 @@ class FileCoreService:
             index = paths.index(parents[-1].path)
             paths[-1] = path.with_restored_casing(parents[-1].path)
 
+        namespace = await self.db.namespace.get_by_path(ns_path)
+
         await self.db.file.save_batch(
             [
                 File(
                     id=SENTINEL_ID,
                     ns_path=str(ns_path),
+                    owner_id=namespace.owner_id,
                     name=p.name,
                     path=p,
                     chash=EMPTY_CONTENT_HASH,

@@ -24,7 +24,8 @@ def _make_file(
 ) -> File:
     path = Path(path)
     return File(
-        id=uuid.uuid4(),
+        id=uuid.uuid7(),
+        owner_id=uuid.uuid7(),
         ns_path=ns_path,
         name=path.name,
         path=path,
@@ -43,6 +44,7 @@ def _make_mounted_file(
     path = Path(path)
     return MountedFile(
             id=source_file.id,
+            owner_id=source_file.owner_id,
             ns_path=ns_path,
             name=path.name,
             path=path,
@@ -134,6 +136,7 @@ class TestResolveFile:
         assert fq_path.mount_point is not None
         assert result == MountedFile(
             id=file.id,
+            owner_id=file.owner_id,
             name="TeamFolder",
             ns_path="admin",
             path=Path("Sharing/TeamFolder"),
@@ -174,6 +177,7 @@ class TestResolveFile:
         assert fq_path.mount_point is not None
         assert result == MountedFile(
             id=file.id,
+            owner_id=file.owner_id,
             name="f.txt",
             ns_path="admin",
             path=Path("Sharing/TeamFolder/InnerFolder/f.txt"),

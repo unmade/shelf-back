@@ -12,7 +12,6 @@ from app.api.main import create_app
 from app.app.audit.domain import CurrentUserContext
 from app.app.auth.usecases import AuthUseCase
 from app.app.files.domain import Namespace
-from app.app.files.services import NamespaceService
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
 from app.app.infrastructure.worker import IWorker
 from app.app.photos.usecases import AlbumUseCase, MediaItemUseCase
@@ -79,10 +78,7 @@ def _usecases():
         auth=mock.MagicMock(AuthUseCase),
         namespace=mock.MagicMock(NamespaceUseCase),
         media_item=mock.MagicMock(MediaItemUseCase),
-        sharing=mock.MagicMock(
-            SharingUseCase,
-            namespace=mock.MagicMock(NamespaceService),
-        ),
+        sharing=mock.MagicMock(SharingUseCase),
         user=mock.MagicMock(UserUseCase),
     )
 

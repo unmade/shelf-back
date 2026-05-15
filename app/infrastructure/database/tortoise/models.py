@@ -109,6 +109,9 @@ class File(models.Model):
     path = fields.CharField(max_length=4096)
     size = fields.BigIntField()
     modified_at = fields.DatetimeField()
+    owner: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
+        "models.User", related_name="files", on_delete=fields.CASCADE,
+    )
     namespace: fields.ForeignKeyRelation[Namespace] = fields.ForeignKeyField(
         "models.Namespace", related_name="files", on_delete=fields.CASCADE,
     )

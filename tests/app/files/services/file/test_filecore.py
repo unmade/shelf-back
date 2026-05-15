@@ -35,6 +35,7 @@ class TestCreateFile:
 
         # THEN
         assert file.name == "f.txt"
+        assert file.owner_id == namespace.owner_id
         assert file.path == "f.txt"
         assert file.size == content.size
         assert file.mediatype == 'text/plain'
@@ -130,6 +131,7 @@ class TestCreateFolder:
     async def test(self, filecore: FileCoreService, namespace: Namespace):
         folder = await filecore.create_folder(namespace.path, "New Folder")
         assert folder.name == "New Folder"
+        assert folder.owner_id == namespace.owner_id
 
     async def test_nested_path(self, filecore: FileCoreService, namespace: Namespace):
         folder = await filecore.create_folder(namespace.path, "a/b/c/f")
@@ -547,6 +549,7 @@ class TestMove:
             to=(namespace_b.path, file.path),
         )
         # THEN
+        assert result.owner_id == namespace_b.owner_id
         assert result.ns_path == namespace_b.path
         assert result.path == "f.txt"
         assert not await filecore.db.file.exists_at_path(namespace_a.path, "f.txt")
@@ -600,13 +603,15 @@ class TestMove:
 
         # THEN
         assert moved_file.name == "c"
+        assert moved_file.owner_id == namespace_b.owner_id
         assert moved_file.path == "a/c"
 
         assert not await filecore.db.file.exists_at_path(ns_path, "a/b")
         assert not await filecore.db.file.exists_at_path(ns_path, "a/b/f.txt")
 
         assert await filecore.db.file.exists_at_path(namespace_b.path, "a/c")
-        assert await filecore.db.file.exists_at_path(namespace_b.path, "a/c/f.txt")
+        child = await filecore.db.file.get_by_path(namespace_b.path, "a/c/f.txt")
+        assert child.owner_id == namespace_b.owner_id
 
     async def test_updating_parents_size(
         self,

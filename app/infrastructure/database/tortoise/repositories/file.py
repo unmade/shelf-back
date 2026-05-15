@@ -43,6 +43,7 @@ def _from_db(ns_path: str | None, obj: models.File) -> File:
     return File(
         id=obj.id,
         blob_id=obj.blob_id,  # type: ignore[attr-defined]
+        owner_id=obj.owner_id,  # type: ignore[attr-defined]
         ns_path=ns_path or obj.namespace.path,
         name=obj.name,
         path=Path(obj.path),
@@ -60,6 +61,7 @@ def _from_db_v2(ns_path: str, obj: models.File) -> AnyFile:
         return File(
             id=obj.id,
             blob_id=obj.blob_id,  # type: ignore[attr-defined]
+            owner_id=obj.owner_id,  # type: ignore[attr-defined]
             ns_path=ns_path,
             name=obj.name,
             path=Path(obj.path),
@@ -86,6 +88,7 @@ def _from_db_v2(ns_path: str, obj: models.File) -> AnyFile:
     return MountedFile(
         id=obj.id,
         blob_id=obj.blob_id,  # type: ignore[attr-defined]
+        owner_id=obj.owner_id,  # type: ignore[attr-defined]
         ns_path=mount_point.folder.ns_path,
         name=mount_point.display_path.name,
         path=mount_point.display_path,
@@ -384,8 +387,12 @@ class FileRepository(IFileRepository):
             obj.name = Path(to_path).name
             if to_ns is not None:
                 obj.namespace = to_ns
+                obj.owner_id = to_ns.owner_id  # type: ignore[attr-defined]
 
-        await models.File.bulk_update(objs, fields=["path", "name", "namespace_id"])
+        await models.File.bulk_update(
+            objs,
+            fields=["path", "name", "namespace_id", "owner_id"],
+        )
 
     async def save(self, file: File) -> File:
         namespace = await models.Namespace.get(path=file.ns_path)
@@ -395,6 +402,7 @@ class FileRepository(IFileRepository):
                 path=str(file.path),
                 size=file.size,
                 modified_at=file.modified_at,
+                owner_id=namespace.owner_id,  # type: ignore[attr-defined]
                 namespace=namespace,
                 blob_id=file.blob_id,
             )
@@ -419,6 +427,7 @@ class FileRepository(IFileRepository):
                 path=str(f.path),
                 size=f.size,
                 modified_at=f.modified_at,
+                owner_id=namespaces[f.ns_path].owner_id,  # type: ignore[attr-defined]
                 namespace=namespaces[f.ns_path],
                 blob_id=f.blob_id,
             )
@@ -432,6 +441,7 @@ class FileRepository(IFileRepository):
         if ns_path != file.ns_path:
             namespace = await models.Namespace.get(path=ns_path)
             update_kwargs["namespace"] = namespace
+            update_kwargs["owner_id"] = namespace.owner_id  # type: ignore[attr-defined]
 
         for key, value in fields.items():
             update_kwargs[key] = str(value) if key == "path" else value

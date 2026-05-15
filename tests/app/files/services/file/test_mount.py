@@ -19,7 +19,8 @@ pytestmark = [pytest.mark.anyio]
 
 def _make_file(ns_path: str, path: AnyPath, mediatype: str = "plain/text") -> File:
     return File(
-        id=uuid.uuid4(),
+        id=uuid.uuid7(),
+        owner_id=uuid.uuid7(),
         ns_path=ns_path,
         name=Path(path).name,
         path=Path(path),

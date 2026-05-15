@@ -85,7 +85,7 @@ async def verified_current_user(user: CurrentUserDeps) -> User:
     return user
 
 
-async def download_cache(key: str = Query(None)) -> tuple[UUID, AnyFile]:
+async def download_cache(key: str = Query(None)) -> AnyFile:
     value = await shortcuts.pop_download_cache(key)
     if not value:
         raise DownloadNotFound()
@@ -116,7 +116,7 @@ CurrentUserDeps = Annotated[User, Depends(current_user)]
 CurrentUserContextDeps = Annotated[
     CurrentUserContext, Depends(current_user_ctx)
 ]
-DownloadCacheDeps = Annotated[tuple[UUID, AnyFile], Depends(download_cache)]
+DownloadCacheDeps = Annotated[AnyFile, Depends(download_cache)]
 NamespaceDeps = Annotated[Namespace, Depends(namespace)]
 ServiceTokenDeps = Annotated[None, Depends(service_token)]
 UseCasesDeps = Annotated[UseCases, Depends(usecases)]

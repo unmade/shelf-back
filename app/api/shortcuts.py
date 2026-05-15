@@ -6,21 +6,19 @@ from typing import TYPE_CHECKING
 from app.cache import cache
 
 if TYPE_CHECKING:
-    from uuid import UUID
-
     from app.app.files.domain import AnyFile
 
 
-async def create_download_cache(owner_id: UUID, file: AnyFile) -> str:
+async def create_download_cache(file: AnyFile) -> str:
     """Set metadata to be used for a file download."""
     token = secrets.token_urlsafe()
-    await cache.set(key=token, value=(owner_id, file), expire=60)
+    await cache.set(key=token, value=file, expire=60)
     return token
 
 
-async def pop_download_cache(token: str) -> tuple[UUID, AnyFile] | None:
+async def pop_download_cache(token: str) -> AnyFile | None:
     """Return download metadata and remove it from cache."""
-    value: tuple[UUID, AnyFile] | None = await cache.get(token)
+    value: AnyFile | None = await cache.get(token)
     if not value:
         return None
     await cache.delete(token)

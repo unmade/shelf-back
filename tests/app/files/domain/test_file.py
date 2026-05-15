@@ -25,6 +25,7 @@ def _make_file(
 
     return File(
         id=fake.uuid4(cast_to=None),
+        owner_id=uuid.uuid7(),
         ns_path=ns_path or fake.file_path(depth=1),
         name=Path(pathname).name,
         path=Path(pathname),

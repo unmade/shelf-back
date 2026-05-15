@@ -347,6 +347,7 @@ def file_factory(file_repo: IFileRepository, blob_factory: BlobFactory) -> FileF
         if path is None:
             path = fake.unique.file_name(category="text", extension="txt")
 
+        namespace = await models.Namespace.get(path=ns_path)
         blob = await blob_factory(
             storage_key=f"{ns_path}/{path}",
             media_type=mediatype,
@@ -355,6 +356,7 @@ def file_factory(file_repo: IFileRepository, blob_factory: BlobFactory) -> FileF
             File(
                 id=SENTINEL_ID,
                 blob_id=blob.id,
+                owner_id=namespace.owner_id,  # type: ignore[attr-defined]
                 ns_path=ns_path,
                 name=Path(path).name,
                 path=Path(path),
@@ -390,9 +392,11 @@ def folder_factory(file_repo: IFileRepository) -> FolderFactory:
         ns_path: str, path: AnyPath | None = None, size: int = 0
     ) -> File:
         path = path or fake.unique.word()
+        namespace = await models.Namespace.get(path=ns_path)
         return await file_repo.save(
             File(
                 id=SENTINEL_ID,
+                owner_id=namespace.owner_id,  # type: ignore[attr-defined]
                 ns_path=ns_path,
                 name=Path(path).name,
                 path=Path(path),

@@ -105,8 +105,7 @@ async def get_shared_link_download_url(
     except SharedLink.NotFound as exc:
         raise SharedLinkNotFound() from exc
 
-    namespace = await usecases.sharing.namespace.get_by_path(file.ns_path)
-    key = await shortcuts.create_download_cache(namespace.owner_id, file)
+    key = await shortcuts.create_download_cache(file)
 
     if file.is_folder():
         download_url = request.url_for("download_folder")
