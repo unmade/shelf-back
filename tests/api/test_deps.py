@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import uuid
 from typing import TYPE_CHECKING
 from unittest import mock
 from uuid import UUID
@@ -73,26 +72,6 @@ class TestNamespace:
         # THEN
         assert result == usecases.namespace.namespace.get_by_owner_id.return_value
         usecases.namespace.namespace.get_by_owner_id.assert_awaited_once_with(user.id)
-
-
-class TestServiceToken:
-    async def test(self):
-        service_token = uuid.uuid4().hex
-        with mock.patch.object(config.auth, "service_token", service_token):
-            result = await deps.service_token(token=service_token)
-        assert result is None
-
-    async def test_when_token_is_missing(self):
-        with pytest.raises(exceptions.MissingToken):
-            await deps.service_token(token=None)
-
-    async def test_when_token_is_invalid(self):
-        service_token = uuid.uuid4()
-        with (
-            mock.patch.object(config.auth, "service_token", service_token.hex),
-            pytest.raises(exceptions.InvalidToken),
-        ):
-            await deps.service_token(token=str(service_token))
 
 
 class TestTokenPayload:

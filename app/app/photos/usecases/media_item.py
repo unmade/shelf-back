@@ -15,10 +15,6 @@ if TYPE_CHECKING:
         BlobMetadataService,
         BlobThumbnailService,
     )
-    from app.app.photos.domain.media_item import (
-        MediaItemCategory,
-        MediaItemCategoryName,
-    )
     from app.app.photos.repositories.media_item import CountResult
     from app.app.photos.services import AlbumService, MediaItemService
     from app.app.photos.services.media_item import (
@@ -57,21 +53,6 @@ class MediaItemUseCase:
         self.blob_processor = services.blob_processor
         self.media_item = services.media_item
         self.thumbnailer = services.blob_thumbnailer
-
-    async def auto_add_category_batch(
-        self,
-        media_item_id: UUID,
-        categories: Sequence[tuple[MediaItemCategoryName, int]],
-    ) -> None:
-        """
-        Adds a set of categories provided by AI recognition.
-
-        Raises:
-            MediaItem.NotFound: If media item does not exist.
-        """
-        await self.media_item.auto_add_category_batch(
-            media_item_id, categories=categories
-        )
 
     async def count(self, owner_id: UUID) -> CountResult:
         """Returns total number of media items owner has."""
@@ -145,18 +126,6 @@ class MediaItemUseCase:
         """Lists favourite media item IDs for the current user."""
         return await self.media_item.list_favourite_ids(user_id)
 
-    async def list_categories(
-        self, owner_id: UUID, media_item_id: UUID
-    ) -> list[MediaItemCategory]:
-        """
-        Returns categories of the owner's MediaItem with given ID.
-
-        Raises:
-            MediaItem.NotFound: If MediaItem does not exist.
-        """
-        item = await self.media_item.get_for_owner(owner_id, media_item_id)
-        return await self.media_item.list_categories(item.id)
-
     async def mark_favourite_batch(
         self, user_id: UUID, ids: Sequence[UUID]
     ) -> None:
@@ -174,21 +143,6 @@ class MediaItemUseCase:
     ) -> list[MediaItem]:
         """Restores multiple media items at once."""
         return await self.media_item.restore_batch(owner_id, ids)
-
-    async def set_categories(
-        self,
-        owner_id: UUID,
-        media_item_id: UUID,
-        categories: Sequence[MediaItemCategoryName],
-    ) -> None:
-        """
-        Clears existing and sets specified categories for MediaItem with given ID.
-
-        Raises:
-            MediaItem.NotFound: If MediaItem does not exist.
-        """
-        item = await self.media_item.get_for_owner(owner_id, media_item_id)
-        return await self.media_item.set_categories(item.id, categories)
 
     async def thumbnail(
         self, owner_id: UUID, media_item_id: UUID, size: int

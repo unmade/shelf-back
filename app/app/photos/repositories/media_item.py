@@ -8,7 +8,6 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from app.app.photos.domain import MediaItem
-    from app.app.photos.domain.media_item import MediaItemCategory
 
 
 class CountResult(NamedTuple):
@@ -17,11 +16,6 @@ class CountResult(NamedTuple):
 
 
 class IMediaItemRepository(Protocol):
-    async def add_category_batch(
-        self, media_item_id: UUID, categories: Sequence[MediaItemCategory]
-    ) -> None:
-        """Adds multiple categories at once for the specified media item."""
-
     async def count(self, owner_id: UUID) -> CountResult:
         """Returns total number of media items owner with specified ID has."""
 
@@ -57,14 +51,6 @@ class IMediaItemRepository(Protocol):
     ) -> list[MediaItem]:
         """Lists all media items for given owner."""
 
-    async def list_categories(self, media_item_id: UUID) -> list[MediaItemCategory]:
-        """
-        Lists categories of the MediaItem with specified ID.
-
-        Raises:
-            MediaItem.NotFound: If MediaItem does not exist.
-        """
-
     async def list_deleted(
         self, owner_id: UUID, *, offset: int, limit: int = 25
     ) -> list[MediaItem]:
@@ -72,16 +58,6 @@ class IMediaItemRepository(Protocol):
 
     async def save(self, item: MediaItem) -> MediaItem:
         """Saves a new media item."""
-
-    async def set_categories(
-        self, media_item_id: UUID, categories: Sequence[MediaItemCategory]
-    ) -> None:
-        """
-        Clears existing and sets specified categories for MediaItem with given ID.
-
-        Raises:
-            MediaItem.NotFound: If MediaItem does not exist.
-        """
 
     async def set_deleted_at_batch(
         self, owner_id: UUID, ids: Sequence[UUID], deleted_at: datetime | None
