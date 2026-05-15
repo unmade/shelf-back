@@ -74,6 +74,13 @@ class Blob(models.Model):
     created_at = fields.DatetimeField()
 
 
+class BlobJob(models.Model):
+    id = fields.UUIDField(primary_key=True, default=uuid7)
+    type = fields.CharField(max_length=255)
+    data = fields.JSONField()  # type: ignore[var-annotated]
+    created_at = fields.DatetimeField()
+
+
 class BlobMetadata(models.Model):
     id = fields.UUIDField(primary_key=True, default=uuid7)
     data = fields.JSONField()  # type: ignore[var-annotated]
@@ -100,20 +107,22 @@ class File(models.Model):
     id = fields.UUIDField(primary_key=True, default=uuid7)
     name = fields.CharField(max_length=1024)
     path = fields.CharField(max_length=4096)
-    chash = fields.CharField(max_length=128)
     size = fields.BigIntField()
     modified_at = fields.DatetimeField()
-    mediatype: fields.ForeignKeyRelation[MediaType] = fields.ForeignKeyField(
-        "models.MediaType", related_name="files", on_delete=fields.RESTRICT,
+    owner: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
+        "models.User", related_name="files", on_delete=fields.CASCADE,
     )
     namespace: fields.ForeignKeyRelation[Namespace] = fields.ForeignKeyField(
         "models.Namespace", related_name="files", on_delete=fields.CASCADE,
+    )
+    blob: fields.ForeignKeyRelation[Blob] | None = fields.ForeignKeyField(
+        "models.Blob", related_name="files", on_delete=fields.RESTRICT,
+        null=True,
     )
     deleted_at = fields.DatetimeField(null=True)
 
     class Meta:
         unique_together = (("path", "namespace"),)
-        indexes = (("chash", "namespace"),)
 
 
 class FileMember(models.Model):
@@ -148,29 +157,6 @@ class FileMetadata(models.Model):
     file: fields.ForeignKeyRelation[File] = fields.OneToOneField(
         "models.File", related_name="metadata", on_delete=fields.CASCADE,
     )
-
-
-class FilePendingDeletion(models.Model):
-    id = fields.UUIDField(primary_key=True, default=uuid7)
-    storage_key = fields.CharField(max_length=4096)
-    chash = fields.CharField(max_length=128)
-    mediatype = fields.CharField(max_length=255)
-    created_at = fields.DatetimeField()
-
-
-
-class Fingerprint(models.Model):
-    id = fields.UUIDField(primary_key=True, default=uuid7)
-    part1 = fields.IntField()
-    part2 = fields.IntField()
-    part3 = fields.IntField()
-    part4 = fields.IntField()
-    file: fields.ForeignKeyRelation[File] = fields.OneToOneField(
-        "models.File", related_name="fingerprint", on_delete=fields.CASCADE,
-    )
-
-    class Meta:
-        indexes = (("part1",), ("part2",), ("part3",), ("part4",))
 
 
 class MediaItem(models.Model):
@@ -222,11 +208,6 @@ class MediaItemCategoryThrough(models.Model):
 
     class Meta:
         unique_together = (("media_item", "media_item_category"),)
-
-
-class MediaType(models.Model):
-    id = fields.UUIDField(primary_key=True, default=uuid7)
-    name = fields.CharField(max_length=255, unique=True)
 
 
 class Namespace(models.Model):

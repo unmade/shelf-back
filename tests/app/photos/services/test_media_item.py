@@ -129,9 +129,7 @@ class TestCreate:
         content: IBlobContent,
     ):
         # GIVEN
-        owner_id = uuid.uuid7()
-        name = "photo.jpg"
-        media_type = MediaType.IMAGE_JPEG
+        owner_id, name = uuid.uuid7(), "photo.jpg"
         storage_key = f"{owner_id}/photos/2026/04/19/prefix_{name}"
         created_at = datetime(2026, 4, 19, 10, 11, 12, tzinfo=UTC)
         blob = _make_blob(storage_key, created_at=created_at)
@@ -141,13 +139,11 @@ class TestCreate:
         blob_service.create.return_value = blob
         # WHEN
         with freezegun.freeze_time(created_at, real_asyncio=True):
-            result = await media_item_service.create(
-                owner_id, name, content, media_type
-            )
+            result = await media_item_service.create(owner_id, name, content)
         # THEN
         assert result == db.media_item.save.return_value
         make_storage_key_mock.assert_called_once_with(owner_id, name)
-        blob_service.create.assert_awaited_once_with(storage_key, content, media_type)
+        blob_service.create.assert_awaited_once_with(storage_key, content)
         db.media_item.save.assert_awaited_once_with(
             MediaItem(
                 id=SENTINEL_ID,

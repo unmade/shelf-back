@@ -23,7 +23,8 @@ def _make_file(
 ) -> File:
     path = Path(path)
     return File(
-        id=uuid.uuid4(),
+        id=uuid.uuid7(),
+        owner_id=uuid.uuid7(),
         ns_path=ns_path,
         name=path.name,
         path=path,

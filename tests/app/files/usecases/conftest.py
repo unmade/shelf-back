@@ -6,15 +6,16 @@ from unittest import mock
 import pytest
 
 from app.app.audit.services import AuditTrailService
+from app.app.blobs.services import (
+    BlobContentProcessor,
+    BlobMetadataService,
+    BlobThumbnailService,
+)
 from app.app.files.services import (
-    ContentService,
-    DuplicateFinderService,
     FileMemberService,
     FileService,
-    MetadataService,
     NamespaceService,
     SharingService,
-    ThumbnailService,
 )
 from app.app.files.services.file import FileCoreService
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
@@ -29,13 +30,12 @@ def _atomic() -> AsyncExitStack:
 def ns_use_case():
     """A mocked NamespaceUseCase instance."""
     services = mock.MagicMock(
-        content=mock.MagicMock(spec=ContentService),
         audit_trail=mock.MagicMock(spec=AuditTrailService),
-        dupefinder=mock.MagicMock(spec=DuplicateFinderService),
+        blob_metadata=mock.MagicMock(spec=BlobMetadataService),
+        blob_processor=mock.MagicMock(spec=BlobContentProcessor),
         file=mock.MagicMock(spec=FileService, filecore=mock.MagicMock(FileCoreService)),
-        metadata=mock.MagicMock(spec=MetadataService),
         namespace=mock.MagicMock(spec=NamespaceService),
-        thumbnailer=mock.MagicMock(spec=ThumbnailService),
+        thumbnailer=mock.MagicMock(spec=BlobThumbnailService),
         user=mock.MagicMock(spec=UserService),
     )
     return NamespaceUseCase(services=services)
@@ -52,7 +52,7 @@ def sharing_use_case():
         file_member=mock.MagicMock(spec=FileMemberService),
         namespace=mock.MagicMock(spec=NamespaceService),
         sharing=mock.MagicMock(spec=SharingService),
-        thumbnailer=mock.MagicMock(spec=ThumbnailService),
+        thumbnailer=mock.MagicMock(spec=BlobThumbnailService),
         user=mock.MagicMock(spec=UserService),
         atomic=_atomic,
     )

@@ -17,12 +17,17 @@ class BlobNotFound(BlobError):
     pass
 
 
+class BlobAlreadyExists(BlobError):
+    pass
+
+
 class ThumbnailUnavailable(BlobError):
     pass
 
 
 class Blob(BaseModel):
     Error: ClassVar[type[Exception]] = BlobError
+    AlreadyExists: ClassVar[type[BlobAlreadyExists]] = BlobAlreadyExists
     NotFound: ClassVar[type[BlobNotFound]] = BlobNotFound
     ThumbnailUnavailable: ClassVar[type[ThumbnailUnavailable]] = ThumbnailUnavailable
 

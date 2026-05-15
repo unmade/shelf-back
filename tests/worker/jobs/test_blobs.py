@@ -17,10 +17,24 @@ pytestmark = [pytest.mark.anyio]
 class TestProcessBlobContent:
     async def test(self, arq_context: ARQContext):
         # GIVEN
-        blob_id = uuid.uuid4()
+        blob_id = uuid.uuid7()
         usecases = cast(mock.MagicMock, arq_context["usecases"])
         content_processor = usecases.blob_content_processor
         # WHEN
         await blobs.process_blob_content(arq_context, blob_id)
         # THEN
         content_processor.process.assert_awaited_once_with(blob_id)
+
+
+class TestProcessBlobJobs:
+    async def test(self, arq_context: ARQContext):
+        # GIVEN
+        ids = [uuid.uuid7(), uuid.uuid7(), uuid.uuid7()]
+        usecases = cast(mock.MagicMock, arq_context["usecases"])
+        blob_service = usecases.blob
+
+        # WHEN
+        await blobs.process_blob_jobs(arq_context, ids)
+
+        # THEN
+        blob_service.process_blob_jobs.assert_awaited_once_with(ids)

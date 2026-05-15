@@ -5,7 +5,7 @@ from io import BytesIO
 
 import pytest
 
-from app.app.files.services.dupefinder.dhash.image import dhash_image
+from app.toolkit.dhash.image import dhash_image
 
 
 class TestDHashImage:

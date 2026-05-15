@@ -8,11 +8,13 @@ from unittest import mock
 import freezegun
 import pytest
 
-from app.app.files.domain import File, Fingerprint, Path
+from app.app.files.domain import File, Path
 from app.app.users.domain import Account
 from app.config import config
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from app.app.blobs.domain import IBlobContent
     from app.app.files.domain import AnyPath
     from app.app.files.usecases import NamespaceUseCase
@@ -21,10 +23,17 @@ pytestmark = [pytest.mark.anyio]
 
 
 def _make_file(
-    ns_path: str, path: AnyPath, size: int = 10, mediatype: str = "image/jpeg"
+    ns_path: str,
+    path: AnyPath,
+    *,
+    blob_id: UUID | None = None,
+    size: int = 10,
+    mediatype: str = "image/jpeg",
 ) -> File:
     return File(
-        id=uuid.uuid4(),
+        id=uuid.uuid7(),
+        blob_id=blob_id or uuid.uuid7(),
+        owner_id=uuid.uuid7(),
         ns_path=ns_path,
         name=Path(path).name,
         path=Path(path),
@@ -48,7 +57,7 @@ class TestAddFile:
     ):
         # GIVEN
         audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
-        content_service = cast(mock.MagicMock, ns_use_case.content)
+        blob_processor = cast(mock.MagicMock, ns_use_case.blob_processor)
         file_service = cast(mock.MagicMock, ns_use_case.file)
         ns_service = cast(mock.MagicMock, ns_use_case.namespace)
         user_service = cast(mock.MagicMock, ns_use_case.user)
@@ -65,10 +74,10 @@ class TestAddFile:
             ns_path, path, content, modified_at
         )
         owner_id = ns_service.get_by_path.return_value.owner_id
-        content_service.process_async.assert_awaited_once_with(result.id, owner_id)
 
         user_service.get_account.assert_awaited_once_with(owner_id)
         ns_service.get_space_used_by_owner_id.assert_not_awaited()
+        blob_processor.process_async.assert_awaited_once_with(result.blob_id)
         audit_trail.file_added.assert_called_once_with(result)
 
     async def test_limited_storage_quota(
@@ -76,7 +85,7 @@ class TestAddFile:
     ):
         # GIVEN
         audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
-        content_service = cast(mock.MagicMock, ns_use_case.content)
+        blob_processor = cast(mock.MagicMock, ns_use_case.blob_processor)
         file_service = cast(mock.MagicMock, ns_use_case.file)
         ns_service = cast(mock.MagicMock, ns_use_case.namespace)
         ns_service.get_space_used_by_owner_id = mock.AsyncMock(return_value=512)
@@ -94,10 +103,10 @@ class TestAddFile:
             ns_path, path, content, modified_at
         )
         owner_id = ns_service.get_by_path.return_value.owner_id
-        content_service.process_async.assert_awaited_once_with(result.id, owner_id)
 
         user_service.get_account.assert_awaited_once_with(owner_id)
         ns_service.get_space_used_by_owner_id.assert_awaited_once_with(owner_id)
+        blob_processor.process_async.assert_awaited_once_with(result.blob_id)
         audit_trail.file_added.assert_called_once_with(result)
 
     async def test_when_adding_to_trash_folder(
@@ -122,7 +131,7 @@ class TestAddFile:
     ):
         # GIVEN
         audit_trail = cast(mock.MagicMock, ns_use_case.audit_trail)
-        content_service = cast(mock.MagicMock, ns_use_case.content)
+        blob_processor = cast(mock.MagicMock, ns_use_case.blob_processor)
         file_service = cast(mock.MagicMock, ns_use_case.file)
         ns_service = cast(mock.MagicMock, ns_use_case.namespace)
         ns_service.get_space_used_by_owner_id = mock.AsyncMock(return_value=1024)
@@ -136,11 +145,11 @@ class TestAddFile:
 
         # THEN
         file_service.create_file.assert_not_awaited()
-        content_service.process_async.assert_not_awaited()
 
         owner_id = ns_service.get_by_path.return_value.owner_id
         user_service.get_account.assert_awaited_once_with(owner_id)
         ns_service.get_space_used_by_owner_id.assert_awaited_once_with(owner_id)
+        blob_processor.process_async.assert_not_awaited()
         audit_trail.file_added.assert_not_called()
 
 
@@ -207,13 +216,13 @@ class TestDownloadByID:
 class TestDownloadFolder:
     async def test(self, ns_use_case: NamespaceUseCase):
         # GIVEN
-        ns_path, path = "admin", "f.txt"
+        owner_id, path = uuid.uuid7(), "f.txt"
         file_service = cast(mock.MagicMock, ns_use_case.file)
         # WHEN
-        result = ns_use_case.download_folder(ns_path, path)
+        result = ns_use_case.download_folder(owner_id, path)
         # THEN
         assert result == file_service.download_folder.return_value
-        file_service.download_folder.assert_called_once_with(ns_path, path)
+        file_service.download_folder.assert_called_once_with(owner_id, path)
 
 
 class TestEmptyTrash:
@@ -229,60 +238,19 @@ class TestEmptyTrash:
         audit_trail.trash_emptied.assert_called_once_with()
 
 
-class TestFindDuplicates:
-    async def test(self, ns_use_case: NamespaceUseCase):
-        # GIVEN
-        ns_path = "admin"
-        files = [_make_file(ns_path, f"{idx}.txt") for idx in range(4)]
-        intersection = [
-            [
-                Fingerprint(file_id=files[0].id, value=14841886093006266496),
-                Fingerprint(file_id=files[2].id, value=14841886093006266496),
-            ],
-            [
-                Fingerprint(file_id=files[1].id, value=16493668159829433821),
-                Fingerprint(file_id=files[3].id, value=16493668159830482397),
-            ]
-        ]
-        dupefinder = cast(mock.MagicMock, ns_use_case.dupefinder)
-        dupefinder.find_in_folder.return_value = intersection
-        file_service = cast(mock.MagicMock, ns_use_case.file)
-        file_service.get_by_id_batch.return_value = files
-        # WHEN
-        duplicates = await ns_use_case.find_duplicates(ns_path, ".")
-        # THEN
-        assert duplicates == [[files[0], files[2]], [files[1], files[3]]]
-        dupefinder.find_in_folder.assert_awaited_once_with(ns_path, ".", 5)
-        file_service.get_by_id_batch.assert_awaited_once()
-
-    async def test_when_no_duplicates(self, ns_use_case: NamespaceUseCase):
-        # GIVEN
-        ns_path = "admin"
-        dupefinder = cast(mock.MagicMock, ns_use_case.dupefinder)
-        dupefinder.find_in_folder.return_value = []
-        file_service = cast(mock.MagicMock, ns_use_case.file)
-        file_service.get_by_id_batch.return_value = []
-        # WHEN
-        duplicates = await ns_use_case.find_duplicates(ns_path, ".")
-        # THEN
-        assert duplicates == []
-        dupefinder.find_in_folder.assert_awaited_once_with(ns_path, ".", 5)
-        file_service.get_by_id_batch.assert_awaited_once()
-
-
 class TestGetFileMetadata:
     async def test(self, ns_use_case: NamespaceUseCase):
         # GIVEN
         ns_path, file_id = "admin", uuid.uuid4()
         file_service = cast(mock.MagicMock, ns_use_case.file)
-        metadata = cast(mock.MagicMock, ns_use_case.metadata)
+        blob_metadata = cast(mock.MagicMock, ns_use_case.blob_metadata)
         # WHEN
         result = await ns_use_case.get_file_metadata(ns_path, file_id)
         # THEN
-        assert result == metadata.get_by_file_id.return_value
+        assert result == blob_metadata.get_by_blob_id.return_value
         file_service.get_by_id.assert_awaited_once_with(ns_path, file_id)
         file = file_service.get_by_id.return_value
-        metadata.get_by_file_id.assert_awaited_once_with(file.id)
+        blob_metadata.get_by_blob_id.assert_awaited_once_with(file.blob_id)
 
 
 class TestGetFileThumbnail:
@@ -299,7 +267,7 @@ class TestGetFileThumbnail:
         # THEN
         assert result == (file, *thumbnail)
         file_service.get_by_id.assert_awaited_once_with(ns_path, file.id)
-        thumbnailer.thumbnail.assert_awaited_once_with(file.id, file.chash, 32)
+        thumbnailer.thumbnail.assert_awaited_once_with(file.blob_id, file.chash, 32)
 
 
 class TestGetItemAtPath:
@@ -406,39 +374,3 @@ class TestMoveItemToTrash:
             ns_path, Path("Trash/f.txt")
         )
         file_service.move.assert_awaited_once_with(ns_path, path, next_path)
-
-
-class TestReindex:
-    async def test(self, ns_use_case: NamespaceUseCase):
-        # GIVEN
-        ns_service = cast(mock.MagicMock, ns_use_case.namespace)
-        file_service = cast(mock.MagicMock, ns_use_case.file)
-        # WHEN
-        await ns_use_case.reindex("admin")
-        # THEN
-        ns_service.get_by_path.assert_awaited_once_with("admin")
-        file_service.reindex.assert_awaited_once_with("admin", ".")
-        file_service.filecore.create_folder.assert_awaited_once_with("admin", "Trash")
-
-    async def test_when_trash_folder_was_created(self, ns_use_case: NamespaceUseCase):
-        # GIVEN
-        ns_service = cast(mock.MagicMock, ns_use_case.namespace)
-        file_service = cast(mock.MagicMock, ns_use_case.file)
-        file_service.filecore.create_folder.side_effect = File.AlreadyExists
-        # WHEN
-        await ns_use_case.reindex("admin")
-        # THEN
-        ns_service.get_by_path.assert_awaited_once_with("admin")
-        file_service.reindex.assert_awaited_once_with("admin", ".")
-        file_service.filecore.create_folder.assert_awaited_once_with("admin", "Trash")
-
-
-class TestReindexContents:
-    async def test(self, ns_use_case: NamespaceUseCase):
-        # GIVEN
-        ns_path = "admin"
-        content_service = cast(mock.MagicMock, ns_use_case.content)
-        # WHEN
-        await ns_use_case.reindex_contents(ns_path)
-        # THEN
-        content_service.reindex_contents.assert_awaited_once_with(ns_path)

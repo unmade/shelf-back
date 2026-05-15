@@ -9,8 +9,7 @@ from pydantic import BaseModel
 from app.app.files.domain import File
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
-    from uuid import UUID
+    from collections.abc import Iterable
 
     from app.app.audit.domain import CurrentUserContext
     from app.app.files.domain import AnyFile, AnyPath
@@ -156,20 +155,3 @@ async def move_to_trash_batch(
             result = FileTaskResult(file=file, err_code=err_code)
             results.append(result)
     return results
-
-
-async def process_file_content(ctx: ARQContext, file_id: UUID, user_id: UUID) -> None:
-    content_service = ctx["usecases"].namespace.content
-    await content_service.process(file_id, user_id)
-
-
-async def process_file_pending_deletion(ctx: ARQContext, ids: Sequence[UUID]) -> None:
-    filecore = ctx["usecases"].namespace.file.filecore
-    thumbnailer = ctx["usecases"].namespace.thumbnailer
-    result = await filecore.process_file_pending_deletion(ids)
-    chashes = [
-        item.chash
-        for item in result
-        if item.chash and thumbnailer.is_supported(item.mediatype)
-    ]
-    await thumbnailer.delete_stale_thumbnails(chashes)

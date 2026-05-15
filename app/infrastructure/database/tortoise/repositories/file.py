@@ -13,6 +13,7 @@ from app.app.files.domain.path import Path
 from app.app.files.repositories import IFileRepository
 from app.app.files.repositories.file import FileUpdate
 from app.infrastructure.database.tortoise import models
+from app.toolkit import chash
 from app.toolkit.mediatypes import MediaType
 
 from .file_member import ActionFlag
@@ -27,32 +28,48 @@ if TYPE_CHECKING:
 __all__ = ["FileRepository"]
 
 
+def _file_fields(obj: models.File) -> tuple[str, str]:
+    blob_id = getattr(obj, "blob_id", None)
+    if blob_id is None:
+        return chash.EMPTY_CONTENT_HASH, MediaType.FOLDER
+
+    blob = obj.blob
+    assert blob is not None
+    return blob.chash, blob.media_type
+
+
 def _from_db(ns_path: str | None, obj: models.File) -> File:
+    chash, mediatype = _file_fields(obj)
     return File(
         id=obj.id,
+        blob_id=obj.blob_id,  # type: ignore[attr-defined]
+        owner_id=obj.owner_id,  # type: ignore[attr-defined]
         ns_path=ns_path or obj.namespace.path,
         name=obj.name,
         path=Path(obj.path),
-        chash=obj.chash,
+        chash=chash,
         size=obj.size,
         modified_at=obj.modified_at,
-        mediatype=obj.mediatype.name,
+        mediatype=mediatype,
     )
 
 
 def _from_db_v2(ns_path: str, obj: models.File) -> AnyFile:
+    chash, mediatype = _file_fields(obj)
     mount_point_obj = getattr(obj, "_mount_point", None)
     if mount_point_obj is None:
         return File(
             id=obj.id,
+            blob_id=obj.blob_id,  # type: ignore[attr-defined]
+            owner_id=obj.owner_id,  # type: ignore[attr-defined]
             ns_path=ns_path,
             name=obj.name,
             path=Path(obj.path),
-            chash=obj.chash,
+            chash=chash,
             size=obj.size,
             modified_at=obj.modified_at,
             shared=getattr(obj, "_shared", False),
-            mediatype=obj.mediatype.name,
+            mediatype=mediatype,
         )
 
     mount_point = MountPoint(
@@ -70,13 +87,15 @@ def _from_db_v2(ns_path: str, obj: models.File) -> AnyFile:
 
     return MountedFile(
         id=obj.id,
+        blob_id=obj.blob_id,  # type: ignore[attr-defined]
+        owner_id=obj.owner_id,  # type: ignore[attr-defined]
         ns_path=mount_point.folder.ns_path,
         name=mount_point.display_path.name,
         path=mount_point.display_path,
-        chash=obj.chash,
+        chash=chash,
         size=obj.size,
         modified_at=obj.modified_at,
-        mediatype=obj.mediatype.name,
+        mediatype=mediatype,
         shared=True,
         mount_point=mount_point,
     )
@@ -99,12 +118,11 @@ class FileRepository(IFileRepository):
         try:
             obj = await (
                 models.File
-                .filter(
+                .get(
                     namespace__path=str(ns_path),
                     path__iexact=str(path),
                 )
-                .select_related("mediatype")
-                .get()
+                .select_related("namespace", "blob")
             )
         except DoesNotExist as exc:
             raise File.NotFound() from exc
@@ -187,23 +205,12 @@ class FileRepository(IFileRepository):
             .exists()
         )
 
-    async def get_by_chash_batch(
-        self, chashes: Sequence[str]
-    ) -> list[File]:
-        objs = await (
-            models.File
-            .filter(chash__in=chashes)
-            .select_related("mediatype", "namespace")
-        )
-        return [_from_db(None, obj) for obj in objs]
-
     async def get_by_id(self, file_id: UUID) -> File:
         try:
             obj = await (
                 models.File
-                .filter(id=file_id)
-                .select_related("mediatype", "namespace")
-                .get()
+                .get(id=file_id)
+                .select_related("blob", "namespace")
             )
         except DoesNotExist as exc:
             raise File.NotFound() from exc
@@ -215,7 +222,7 @@ class FileRepository(IFileRepository):
         objs = await (
             models.File
             .filter(id__in=list(ids))
-            .select_related("mediatype", "namespace")
+            .select_related("blob", "namespace")
             .annotate(lower_path=Lower("path"))
             .order_by("lower_path")
         )
@@ -227,12 +234,11 @@ class FileRepository(IFileRepository):
         try:
             obj = await (
                 models.File
-                .filter(
+                .get(
                     namespace__path=str(ns_path),
                     path__iexact=str(path),
                 )
-                .select_related("mediatype")
-                .get()
+                .select_related("blob", "namespace")
             )
         except DoesNotExist as exc:
             raise File.NotFound() from exc
@@ -248,7 +254,7 @@ class FileRepository(IFileRepository):
             )
             .annotate(lower_path=Lower("path"))
             .filter(lower_path__in=[str(p).lower() for p in paths])
-            .select_related("mediatype")
+            .select_related("blob", "namespace")
             .order_by("lower_path")
         )
         return [_from_db(str(ns_path), obj) for obj in objs]
@@ -269,30 +275,6 @@ class FileRepository(IFileRepository):
             .update(size=F("size") + value)
         )
 
-    async def list_files(
-        self,
-        ns_path: AnyPath,
-        *,
-        included_mediatypes: Sequence[str] | None = None,
-        excluded_mediatypes: Sequence[str] | None = None,
-        offset: int,
-        limit: int = 25,
-    ) -> list[File]:
-        qs = models.File.filter(namespace__path=str(ns_path))
-        if included_mediatypes:
-            qs = qs.filter(mediatype__name__in=included_mediatypes)
-        if excluded_mediatypes:
-            qs = qs.filter(mediatype__name__not_in=excluded_mediatypes)
-
-        objs = await (
-            qs
-            .select_related("mediatype")
-            .order_by("path")
-            .offset(offset)
-            .limit(limit)
-        )
-        return [_from_db(str(ns_path), obj) for obj in objs]
-
     async def list_with_prefix(
         self, ns_path: AnyPath, prefix: AnyPath
     ) -> list[AnyFile]:
@@ -309,7 +291,7 @@ class FileRepository(IFileRepository):
                 namespace__path=str(ns_path),
                 path__iposix_regex=pattern,
             )
-            .select_related("mediatype", "namespace")
+            .select_related("blob", "namespace")
         )
 
         # Get mount points for the parent folder
@@ -322,7 +304,7 @@ class FileRepository(IFileRepository):
                     parent__namespace__path=str(ns_path),
                 )
                 .select_related(
-                    "member__file__mediatype",
+                    "member__file__blob",
                     "member__file__namespace",
                     "member",
                     "parent",
@@ -378,7 +360,7 @@ class FileRepository(IFileRepository):
         objs = await (
             models.File
             .filter(q)
-            .select_related("mediatype", "namespace")
+            .select_related("blob", "namespace")
         )
         return [_from_db(None, obj) for obj in objs]
 
@@ -405,71 +387,53 @@ class FileRepository(IFileRepository):
             obj.name = Path(to_path).name
             if to_ns is not None:
                 obj.namespace = to_ns
+                obj.owner_id = to_ns.owner_id  # type: ignore[attr-defined]
 
-        await models.File.bulk_update(objs, fields=["path", "name", "namespace_id"])
+        await models.File.bulk_update(
+            objs,
+            fields=["path", "name", "namespace_id", "owner_id"],
+        )
 
     async def save(self, file: File) -> File:
-        mediatype, _ = await models.MediaType.get_or_create(
-            name=file.mediatype,
-        )
         namespace = await models.Namespace.get(path=file.ns_path)
         try:
             obj = await models.File.create(
                 name=file.name,
                 path=str(file.path),
-                chash=str(file.chash),
                 size=file.size,
                 modified_at=file.modified_at,
-                mediatype=mediatype,
+                owner_id=namespace.owner_id,  # type: ignore[attr-defined]
                 namespace=namespace,
+                blob_id=file.blob_id,
             )
         except IntegrityError as exc:
             raise File.AlreadyExists() from exc
-        return _from_db(file.ns_path, obj)
+        return await self.get_by_id(obj.id)
 
     async def save_batch(self, files: Iterable[File]) -> None:
         files = list(files)
         if not files:
             return
 
-        mediatypes_names = {f.mediatype for f in files}
-        for name in mediatypes_names:
-            await models.MediaType.get_or_create(name=name)
-
         ns_paths = {f.ns_path for f in files}
         namespaces = {
             ns.path: ns
             for ns in await models.Namespace.filter(path__in=ns_paths)
-        }
-        mediatypes = {
-            mt.name: mt
-            for mt in await models.MediaType.filter(
-                name__in=mediatypes_names
-            )
         }
 
         objs = [
             models.File(
                 name=f.name,
                 path=str(f.path),
-                chash=str(f.chash),
                 size=f.size,
                 modified_at=f.modified_at,
-                mediatype=mediatypes[f.mediatype],
+                owner_id=namespaces[f.ns_path].owner_id,  # type: ignore[attr-defined]
                 namespace=namespaces[f.ns_path],
+                blob_id=f.blob_id,
             )
             for f in files
         ]
         await models.File.bulk_create(objs, ignore_conflicts=True)
-
-    async def set_chash_batch(
-        self, items: Iterable[tuple[UUID, str]]
-    ) -> None:
-        chash_map = dict(items)
-        objs = await models.File.filter(id__in=list(chash_map.keys()))
-        for obj in objs:
-            obj.chash = chash_map[obj.id]
-        await models.File.bulk_update(objs, fields=["chash"])
 
     async def update(self, file: File, fields: FileUpdate) -> File:
         update_kwargs: dict[str, object] = {}
@@ -477,6 +441,7 @@ class FileRepository(IFileRepository):
         if ns_path != file.ns_path:
             namespace = await models.Namespace.get(path=ns_path)
             update_kwargs["namespace"] = namespace
+            update_kwargs["owner_id"] = namespace.owner_id  # type: ignore[attr-defined]
 
         for key, value in fields.items():
             update_kwargs[key] = str(value) if key == "path" else value
@@ -485,9 +450,8 @@ class FileRepository(IFileRepository):
 
         obj = await (
             models.File
-            .filter(id=file.id)
-            .select_related("mediatype", "namespace")
-            .get()
+            .get(id=file.id)
+            .select_related("blob", "namespace")
         )
 
         return _from_db(obj.namespace.path, obj)

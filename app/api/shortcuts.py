@@ -1,17 +1,12 @@
 from __future__ import annotations
 
 import secrets
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING
 
 from app.cache import cache
 
 if TYPE_CHECKING:
     from app.app.files.domain import AnyFile
-
-
-class DownloadCache(NamedTuple):
-    ns_path: str
-    path: str
 
 
 async def create_download_cache(file: AnyFile) -> str:

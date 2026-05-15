@@ -25,7 +25,7 @@ now = datetime.datetime(2023, 4, 15, 22, 51)
 
 def _make_user(username: str) -> User:
     return User(
-        id=uuid.uuid4(),
+        id=uuid.uuid7(),
         username=username,
         password="root",
         email=None,
@@ -37,14 +37,15 @@ def _make_user(username: str) -> User:
 
 def _make_current_user(username: str) -> CurrentUser:
     return CurrentUserContext.User(
-        id=uuid.uuid4(),
+        id=uuid.uuid7(),
         username=username,
     )
 
 
 def _make_file(ns_path: str, path: AnyPath) -> File:
     return File(
-        id=uuid.uuid4(),
+        id=uuid.uuid7(),
+        owner_id=uuid.uuid7(),
         ns_path=ns_path,
         name=Path(path).name,
         path=Path(path),

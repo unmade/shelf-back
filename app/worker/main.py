@@ -36,12 +36,11 @@ class WorkerSettings:
     functions = [
         ping,
         blobs.process_blob_content,
+        blobs.process_blob_jobs,
         files.delete_immediately_batch,
         files.empty_trash,
         files.move_batch,
         files.move_to_trash_batch,
-        files.process_file_content,
-        files.process_file_pending_deletion,
     ]
     on_startup = startup
     on_shutdown = shutdown

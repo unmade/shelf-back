@@ -441,15 +441,12 @@ class TestUpload:
         owner_id = uuid.uuid7()
         name = "photo.jpg"
         content = mock.MagicMock()
-        media_type = MediaType.IMAGE_JPEG
         media_item_service = cast(mock.MagicMock, media_item_use_case.media_item)
         blob_processor = cast(mock.MagicMock, media_item_use_case.blob_processor)
         item = media_item_service.create.return_value
         # WHEN
-        result = await media_item_use_case.upload(owner_id, name, content, media_type)
+        result = await media_item_use_case.upload(owner_id, name, content)
         # THEN
         assert result == item
-        media_item_service.create.assert_awaited_once_with(
-            owner_id, name, content, media_type
-        )
+        media_item_service.create.assert_awaited_once_with(owner_id, name, content)
         blob_processor.process_async.assert_awaited_once_with(item.blob_id)
