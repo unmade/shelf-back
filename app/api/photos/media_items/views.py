@@ -336,6 +336,5 @@ async def upload_media_item(
         owner_id=user.id,
         name=file.filename or "untitled",
         content=file,
-        media_type=file.content_type or "application/octet-stream",
     )
     return MediaItemSchema.from_entity(item, request)

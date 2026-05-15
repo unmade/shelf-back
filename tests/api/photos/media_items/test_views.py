@@ -831,10 +831,9 @@ class TestUpload:
         call_args = media_item_use_case.upload.await_args
         assert len(call_args.args) == 0
         assert list(call_args.kwargs.keys()) == [
-            "owner_id", "name", "content", "media_type"
+            "owner_id", "name", "content"
         ]
         assert call_args.kwargs["owner_id"] == user.id
         assert call_args.kwargs["name"] == item.name
         assert call_args.kwargs["content"].filename == item.name
         assert call_args.kwargs["content"].content_type == item.media_type
-        assert call_args.kwargs["media_type"] == item.media_type

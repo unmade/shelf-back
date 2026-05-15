@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import contextlib
-import itertools
 from typing import TYPE_CHECKING, Protocol
 
 from app.app.files.domain import AnyFile, File, Path
@@ -15,15 +13,16 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from app.app.audit.services import AuditTrailService
-    from app.app.blobs.domain import IBlobContent
-    from app.app.files.domain import AnyPath, ContentMetadata
+    from app.app.blobs.domain import BlobMetadata, IBlobContent
+    from app.app.blobs.services import (
+        BlobContentProcessor,
+        BlobMetadataService,
+        BlobThumbnailService,
+    )
+    from app.app.files.domain import AnyPath
     from app.app.files.services import (
-        ContentService,
-        DuplicateFinderService,
         FileService,
-        MetadataService,
         NamespaceService,
-        ThumbnailService,
     )
     from app.app.infrastructure.database import IAtomic
     from app.app.users.services import UserService
@@ -31,12 +30,11 @@ if TYPE_CHECKING:
 
     class IUseCaseServices(IAtomic, Protocol):
         audit_trail: AuditTrailService
-        content: ContentService
-        dupefinder: DuplicateFinderService
+        blob_metadata: BlobMetadataService
+        blob_processor: BlobContentProcessor
         file: FileService
-        metadata: MetadataService
         namespace: NamespaceService
-        thumbnailer: ThumbnailService
+        thumbnailer: BlobThumbnailService
         user: UserService
 
 __all__ = ["NamespaceUseCase"]
@@ -50,10 +48,10 @@ class NamespaceUseCase:
         "_imagesearch",
 
         "audit_trail",
+        "blob_metadata",
+        "blob_processor",
         "content",
-        "dupefinder",
         "file",
-        "metadata",
         "namespace",
         "thumbnailer",
         "user",
@@ -63,10 +61,9 @@ class NamespaceUseCase:
         self._services = services
 
         self.audit_trail = services.audit_trail
-        self.content = services.content
-        self.dupefinder = services.dupefinder
+        self.blob_metadata = services.blob_metadata
+        self.blob_processor = services.blob_processor
         self.file = services.file
-        self.metadata = services.metadata
         self.namespace = services.namespace
         self.thumbnailer = services.thumbnailer
         self.user = services.user
@@ -110,7 +107,8 @@ class NamespaceUseCase:
                 raise Account.StorageQuotaExceeded()
 
         file = await self.file.create_file(ns_path, path, content, modified_at)
-        await self.content.process_async(file.id, ns.owner_id)
+        assert file.blob_id is not None
+        await self.blob_processor.process_async(file.blob_id)
 
         taskgroups.schedule(self.audit_trail.file_added(file))
         return file
@@ -167,43 +165,18 @@ class NamespaceUseCase:
         _, chunks = await self.file.download_by_id(file_id)
         return chunks
 
-    def download_folder(self, ns_path: AnyPath, path: AnyPath) -> Iterable[bytes]:
+    def download_folder(self, owner_id: UUID, path: AnyPath) -> Iterable[bytes]:
         """Downloads a folder as a ZIP archive."""
-        return self.file.download_folder(ns_path, path)
+        return self.file.download_folder(owner_id, path)
 
     async def empty_trash(self, ns_path: AnyPath) -> None:
         """Deletes all files and folders in the Trash folder in a target namespace."""
         await self.file.empty_folder(ns_path, "trash")
         taskgroups.schedule(self.audit_trail.trash_emptied())
 
-    async def find_duplicates(
-        self, ns_path: AnyPath, path: AnyPath, max_distance: int = 5
-    ) -> list[list[AnyFile]]:
-        """
-        Finds all duplicate fingerprints in a folder, including sub-folders.
-
-        The `max_distance` arg is maximum distance at which two fingerprints
-        are considered the same. Defaults to 5.
-        """
-        groups = await self.dupefinder.find_in_folder(ns_path, path, max_distance)
-        ids = itertools.chain.from_iterable(  # pragma: no branch
-            (fp.file_id for fp in group)
-            for group in groups
-        )
-
-        files = {
-            file.id: file
-            for file in await self.file.get_by_id_batch(ns_path, ids=ids)
-        }
-
-        return [
-            [files[fp.file_id] for fp in group]
-            for group in groups
-        ]
-
     async def get_file_metadata(
         self, ns_path: AnyPath, file_id: UUID
-    ) -> ContentMetadata:
+    ) -> BlobMetadata:
         """
         Returns a file content metadata.
 
@@ -213,7 +186,8 @@ class NamespaceUseCase:
             ContentMetadata.NotFound: If file metadata does not exist.
         """
         file = await self.file.get_by_id(ns_path, file_id)
-        return await self.metadata.get_by_file_id(file.id)
+        assert file.blob_id is not None
+        return await self.blob_metadata.get_by_blob_id(file.blob_id)
 
     async def get_file_thumbnail(
         self, ns_path: AnyPath, file_id: UUID, size: int
@@ -228,7 +202,8 @@ class NamespaceUseCase:
             File.ThumbnailUnavailable: If file is not an image.
         """
         file = await self.file.get_by_id(ns_path, file_id)
-        thumb = await self.thumbnailer.thumbnail(file_id, file.chash, size)
+        assert file.blob_id is not None
+        thumb = await self.thumbnailer.thumbnail(file.blob_id, file.chash, size)
         return file, *thumb
 
     async def get_item_at_path(self, ns_path: AnyPath, path: AnyPath) -> AnyFile:
@@ -310,29 +285,3 @@ class NamespaceUseCase:
         file = await self.file.move(ns_path, path, next_path)
         taskgroups.schedule(self.audit_trail.file_trashed(file))
         return file
-
-    async def reindex(self, ns_path: AnyPath) -> None:
-        """
-        Reindexes all files in the given namespace.
-
-        This method creates files that are missing in the database, but present in the
-        storage and removes files that are present in the database, but missing in the
-        storage.
-
-        Raises:
-            File.NotADirectory: If given path does not exist.
-            Namespace.NotFound: If namespace does not exist.
-        """
-        await self.namespace.get_by_path(str(ns_path))  # ensures namespace exists
-        await self.file.reindex(ns_path, ".")
-        # s3-compatible storage stores only files and empty folders are not re-created
-        # as a result. Therefore create Trash folder manually
-        with contextlib.suppress(File.AlreadyExists):
-            await self.file.filecore.create_folder(ns_path, "Trash")
-
-    async def reindex_contents(self, ns_path: AnyPath) -> None:
-        """
-        Restores additional information about files, such as fingerprint and content
-        metadata.
-        """
-        await self.content.reindex_contents(ns_path)

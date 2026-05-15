@@ -13,6 +13,7 @@ from app.app.files.repositories.file import FileUpdate
 from app.app.infrastructure.database import SENTINEL_ID
 from app.infrastructure.database.tortoise import models
 from app.toolkit import chash
+from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
     from app.app.files.domain import AnyPath, Namespace
     from app.infrastructure.database.tortoise.repositories import FileRepository
     from tests.infrastructure.database.tortoise.conftest import (
+        BlobFactory,
         FileFactory,
         FolderFactory,
         MountFactory,
@@ -35,43 +37,59 @@ async def _exists_with_id(file_id: UUID) -> bool:
 
 
 async def _get_by_id(file_id: UUID) -> File:
-    obj = await (
-        models.File
-        .filter(id=file_id)
-        .select_related("mediatype", "namespace")
-        .get()
-    )
+    obj = await models.File.get(id=file_id).select_related("blob", "namespace")
+    if obj.blob_id is None:  # type: ignore[attr-defined]
+        chash_value = ""
+        mediatype = MediaType.FOLDER.value
+    else:
+        blob = obj.blob
+        assert blob is not None
+        chash_value = blob.chash
+        mediatype = blob.media_type
+
     return File(
         id=obj.id,
+        blob_id=obj.blob_id,  # type: ignore[attr-defined]
+        owner_id=obj.owner_id,  # type: ignore[attr-defined]
         name=obj.name,
         ns_path=obj.namespace.path,
         path=Path(obj.path),
-        chash=obj.chash,
+        chash=chash_value,
         size=obj.size,
         modified_at=obj.modified_at,
-        mediatype=obj.mediatype.name,
+        mediatype=mediatype,
     )
 
 
 async def _get_by_path(ns_path: AnyPath, path: AnyPath) -> File:
     obj = await (
         models.File
-        .filter(
+        .get(
             namespace__path=str(ns_path),
             path=str(path),
         )
-        .select_related("mediatype", "namespace")
-        .get()
+        .select_related("blob", "namespace")
     )
+    if obj.blob_id is None:  # type: ignore[attr-defined]
+        chash_value = ""
+        mediatype = MediaType.FOLDER.value
+    else:
+        blob = obj.blob
+        assert blob is not None
+        chash_value = blob.chash
+        mediatype = blob.media_type
+
     return File(
         id=obj.id,
+        blob_id=obj.blob_id,  # type: ignore[attr-defined]
+        owner_id=obj.owner_id,  # type: ignore[attr-defined]
         name=obj.name,
         ns_path=obj.namespace.path,
-        chash=obj.chash,
+        chash=chash_value,
         path=Path(obj.path),
         size=obj.size,
         modified_at=obj.modified_at,
-        mediatype=obj.mediatype.name,
+        mediatype=mediatype,
     )
 
 
@@ -247,28 +265,6 @@ class TestExistsWithID:
         assert exists is False
 
 
-class TestGetByCHashBatch:
-    async def test(
-        self,
-        file_repo: FileRepository,
-        file_factory: FileFactory,
-        namespace: Namespace,
-    ):
-        # GIVEN
-        files = [
-            await file_factory(namespace.path),
-            await file_factory(namespace.path),
-            await file_factory(namespace.path),
-        ]
-        chashes = [file.chash for file in files[:2]]
-        # WHEN
-        result = await file_repo.get_by_chash_batch(chashes)
-        # THEN
-        assert sorted(
-            result, key=operator.attrgetter("modified_at")
-        ) == files[:2]
-
-
 class TestGetById:
     async def test(self, file_repo: FileRepository, file: File):
         result = await file_repo.get_by_id(file.id)
@@ -422,82 +418,6 @@ class TestIncrSizeBatch:
         await file_repo.incr_size_batch(
             "namespace", paths=["a/b"], value=0
         )
-
-
-class TestListFiles:
-    async def test(
-        self,
-        file_repo: FileRepository,
-        file_factory: FileFactory,
-        namespace: Namespace,
-    ):
-        # GIVEN
-        ns_path = namespace.path
-        txt = await file_factory(
-            ns_path, "f.txt", mediatype="plain/text"
-        )
-        jpg = await file_factory(
-            ns_path, "jpgs/img.jpg", mediatype="image/jpeg"
-        )
-        png = await file_factory(
-            ns_path, "pngs/img.png", mediatype="image/png"
-        )
-        mediatypes = ["plain/text"]
-        # WHEN
-        files = await file_repo.list_files(ns_path, offset=0)
-        # THEN
-        assert len(files) == 3
-        assert sorted(
-            files, key=operator.attrgetter("modified_at")
-        ) == [txt, jpg, png]
-
-        # WHEN
-        files = await file_repo.list_files(
-            ns_path, included_mediatypes=mediatypes, offset=0
-        )
-        # THEN
-        assert len(files) == 1
-        assert sorted(
-            files, key=operator.attrgetter("modified_at")
-        ) == [txt]
-
-        # WHEN
-        files = await file_repo.list_files(
-            ns_path, excluded_mediatypes=mediatypes, offset=0
-        )
-        # THEN
-        assert len(files) == 2
-        assert sorted(
-            files, key=operator.attrgetter("modified_at")
-        ) == [jpg, png]
-
-    async def test_limit_offset(
-        self,
-        file_repo: FileRepository,
-        file_factory: FileFactory,
-        namespace: Namespace,
-    ):
-        ns_path = namespace.path
-        jpg = await file_factory(
-            ns_path, "jpgs/img.jpg", mediatype="image/jpeg"
-        )
-        png = await file_factory(
-            ns_path, "pngs/img.png", mediatype="image/png"
-        )
-
-        files_a = await file_repo.list_files(
-            ns_path, offset=0, limit=1
-        )
-        files_b = await file_repo.list_files(
-            ns_path, offset=1, limit=1
-        )
-        assert len(files_a) == 1
-        assert len(files_b) == 1
-        actual = sorted(
-            [files_a[0], files_b[0]],
-            key=operator.attrgetter("modified_at"),
-        )
-        assert actual == [jpg, png]
 
 
 class TestListWithPrefix:
@@ -726,32 +646,76 @@ class TestReplacePathPrefix:
 
 class TestSave:
     async def test(
-        self, file_repo: FileRepository, namespace: Namespace
+        self,
+        file_repo: FileRepository,
+        blob_factory: BlobFactory,
+        namespace: Namespace,
     ):
+        expected_chash = chash.chash(BytesIO(b"blob"))
+        blob = await blob_factory(
+            chash=expected_chash,
+            media_type="plain/text",
+        )
         saved_file = await file_repo.save(
             File(
                 id=SENTINEL_ID,
+                blob_id=blob.id,
+                owner_id=namespace.owner_id,
                 name="f.txt",
                 ns_path=namespace.path,
                 path=Path("folder/f.txt"),
-                chash=chash.chash(BytesIO(b"Dummy Content!")),
+                chash=uuid.uuid4().hex,
                 size=10,
                 modified_at=datetime(
                     2020, 8, 13, 9, 26, 14, tzinfo=UTC
                 ),
-                mediatype="plain/text",
+                mediatype="ignored/type",
             )
         )
         assert saved_file.id != SENTINEL_ID
+        assert saved_file.chash == blob.chash
+        assert saved_file.mediatype == blob.media_type
+        assert saved_file.owner_id == namespace.owner_id
 
         file = await _get_by_id(saved_file.id)
         assert file == saved_file
 
-    async def test_when_file_at_path_already_exists(
-        self, file_repo: FileRepository, file: File
+    async def test_preserves_null_blob_id_for_folder(
+        self, file_repo: FileRepository, namespace: Namespace
     ):
+        # GIVEN / WHEN
+        saved_folder = await file_repo.save(
+            File(
+                id=SENTINEL_ID,
+                owner_id=namespace.owner_id,
+                name="folder",
+                ns_path=namespace.path,
+                path=Path("folder"),
+                chash=chash.EMPTY_CONTENT_HASH,
+                size=0,
+                modified_at=datetime(
+                    2020, 8, 13, 9, 26, 14, tzinfo=UTC
+                ),
+                mediatype="application/directory",
+            )
+        )
+        # THEN
+        assert saved_folder.blob_id is None
+        assert saved_folder.chash == ""
+        assert saved_folder.mediatype == MediaType.FOLDER
+        assert await _get_by_id(saved_folder.id) == saved_folder
+
+    async def test_when_file_at_path_already_exists(
+        self,
+        file_repo: FileRepository,
+        blob_factory: BlobFactory,
+        file: File,
+    ):
+        blob = await blob_factory(media_type="plain/text")
         file_to_save = File(
             id=SENTINEL_ID,
+            blob_id=blob.id,
+            owner_id=file.owner_id,
             name=file.name,
             ns_path=file.ns_path,
             path=file.path,
@@ -768,11 +732,19 @@ class TestSave:
 
 class TestSaveBatch:
     async def test(
-        self, file_repo: FileRepository, namespace: Namespace
+        self,
+        file_repo: FileRepository,
+        blob_factory: BlobFactory,
+        namespace: Namespace,
     ):
+        blob = await blob_factory(
+            storage_key=f"{namespace.path}/folder/f.txt",
+            media_type="plain/text",
+        )
         await file_repo.save_batch([
             File(
                 id=SENTINEL_ID,
+                owner_id=namespace.owner_id,
                 name="folder",
                 ns_path=namespace.path,
                 path=Path("folder"),
@@ -785,30 +757,42 @@ class TestSaveBatch:
             ),
             File(
                 id=SENTINEL_ID,
+                blob_id=blob.id,
+                owner_id=namespace.owner_id,
                 name="f.txt",
                 ns_path=namespace.path,
                 path=Path("folder/f.txt"),
-                chash=chash.chash(BytesIO(b"Dummy Content!")),
+                chash=uuid.uuid4().hex,
                 size=10,
                 modified_at=datetime(
                     2020, 8, 13, 9, 26, 14, tzinfo=UTC
                 ),
-                mediatype="plain/text",
+                mediatype="ignored/type",
             ),
         ])
         folder = await _get_by_path(namespace.path, "folder")
         assert folder.id != SENTINEL_ID
-        assert folder.mediatype == "application/directory"
+        assert folder.chash == ""
+        assert folder.mediatype == MediaType.FOLDER
+        assert folder.owner_id == namespace.owner_id
 
         file = await _get_by_path(namespace.path, "folder/f.txt")
         assert file.id != SENTINEL_ID
-        assert file.mediatype == "plain/text"
+        assert file.chash == blob.chash
+        assert file.mediatype == blob.media_type
+        assert file.owner_id == namespace.owner_id
 
     async def test_when_file_at_path_already_exists(
-        self, file_repo: FileRepository, file: File
+        self,
+        file_repo: FileRepository,
+        blob_factory: BlobFactory,
+        file: File,
     ):
+        blob = await blob_factory(media_type="plain/text")
         file_to_save = File(
             id=SENTINEL_ID,
+            blob_id=blob.id,
+            owner_id=file.owner_id,
             name=file.name,
             ns_path=file.ns_path,
             path=file.path,
@@ -827,32 +811,6 @@ class TestSaveBatch:
         await file_repo.save_batch([])
 
 
-class TestSetCHashBatch:
-    async def test(
-        self,
-        file_repo: FileRepository,
-        file_factory: FileFactory,
-        namespace: Namespace,
-    ):
-        # GIVEN
-        files = [
-            await file_factory(namespace.path),
-            await file_factory(namespace.path),
-        ]
-        chashes = [uuid.uuid4().hex, uuid.uuid4().hex]
-        items = [
-            (files[0].id, chashes[0]),
-            (files[1].id, chashes[1]),
-        ]
-        # WHEN
-        await file_repo.set_chash_batch(items)
-        # THEN
-        file = await _get_by_id(files[0].id)
-        assert file.chash == chashes[0]
-        file = await _get_by_id(files[1].id)
-        assert file.chash == chashes[1]
-
-
 class TestUpdate:
     async def test(self, file_repo: FileRepository, file: File):
         file_update = FileUpdate(
@@ -862,5 +820,28 @@ class TestUpdate:
         updated_file = await file_repo.update(file, file_update)
         assert updated_file.name == f".{file.name}"
         assert updated_file.path == f".{file.path}"
+        file_in_db = await _get_by_id(file.id)
+        assert file_in_db == updated_file
+
+    async def test_when_namespace_changes(
+        self,
+        file_repo: FileRepository,
+        file_factory: FileFactory,
+        namespace_a: Namespace,
+        namespace_b: Namespace,
+    ):
+        # GIVEN
+        file = await file_factory(namespace_a.path, "f.txt")
+
+        # WHEN
+        updated_file = await file_repo.update(
+            file,
+            FileUpdate(ns_path=namespace_b.path),
+        )
+
+        # THEN
+        assert updated_file.ns_path == namespace_b.path
+        assert updated_file.owner_id == namespace_b.owner_id
+
         file_in_db = await _get_by_id(file.id)
         assert file_in_db == updated_file

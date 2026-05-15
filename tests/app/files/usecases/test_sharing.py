@@ -19,6 +19,8 @@ from app.toolkit import chash
 from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from app.app.files.domain import AnyPath
     from app.app.files.usecases import SharingUseCase
 
@@ -26,11 +28,18 @@ pytestmark = [pytest.mark.anyio]
 
 
 def _make_file(
-    ns_path: str, path: AnyPath, size: int = 10, mediatype: str = "plain/text"
+    ns_path: str,
+    path: AnyPath,
+    *,
+    blob_id: UUID | None = None,
+    size: int = 10,
+    mediatype: str = "plain/text",
 ) -> File:
     path = Path(path)
     return File(
-        id=uuid.uuid4(),
+        id=uuid.uuid7(),
+        blob_id=blob_id or uuid.uuid7(),
+        owner_id=uuid.uuid7(),
         ns_path=ns_path,
         name=path.name,
         path=path,
@@ -48,6 +57,7 @@ def _make_mounted_file(source_file: File, ns_path: str, path: AnyPath) -> Mounte
     path = Path(path)
     return MountedFile(
             id=source_file.id,
+            owner_id=source_file.owner_id,
             ns_path=ns_path,
             name=path.name,
             path=path,
@@ -223,7 +233,7 @@ class TestGetLinkThumbnail:
         assert result == (file, *thumbnail)
         sharing_service.get_link_by_token.assert_awaited_once_with(token)
         file_service.filecore.get_by_id.assert_awaited_once_with(link.file_id)
-        thumbnailer.thumbnail.assert_awaited_once_with(file.id, file.chash, 32)
+        thumbnailer.thumbnail.assert_awaited_once_with(file.blob_id, file.chash, 32)
 
 
 class TestGetSharedItem:

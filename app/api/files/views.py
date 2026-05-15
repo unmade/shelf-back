@@ -14,7 +14,8 @@ from app.api.deps import (
     VerifiedCurrentUserDeps,
     WorkerDeps,
 )
-from app.app.files.domain import ContentMetadata, File
+from app.app.blobs.domain import BlobMetadata
+from app.app.files.domain import File
 from app.app.infrastructure.worker import JobStatus
 from app.app.users.domain import Account
 from app.cache import disk_cache
@@ -30,8 +31,6 @@ from .schemas import (
     DeleteImmediatelyBatchRequest,
     EmptyTrashCheckResponse,
     FileSchema,
-    FindDuplicatesRequest,
-    FindDuplicatesResponse,
     GetBatchRequest,
     GetBatchResponse,
     GetContentMetadataResponse,
@@ -182,7 +181,7 @@ def download_folder(
 
     A `key` is obtained by calling `get_download_url` endpoint.
     """
-    content = usecases.namespace.download_folder(file.ns_path, file.path)
+    content = usecases.namespace.download_folder(file.owner_id, file.path)
 
     filename = file.name.encode("utf-8").decode("latin-1")
     headers = {
@@ -216,32 +215,6 @@ async def empty_trash_check(
         await worker.get_result(payload.async_task_id)
         return response_model(status=AsyncTaskStatus.completed)
     return response_model(status=AsyncTaskStatus.pending)
-
-
-@router.post("/find_duplicates")
-async def find_duplicates(
-    request: Request,
-    payload: FindDuplicatesRequest,
-    namespace: NamespaceDeps,
-    usecases: UseCasesDeps,
-) -> FindDuplicatesResponse:
-    """Find all duplicate files in a folder including all sub-folders."""
-    ns_path = namespace.path
-    path, max_distance = payload.path, payload.max_distance
-
-    groups = await usecases.namespace.find_duplicates(ns_path, path, max_distance)
-
-    return FindDuplicatesResponse(
-        path=payload.path,
-        items=[
-            [
-                FileSchema.from_entity(file, request=request)
-                for file in group
-            ]
-            for group in groups
-        ],
-        count=len(groups),
-    )
 
 
 @router.post("/get_batch")
@@ -300,9 +273,9 @@ async def get_content_metadata(
         raise exceptions.FileActionNotAllowed() from exc
     except File.NotFound as exc:
         raise exceptions.PathNotFound(path=str(payload.id)) from exc
-    except ContentMetadata.NotFound as exc:
+    except BlobMetadata.NotFound as exc:
         raise exceptions.FileContentMetadataNotFound(path=str(payload.id)) from exc
-    return GetContentMetadataResponse.from_entity(meta)
+    return GetContentMetadataResponse.from_entity(payload.id, meta)
 
 
 @router.get("/get_thumbnail/{file_id}")

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -8,13 +7,11 @@ from typing import TYPE_CHECKING
 import pytest
 from faker import Faker
 
-from app.app.blobs.domain import Blob, BlobMetadata
+from app.app.blobs.domain import Blob, BlobJob, BlobMetadata
+from app.app.blobs.domain.blob_job import BlobJobDeletePayload
 from app.app.files.domain import (
-    ContentMetadata,
     File,
     FileMember,
-    FilePendingDeletion,
-    Fingerprint,
     MountPoint,
     Namespace,
     Path,
@@ -34,14 +31,15 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from app.app.audit.repositories import IAuditTrailRepository
-    from app.app.blobs.repositories import IBlobMetadataRepository, IBlobRepository
+    from app.app.blobs.repositories import (
+        IBlobJobRepository,
+        IBlobMetadataRepository,
+        IBlobRepository,
+    )
     from app.app.files.domain import AnyPath
     from app.app.files.repositories import (
-        IContentMetadataRepository,
         IFileMemberRepository,
-        IFilePendingDeletionRepository,
         IFileRepository,
-        IFingerprintRepository,
         IMountRepository,
         INamespaceRepository,
         ISharedLinkRepository,
@@ -78,6 +76,13 @@ if TYPE_CHECKING:
         ) -> Blob:
             ...
 
+    class BlobJobFactory(Protocol):
+        async def __call__(
+            self,
+            storage_key: str | None = None,
+            media_type: str | None = None,
+        ) -> BlobJob: ...
+
     class BlobMetadataFactory(Protocol):
         async def __call__(self, blob_id: UUID, data: Exif) -> BlobMetadata: ...
 
@@ -92,16 +97,6 @@ if TYPE_CHECKING:
 
     class FileMemberFactory(Protocol):
         async def __call__(self, file_id: UUID, user_id: UUID) -> FileMember: ...
-
-    class FilePendingDeletionFactory(Protocol):
-        async def __call__(
-            self,
-            storage_key: str | None = None,
-            mediatype: str | None = None,
-        ) -> FilePendingDeletion: ...
-
-    class FingerprintFactory(Protocol):
-        async def __call__(self, file_id: UUID, value: int) -> Fingerprint: ...
 
     class FolderFactory(Protocol):
         async def __call__(
@@ -179,25 +174,20 @@ def blob_metadata_repo(
 
 
 @pytest.fixture
+def blob_job_repo(
+    tortoise_database: TortoiseDatabase,
+) -> IBlobJobRepository:
+    return tortoise_database.blob_job
+
+
+@pytest.fixture
 def bookmark_repo(tortoise_database: TortoiseDatabase) -> IBookmarkRepository:
     return tortoise_database.bookmark
 
 
 @pytest.fixture
-def fingerprint_repo(tortoise_database: TortoiseDatabase) -> IFingerprintRepository:
-    return tortoise_database.fingerprint
-
-
-@pytest.fixture
 def file_member_repo(tortoise_database: TortoiseDatabase) -> IFileMemberRepository:
     return tortoise_database.file_member
-
-
-@pytest.fixture
-def file_pending_deletion_repo(
-    tortoise_database: TortoiseDatabase,
-) -> IFilePendingDeletionRepository:
-    return tortoise_database.file_pending_deletion
 
 
 @pytest.fixture
@@ -215,11 +205,6 @@ def media_item_favourite_repo(
     tortoise_database: TortoiseDatabase,
 ) -> IMediaItemFavouriteRepository:
     return tortoise_database.media_item_favourite
-
-
-@pytest.fixture
-def metadata_repo(tortoise_database: TortoiseDatabase) -> IContentMetadataRepository:
-    return tortoise_database.metadata
 
 
 @pytest.fixture
@@ -330,23 +315,54 @@ def blob_metadata_factory(
 
 
 @pytest.fixture
-def file_factory(file_repo: IFileRepository) -> FileFactory:
+def blob_job_factory(blob_job_repo: IBlobJobRepository) -> BlobJobFactory:
+    async def factory(
+        storage_key: str | None = None,
+        media_type: str | None = None,
+    ) -> BlobJob:
+        items = await blob_job_repo.save_batch([
+            BlobJob(
+                id=SENTINEL_ID,
+                payload=BlobJobDeletePayload(
+                    blob_id=uuid.uuid7(),
+                    storage_key=(
+                        storage_key
+                        or f"{fake.unique.user_name()}/{fake.unique.file_name()}"
+                    ),
+                ),
+            )
+        ])
+        return items[0]
+    return factory
+
+
+@pytest.fixture
+def file_factory(file_repo: IFileRepository, blob_factory: BlobFactory) -> FileFactory:
     async def factory(
         ns_path: str,
         path: AnyPath | None = None,
         mediatype: str = "plain/text",
     ) -> File:
+        assert mediatype != MediaType.FOLDER, "Use `folder_factory` to create folders"
         if path is None:
             path = fake.unique.file_name(category="text", extension="txt")
+
+        namespace = await models.Namespace.get(path=ns_path)
+        blob = await blob_factory(
+            storage_key=f"{ns_path}/{path}",
+            media_type=mediatype,
+        )
         return await file_repo.save(
             File(
                 id=SENTINEL_ID,
+                blob_id=blob.id,
+                owner_id=namespace.owner_id,  # type: ignore[attr-defined]
                 ns_path=ns_path,
                 name=Path(path).name,
                 path=Path(path),
-                chash=hashlib.sha256(str(path).encode()).hexdigest(),
-                size=10,
-                mediatype=mediatype,
+                chash=blob.chash,
+                size=blob.size,
+                mediatype=blob.media_type,
             )
         )
     return factory
@@ -376,9 +392,11 @@ def folder_factory(file_repo: IFileRepository) -> FolderFactory:
         ns_path: str, path: AnyPath | None = None, size: int = 0
     ) -> File:
         path = path or fake.unique.word()
+        namespace = await models.Namespace.get(path=ns_path)
         return await file_repo.save(
             File(
                 id=SENTINEL_ID,
+                owner_id=namespace.owner_id,  # type: ignore[attr-defined]
                 ns_path=ns_path,
                 name=Path(path).name,
                 path=Path(path),
@@ -387,16 +405,6 @@ def folder_factory(file_repo: IFileRepository) -> FolderFactory:
                 mediatype=MediaType.FOLDER,
             )
         )
-    return factory
-
-
-
-@pytest.fixture
-def fingerprint_factory(
-    fingerprint_repo: IFingerprintRepository,
-) -> FingerprintFactory:
-    async def factory(file_id: UUID, value: int) -> Fingerprint:
-        return await fingerprint_repo.save(Fingerprint(file_id, value=value))
     return factory
 
 
@@ -476,29 +484,6 @@ def namespace_factory():
 
 
 @pytest.fixture
-def file_pending_deletion_factory(
-    file_pending_deletion_repo: IFilePendingDeletionRepository,
-) -> FilePendingDeletionFactory:
-    async def factory(
-        storage_key: str | None = None,
-        mediatype: str | None = None,
-    ) -> FilePendingDeletion:
-        items = await file_pending_deletion_repo.save_batch([
-            FilePendingDeletion(
-                id=SENTINEL_ID,
-                storage_key=(
-                    storage_key
-                    or f"{fake.unique.user_name()}/{fake.unique.file_name()}"
-                ),
-                chash=uuid.uuid4().hex,
-                mediatype=mediatype or "plain/text",
-            )
-        ])
-        return items[0]
-    return factory
-
-
-@pytest.fixture
 def shared_link_factory(
     shared_link_repo: ISharedLinkRepository,
 ) -> SharedLinkFactory:
@@ -553,16 +538,6 @@ async def file(
     file_factory: FileFactory, namespace: Namespace
 ) -> File:
     return await file_factory(namespace.path)
-
-
-@pytest.fixture
-async def content_metadata(
-    metadata_repo: IContentMetadataRepository, file: File
-) -> ContentMetadata:
-    exif = Exif(width=1280, height=800)
-    return await metadata_repo.save(
-        ContentMetadata(file_id=file.id, data=exif)
-    )
 
 
 @pytest.fixture

@@ -215,9 +215,8 @@ class MediaItemUseCase:
         owner_id: UUID,
         name: str,
         content: IBlobContent,
-        media_type: str,
     ) -> MediaItem:
         """Creates a new media item and schedules content processing."""
-        item = await self.media_item.create(owner_id, name, content, media_type)
+        item = await self.media_item.create(owner_id, name, content)
         await self.blob_processor.process_async(item.blob_id)
         return item

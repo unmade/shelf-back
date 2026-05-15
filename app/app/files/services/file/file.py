@@ -27,6 +27,7 @@ def _resolve_file(file: AnyFile, mount_point: MountPoint | None) -> AnyFile:
 
     return MountedFile.model_construct(
         id=file.id,
+        owner_id=file.owner_id,
         ns_path=mount_point.folder.ns_path,
         name=path.name,
         path=path,
@@ -142,14 +143,14 @@ class FileService:
         file, content = await self.filecore.download(file_id)
         return file, content
 
-    def download_folder(self, ns_path: AnyPath, path: AnyPath) -> Iterable[bytes]:
+    def download_folder(self, owner_id: UUID, path: AnyPath) -> Iterable[bytes]:
         """
         Downloads a folder at a given path.
 
         Raises:
             File.NotFound: If a file at a target path does not exist.
         """
-        return self.filecore.download_folder(ns_path, path)
+        return self.filecore.download_folder(owner_id, path)
 
     async def empty_folder(self, ns_path: AnyPath, path: AnyPath) -> None:
         """
@@ -349,14 +350,3 @@ class FileService:
             to=(to_fq_path.ns_path, to_fq_path.path),
         )
         return _resolve_file(file, to_fq_path.mount_point)
-
-    async def reindex(self, ns_path: AnyPath, path: AnyPath) -> None:
-        """
-        Creates files that are missing in the database, but present in the storage and
-        removes files that are present in the database, but missing in the storage
-        at a given path.
-
-        Raises:
-            File.NotADirectory: If given path does not exist.
-        """
-        await self.filecore.reindex(ns_path, path)

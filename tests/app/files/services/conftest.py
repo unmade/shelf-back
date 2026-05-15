@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import uuid
 from typing import TYPE_CHECKING
 from unittest import mock
 
@@ -8,30 +7,22 @@ import pytest
 from faker import Faker
 
 from app.app.blobs.domain.content import InMemoryBlobContent
-from app.app.files.domain import FilePendingDeletion
+from app.app.blobs.services import BlobService
 from app.app.files.repositories import (
-    IContentMetadataRepository,
     IFileMemberRepository,
-    IFingerprintRepository,
     ISharedLinkRepository,
 )
 from app.app.files.services import (
-    ContentService,
-    DuplicateFinderService,
     FileMemberService,
     FileService,
-    MetadataService,
     NamespaceService,
     SharingService,
-    ThumbnailService,
 )
 from app.app.files.services.file import FileCoreService, MountService
-from app.app.infrastructure import IIndexerClient, IMailBackend, IStorage, IWorker
-from app.app.infrastructure.database import SENTINEL_ID
+from app.app.infrastructure import IMailBackend, IStorage, IWorker
 from app.app.users.repositories import IUserRepository
 from app.app.users.services import BookmarkService, UserService
 from app.toolkit import security
-from app.toolkit.mediatypes import MediaType
 
 if TYPE_CHECKING:
     from typing import Protocol
@@ -55,14 +46,6 @@ if TYPE_CHECKING:
         ) -> File:
             ...
 
-    class FilePendingDeletionFactory(Protocol):
-        async def __call__(
-            self,
-            storage_key: str | None = None,
-            mediatype: str | None = None,
-        ) -> FilePendingDeletion:
-            ...
-
     class FolderFactory(Protocol):
         async def __call__(self, ns_path: str, path: AnyPath | None = None) -> File: ...
 
@@ -78,31 +61,18 @@ fake = Faker()
 
 
 @pytest.fixture
-def content_service():
-    """A content service instance."""
-    return ContentService(
-        dupefinder=mock.MagicMock(DuplicateFinderService),
-        filecore=mock.MagicMock(FileCoreService),
-        indexer=mock.MagicMock(IIndexerClient),
-        metadata=mock.MagicMock(MetadataService),
-        thumbnailer=mock.MagicMock(ThumbnailService),
-        worker=mock.MagicMock(IWorker),
-    )
-
-
-@pytest.fixture
-def dupefinder():
-    """A duplicate finder service instance."""
-    database = mock.MagicMock(fingerprint=mock.AsyncMock(IFingerprintRepository))
-    return DuplicateFinderService(database=database)
-
-
-@pytest.fixture
 def filecore(tortoise_database: TortoiseDatabase, fs_storage: IStorage):
     """A filecore service instance."""
     worker = mock.MagicMock(IWorker)
+    blob_service = BlobService(
+        database=tortoise_database,
+        storage=fs_storage,
+        worker=worker,
+    )
     return FileCoreService(
-        database=tortoise_database, storage=fs_storage, worker=worker,
+        database=tortoise_database,
+        blob_service=blob_service,
+        storage=fs_storage,
     )
 
 
@@ -125,13 +95,6 @@ def file_member_service():
 
 
 @pytest.fixture
-def metadata_service():
-    """A content metadata service instance."""
-    database = mock.MagicMock(metadata=mock.AsyncMock(IContentMetadataRepository))
-    return MetadataService(database=database)
-
-
-@pytest.fixture
 def namespace_service(tortoise_database: TortoiseDatabase, filecore: FileCoreService):
     """A namespace service instance."""
     return NamespaceService(database=tortoise_database, filecore=filecore)
@@ -142,14 +105,6 @@ def sharing_service():
     """A sharing service instance."""
     database = mock.MagicMock(shared_link=mock.AsyncMock(ISharedLinkRepository))
     return SharingService(database=database)
-
-
-@pytest.fixture
-def thumbnailer():
-    """A thumbnail service instance."""
-    filecore = mock.MagicMock(FileCoreService)
-    storage = mock.AsyncMock(IStorage)
-    return ThumbnailService(filecore=filecore, storage=storage)
 
 
 @pytest.fixture
@@ -182,30 +137,6 @@ def file_factory(filecore: FileCoreService) -> FileFactory:
         content = content or InMemoryBlobContent(b"Dummy file")
         path = path or fake.unique.file_name()
         return await filecore.create_file(ns_path, path, content)
-    return factory
-
-
-@pytest.fixture
-def file_pending_deletion_factory(
-    filecore: FileCoreService
-) -> FilePendingDeletionFactory:
-    """A factory to create a FilePendingDeletion instance saved to the DB."""
-    async def factory(
-        storage_key: str | None = None,
-        mediatype: str | None = None,
-    ) -> FilePendingDeletion:
-        items = await filecore.db.file_pending_deletion.save_batch([
-            FilePendingDeletion(
-                id=SENTINEL_ID,
-                storage_key=(
-                    storage_key
-                    or f"{fake.unique.user_name()}/{fake.unique.file_name()}"
-                ),
-                chash=uuid.uuid4().hex,
-                mediatype=mediatype or MediaType.TEXT_PLAIN,
-            )
-        ])
-        return items[0]
     return factory
 
 

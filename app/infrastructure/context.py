@@ -13,14 +13,10 @@ from app.app.blobs.services import (
 )
 from app.app.blobs.services.content_processor import BlobContentProcessor
 from app.app.files.services import (
-    DuplicateFinderService,
     FileService,
-    MetadataService,
     NamespaceService,
     SharingService,
-    ThumbnailService,
 )
-from app.app.files.services.content import ContentService
 from app.app.files.services.file import FileCoreService, MountService
 from app.app.files.services.file_member import FileMemberService
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
@@ -161,13 +157,11 @@ class Services:
         "blob_processor",
         "blob_thumbnailer",
         "bookmark",
-        "content",
         "dupefinder",
         "file",
         "filecore",
         "file_member",
         "media_item",
-        "metadata",
         "namespace",
         "sharing",
         "thumbnailer",
@@ -184,9 +178,13 @@ class Services:
 
         self._database = database
 
-        self.blob = BlobService(database=database, storage=storage_default)
+        self.blob = BlobService(
+            database=database,
+            storage=storage_default,
+            worker=worker,
+        )
         self.blob_metadata = BlobMetadataService(database=database)
-        self.blob_thumbnailer = BlobThumbnailService(
+        self.blob_thumbnailer = self.thumbnailer = BlobThumbnailService(
             blob_service=self.blob,
             storage=storage_media,
             max_file_size=features.max_file_size_to_thumbnail,
@@ -203,33 +201,19 @@ class Services:
         self.bookmark = BookmarkService(database=database)
         self.filecore = FileCoreService(
             database=database,
+            blob_service=self.blob,
             storage=storage_default,
-            worker=worker,
         )
         self.file = FileService(
             filecore=self.filecore,
             mount_service=MountService(database=database),
         )
         self.file_member = FileMemberService(database=database)
-        self.dupefinder = DuplicateFinderService(database=database)
         self.media_item = MediaItemService(database=database, blob_service=self.blob)
-        self.metadata = MetadataService(database=database)
         self.namespace = NamespaceService(database=database, filecore=self.filecore)
         self.sharing = SharingService(database=database)
-        self.thumbnailer = ThumbnailService(
-            filecore=self.filecore, storage=storage_media
-        )
         self.token = TokenService(token_repo=cache)
         self.user = UserService(database=database, mail=mail)
-
-        self.content = ContentService(
-            dupefinder=self.dupefinder,
-            filecore=self.filecore,
-            indexer=infra.indexer,
-            metadata=self.metadata,
-            thumbnailer=self.thumbnailer,
-            worker=worker,
-        )
 
     def atomic(self) -> ITransaction:
         return self._database.atomic()
@@ -239,7 +223,9 @@ class UseCases:
     __slots__ = [
         "album",
         "auth",
+        "blob",
         "blob_content_processor",
+        "blob_thumbnailer",
         "namespace",
         "media_item",
         "sharing",
@@ -255,4 +241,6 @@ class UseCases:
         self.user = UserUseCase(services=services)
 
         # let's keep it on the use case to avoid changing worker code too much.
+        self.blob = services.blob
         self.blob_content_processor = services.blob_processor
+        self.blob_thumbnailer = services.blob_thumbnailer

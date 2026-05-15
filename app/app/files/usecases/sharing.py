@@ -9,6 +9,7 @@ from app.config import config
 if TYPE_CHECKING:
     from uuid import UUID
 
+    from app.app.blobs.services import BlobThumbnailService
     from app.app.files.domain import SharedLink
     from app.app.files.domain.file_member import FileMemberActions
     from app.app.files.services import (
@@ -16,7 +17,6 @@ if TYPE_CHECKING:
         FileService,
         NamespaceService,
         SharingService,
-        ThumbnailService,
     )
     from app.app.infrastructure.database import IAtomic
     from app.app.users.services import UserService
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
         file_member: FileMemberService
         namespace: NamespaceService
         sharing: SharingService
-        thumbnailer: ThumbnailService
+        thumbnailer: BlobThumbnailService
         user: UserService
 
 __all__ = ["SharingUseCase"]
@@ -108,7 +108,8 @@ class SharingUseCase:
     ) -> tuple[File, bytes, MediaType]:
         link = await self.sharing.get_link_by_token(token)
         file = await self.file.filecore.get_by_id(link.file_id)
-        thumb = await self.thumbnailer.thumbnail(file.id, file.chash, size)
+        assert file.blob_id is not None
+        thumb = await self.thumbnailer.thumbnail(file.blob_id, file.chash, size)
         return file, *thumb
 
     async def get_shared_item(self, token: str) -> File:

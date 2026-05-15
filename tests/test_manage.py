@@ -71,23 +71,3 @@ class TestCreateSuperuser:
         assert result.exit_code == 0
         assert "Error: The two entered values do not match" in result.stdout
         assert create_superuser.await_count == 1
-
-
-class TestReindex:
-    def test(self):
-        target = "app.app.files.usecases.NamespaceUseCase.reindex"
-        with mock.patch(target) as reindex_mock:
-            result = runner.invoke(cli, ["reindex", "admin"])
-
-        assert result.exit_code == 0
-        reindex_mock.assert_awaited_once_with("admin")
-
-
-class TestReindexContent:
-    def test_reindex_content(self):
-        target = "app.app.files.usecases.NamespaceUseCase.reindex_contents"
-        with mock.patch(target) as reindex_mock:
-            result = runner.invoke(cli, ["reindex-content", "admin"])
-
-        assert result.exit_code == 0
-        reindex_mock.assert_awaited_once_with("admin")
