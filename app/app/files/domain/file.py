@@ -99,9 +99,6 @@ class File(_BaseFile):
     def can_download(self) -> bool:
         return True
 
-    def can_reshare(self) -> bool:
-        return True
-
 
 class MountedFile(_BaseFile):
     """A file with a path that is a mount point or a location in a mount point."""
@@ -110,6 +107,3 @@ class MountedFile(_BaseFile):
 
     def can_download(self) -> bool:
         return self.mount_point.can_download()
-
-    def can_reshare(self) -> bool:
-        return self.mount_point.can_reshare()

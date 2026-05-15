@@ -16,7 +16,6 @@ from .repositories import (
     BlobMetadataRepository,
     BlobRepository,
     BookmarkRepository,
-    FileMemberRepository,
     FileRepository,
     MediaItemFavouriteRepository,
     MediaItemRepository,
@@ -34,7 +33,6 @@ if TYPE_CHECKING:
         IBlobRepository,
     )
     from app.app.files.repositories import (
-        IFileMemberRepository,
         IFileRepository,
         IMountRepository,
         INamespaceRepository,
@@ -81,7 +79,6 @@ class TortoiseDatabase(IDatabase):
     blob_metadata: IBlobMetadataRepository
     bookmark: IBookmarkRepository
     file: IFileRepository
-    file_member: IFileMemberRepository
     media_item_favourite: IMediaItemFavouriteRepository
     media_item: IMediaItemRepository
     mount: IMountRepository
@@ -99,7 +96,6 @@ class TortoiseDatabase(IDatabase):
         self.blob_metadata = BlobMetadataRepository()
         self.bookmark = BookmarkRepository()
         self.file = FileRepository()
-        self.file_member = FileMemberRepository()
         self.media_item_favourite = MediaItemFavouriteRepository()
         self.media_item = MediaItemRepository()
         self.mount = MountRepository()

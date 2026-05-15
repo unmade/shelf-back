@@ -75,11 +75,3 @@ class FileMember(BaseModel):
     actions: FileMemberActions
     user: FileMemberUser
     created_at: datetime = Field(default_factory=timezone.now)
-
-    @property
-    def display_name(self) -> str:
-        return self.user.username
-
-    @property
-    def owner(self) -> bool:
-        return self.actions == self.OWNER

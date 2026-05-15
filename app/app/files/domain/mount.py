@@ -43,8 +43,5 @@ class MountPoint(BaseModel):
     def can_download(self) -> bool:
         return self.actions.can_download
 
-    def can_reshare(self) -> bool:
-        return self.actions.can_reshare
-
     def can_view(self) -> bool:
         return self.actions.can_view

@@ -38,7 +38,6 @@ if TYPE_CHECKING:
     )
     from app.app.files.domain import AnyPath
     from app.app.files.repositories import (
-        IFileMemberRepository,
         IFileRepository,
         IMountRepository,
         INamespaceRepository,
@@ -183,11 +182,6 @@ def blob_job_repo(
 @pytest.fixture
 def bookmark_repo(tortoise_database: TortoiseDatabase) -> IBookmarkRepository:
     return tortoise_database.bookmark
-
-
-@pytest.fixture
-def file_member_repo(tortoise_database: TortoiseDatabase) -> IFileMemberRepository:
-    return tortoise_database.file_member
 
 
 @pytest.fixture
@@ -369,19 +363,21 @@ def file_factory(file_repo: IFileRepository, blob_factory: BlobFactory) -> FileF
 
 
 @pytest.fixture
-def file_member_factory(
-    file_member_repo: IFileMemberRepository,
-) -> FileMemberFactory:
+def file_member_factory() -> FileMemberFactory:
     async def factory(file_id: UUID, user_id: UUID) -> FileMember:
-        return await file_member_repo.save(
-            FileMember(
-                file_id=file_id,
-                actions=FileMember.EDITOR,
-                user=FileMember.User(
-                    id=user_id,
-                    username="",
-                ),
-            )
+        await models.FileMember.create(
+            file_id=file_id,
+            user_id=user_id,
+            actions=63,
+            created_at=timezone.now(),
+        )
+        return FileMember(
+            file_id=file_id,
+            actions=FileMember.EDITOR,
+            user=FileMember.User(
+                id=user_id,
+                username="",
+            ),
         )
     return factory
 

@@ -18,7 +18,6 @@ from app.app.files.services import (
     SharingService,
 )
 from app.app.files.services.file import FileCoreService, MountService
-from app.app.files.services.file_member import FileMemberService
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
 from app.app.infrastructure.mail import IMailBackend
 from app.app.photos.services import AlbumService, MediaItemService
@@ -148,7 +147,6 @@ class Services:
         "dupefinder",
         "file",
         "filecore",
-        "file_member",
         "media_item",
         "namespace",
         "sharing",
@@ -196,7 +194,6 @@ class Services:
             filecore=self.filecore,
             mount_service=MountService(database=database),
         )
-        self.file_member = FileMemberService(database=database)
         self.media_item = MediaItemService(database=database, blob_service=self.blob)
         self.namespace = NamespaceService(database=database, filecore=self.filecore)
         self.sharing = SharingService(database=database)

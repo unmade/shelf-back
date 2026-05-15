@@ -2,59 +2,25 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request, Response
 
-from app.api import exceptions, shortcuts
-from app.api.deps import CurrentUserDeps, NamespaceDeps, UseCasesDeps
+from app.api import shortcuts
+from app.api.deps import NamespaceDeps, UseCasesDeps
 from app.api.files.exceptions import FileActionNotAllowed, PathNotFound
 from app.api.files.schemas import ThumbnailSize
-from app.app.files.domain import File, FileMember, SharedLink
-from app.app.users.domain import User
+from app.app.files.domain import File, SharedLink
 
-from .exceptions import FileMemberAlreadyExists, SharedLinkNotFound
+from .exceptions import SharedLinkNotFound
 from .schemas import (
-    AddFileMemberRequest,
     FileIDRequest,
-    FileMemberSchema,
     GetSharedLinkDownloadUrlRequest,
     GetSharedLinkDownloadUrlResponse,
     GetSharedLinkFileRequest,
-    ListFileMembersBatchRequest,
-    ListFileMembersBatchResponse,
-    ListFileMembersRequest,
-    ListFileMembersResponse,
-    ListSharedFilesResponse,
     ListSharedLinksResponse,
-    RemoveMemberRequest,
     RevokeSharedLinkRequest,
-    SetMemberAccessLevelRequest,
-    SharedFileSchema,
     SharedLinkFileSchema,
     SharedLinkSchema,
 )
 
 router = APIRouter()
-
-
-@router.post("/add_member")
-async def add_member(
-    payload: AddFileMemberRequest,
-    namespace: NamespaceDeps,
-    usecases: UseCasesDeps,
-) -> FileMemberSchema:
-    """Add a new file member."""
-    file_id, username = payload.file_id, payload.username
-
-    try:
-        member = await usecases.sharing.add_member(namespace.path, file_id, username)
-    except File.ActionNotAllowed as exc:
-        raise FileActionNotAllowed() from exc
-    except File.NotFound as exc:
-        raise PathNotFound(path=str(file_id)) from exc
-    except FileMember.AlreadyExists as exc:
-        raise FileMemberAlreadyExists() from exc
-    except User.NotFound as exc:
-        raise exceptions.UserNotFound() from exc
-
-    return FileMemberSchema.from_entity(member)
 
 
 @router.post("/create_shared_link")
@@ -68,7 +34,7 @@ async def create_shared_link(
     try:
         link = await usecases.sharing.create_link(ns_path, payload.file_id)
     except File.ActionNotAllowed as exc:
-       raise FileActionNotAllowed() from exc
+        raise FileActionNotAllowed() from exc
     except File.NotFound as exc:
         raise PathNotFound(path=str(payload.file_id)) from exc
 
@@ -153,67 +119,6 @@ async def get_shared_link_thumbnail(
     return Response(thumb, headers=headers)
 
 
-@router.post("/list_members")
-async def list_members(
-    payload: ListFileMembersRequest,
-    namespace: NamespaceDeps,
-    usecases: UseCasesDeps,
-) -> ListFileMembersResponse:
-    """List members of a file with a given ID."""
-    try:
-        members = await usecases.sharing.list_members(namespace.path, payload.id)
-    except File.ActionNotAllowed as exc:
-        raise FileActionNotAllowed() from exc
-    except File.NotFound as exc:
-        raise PathNotFound(path=str(payload.id)) from exc
-
-    return ListFileMembersResponse(
-        members=[
-            FileMemberSchema.from_entity(member)
-            for member in members
-        ]
-    )
-
-
-@router.post("/list_members_batch")
-async def list_members_batch(
-    payload: ListFileMembersBatchRequest,
-    namespace: NamespaceDeps,
-    usecases: UseCasesDeps,
-) -> ListFileMembersBatchResponse:
-    """List members of multiple files at once."""
-    result = await usecases.sharing.list_members_batch(namespace.path, payload.ids)
-    return ListFileMembersBatchResponse(
-        items=[
-            ListFileMembersBatchResponse.Item(
-                file_id=file_id,
-                members=[
-                    FileMemberSchema.from_entity(member)
-                    for member in members
-                ],
-            )
-            for file_id, members in result.items()
-        ]
-    )
-
-
-@router.get("/list_shared_files")
-async def list_shared_files(
-    request: Request,
-    namespace: NamespaceDeps,
-    user: CurrentUserDeps,
-    usecases: UseCasesDeps,
-) -> ListSharedFilesResponse:
-    """List recent files shared with a given user including the ones user owns."""
-    files = await usecases.sharing.list_shared_files(namespace.path, user.id)
-    return ListSharedFilesResponse(
-        items=[
-            SharedFileSchema.from_entity(file, request)
-            for file in files
-        ]
-    )
-
-
 @router.get("/list_shared_links")
 async def list_shared_links(
     namespace: NamespaceDeps,
@@ -229,22 +134,6 @@ async def list_shared_links(
     )
 
 
-@router.post("/remove_member")
-async def remove_member(
-    payload: RemoveMemberRequest,
-    namespace: NamespaceDeps,
-    usecases: UseCasesDeps,
-) -> None:
-    """Remove a file member."""
-    file_id, member_id = payload.file_id, payload.member_id
-    try:
-        await usecases.sharing.remove_member(namespace.path, file_id, member_id)
-    except File.ActionNotAllowed as exc:
-        raise FileActionNotAllowed() from exc
-    except File.NotFound as exc:
-        raise PathNotFound(path=str(payload.file_id)) from exc
-
-
 @router.post("/revoke_shared_link")
 async def revoke_shared_link(
     payload: RevokeSharedLinkRequest,
@@ -253,23 +142,3 @@ async def revoke_shared_link(
 ) -> None:
     """Revoke shared link."""
     await usecases.sharing.revoke_link(payload.token)
-
-
-@router.post("/set_member_access_level")
-async def set_member_access_level(
-    payload: SetMemberAccessLevelRequest,
-    namespace: NamespaceDeps,
-    usecases: UseCasesDeps,
-) -> None:
-    """Set file member access level."""
-    try:
-        await usecases.sharing.set_member_actions(
-            namespace.path,
-            payload.file_id,
-            payload.member_id,
-            actions=payload.access_level.as_actions(),
-        )
-    except File.ActionNotAllowed as exc:
-        raise FileActionNotAllowed() from exc
-    except File.NotFound as exc:
-        raise PathNotFound(path=str(payload.file_id)) from exc
