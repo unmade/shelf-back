@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
     from uuid import UUID
 
-    from app.app.files.domain import AnyFile, AnyPath
+    from app.app.files.domain import AnyPath, File
 
 __all__ = ["IFileRepository", "FileUpdate"]
 
@@ -88,9 +88,7 @@ class IFileRepository(Protocol):
     ) -> None:
         """Increments size for specified paths."""
 
-    async def list_with_prefix(
-        self, ns_path: AnyPath, prefix: AnyPath
-    ) -> list[AnyFile]:
+    async def list_with_prefix(self, ns_path: AnyPath, prefix: AnyPath) -> list[File]:
         """Lists all files with a path starting with a given prefix one-level deep."""
 
     async def list_all_with_prefix_batch(

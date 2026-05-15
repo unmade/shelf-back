@@ -8,19 +8,14 @@ from faker import Faker
 
 from app.app.blobs.domain.content import InMemoryBlobContent
 from app.app.blobs.services import BlobService
-from app.app.files.repositories import (
-    IFileMemberRepository,
-    ISharedLinkRepository,
-)
+from app.app.files.repositories import ISharedLinkRepository
 from app.app.files.services import (
-    FileMemberService,
     FileService,
     NamespaceService,
     SharingService,
 )
-from app.app.files.services.file import FileCoreService, MountService
+from app.app.files.services.file import FileCoreService
 from app.app.infrastructure import IMailBackend, IStorage, IWorker
-from app.app.users.repositories import IUserRepository
 from app.app.users.services import BookmarkService, UserService
 from app.toolkit import security
 
@@ -80,18 +75,7 @@ def filecore(tortoise_database: TortoiseDatabase, fs_storage: IStorage):
 def file_service():
     """A file service instance."""
     filecore = mock.MagicMock(FileCoreService)
-    mount_service = mock.MagicMock(MountService)
-    return FileService(filecore=filecore, mount_service=mount_service)
-
-
-@pytest.fixture
-def file_member_service():
-    """A file member service instance."""
-    database = mock.MagicMock(
-        file_member=mock.AsyncMock(IFileMemberRepository),
-        user=mock.AsyncMock(IUserRepository),
-    )
-    return FileMemberService(database=database)
+    return FileService(filecore=filecore)
 
 
 @pytest.fixture

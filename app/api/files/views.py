@@ -249,9 +249,6 @@ async def get_download_url(
     except File.NotFound as exc:
         raise exceptions.PathNotFound(path=str(payload.id)) from exc
 
-    if not file.can_download():
-        raise exceptions.FileActionNotAllowed() from None
-
     key = await shortcuts.create_download_cache(file)
     if file.is_folder():
         download_url = request.url_for("download_folder")

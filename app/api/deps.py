@@ -11,7 +11,7 @@ from app.api.files.exceptions import DownloadNotFound
 from app.app.audit.domain import CurrentUserContext
 from app.app.audit.domain.current_user_context import CurrentUser
 from app.app.auth.domain import AccessToken, TokenError
-from app.app.files.domain import AnyFile, Namespace
+from app.app.files.domain import File, Namespace
 from app.app.infrastructure.worker import IWorker
 from app.app.users.domain import User
 from app.config import config
@@ -84,7 +84,7 @@ async def verified_current_user(user: CurrentUserDeps) -> User:
     return user
 
 
-async def download_cache(key: str = Query(None)) -> AnyFile:
+async def download_cache(key: str = Query(None)) -> File:
     value = await shortcuts.pop_download_cache(key)
     if not value:
         raise DownloadNotFound()
@@ -106,7 +106,7 @@ CurrentUserDeps = Annotated[User, Depends(current_user)]
 CurrentUserContextDeps = Annotated[
     CurrentUserContext, Depends(current_user_ctx)
 ]
-DownloadCacheDeps = Annotated[AnyFile, Depends(download_cache)]
+DownloadCacheDeps = Annotated[File, Depends(download_cache)]
 NamespaceDeps = Annotated[Namespace, Depends(namespace)]
 UseCasesDeps = Annotated[UseCases, Depends(usecases)]
 VerifiedCurrentUserDeps = Annotated[User, Depends(verified_current_user)]

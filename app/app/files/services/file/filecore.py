@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
     from app.app.blobs.domain import IBlobContent
     from app.app.blobs.services import BlobService
-    from app.app.files.domain import AnyFile, AnyPath
+    from app.app.files.domain import AnyPath, File
     from app.app.files.repositories import IFileRepository, INamespaceRepository
     from app.app.infrastructure import IDatabase, IStorage
 
@@ -268,7 +268,7 @@ class FileCoreService:
         """
         return await self.db.file.get_by_path(ns_path, path)
 
-    async def list_folder(self, ns_path: AnyPath, path: AnyPath) -> list[AnyFile]:
+    async def list_folder(self, ns_path: AnyPath, path: AnyPath) -> list[File]:
         """
         Lists all files in the folder at a given path. Use "." to list top-level files
         and folders.

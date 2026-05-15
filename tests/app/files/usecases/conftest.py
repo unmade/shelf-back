@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from contextlib import AsyncExitStack
 from unittest import mock
 
 import pytest
@@ -12,7 +11,6 @@ from app.app.blobs.services import (
     BlobThumbnailService,
 )
 from app.app.files.services import (
-    FileMemberService,
     FileService,
     NamespaceService,
     SharingService,
@@ -20,10 +18,6 @@ from app.app.files.services import (
 from app.app.files.services.file import FileCoreService
 from app.app.files.usecases import NamespaceUseCase, SharingUseCase
 from app.app.users.services import UserService
-
-
-def _atomic() -> AsyncExitStack:
-    return AsyncExitStack()
 
 
 @pytest.fixture
@@ -49,11 +43,8 @@ def sharing_use_case():
             FileService,
             filecore=mock.MagicMock(FileCoreService),
         ),
-        file_member=mock.MagicMock(spec=FileMemberService),
-        namespace=mock.MagicMock(spec=NamespaceService),
         sharing=mock.MagicMock(spec=SharingService),
         thumbnailer=mock.MagicMock(spec=BlobThumbnailService),
         user=mock.MagicMock(spec=UserService),
-        atomic=_atomic,
     )
     return SharingUseCase(services=services)

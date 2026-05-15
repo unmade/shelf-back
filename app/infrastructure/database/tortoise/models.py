@@ -125,32 +125,6 @@ class File(models.Model):
         unique_together = (("path", "namespace"),)
 
 
-class FileMember(models.Model):
-    id = fields.UUIDField(primary_key=True, default=uuid7)
-    actions = fields.SmallIntField()
-    created_at = fields.DatetimeField()
-    file: fields.ForeignKeyRelation[File] = fields.ForeignKeyField(
-        "models.File", related_name="members", on_delete=fields.CASCADE,
-    )
-    user: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
-        "models.User", related_name="file_memberships", on_delete=fields.CASCADE,
-    )
-
-    class Meta:
-        unique_together = (("file", "user"),)
-
-
-class FileMemberMountPoint(models.Model):
-    id = fields.UUIDField(primary_key=True, default=uuid7)
-    display_name = fields.CharField(max_length=1024)
-    member: fields.ForeignKeyRelation[FileMember] = fields.OneToOneField(
-        "models.FileMember", related_name="mount_point", on_delete=fields.CASCADE,
-    )
-    parent: fields.ForeignKeyRelation[File] = fields.ForeignKeyField(
-        "models.File", related_name="mount_points", on_delete=fields.CASCADE,
-    )
-
-
 class FileMetadata(models.Model):
     id = fields.UUIDField(primary_key=True, default=uuid7)
     data = fields.JSONField()  # type: ignore[var-annotated]

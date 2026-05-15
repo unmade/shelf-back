@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from app.app.audit.domain import CurrentUserContext
-    from app.app.files.domain import AnyFile, AnyPath
+    from app.app.files.domain import AnyPath
 
     from ..main import ARQContext
 
@@ -41,7 +41,7 @@ class FileTaskResult:
 
     def __init__(
         self,
-        file: AnyFile | None = None,
+        file: File | None = None,
         err_code: ErrorCode | None = None,
     ) -> None:
         self.file = file
