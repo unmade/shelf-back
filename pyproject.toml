@@ -10,7 +10,7 @@ dependencies = [
     "bcrypt==4.3.0",
     "cashews[diskcache,redis]==7.4.4",
     "click==8.3.3",
-    "fastapi==0.121.3",
+    "fastapi==0.136.1",
     "filetype==1.2.0",
     "gunicorn==25.3.0",
     "httpx[http2]==0.28.1",
